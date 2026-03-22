@@ -119,8 +119,17 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         fetch(`https://v2.apparyllis.com/v1/members/${userId}`, {headers}),
         fetch(`https://v2.apparyllis.com/v1/switches/${userId}?limit=500`, {headers}),
       ]);
-      const mData = await mRes.json(); const sData = await sRes.json();
-      setExtPreview({system: meData, members: Array.isArray(mData) ? mData : (mData.members || []), switches: Array.isArray(sData) ? sData : (sData.switches || [])});
+      let mData: any = []; let sData: any = [];
+      try { mData = await mRes.json(); } catch { mData = []; }
+      try { sData = await sRes.json(); } catch { sData = []; }
+      const memberList = Array.isArray(mData) ? mData : (mData.members || []);
+      const switchList = Array.isArray(sData) ? sData : (sData.switches || []);
+      const sanitized = memberList.map((m: any) => {
+        if (m?.content?.name) m.content.name = String(m.content.name).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+        if (m?.name) m.name = String(m.name).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+        return m;
+      });
+      setExtPreview({system: meData, members: sanitized, switches: switchList});
     } catch (e: any) {Alert.alert('Import Failed', e.message || 'Could not connect to Simply Plural.');}
     finally {setExtLoading(false);}
   };
@@ -136,8 +145,17 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         fetch('https://api.pluralkit.me/v2/systems/@me/switches?limit=500', {headers}),
       ]);
       if (!sRes.ok) throw new Error(`Auth failed (${sRes.status}). Check your token.`);
-      const [sData, mData, swData] = await Promise.all([sRes.json(), mRes.json(), swRes.json()]);
-      setExtPreview({system: sData, members: Array.isArray(mData) ? mData : [], switches: Array.isArray(swData) ? swData : []});
+      let sData: any = {}; let mData: any = []; let swData: any = [];
+      try { sData = await sRes.json(); } catch { sData = {}; }
+      try { mData = await mRes.json(); } catch { mData = []; }
+      try { swData = await swRes.json(); } catch { swData = []; }
+      const memberList = Array.isArray(mData) ? mData : [];
+      const sanitized = memberList.map((m: any) => {
+        if (m?.display_name) m.display_name = String(m.display_name).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+        if (m?.name) m.name = String(m.name).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+        return m;
+      });
+      setExtPreview({system: sData, members: sanitized, switches: Array.isArray(swData) ? swData : []});
     } catch (e: any) {Alert.alert('Import Failed', e.message || 'Could not connect to PluralKit.');}
     finally {setExtLoading(false);}
   };
