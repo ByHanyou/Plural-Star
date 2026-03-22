@@ -1,3 +1,4 @@
+// src/screens/ShareScreen.tsx
 import React, {useState} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, StyleSheet, ActivityIndicator} from 'react-native';
 import DocumentPicker from '@react-native-documents/picker';
@@ -172,7 +173,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
         if (extSel.members && extPreview.members.length > 0) {
           const newM: Member[] = extPreview.members.map((m: any) => ({
-            id: uid(), 
+            id: uid(),
             name: isPK ? m.display_name || m.name : (m.content?.name || m.name || 'Unknown'),
             pronouns: isPK ? (m.pronouns || '') : (m.content?.pronouns || ''),
             role: isPK ? '' : (m.content?.role || ''),
@@ -193,22 +194,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           if (extSel.frontHistory && extPreview.switches.length > 0) {
             const newH: HistoryEntry[] = extPreview.switches.map((sw: any, i: number, arr: any[]) => {
               const next = arr[i - 1];
-              const externalMemberIds: string[] = Array.isArray(sw.members) 
-                ? sw.members 
-                : (Array.isArray(sw.content?.members) ? sw.content.members : []);
-
-              const resolvedIds = externalMemberIds
-                .map((eid: string) => idMap[eid])
-                .filter(Boolean) as string[];
-
+              const externalMemberIds: string[] = Array.isArray(sw.members) ? sw.members : (Array.isArray(sw.content?.members) ? sw.content.members : []);
+              const resolvedIds = externalMemberIds.map((eid: string) => idMap[eid]).filter(Boolean) as string[];
               return {
                 memberIds: resolvedIds,
-                startTime: isPK 
-                  ? new Date(sw.timestamp).getTime() 
-                  : (sw.timestamp ? new Date(sw.timestamp).getTime() : Date.now()),
-                endTime: isPK 
-                  ? (next ? new Date(next.timestamp).getTime() : null) 
-                  : (next ? new Date(next.timestamp).getTime() : null),
+                startTime: isPK ? new Date(sw.timestamp).getTime() : (sw.timestamp ? new Date(sw.timestamp).getTime() : Date.now()),
+                endTime: isPK ? (next ? new Date(next.timestamp).getTime() : null) : (next ? new Date(next.timestamp).getTime() : null),
                 note: isPK ? '' : (sw.content?.comment || ''),
                 mood: undefined,
                 location: undefined,
@@ -216,8 +207,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             });
             await store.set(KEYS.history, [...newH, ...history].sort((a, b) => b.startTime - a.startTime).slice(0, 1000));
           }
-        } 
-        else if (extSel.frontHistory && extPreview.switches.length > 0) {
+        } else if (extSel.frontHistory && extPreview.switches.length > 0) {
           const existingIdMap: Record<string, string> = {};
           extPreview.members.forEach((m: any) => {
             const externalId = isPK ? (m.uuid || m.id) : m.id;
@@ -229,22 +219,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
           const newH: HistoryEntry[] = extPreview.switches.map((sw: any, i: number, arr: any[]) => {
             const next = arr[i - 1];
-            const externalMemberIds: string[] = Array.isArray(sw.members) 
-              ? sw.members 
-              : (Array.isArray(sw.content?.members) ? sw.content.members : []);
-
-            const resolvedIds = externalMemberIds
-              .map((eid: string) => existingIdMap[eid])
-              .filter(Boolean) as string[];
-
+            const externalMemberIds: string[] = Array.isArray(sw.members) ? sw.members : (Array.isArray(sw.content?.members) ? sw.content.members : []);
+            const resolvedIds = externalMemberIds.map((eid: string) => existingIdMap[eid]).filter(Boolean) as string[];
             return {
               memberIds: resolvedIds,
-              startTime: isPK 
-                ? new Date(sw.timestamp).getTime() 
-                : (sw.timestamp ? new Date(sw.timestamp).getTime() : Date.now()),
-              endTime: isPK 
-                ? (next ? new Date(next.timestamp).getTime() : null) 
-                : (next ? new Date(next.timestamp).getTime() : null),
+              startTime: isPK ? new Date(sw.timestamp).getTime() : (sw.timestamp ? new Date(sw.timestamp).getTime() : Date.now()),
+              endTime: isPK ? (next ? new Date(next.timestamp).getTime() : null) : (next ? new Date(next.timestamp).getTime() : null),
               note: isPK ? '' : (sw.content?.comment || ''),
               mood: undefined,
               location: undefined,
@@ -369,10 +349,55 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             <SourceBtn id="pluralkit" label="PluralKit" />
           </View>
 
-          {/* Journal import, Backup restore, Simply Plural / PluralKit sections — all unchanged except the fixed history import above */}
+          {importSource === 'journal' && (
+            <View>
+              <Divider label="Import Journal Entry" />
+              <Text style={[s.para, {color: T.dim}]}>Import a .txt, .md, or .json file as a new journal entry.</Text>
+              <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7}
+                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>↑ Pick File to Import</Text>
+              </TouchableOpacity>
+              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: 13, color: T.success}}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: 13, color: T.danger}}>⚠ {importMsg}</Text></View>}
+            </View>
+          )}
 
-          {importSource === 'journal' && ( /* ... your original journal import JSX ... */ )}
-          {importSource === 'backup' && ( /* ... your original backup restore JSX ... */ )}
+          {importSource === 'backup' && (
+            <View>
+              <Divider label="Restore Backup" />
+              <Text style={[s.para, {color: T.dim}]}>Load a previously exported JSON backup.</Text>
+              <TouchableOpacity onPress={handlePickBackup} activeOpacity={0.7}
+                style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: restoreFile ? T.success : T.border, borderRadius: 10, padding: 22, alignItems: 'center', marginBottom: 14, gap: 6,
+                  backgroundColor: restoreFile ? T.successBg : 'transparent'}}>
+                <Text style={{fontSize: 20, color: T.dim}}>↑</Text>
+                <Text style={{fontSize: 13, color: restoreFile ? T.success : T.dim, textAlign: 'center'}}>{restoreFile || 'Tap to select a .json backup file'}</Text>
+                {restoreData && <Text style={{fontSize: 11, color: T.muted}}>Exported {new Date(restoreData._meta.exportedAt).toLocaleString()}</Text>}
+              </TouchableOpacity>
+              {restoreError ? <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: 13, color: T.danger}}>⚠ {restoreError}</Text></View> : null}
+              {restoreData && (
+                <>
+                  <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>Restore these categories</Text>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
+                    {([['system', 'System Name & Description', !!restoreData.system, null], ['members', 'Member Profiles', !!restoreData.members, restoreData.members?.length], ['journal', 'Journal Entries', !!restoreData.journal, restoreData.journal?.length], ['frontHistory', 'Front History', !!restoreData.frontHistory, restoreData.frontHistory?.length]] as any[]).map(([k, label, avail, count]) => (
+                      <SectionRow key={k} label={label} sublabel={avail && count !== null ? `${count} records` : avail ? undefined : 'Not in export'}
+                        value={restoreSel[k as keyof typeof restoreSel]} onToggle={() => togR(k)} disabled={!avail} />
+                    ))}
+                  </View>
+                  {restoreDone
+                    ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: 13, color: T.success, fontWeight: '500'}}>✓ Restore complete. Reloading…</Text></View>
+                    : <TouchableOpacity onPress={handleRestore} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+                        <Text style={{fontSize: 14, fontWeight: '500', color: T.danger}}>⚠ Restore Selected Data</Text>
+                      </TouchableOpacity>}
+                </>
+              )}
+              <Divider label="Delete Account" />
+              <Text style={[s.para, {color: T.dim}]}>Permanently erase all data and return to setup.</Text>
+              <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7}
+                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+                <Text style={{fontSize: 14, fontWeight: '500', color: T.danger}}>✕ Delete All Data</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {(importSource === 'simplyplural' || importSource === 'pluralkit') && (
             <View>
