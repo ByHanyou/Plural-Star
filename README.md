@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  <a href="buymeacoffee.com/pluralspace">
-    <img src="https://img.shields.io/badge/Support%20on%20Ko--Fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-Fi" />
+  <a href="https://www.buymeacoffee.com/pluralspace">
+    <img src="https://img.shields.io/badge/Support%20on%20BMC-DAA520?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Buy Me a Coffee" />
   </a>
 </p>
 
@@ -107,8 +107,8 @@ This software is free and open source. You are free to use, modify, and distribu
 
 Plural Space is free, always. If it's been useful to you, a contribution helps cover Play Store fees and development time.
 
-<a href="https://ko-fi.com/PluralSpace">
-  <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-Fi" />
+<a href="https://www.buymeacoffee.com/pluralspace">
+  <img src="https://img.buymeacoffee.com/button-api/?text=Support+PS&amp;emoji=&amp;slug=pluralspace&amp;button_colour=0a1f2e&amp;font_colour=ffffff&amp;font_family=Cookie&amp;outline_colour=ffffff&amp;coffee_colour=FFDD00" alt="Support on Buy Me a Coffee" />
 </a>
 
 ---
@@ -116,4 +116,4 @@ Plural Space is free, always. If it's been useful to you, a contribution helps c
 ## Contact
 
 **The Hanyou System**  
-the1hanyou@gmail.com
+<a href="/cdn-cgi/l/e
