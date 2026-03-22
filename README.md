@@ -10,6 +10,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/TheHanyou/Plural-Space/releases/latest/download/app-release.apk">
+    <img src="https://img.shields.io/badge/Download%20APK-Latest%20Release-DAA520?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://ko-fi.com/PluralSpace">
+    <img src="https://img.shields.io/badge/Support%20on%20Ko--Fi-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-Fi" />
+  </a>
+</p>
+
+<p align="center">
   <a href="https://thehanyou.github.io/Plural-Space/">Privacy Policy</a>
 </p>
 
@@ -64,7 +76,10 @@ Full privacy policy: [https://thehanyou.github.io/Plural-Space/](https://thehany
 ## Installation
 
 **Direct APK (sideload)**  
-Download the latest APK from [Releases](https://github.com/TheHanyou/Plural-Space/releases). Enable "Install from unknown sources" on your device and install.
+Download the latest APK from the button above or from [Releases](https://github.com/TheHanyou/Plural-Space/releases). Enable "Install from unknown sources" on your device and install.
+
+**Google Play**  
+Coming soon.
 
 ---
 
@@ -88,12 +103,17 @@ This software is free and open source. You are free to use, modify, and distribu
 
 ---
 
-## Contact
+## Support
 
-**The Hanyou System**  
-[the1hanyou@gmail.com](mailto:the1hanyou@gmail.com)
+Plural Space is free, always. If it's been useful to you, a contribution helps cover Play Store fees and development time.
+
+<a href="https://ko-fi.com/PluralSpace">
+  <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-Fi" />
+</a>
 
 ---
 
-<p align="center">Built by a plural system, for plural systems.</p>
->>>>>>> 37e5c4cbfcf3b6c2e0d052ea02bc31dba9e1687d
+## Contact
+
+**The Hanyou System**  
+the1hanyou@gmail.com
