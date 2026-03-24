@@ -1,23 +1,23 @@
 import React, {useState} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, StyleSheet, ActivityIndicator} from 'react-native';
 import {useTranslation} from 'react-i18next';
-import DocumentPicker from '@react-native-documents/picker';
+import {pick as pickDocument, isCancel as isPickerCancel} from '@react-native-documents/picker';
 import RNFS from 'react-native-fs';
 import {exportJSON, exportHTML, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd} from '../export/exportUtils';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSettings, ExportPayload, uid, allFrontMemberIds} from '../utils';
+import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, uid, allFrontMemberIds} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
 type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit';
 
 interface Props {
   theme: any; system: SystemInfo; members: Member[]; front: FrontState | null;
-  history: HistoryEntry[]; journal: JournalEntry[]; shareSettings: ShareSettings;
+  history: HistoryEntry[]; journal: JournalEntry[]; shareSettings: ShareSettings; appSettings: AppSettings;
   onSettingsChange: (s: ShareSettings) => void; getMember: (id: string) => Member | undefined;
   onDataImported: () => void; onAddJournalEntry: (entry: JournalEntry) => void; onDeleteAccount: () => void;
 }
 
-export const ShareScreen = ({theme: T, system, members, front, history, journal, shareSettings, onSettingsChange, getMember, onDataImported, onAddJournalEntry, onDeleteAccount}: Props) => {
+export const ShareScreen = ({theme: T, system, members, front, history, journal, shareSettings, appSettings, onSettingsChange, getMember, onDataImported, onAddJournalEntry, onDeleteAccount}: Props) => {
   const {t} = useTranslation();
   const [section, setSection] = useState<Section>('export');
   const [emailAddr, setEmailAddr] = useState('');
@@ -56,7 +56,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const handleImportJournalFile = async () => {
     setImportStatus('idle'); setImportMsg('');
     try {
-      const [res] = await DocumentPicker.pick({type: ['public.text', 'public.plain-text', 'text/plain', 'text/markdown', 'application/json', 'public.json']});
+      const [res] = await pickDocument({type: ['text/plain', 'text/markdown', 'application/json']});
       const ext = (res.name || '').split('.').pop()?.toLowerCase() || '';
       const titleBase = (res.name || 'Imported Entry').replace(/\.[^.]+$/, '');
       let body = '';
@@ -68,18 +68,18 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       } else {setImportStatus('error'); setImportMsg(t('share.unsupportedFormat', {ext})); return;}
       onAddJournalEntry({id: uid(), title: titleBase, body, authorIds: [], hashtags: [], timestamp: Date.now()});
       setImportStatus('success'); setImportMsg(t('share.importedAsEntry', {title: titleBase}));
-    } catch (e: any) {if (!DocumentPicker.isCancel(e)) {setImportStatus('error'); setImportMsg(e.message || 'Could not import file.');}}
+    } catch (e: any) {if (!isPickerCancel(e)) {setImportStatus('error'); setImportMsg(e.message || 'Could not import file.');}}
   };
 
   const handlePickBackup = async () => {
     setRestoreError(''); setRestoreData(null); setRestoreFile(null); setRestoreDone(false);
     try {
-      const [res] = await DocumentPicker.pick({type: ['application/json', 'public.json']});
+      const [res] = await pickDocument({type: ['application/json']});
       const content = await RNFS.readFile(res.uri, 'utf8');
       const parsed: ExportPayload = JSON.parse(content);
       if (!parsed._meta || parsed._meta.app !== 'Plural Space') throw new Error(t('share.notValidExport'));
       setRestoreFile(res.name || 'backup.json'); setRestoreData(parsed);
-    } catch (e: any) {if (!DocumentPicker.isCancel(e)) setRestoreError(e.message || 'Could not read file.');}
+    } catch (e: any) {if (!isPickerCancel(e)) setRestoreError(e.message || 'Could not read file.');}
   };
 
   const handleRestore = () => {
@@ -329,6 +329,13 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
       {section === 'import' && (
         <View>
+          {!appSettings.filesEnabled ? (
+            <View style={{alignItems: 'center', paddingVertical: 48}}>
+              <Text style={{fontSize: 36, opacity: 0.4, marginBottom: 12}}>↑</Text>
+              <Text style={{fontSize: 13, color: T.dim, textAlign: 'center'}}>{t('share.filesDisabled')}</Text>
+            </View>
+          ) : (
+          <>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12, marginBottom: 4}}>
             <SourceBtn id="journal" label={t('share.journalFile')} />
             <SourceBtn id="backup" label={t('share.backup')} />
@@ -404,6 +411,8 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 </View>
               )}
             </View>
+          )}
+          </>
           )}
         </View>
       )}

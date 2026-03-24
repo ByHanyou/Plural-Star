@@ -2,6 +2,7 @@ import React, {useState, useEffect, useCallback} from 'react';
 import {View, Text, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert} from 'react-native';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
+import notifee from '@notifee/react-native';
 
 import './src/i18n/i18n';
 import {changeLanguage} from './src/i18n/i18n';
@@ -28,7 +29,7 @@ const TAB_ICONS: Record<Tab, string> = {
   front: '◈', members: '◇', history: '◷', journal: '◉', share: '↑',
 };
 
-const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, language: 'en', notificationsEnabled: true};
+const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true};
 
 const getGPSLocation = (): Promise<string | null> =>
   new Promise(async resolve => {
@@ -122,13 +123,41 @@ function MainAppContent() {
   const requestPermissions = async () => {
     if (Platform.OS !== 'android') return;
     try {
-      await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS' as any,
-        {title: 'Notifications', message: 'Allow Plural Space to show front status notifications.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
+      // Use notifee's own permission request — handles Android 13/14/15 correctly
+      await notifee.requestPermission();
+    } catch (e) { console.error('[PS] notification permission error:', e); }
+    try {
       if (appSettings.gpsEnabled) {
         await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
           {title: 'Location', message: 'Allow Plural Space to tag your approximate location when fronting.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
       }
-    } catch (e) { console.error('[PS] permission request error:', e); }
+    } catch (e) { console.error('[PS] location permission error:', e); }
+  };
+
+  const requestGPSPermission = async () => {
+    if (Platform.OS !== 'android') return;
+    try {
+      const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        {title: 'Location', message: 'Allow Plural Space to tag your approximate location when fronting.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
+      if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+        console.warn('[PS] GPS permission denied:', result);
+      }
+    } catch (e) { console.error('[PS] GPS permission error:', e); }
+  };
+
+  const requestFilesPermission = async () => {
+    if (Platform.OS !== 'android') return;
+    try {
+      // On Android 12 and below, request READ_EXTERNAL_STORAGE
+      // On Android 13+, SAF handles file access without runtime permission
+      if (Platform.Version < 33) {
+        const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          {title: 'File Access', message: 'Allow Plural Space to import and export files.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
+        if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.warn('[PS] File permission denied:', result);
+        }
+      }
+    } catch (e) { console.error('[PS] File permission error:', e); }
   };
 
   useEffect(() => { loadAll(); }, []);
@@ -152,9 +181,13 @@ function MainAppContent() {
   const saveShareSettings = async (d: ShareSettings) => {setShareSettings(d); await store.set(KEYS.share, d);};
   const saveGroups = async (d: MemberGroup[]) => {setGroups(d); await store.set(KEYS.groups, d);};
   const saveAppSettings = async (d: AppSettings) => {
+    const gpsJustEnabled = d.gpsEnabled && !appSettings.gpsEnabled;
+    const filesJustEnabled = d.filesEnabled && !appSettings.filesEnabled;
     setAppSettings(d);
     await store.set(KEYS.settings, d);
     if (d.language) { changeLanguage(d.language); await store.set(KEYS.language, d.language); }
+    if (gpsJustEnabled) { await requestGPSPermission(); }
+    if (filesJustEnabled) { await requestFilesPermission(); }
   };
 
   const toggleLightMode = async () => { const next = !lightMode; setLightMode(next); await store.set(KEYS.lightMode, next); };
@@ -277,7 +310,7 @@ function MainAppContent() {
       case 'journal':
         return <JournalScreen theme={C} journal={journal} members={members} systemJournalPassword={system.journalPassword} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} />;
       case 'share':
-        return <ShareScreen theme={C} system={system} members={members} front={front} history={history} journal={journal} shareSettings={shareSettings} onSettingsChange={saveShareSettings} getMember={getMember} onDataImported={loadAll} onAddJournalEntry={addJournalEntry} onDeleteAccount={handleDeleteAccount} />;
+        return <ShareScreen theme={C} system={system} members={members} front={front} history={history} journal={journal} shareSettings={shareSettings} appSettings={appSettings} onSettingsChange={saveShareSettings} getMember={getMember} onDataImported={loadAll} onAddJournalEntry={addJournalEntry} onDeleteAccount={handleDeleteAccount} />;
     }
   };
 

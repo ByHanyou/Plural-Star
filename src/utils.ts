@@ -81,6 +81,7 @@ export interface AppSettings {
   customMoods: string[];
   lightMode: boolean;
   gpsEnabled: boolean;
+  filesEnabled: boolean;
   language: SupportedLanguage;
   notificationsEnabled: boolean;
 }

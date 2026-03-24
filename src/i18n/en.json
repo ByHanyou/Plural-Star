@@ -192,7 +192,8 @@
     "backupLooksLike": "That looks like a backup file. Use Restore Backup instead.",
     "unsupportedFormat": "Unsupported format \".{{ext}}\". Supported: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" imported as a new journal entry.",
-    "notValidExport": "Not a valid Plural Space export file."
+    "notValidExport": "Not a valid Plural Space export file.",
+    "filesDisabled": "File access is disabled. Enable it in System Settings."
   },
   "modal": {
     "updateFront": "Update Front",
@@ -250,7 +251,9 @@
     "addMoodPlaceholder": "Add mood…",
     "supportPS": "☕  Support PS",
     "memberTags": "Tags",
-    "memberTagPlaceholder": "#tag"
+    "memberTagPlaceholder": "#tag",
+    "fileAccess": "File Access",
+    "fileAccessDesc": "Allow importing and exporting files. On by default."
   },
   "notification": {
     "locationPermTitle": "Location Permission",

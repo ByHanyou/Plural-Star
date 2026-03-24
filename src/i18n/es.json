@@ -192,7 +192,8 @@
     "backupLooksLike": "Eso parece un archivo de respaldo. Usa Restaurar Respaldo en su lugar.",
     "unsupportedFormat": "Formato no soportado \".{{ext}}\". Soportados: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" importado como nueva entrada de diario.",
-    "notValidExport": "No es un archivo de exportación válido de Plural Space."
+    "notValidExport": "No es un archivo de exportación válido de Plural Space.",
+    "filesDisabled": "El acceso a archivos está desactivado. Actívalo en Ajustes del Sistema."
   },
   "modal": {
     "updateFront": "Actualizar Frente",
@@ -250,7 +251,9 @@
     "addMoodPlaceholder": "Añadir ánimo…",
     "supportPS": "☕  Apoyar PS",
     "memberTags": "Etiquetas",
-    "memberTagPlaceholder": "#etiqueta"
+    "memberTagPlaceholder": "#etiqueta",
+    "fileAccess": "Acceso a Archivos",
+    "fileAccessDesc": "Permitir importar y exportar archivos. Activado por defecto."
   },
   "notification": {
     "locationPermTitle": "Permiso de Ubicación",

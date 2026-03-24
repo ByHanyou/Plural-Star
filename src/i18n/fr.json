@@ -192,7 +192,8 @@
     "backupLooksLike": "Cela ressemble à un fichier de sauvegarde. Utilisez Restaurer la Sauvegarde à la place.",
     "unsupportedFormat": "Format non supporté \".{{ext}}\". Supportés : .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" importé comme nouvelle entrée de journal.",
-    "notValidExport": "Ce n'est pas un fichier d'export Plural Space valide."
+    "notValidExport": "Ce n'est pas un fichier d'export Plural Space valide.",
+    "filesDisabled": "L'accès aux fichiers est désactivé. Activez-le dans les Paramètres du Système."
   },
   "modal": {
     "updateFront": "Mettre à Jour le Front",
@@ -250,7 +251,9 @@
     "addMoodPlaceholder": "Ajouter une humeur…",
     "supportPS": "☕  Soutenir PS",
     "memberTags": "Tags",
-    "memberTagPlaceholder": "#tag"
+    "memberTagPlaceholder": "#tag",
+    "fileAccess": "Accès aux Fichiers",
+    "fileAccessDesc": "Autoriser l'importation et l'exportation de fichiers. Activé par défaut."
   },
   "notification": {
     "locationPermTitle": "Permission de Localisation",

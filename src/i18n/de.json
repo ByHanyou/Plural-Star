@@ -192,7 +192,8 @@
     "backupLooksLike": "Das sieht nach einer Sicherungsdatei aus. Verwende stattdessen Sicherung Wiederherstellen.",
     "unsupportedFormat": "Nicht unterstütztes Format \".{{ext}}\". Unterstützt: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" als neuer Tagebucheintrag importiert.",
-    "notValidExport": "Keine gültige Plural Space Export-Datei."
+    "notValidExport": "Keine gültige Plural Space Export-Datei.",
+    "filesDisabled": "Dateizugriff ist deaktiviert. Aktiviere ihn in den Systemeinstellungen."
   },
   "modal": {
     "updateFront": "Front Aktualisieren",
@@ -250,7 +251,9 @@
     "addMoodPlaceholder": "Stimmung hinzufügen…",
     "supportPS": "☕  PS Unterstützen",
     "memberTags": "Tags",
-    "memberTagPlaceholder": "#Tag"
+    "memberTagPlaceholder": "#Tag",
+    "fileAccess": "Dateizugriff",
+    "fileAccessDesc": "Import und Export von Dateien erlauben. Standardmäßig aktiviert."
   },
   "notification": {
     "locationPermTitle": "Standortberechtigung",
