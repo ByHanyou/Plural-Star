@@ -1,11 +1,16 @@
 import React, {useState, useEffect, useCallback} from 'react';
 import {View, Text, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert} from 'react-native';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useTranslation} from 'react-i18next';
+
+import './src/i18n/i18n';
+import {changeLanguage} from './src/i18n/i18n';
+import type {SupportedLanguage} from './src/i18n/i18n';
 
 import {T, TLight} from './src/theme';
 import {AccentText} from './src/components/AccentText';
 import {store, KEYS} from './src/storage';
-import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, ShareSettings, AppSettings, EMPTY_TIER, migrateFrontState, isFrontEmpty, frontToHistoryEntry} from './src/utils';
 import {showFrontNotification, clearFrontNotification} from './src/services/NotificationService';
 
 import {SetupScreen} from './src/screens/SetupScreen';
@@ -18,17 +23,13 @@ import {SetFrontModal, EditFrontDetailModal, MemberModal, JournalModal, SystemMo
 
 type Tab = 'front' | 'members' | 'history' | 'journal' | 'share';
 
-const TABS: {id: Tab; label: string; icon: string}[] = [
-  {id: 'front',   label: 'Front',   icon: '◈'},
-  {id: 'members', label: 'Members', icon: '◇'},
-  {id: 'history', label: 'History', icon: '◷'},
-  {id: 'journal', label: 'Journal', icon: '◉'},
-  {id: 'share',   label: 'Share',   icon: '↑'},
-];
+const TAB_IDS: Tab[] = ['front', 'members', 'history', 'journal', 'share'];
+const TAB_ICONS: Record<Tab, string> = {
+  front: '◈', members: '◇', history: '◷', journal: '◉', share: '↑',
+};
 
-const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false};
+const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, language: 'en', notificationsEnabled: true};
 
-// GPS helper — requests permission, reverse geocodes to city/neighbourhood via Nominatim
 const getGPSLocation = (): Promise<string | null> =>
   new Promise(async resolve => {
     try {
@@ -48,25 +49,20 @@ const getGPSLocation = (): Promise<string | null> =>
               {headers: {'User-Agent': 'PluralSpace/1.0'}},
             );
             const data = await res.json();
-            // Prefer neighbourhood > suburb > town > city > county
             const a = data.address || {};
-            const name =
-              a.neighbourhood || a.suburb || a.village ||
-              a.town || a.city || a.county || a.state || null;
+            const name = a.neighbourhood || a.suburb || a.village || a.town || a.city || a.county || a.state || null;
             resolve(name);
-          } catch {
-            resolve(null);
-          }
+          } catch { resolve(null); }
         },
         () => resolve(null),
         {timeout: 8000, maximumAge: 120000},
       );
-    } catch {
-      resolve(null);
-    }
+    } catch { resolve(null); }
   });
 
 function MainAppContent() {
+  const {t} = useTranslation();
+
   const [loaded, setLoaded] = useState(false);
   const [firstRun, setFirstRun] = useState(false);
   const [tab, setTab] = useState<Tab>('front');
@@ -78,9 +74,11 @@ function MainAppContent() {
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [shareSettings, setShareSettings] = useState<ShareSettings>({showFront: true, showMembers: true, showDescriptions: false});
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [groups, setGroups] = useState<MemberGroup[]>([]);
 
   const [showSetFront, setShowSetFront] = useState(false);
   const [showEditFrontDetail, setShowEditFrontDetail] = useState(false);
+  const [editTier, setEditTier] = useState<FrontTierKey>('primary');
   const [showMember, setShowMember] = useState(false);
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [showJournal, setShowJournal] = useState(false);
@@ -91,202 +89,140 @@ function MainAppContent() {
   const C = lightMode ? TLight : T;
 
   const loadAll = useCallback(async () => {
-    const [sys, mem, fr, hist, jour, share, settings, light] = await Promise.all([
+    const [sys, mem, fr, hist, jour, share, settings, light, savedLang, grps] = await Promise.all([
       store.get<SystemInfo>(KEYS.system),
       store.get<Member[]>(KEYS.members, []),
-      store.get<FrontState | null>(KEYS.front),
+      store.get<any>(KEYS.front),
       store.get<HistoryEntry[]>(KEYS.history, []),
       store.get<JournalEntry[]>(KEYS.journal, []),
       store.get<ShareSettings>(KEYS.share, {showFront: true, showMembers: true, showDescriptions: false}),
       store.get<AppSettings>(KEYS.settings, DEFAULT_SETTINGS),
       store.get<boolean>(KEYS.lightMode, false),
+      store.get<string>(KEYS.language, ''),
+      store.get<MemberGroup[]>(KEYS.groups, []),
     ]);
     if (!sys) {setFirstRun(true);} else {setSystem(sys);}
     setMembers(mem || []);
-    setFront(fr || null);
+    const migratedFront = migrateFrontState(fr);
+    setFront(migratedFront);
+    if (fr && !fr.primary && migratedFront) {
+      await store.set(KEYS.front, migratedFront);
+    }
     setHistory(hist || []);
     setJournal(jour || []);
     setShareSettings(share || {showFront: true, showMembers: true, showDescriptions: false});
-    setAppSettings(settings || DEFAULT_SETTINGS);
+    const mergedSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
+    setAppSettings(mergedSettings);
     setLightMode(light || false);
+    setGroups(grps || []);
+    if (savedLang) changeLanguage(savedLang as SupportedLanguage);
     setLoaded(true);
   }, []);
 
   const requestPermissions = async () => {
     if (Platform.OS !== 'android') return;
     try {
-      // Notification permission (Android 13+)
-      await PermissionsAndroid.request(
-        'android.permission.POST_NOTIFICATIONS' as any,
-        {title: 'Notifications', message: 'Allow Plural Space to show front status notifications.', buttonPositive: 'Allow', buttonNegative: 'Not now'},
-      );
-      // Location permission (only if GPS is enabled)
+      await PermissionsAndroid.request('android.permission.POST_NOTIFICATIONS' as any,
+        {title: 'Notifications', message: 'Allow Plural Space to show front status notifications.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
       if (appSettings.gpsEnabled) {
-        await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-          {title: 'Location', message: 'Allow Plural Space to tag your approximate location when fronting.', buttonPositive: 'Allow', buttonNegative: 'Not now'},
-        );
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+          {title: 'Location', message: 'Allow Plural Space to tag your approximate location when fronting.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
       }
-    } catch {}
+    } catch (e) { console.error('[PS] permission request error:', e); }
   };
 
   useEffect(() => { loadAll(); }, []);
+  useEffect(() => { if (loaded && !firstRun) requestPermissions(); }, [loaded, firstRun]);
 
-  // Request permissions once on first load (after setup) and whenever settings change GPS on
   useEffect(() => {
-    if (loaded && !firstRun) {
-      requestPermissions();
-    }
-  }, [loaded, firstRun]);
+    if (appSettings.notificationsEnabled) { showFrontNotification(front, members).catch(e => console.error('[PS] notif error:', e)); }
+    else { clearFrontNotification().catch(e => console.error('[PS] clear notif error:', e)); }
+  }, [front, members, appSettings.notificationsEnabled]);
 
-  // Update notification immediately when front/members change
   useEffect(() => {
-    showFrontNotification(front, members);
-  }, [front, members]);
-
-  // Also refresh every 5 minutes so the time-fronting counter stays current
-  useEffect(() => {
-    if (!front) return;
-    const interval = setInterval(() => {
-      showFrontNotification(front, members);
-    }, 5 * 60 * 1000);
+    if (!front || !appSettings.notificationsEnabled) return;
+    const interval = setInterval(() => { showFrontNotification(front, members).catch(e => console.error('[PS] notif refresh error:', e)); }, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [front, members]);
+  }, [front, members, appSettings.notificationsEnabled]);
 
   const saveSystem = async (d: SystemInfo) => {setSystem(d); await store.set(KEYS.system, d);};
   const saveMembers = async (d: Member[]) => {setMembers(d); await store.set(KEYS.members, d);};
   const saveHistory = async (d: HistoryEntry[]) => {setHistory(d); await store.set(KEYS.history, d);};
   const saveJournal = async (d: JournalEntry[]) => {setJournal(d); await store.set(KEYS.journal, d);};
   const saveShareSettings = async (d: ShareSettings) => {setShareSettings(d); await store.set(KEYS.share, d);};
-  const saveAppSettings = async (d: AppSettings) => {setAppSettings(d); await store.set(KEYS.settings, d);};
-
-  const toggleLightMode = async () => {
-    const next = !lightMode;
-    setLightMode(next);
-    await store.set(KEYS.lightMode, next);
+  const saveGroups = async (d: MemberGroup[]) => {setGroups(d); await store.set(KEYS.groups, d);};
+  const saveAppSettings = async (d: AppSettings) => {
+    setAppSettings(d);
+    await store.set(KEYS.settings, d);
+    if (d.language) { changeLanguage(d.language); await store.set(KEYS.language, d.language); }
   };
+
+  const toggleLightMode = async () => { const next = !lightMode; setLightMode(next); await store.set(KEYS.lightMode, next); };
 
   const [lastKnownLocation, setLastKnownLocation] = useState<string | undefined>(undefined);
-
   const getMember = (id: string) => members.find(m => m.id === id);
 
-  // Persist last known location so it carries across front switches
   const updateLastLocation = async (loc: string | undefined) => {
-    if (loc) {
-      setLastKnownLocation(loc);
-      await store.set('ps:lastLocation', loc);
-    }
+    if (loc) { setLastKnownLocation(loc); await store.set('ps:lastLocation', loc); }
   };
 
-  // Load lastKnownLocation on startup — add to loadAll
-  useEffect(() => {
-    store.get<string>('ps:lastLocation').then(loc => {
-      if (loc) setLastKnownLocation(loc);
-    });
-  }, []);
+  useEffect(() => { store.get<string>('ps:lastLocation').then(loc => { if (loc) setLastKnownLocation(loc); }); }, []);
 
-  // Optionally fetch GPS location if enabled
   const maybeGPS = async (manualLocation?: string): Promise<string | undefined> => {
-    // Treat empty string the same as undefined
     const loc = manualLocation?.trim() || undefined;
     if (loc) return loc;
-    if (appSettings.gpsEnabled) {
-      const gps = await getGPSLocation();
-      return gps || undefined;
-    }
+    if (appSettings.gpsEnabled) { const gps = await getGPSLocation(); return gps || undefined; }
     return undefined;
   };
 
-  const updateFront = async (memberIds: string[], note = '', mood?: string, location?: string) => {
+  const updateFront = async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
     const now = Date.now();
-    const resolvedLocation = await maybeGPS(location?.trim() || lastKnownLocation);
+    const resolvedLocation = await maybeGPS(primary.location?.trim() || lastKnownLocation);
     let newHistory = [...history];
-
-    // Close existing open front entry — only set endTime, preserve original state
     if (front) {
       newHistory = newHistory.map(e =>
-        e.endTime === null && e.startTime === front.startTime && e.changeType === 'front'
-          ? {...e, endTime: now} : e
-      );
+        e.endTime === null && e.startTime === front.startTime && e.changeType === 'front' ? {...e, endTime: now} : e);
     }
-
-    const nf = memberIds.length > 0
-      ? {memberIds, startTime: now, note, mood, location: resolvedLocation}
-      : null;
-
+    const resolvedPrimary = {...primary, location: resolvedLocation};
+    const isEmpty = primary.memberIds.length === 0 && coFront.memberIds.length === 0 && coConscious.memberIds.length === 0;
+    const nf: FrontState | null = isEmpty ? null : {primary: resolvedPrimary, coFront, coConscious, startTime: now};
     if (nf) {
-      // Always log the front switch event
-      const frontEntry: HistoryEntry = {
-        memberIds, startTime: now, endTime: null,
-        note, mood, location: resolvedLocation,
-        changeType: 'front', changeTime: now,
-      };
+      const frontEntry = frontToHistoryEntry(nf, null, 'front');
       newHistory = [frontEntry, ...newHistory];
-
       if (resolvedLocation) await updateLastLocation(resolvedLocation);
-
       newHistory = newHistory.slice(0, 1000);
     }
-
-    setFront(nf);
-    await store.set(KEYS.front, nf);
-    await saveHistory(newHistory);
+    setFront(nf); await store.set(KEYS.front, nf); await saveHistory(newHistory);
   };
 
-  const updateFrontNote = async (note: string) => {
+  const updateFrontNote = async (tier: FrontTierKey, note: string) => {
     if (!front) return;
     const now = Date.now();
-    const u = {...front, note};
-    setFront(u);
-    await store.set(KEYS.front, u);
-    if (note !== front.note) {
-      const noteEntry: HistoryEntry = {
-        memberIds: front.memberIds, startTime: front.startTime, endTime: null,
-        note, mood: front.mood, location: front.location,
-        changeType: 'note', changeTime: now,
-      };
-      await saveHistory([noteEntry, ...history].slice(0, 1000));
-    }
+    const tierData = front[tier];
+    if (note === tierData.note) return;
+    const updated = {...front, [tier]: {...tierData, note}};
+    setFront(updated); await store.set(KEYS.front, updated);
+    const noteEntry = frontToHistoryEntry(updated, null, 'note', tier);
+    noteEntry.changeTime = now;
+    await saveHistory([noteEntry, ...history].slice(0, 1000));
   };
 
-  const updateFrontDetails = async (mood?: string, location?: string, note?: string) => {
+  const updateFrontDetails = async (tier: FrontTierKey, mood?: string, location?: string, note?: string) => {
     if (!front) return;
     const now = Date.now();
-    const resolvedLocation = await maybeGPS(location?.trim() || lastKnownLocation);
-    const u = {...front, mood, location: resolvedLocation, note: note ?? front.note};
-    setFront(u);
-    await store.set(KEYS.front, u);
-
-    if (resolvedLocation) await updateLastLocation(resolvedLocation);
-
-    // Do NOT mutate the original front switch entry — it preserves the state at switch time.
-    // Only log new change events for what actually changed.
+    const tierData = front[tier];
+    const resolvedLocation = tier === 'primary' ? await maybeGPS(location?.trim() || lastKnownLocation) : tierData.location;
+    const updatedTier = {...tierData, mood, location: resolvedLocation, note: note ?? tierData.note};
+    const updated = {...front, [tier]: updatedTier};
+    setFront(updated); await store.set(KEYS.front, updated);
+    if (resolvedLocation && tier === 'primary') await updateLastLocation(resolvedLocation);
     const extras: HistoryEntry[] = [];
-    const moodChanged = (mood || undefined) !== (front.mood || undefined);
-    const locChanged = (resolvedLocation || undefined) !== (front.location || undefined);
-    const noteChanged = note !== undefined && (note || undefined) !== (front.note || undefined);
-
-    if (moodChanged || locChanged) {
-      extras.push({
-        memberIds: front.memberIds, startTime: front.startTime, endTime: null,
-        note: note ?? front.note,
-        mood: mood ?? front.mood,
-        location: resolvedLocation ?? front.location,
-        changeType: moodChanged && locChanged ? 'mood' : moodChanged ? 'mood' : 'location',
-        changeTime: now,
-      });
-    }
-    if (noteChanged) {
-      extras.push({
-        memberIds: front.memberIds, startTime: front.startTime, endTime: null,
-        note, mood: mood ?? front.mood, location: resolvedLocation ?? front.location,
-        changeType: 'note', changeTime: now + 1,
-      });
-    }
-
-    if (extras.length > 0) {
-      await saveHistory([...extras, ...history].slice(0, 1000));
-    }
+    const moodChanged = (mood || undefined) !== (tierData.mood || undefined);
+    const locChanged = tier === 'primary' && (resolvedLocation || undefined) !== (tierData.location || undefined);
+    const noteChanged = note !== undefined && (note || undefined) !== (tierData.note || undefined);
+    if (moodChanged || locChanged) { const entry = frontToHistoryEntry(updated, null, moodChanged ? 'mood' : 'location', tier); entry.changeTime = now; extras.push(entry); }
+    if (noteChanged) { const entry = frontToHistoryEntry(updated, null, 'note', tier); entry.changeTime = now + 1; extras.push(entry); }
+    if (extras.length > 0) await saveHistory([...extras, ...history].slice(0, 1000));
   };
 
   const saveMember = async (m: Member) => {
@@ -302,13 +238,11 @@ function MainAppContent() {
   const addJournalEntry = async (e: JournalEntry) => saveJournal([e, ...journal]);
 
   const handleDeleteAccount = async () => {
-    await clearFrontNotification();
-    await store.clearAll();
+    await clearFrontNotification(); await store.clearAll();
     setSystem({name: '', description: ''}); setMembers([]); setFront(null);
     setHistory([]); setJournal([]); setLightMode(false);
     setShareSettings({showFront: true, showMembers: true, showDescriptions: false});
-    setAppSettings(DEFAULT_SETTINGS);
-    setTab('front'); setFirstRun(true);
+    setAppSettings(DEFAULT_SETTINGS); setGroups([]); setTab('front'); setFirstRun(true);
   };
 
   if (!loaded) {
@@ -330,12 +264,14 @@ function MainAppContent() {
     );
   }
 
+  const handleEditDetails = (tier: FrontTierKey) => { setEditTier(tier); setShowEditFrontDetail(true); };
+
   const renderScreen = () => {
     switch (tab) {
       case 'front':
-        return <FrontScreen theme={C} front={front} getMember={getMember} onSetFront={() => setShowSetFront(true)} onUpdateNote={updateFrontNote} onEditDetails={() => setShowEditFrontDetail(true)} />;
+        return <FrontScreen theme={C} front={front} getMember={getMember} onSetFront={() => setShowSetFront(true)} onUpdateNote={updateFrontNote} onEditDetails={handleEditDetails} />;
       case 'members':
-        return <MembersScreen theme={C} members={members} front={front} onAdd={() => {setEditMember(null); setShowMember(true);}} onEdit={m => {setEditMember(m); setShowMember(true);}} />;
+        return <MembersScreen theme={C} members={members} front={front} groups={groups} onAdd={() => {setEditMember(null); setShowMember(true);}} onEdit={m => {setEditMember(m); setShowMember(true);}} onSaveGroups={saveGroups} />;
       case 'history':
         return <HistoryScreen theme={C} history={history} journal={journal} getMember={getMember} members={members} />;
       case 'journal':
@@ -361,39 +297,33 @@ function MainAppContent() {
           </View>
         </View>
       </View>
-
       <View style={styles.content}>{renderScreen()}</View>
-
       <View style={[styles.tabBar, {backgroundColor: C.surface, borderTopColor: C.border, paddingBottom: insets.bottom || 0}]}>
-        {TABS.map(({id, label, icon}) => (
+        {TAB_IDS.map(id => (
           <TouchableOpacity key={id} onPress={() => setTab(id)} activeOpacity={0.7} style={styles.tabBtn}>
-            <AccentText T={C} style={[styles.tabIcon, {color: tab === id ? C.accent : C.muted}]}>{icon}</AccentText>
-            <AccentText T={C} style={[styles.tabLabel, {color: tab === id ? C.accent : C.muted}]}>{label}</AccentText>
+            <AccentText T={C} style={[styles.tabIcon, {color: tab === id ? C.accent : C.muted}]}>{TAB_ICONS[id]}</AccentText>
+            <AccentText T={C} style={[styles.tabLabel, {color: tab === id ? C.accent : C.muted}]}>{t(`tabs.${id}`)}</AccentText>
           </TouchableOpacity>
         ))}
       </View>
 
-      <SetFrontModal visible={showSetFront} theme={C} members={members} current={front} settings={appSettings}
+      <SetFrontModal visible={showSetFront} theme={C} members={members} groups={groups} current={front} settings={appSettings}
         lastKnownLocation={lastKnownLocation}
-        onSave={async (ids, note, mood, location) => {await updateFront(ids, note, mood, location); setShowSetFront(false);}}
+        onSave={async (primary, coFront, coConscious) => {await updateFront(primary, coFront, coConscious); setShowSetFront(false);}}
         onClose={() => setShowSetFront(false)} />
-
       {front && (
-        <EditFrontDetailModal visible={showEditFrontDetail} theme={C} front={front} settings={appSettings}
+        <EditFrontDetailModal visible={showEditFrontDetail} theme={C} front={front} tier={editTier} settings={appSettings}
           lastKnownLocation={lastKnownLocation}
-          onSave={async (mood, location, note) => {await updateFrontDetails(mood, location, note); setShowEditFrontDetail(false);}}
+          onSave={async (mood, location, note) => {await updateFrontDetails(editTier, mood, location, note); setShowEditFrontDetail(false);}}
           onClose={() => setShowEditFrontDetail(false)} />
       )}
-
-      <MemberModal visible={showMember} theme={C} member={editMember}
+      <MemberModal visible={showMember} theme={C} member={editMember} groups={groups}
         onSave={async m => {await saveMember(m); setShowMember(false);}}
         onDelete={async id => {await deleteMember(id); setShowMember(false);}}
         onClose={() => setShowMember(false)} />
-
       <JournalModal visible={showJournal} theme={C} entry={editJournal} members={members}
         onSave={async e => {await saveEntry(e); setShowJournal(false);}}
         onClose={() => setShowJournal(false)} />
-
       <SystemModal visible={showSystem} theme={C} system={system} settings={appSettings}
         onSave={async s => {await saveSystem(s); setShowSystem(false);}}
         onSaveSettings={async s => {await saveAppSettings(s); setShowSystem(false);}}
@@ -403,11 +333,7 @@ function MainAppContent() {
 }
 
 export default function App() {
-  return (
-    <SafeAreaProvider>
-      <MainAppContent />
-    </SafeAreaProvider>
-  );
+  return (<SafeAreaProvider><MainAppContent /></SafeAreaProvider>);
 }
 
 const styles = StyleSheet.create({

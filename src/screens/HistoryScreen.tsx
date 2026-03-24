@@ -1,9 +1,10 @@
 // src/screens/HistoryScreen.tsx
 import React, {useState} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, StyleSheet} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {AccentText} from '../components/AccentText';
-import {HistoryEntry, JournalEntry, Member, fmtTime, fmtDate, fmtDur, getInitials} from '../utils';
+import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, getInitials, TIER_LABELS} from '../utils';
 
 const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; T: any}) => (
   <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.muted,
@@ -11,6 +12,12 @@ const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; 
     <Text style={{fontSize: size * 0.35, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(member?.name || '?')}</Text>
   </View>
 );
+
+// Check if a member appears in any tier of a history entry
+const memberInEntry = (memberId: string, entry: HistoryEntry): boolean =>
+  (entry.memberIds || []).includes(memberId) ||
+  (entry.coFrontIds || []).includes(memberId) ||
+  (entry.coConsciousIds || []).includes(memberId);
 
 type SubTab = 'front' | 'member';
 
@@ -23,6 +30,7 @@ interface Props {
 }
 
 export const HistoryScreen = ({theme: T, history, journal, getMember, members}: Props) => {
+  const {t} = useTranslation();
   const [subTab, setSubTab] = useState<SubTab>('front');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(
     members.length > 0 ? members[0].id : null,
@@ -41,11 +49,14 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
     frontGroups[k].push(e);
   });
 
+  // ── Tier names helper ───────────────────────────────────────────────────
+  const tierNames = (ids: string[] | undefined) =>
+    (ids || []).map(getMember).filter(Boolean).map(m => m!.name).join(', ');
+
   // ── Member History ─────────────────────────────────────────────────────────
-  // All history events where this member was fronting
   const memberHistoryEvents = selectedMemberId
     ? history
-        .filter(e => (e.memberIds || []).includes(selectedMemberId))
+        .filter(e => memberInEntry(selectedMemberId, e))
         .map(e => ({
           type: e.changeType || 'front',
           time: e.changeTime ?? e.startTime,
@@ -53,14 +64,12 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
         }))
     : [];
 
-  // Journal entries authored by this member
   const memberJournalEvents = selectedMemberId
     ? journal
         .filter(e => (e.authorIds || []).includes(selectedMemberId))
         .map(e => ({type: 'journal' as const, time: e.timestamp, journalEntry: e}))
     : [];
 
-  // Merge and sort all events by time descending
   const allMemberEvents = [
     ...memberHistoryEvents,
     ...memberJournalEvents,
@@ -75,19 +84,33 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
   };
 
   const getEventLabel = (type: string, entry: HistoryEntry): string => {
-    if ((type === 'mood' || type === 'location') && entry.mood && entry.location) return 'Mood & Location Changed';
-    if (type === 'mood')     return 'Mood Changed';
-    if (type === 'location') return 'Location Changed';
-    if (type === 'note')     return 'Note Updated';
-    if (type === 'journal')  return 'Journal Entry';
-    return 'Front Switch';
+    const tierSuffix = entry.changeTier && entry.changeTier !== 'primary' ? t('history.tierSuffix', {tier: t(`tier.${entry.changeTier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : '';
+    if ((type === 'mood' || type === 'location') && entry.mood && entry.location) return t('history.moodLocationChanged') + tierSuffix;
+    if (type === 'mood')     return t('history.moodChanged') + tierSuffix;
+    if (type === 'location') return t('history.locationChanged') + tierSuffix;
+    if (type === 'note')     return t('history.noteUpdated') + tierSuffix;
+    if (type === 'journal')  return t('history.journalEntry');
+    return t('history.frontSwitch');
+  };
+
+  // ── Tier badge in history cards ──────────────────────────────────────────
+  const TierRow = ({label, ids, color}: {label: string; ids: string[] | undefined; color: string}) => {
+    const names = tierNames(ids);
+    if (!names) return null;
+    return (
+      <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2}}>
+        <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: color}} />
+        <Text style={{fontSize: 10, color, fontWeight: '600', letterSpacing: 0.5}}>{label}</Text>
+        <Text style={{fontSize: 11, color: T.dim}} numberOfLines={1}>{names}</Text>
+      </View>
+    );
   };
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       {/* Subtab header */}
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: 16}}>
-        <Text style={[s.heading, {color: T.text}]}>History</Text>
+        <Text style={[s.heading, {color: T.text}]}>{t('history.title')}</Text>
         <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border, marginTop: 4}}>
           {(['front', 'member'] as SubTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
@@ -100,7 +123,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                 fontWeight: subTab === tab ? '600' : '400',
                 color: subTab === tab ? T.accent : T.dim,
               }}>
-                {tab === 'front' ? 'Front History' : 'Member History'}
+                {tab === 'front' ? t('history.frontHistory') : t('history.memberHistory')}
               </AccentText>
             </TouchableOpacity>
           ))}
@@ -114,7 +137,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
             <View style={{alignItems: 'center', paddingVertical: 48}}>
               <Text style={{fontSize: 36, opacity: 0.4, marginBottom: 12}}>◷</Text>
               <Text style={{fontSize: 13, color: T.dim, textAlign: 'center'}}>
-                No history yet. Front changes will appear here automatically.
+                {t('history.noHistory')}
               </Text>
             </View>
           ) : (
@@ -123,8 +146,10 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                 <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase',
                   color: T.dim, marginBottom: 8, fontWeight: '600'}}>{date}</Text>
                 {entries.map((entry, i) => {
-                  const fronters = (entry.memberIds || []).map(getMember).filter(Boolean) as Member[];
+                  const primaryFronters = (entry.memberIds || []).map(getMember).filter(Boolean) as Member[];
                   const isOpen = entry.endTime === null;
+                  const hasCoFront = (entry.coFrontIds || []).length > 0;
+                  const hasCoConscious = (entry.coConsciousIds || []).length > 0;
                   return (
                     <View key={i} style={{flexDirection: 'row', gap: 10}}>
                       <View style={{alignItems: 'center', width: 16}}>
@@ -135,36 +160,46 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                       </View>
                       <View style={[s.card, {backgroundColor: T.card,
                         borderColor: isOpen ? `${T.accent}40` : T.border, marginBottom: 8}]}>
+                        {/* Primary fronters */}
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4}}>
                           <View style={{flexDirection: 'row'}}>
-                            {fronters.slice(0, 3).map((m, j) => (
+                            {primaryFronters.slice(0, 3).map((m, j) => (
                               <View key={m.id} style={{marginLeft: j ? -8 : 0, zIndex: 10 - j}}>
                                 <Avatar member={m} size={26} T={T} />
                               </View>
                             ))}
                           </View>
                           <Text style={{flex: 1, fontSize: 14, fontWeight: '500', color: T.text}} numberOfLines={1}>
-                            {fronters.map(m => m.name).join(', ') || 'Unknown'}
+                            {primaryFronters.map(m => m.name).join(', ') || t('common.unknown')}
                           </Text>
                           <AccentText T={T} style={{fontSize: 12, color: T.accent, fontWeight: '500'}}>
                             {fmtDur(entry.startTime, entry.endTime)}
                           </AccentText>
                         </View>
+
+                        {/* Co-Front / Co-Conscious rows */}
+                        {(hasCoFront || hasCoConscious) && (
+                          <View style={{marginBottom: 4}}>
+                            <TierRow label={t('tier.coFrontShort')} ids={entry.coFrontIds} color={T.info} />
+                            <TierRow label={t('tier.coConShort')} ids={entry.coConsciousIds} color={T.success} />
+                          </View>
+                        )}
+
                         <Text style={{fontSize: 11, color: T.muted, marginBottom: 4}}>
                           {fmtTime(entry.startTime)}
-                          {isOpen ? ' → now' : entry.endTime ? ` → ${fmtTime(entry.endTime)}` : ''}
+                          {isOpen ? ` → ${t('history.now')}` : entry.endTime ? ` → ${fmtTime(entry.endTime)}` : ''}
                         </Text>
                         {(entry.mood || entry.location) && (
                           <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
                             {entry.mood && (
                               <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                <Text style={{fontSize: 10, color: T.dim}}>mood </Text>
+                                <Text style={{fontSize: 10, color: T.dim}}>{t('history.mood')} </Text>
                                 <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{entry.mood}</Text>
                               </View>
                             )}
                             {entry.location && (
                               <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                <Text style={{fontSize: 10, color: T.dim}}>at </Text>
+                                <Text style={{fontSize: 10, color: T.dim}}>{t('history.at')} </Text>
                                 <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{entry.location}</Text>
                               </View>
                             )}
@@ -188,10 +223,9 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
       {/* ── MEMBER HISTORY ── */}
       {subTab === 'member' && (
         <View style={{flex: 1}}>
-          {/* Member selector */}
           {members.length === 0 ? (
             <View style={{alignItems: 'center', paddingVertical: 48}}>
-              <Text style={{fontSize: 13, color: T.dim}}>No members added yet.</Text>
+              <Text style={{fontSize: 13, color: T.dim}}>{t('history.noMembers')}</Text>
             </View>
           ) : (
             <>
@@ -203,7 +237,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                 {selectedMember && <Avatar member={selectedMember} size={32} T={T} />}
                 <View style={{flex: 1}}>
                   <Text style={{fontSize: 15, fontWeight: '500', color: T.text}}>
-                    {selectedMember?.name || 'Select a member'}
+                    {selectedMember?.name || t('history.selectMember')}
                   </Text>
                   {selectedMember?.pronouns
                     ? <Text style={{fontSize: 11, color: T.dim}}>{selectedMember.pronouns}</Text>
@@ -244,22 +278,22 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                 return (
                   <View style={{flexDirection: 'row', gap: 8, margin: 16, marginBottom: 8}}>
                     <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>Total Time</Text>
+                      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.totalTime')}</Text>
                       <AccentText T={T} style={{fontSize: 15, fontWeight: '700', color: T.accent}}>{fmtDur(0, totalMs)}</AccentText>
                     </View>
                     <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>Sessions</Text>
+                      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.sessions')}</Text>
                       <Text style={{fontSize: 15, fontWeight: '700', color: T.text}}>{frontE.length}</Text>
                     </View>
                     {topMood && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                        <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>Top Mood</Text>
+                        <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topMood')}</Text>
                         <Text style={{fontSize: 12, fontWeight: '600', color: T.text}} numberOfLines={1}>{topMood[0]}</Text>
                       </View>
                     )}
                     {topLoc && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                        <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>Top Location</Text>
+                        <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topLocation')}</Text>
                         <Text style={{fontSize: 12, fontWeight: '600', color: T.text}} numberOfLines={1}>{topLoc[0]}</Text>
                       </View>
                     )}
@@ -271,7 +305,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                 {allMemberEvents.length === 0 ? (
                   <View style={{alignItems: 'center', paddingVertical: 32}}>
                     <Text style={{fontSize: 13, color: T.dim, textAlign: 'center'}}>
-                      No recorded activity for {selectedMember?.name} yet.
+                      {t('history.noActivity', {name: selectedMember?.name})}
                     </Text>
                   </View>
                 ) : (
@@ -306,7 +340,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                               <>
                                 {event.type === 'front' && (
                                   <Text style={{fontSize: 11, color: T.muted, marginBottom: 4}}>
-                                    {fmtTime(e.startTime)}{isOpen ? ' → now' : e.endTime ? ` → ${fmtTime(e.endTime)}` : ''}
+                                    {fmtTime(e.startTime)}{isOpen ? ` → ${t('history.now')}` : e.endTime ? ` → ${fmtTime(e.endTime)}` : ''}
                                     {'  '}<AccentText T={T} style={{color: T.accent}}>{fmtDur(e.startTime, e.endTime)}</AccentText>
                                   </Text>
                                 )}
@@ -314,13 +348,13 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                                   <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: e.note ? 4 : 0}}>
                                     {e.mood && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                        <Text style={{fontSize: 10, color: T.dim}}>mood </Text>
+                                        <Text style={{fontSize: 10, color: T.dim}}>{t('history.mood')} </Text>
                                         <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{e.mood}</Text>
                                       </View>
                                     )}
                                     {e.location && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                        <Text style={{fontSize: 10, color: T.dim}}>at </Text>
+                                        <Text style={{fontSize: 10, color: T.dim}}>{t('history.at')} </Text>
                                         <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{e.location}</Text>
                                       </View>
                                     )}
@@ -338,7 +372,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                           {'journalEntry' in event && event.journalEntry && (
                             <>
                               <Text style={{fontSize: 14, fontWeight: '500', color: T.text, marginBottom: 2}}>
-                                {event.journalEntry.title || 'Untitled'}
+                                {event.journalEntry.title || t('common.untitled')}
                               </Text>
                               {event.journalEntry.body ? (
                                 <Text style={{fontSize: 12, color: T.dim, lineHeight: 17}} numberOfLines={2}>

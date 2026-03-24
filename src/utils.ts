@@ -1,9 +1,17 @@
 // src/utils.ts
+import i18n from './i18n/i18n';
+import type {SupportedLanguage} from './i18n/i18n';
 
 export interface SystemInfo {
   name: string;
   description: string;
   journalPassword?: string;
+}
+
+export interface MemberGroup {
+  id: string;
+  name: string;
+  color?: string;
 }
 
 export interface Member {
@@ -13,11 +21,26 @@ export interface Member {
   role: string;
   color: string;
   description: string;
+  tags?: string[];
+  groupIds?: string[];
 }
 
-// changeType distinguishes what triggered this history entry
-// 'front' = new front set, 'mood' | 'location' | 'note' = in-session update
 export type HistoryChangeType = 'front' | 'mood' | 'location' | 'note';
+export type FrontTierKey = 'primary' | 'coFront' | 'coConscious';
+
+export interface FrontTier {
+  memberIds: string[];
+  mood?: string;
+  note: string;
+  location?: string;
+}
+
+export interface FrontState {
+  primary: FrontTier;
+  coFront: FrontTier;
+  coConscious: FrontTier;
+  startTime: number;
+}
 
 export interface HistoryEntry {
   memberIds: string[];
@@ -26,16 +49,15 @@ export interface HistoryEntry {
   note: string;
   mood?: string;
   location?: string;
+  coFrontIds?: string[];
+  coFrontMood?: string;
+  coFrontNote?: string;
+  coConsciousIds?: string[];
+  coConsciousMood?: string;
+  coConsciousNote?: string;
   changeType?: HistoryChangeType;
-  changeTime?: number; // when this specific change happened (for non-front entries)
-}
-
-export interface FrontState {
-  memberIds: string[];
-  startTime: number;
-  note: string;
-  mood?: string;
-  location?: string;
+  changeTime?: number;
+  changeTier?: FrontTierKey;
 }
 
 export interface JournalEntry {
@@ -59,6 +81,8 @@ export interface AppSettings {
   customMoods: string[];
   lightMode: boolean;
   gpsEnabled: boolean;
+  language: SupportedLanguage;
+  notificationsEnabled: boolean;
 }
 
 export interface ExportPayload {
@@ -74,17 +98,60 @@ export const DEFAULT_MOODS = [
   'Dissociated', 'Grounded', 'Irritable', 'Sad', 'Focused',
 ];
 
+export const EMPTY_TIER: FrontTier = {memberIds: [], note: ''};
+
+export const migrateFrontState = (raw: any): FrontState | null => {
+  if (!raw) return null;
+  if (raw.primary) return raw as FrontState;
+  return {
+    primary: {memberIds: raw.memberIds || [], mood: raw.mood, note: raw.note || '', location: raw.location},
+    coFront: {memberIds: [], note: ''},
+    coConscious: {memberIds: [], note: ''},
+    startTime: raw.startTime || Date.now(),
+  };
+};
+
+export const isFrontEmpty = (f: FrontState | null): boolean =>
+  !f || (f.primary.memberIds.length === 0 && f.coFront.memberIds.length === 0 && f.coConscious.memberIds.length === 0);
+
+export const allFrontMemberIds = (f: FrontState | null): string[] =>
+  f ? [...f.primary.memberIds, ...f.coFront.memberIds, ...f.coConscious.memberIds] : [];
+
+export const frontToHistoryEntry = (f: FrontState, endTime: number | null, changeType: HistoryChangeType = 'front', changeTier?: FrontTierKey): HistoryEntry => ({
+  memberIds: f.primary.memberIds,
+  startTime: f.startTime,
+  endTime,
+  note: f.primary.note,
+  mood: f.primary.mood,
+  location: f.primary.location,
+  coFrontIds: f.coFront.memberIds.length > 0 ? f.coFront.memberIds : undefined,
+  coFrontMood: f.coFront.mood,
+  coFrontNote: f.coFront.note || undefined,
+  coConsciousIds: f.coConscious.memberIds.length > 0 ? f.coConscious.memberIds : undefined,
+  coConsciousMood: f.coConscious.mood,
+  coConsciousNote: f.coConscious.note || undefined,
+  changeType,
+  changeTime: changeType !== 'front' ? Date.now() : undefined,
+  changeTier,
+});
+
 export const uid = (): string =>
   Date.now().toString(36) + Math.random().toString(36).slice(2);
 
+const getLocale = (): string => {
+  const lang = i18n.language || 'en';
+  const localeMap: Record<string, string> = {en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE'};
+  return localeMap[lang] || 'en-US';
+};
+
 export const fmtTime = (ts: number): string =>
-  new Date(ts).toLocaleString('en-US', {
+  new Date(ts).toLocaleString(getLocale(), {
     month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit', hour12: true,
+    hour: 'numeric', minute: '2-digit', hour12: getLocale() === 'en-US',
   });
 
 export const fmtDate = (ts: number): string =>
-  new Date(ts).toLocaleDateString('en-US', {
+  new Date(ts).toLocaleDateString(getLocale(), {
     weekday: 'short', month: 'short', day: 'numeric',
   });
 
@@ -105,3 +172,9 @@ export const isValidHex = (hex: string): boolean =>
 
 export const normalizeHex = (input: string): string =>
   (input.startsWith('#') ? input : `#${input}`).toUpperCase();
+
+export const TIER_LABELS: Record<FrontTierKey, string> = {
+  primary: 'Primary Front',
+  coFront: 'Co-Front',
+  coConscious: 'Co-Conscious',
+};

@@ -1,30 +1,24 @@
 import React, {useState} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, StyleSheet, ActivityIndicator} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import DocumentPicker from '@react-native-documents/picker';
 import RNFS from 'react-native-fs';
 import {exportJSON, exportHTML, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd} from '../export/exportUtils';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSettings, ExportPayload, uid} from '../utils';
+import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSettings, ExportPayload, uid, allFrontMemberIds} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
 type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit';
 
 interface Props {
-  theme: any;
-  system: SystemInfo;
-  members: Member[];
-  front: FrontState | null;
-  history: HistoryEntry[];
-  journal: JournalEntry[];
-  shareSettings: ShareSettings;
-  onSettingsChange: (s: ShareSettings) => void;
-  getMember: (id: string) => Member | undefined;
-  onDataImported: () => void;
-  onAddJournalEntry: (entry: JournalEntry) => void;
-  onDeleteAccount: () => void;
+  theme: any; system: SystemInfo; members: Member[]; front: FrontState | null;
+  history: HistoryEntry[]; journal: JournalEntry[]; shareSettings: ShareSettings;
+  onSettingsChange: (s: ShareSettings) => void; getMember: (id: string) => Member | undefined;
+  onDataImported: () => void; onAddJournalEntry: (entry: JournalEntry) => void; onDeleteAccount: () => void;
 }
 
 export const ShareScreen = ({theme: T, system, members, front, history, journal, shareSettings, onSettingsChange, getMember, onDataImported, onAddJournalEntry, onDeleteAccount}: Props) => {
+  const {t} = useTranslation();
   const [section, setSection] = useState<Section>('export');
   const [emailAddr, setEmailAddr] = useState('');
   const [restoreFile, setRestoreFile] = useState<string | null>(null);
@@ -40,23 +34,23 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const [extPreview, setExtPreview] = useState<{members: any[]; switches: any[]; system: any} | null>(null);
   const [extSel, setExtSel] = useState({system: true, members: true, frontHistory: true});
 
-  const fronters = (front?.memberIds || []).map(getMember).filter(Boolean) as Member[];
+  const primaryFronters = (front?.primary?.memberIds || []).map(getMember).filter(Boolean) as Member[];
+  const coFronters = (front?.coFront?.memberIds || []).map(getMember).filter(Boolean) as Member[];
+  const coConsciousFronters = (front?.coConscious?.memberIds || []).map(getMember).filter(Boolean) as Member[];
+
   const tog = (k: keyof ShareSettings) => onSettingsChange({...shareSettings, [k]: !shareSettings[k]});
   const togR = (k: keyof typeof restoreSel) => setRestoreSel(s => ({...s, [k]: !s[k]}));
   const togE = (k: keyof typeof extSel) => setExtSel(s => ({...s, [k]: !s[k]}));
 
-  const handleJSON = async () => {try {await exportJSON(system, members, history, journal);} catch (e) {Alert.alert('Export Failed', String(e));}};
-  const handleHTML = async () => {try {await exportHTML(system, members, history, journal);} catch (e) {Alert.alert('Export Failed', String(e));}};
+  const handleJSON = async () => {try {await exportJSON(system, members, history, journal);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
+  const handleHTML = async () => {try {await exportHTML(system, members, history, journal);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleEmail = () => {
-    if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert('Invalid Email', 'Enter a valid email address first.'); return;}
+    if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
     exportEmail(system, members, history, journal, emailAddr);
   };
   const handleJournalExport = async (fmt: 'json' | 'txt' | 'md') => {
-    try {
-      if (fmt === 'json') await exportAllJournalJSON(journal, system.name);
-      else if (fmt === 'txt') await exportAllJournalTxt(journal, members, system.name);
-      else await exportAllJournalMd(journal, members, system.name);
-    } catch (e) {Alert.alert('Export Failed', String(e));}
+    try { if (fmt === 'json') await exportAllJournalJSON(journal, system.name); else if (fmt === 'txt') await exportAllJournalTxt(journal, members, system.name); else await exportAllJournalMd(journal, members, system.name);
+    } catch (e) {Alert.alert(t('share.exportFailed'), String(e));}
   };
 
   const handleImportJournalFile = async () => {
@@ -69,14 +63,11 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       if (['txt', 'md', 'markdown'].includes(ext)) {body = await RNFS.readFile(res.uri, 'utf8');}
       else if (ext === 'json') {
         const raw = await RNFS.readFile(res.uri, 'utf8');
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed._meta?.app === 'Plural Space') {setImportStatus('error'); setImportMsg('That looks like a backup file. Use Restore Backup instead.'); return;}
-          body = typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
+        try { const parsed = JSON.parse(raw); if (parsed._meta?.app === 'Plural Space') {setImportStatus('error'); setImportMsg(t('share.backupLooksLike')); return;} body = typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
         } catch {body = raw;}
-      } else {setImportStatus('error'); setImportMsg(`Unsupported format ".${ext}". Supported: .txt, .md, .json`); return;}
+      } else {setImportStatus('error'); setImportMsg(t('share.unsupportedFormat', {ext})); return;}
       onAddJournalEntry({id: uid(), title: titleBase, body, authorIds: [], hashtags: [], timestamp: Date.now()});
-      setImportStatus('success'); setImportMsg(`"${titleBase}" imported as a new journal entry.`);
+      setImportStatus('success'); setImportMsg(t('share.importedAsEntry', {title: titleBase}));
     } catch (e: any) {if (!DocumentPicker.isCancel(e)) {setImportStatus('error'); setImportMsg(e.message || 'Could not import file.');}}
   };
 
@@ -86,16 +77,16 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const [res] = await DocumentPicker.pick({type: ['application/json', 'public.json']});
       const content = await RNFS.readFile(res.uri, 'utf8');
       const parsed: ExportPayload = JSON.parse(content);
-      if (!parsed._meta || parsed._meta.app !== 'Plural Space') throw new Error('Not a valid Plural Space export file.');
+      if (!parsed._meta || parsed._meta.app !== 'Plural Space') throw new Error(t('share.notValidExport'));
       setRestoreFile(res.name || 'backup.json'); setRestoreData(parsed);
     } catch (e: any) {if (!DocumentPicker.isCancel(e)) setRestoreError(e.message || 'Could not read file.');}
   };
 
   const handleRestore = () => {
     if (!restoreData) return;
-    Alert.alert('Restore Data', 'This will overwrite the selected categories. Continue?', [
-      {text: 'Cancel', style: 'cancel'},
-      {text: 'Restore', style: 'destructive', onPress: async () => {
+    Alert.alert(t('share.restoreData'), t('share.restoreDataMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('share.restore'), style: 'destructive', onPress: async () => {
         if (restoreSel.system && restoreData.system) await store.set(KEYS.system, restoreData.system);
         if (restoreSel.members && restoreData.members) await store.set(KEYS.members, restoreData.members);
         if (restoreSel.journal && restoreData.journal) await store.set(KEYS.journal, restoreData.journal);
@@ -106,12 +97,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   };
 
   const handleSimplyPluralFetch = async () => {
-    if (!extToken.trim()) {Alert.alert('Token Required', 'Enter your Simply Plural API token.'); return;}
+    if (!extToken.trim()) {Alert.alert(t('share.tokenRequired'), t('share.tokenRequiredMsg')); return;}
     setExtLoading(true); setExtPreview(null);
     try {
       const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json'};
       const meRes = await fetch('https://v2.apparyllis.com/v1/me', {headers});
-      if (!meRes.ok) throw new Error(`Auth failed (${meRes.status}). Check your token.`);
+      if (!meRes.ok) throw new Error(t('share.authFailed', {status: meRes.status}));
       const meData = await meRes.json();
       const userId = meData.id || meData.uid;
       const [mRes, sRes] = await Promise.all([
@@ -129,12 +120,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         return m;
       });
       setExtPreview({system: meData, members: sanitized, switches: switchList});
-    } catch (e: any) {Alert.alert('Import Failed', e.message || 'Could not connect to Simply Plural.');}
+    } catch (e: any) {Alert.alert(t('share.importFailed'), e.message || 'Could not connect.');}
     finally {setExtLoading(false);}
   };
 
   const handlePluralKitFetch = async () => {
-    if (!extToken.trim()) {Alert.alert('Token Required', 'Enter your PluralKit token.'); return;}
+    if (!extToken.trim()) {Alert.alert(t('share.tokenRequired'), t('share.pkTokenRequiredMsg')); return;}
     setExtLoading(true); setExtPreview(null);
     try {
       const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralSpace/1.0'};
@@ -143,7 +134,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         fetch('https://api.pluralkit.me/v2/systems/@me/members', {headers}),
         fetch('https://api.pluralkit.me/v2/systems/@me/switches?limit=500', {headers}),
       ]);
-      if (!sRes.ok) throw new Error(`Auth failed (${sRes.status}). Check your token.`);
+      if (!sRes.ok) throw new Error(t('share.authFailed', {status: sRes.status}));
       let sData: any = {}; let mData: any = []; let swData: any = [];
       try { sData = await sRes.json(); } catch { sData = {}; }
       try { mData = await mRes.json(); } catch { mData = []; }
@@ -155,135 +146,89 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         return m;
       });
       setExtPreview({system: sData, members: sanitized, switches: Array.isArray(swData) ? swData : []});
-    } catch (e: any) {Alert.alert('Import Failed', e.message || 'Could not connect to PluralKit.');}
+    } catch (e: any) {Alert.alert(t('share.importFailed'), e.message || 'Could not connect.');}
     finally {setExtLoading(false);}
   };
 
-
   const convertSPSwitches = (switches: any[], idMap: Record<string, string>): HistoryEntry[] => {
-    return switches.map((sw: any, i: number, arr: any[]) => {
-      const next = arr[i - 1];
-      const externalMemberIds: string[] =
-        Array.isArray(sw.members) ? sw.members :
-        Array.isArray(sw.content?.members) ? sw.content.members :
-        (sw.content?.member ? [sw.content.member] : []);
+    const parsed = switches.map((sw: any) => {
+      const externalMemberIds: string[] = Array.isArray(sw.members) ? sw.members : Array.isArray(sw.content?.members) ? sw.content.members : (sw.content?.member ? [sw.content.member] : []);
       const resolvedIds = externalMemberIds.map((eid: string) => idMap[eid]).filter(Boolean) as string[];
-
       const rawTs = sw.content?.startTime || sw.content?.timestamp || sw.timestamp;
-      const startTime: number = typeof rawTs === 'number' ? rawTs :
-        (rawTs ? new Date(rawTs).getTime() : 0);
-      if (!startTime) return null;
-
-      const rawEnd = sw.content?.endTime ||
-        (next ? (next.content?.startTime || next.content?.timestamp || next.timestamp) : null);
-      const endTime: number | null = rawEnd
-        ? (typeof rawEnd === 'number' ? rawEnd : new Date(rawEnd).getTime())
-        : null;
-
-      return {
-        memberIds: resolvedIds,
-        startTime,
-        endTime,
-        note: sw.content?.comment || '',
-        mood: undefined,
-        location: undefined,
-      };
-    }).filter((h): h is HistoryEntry => h !== null && h.memberIds.length > 0);
+      const startTime: number = typeof rawTs === 'number' ? rawTs : (rawTs ? new Date(rawTs).getTime() : 0);
+      const rawEnd = sw.content?.endTime;
+      const endTime: number | null = rawEnd ? (typeof rawEnd === 'number' ? rawEnd : new Date(rawEnd).getTime()) : null;
+      return {resolvedIds, startTime, endTime, note: sw.content?.comment || ''};
+    }).filter(e => e.startTime > 0 && e.resolvedIds.length > 0);
+    parsed.sort((a, b) => a.startTime - b.startTime);
+    const OVERLAP_TOLERANCE = 60 * 1000;
+    const groups: (typeof parsed)[] = [];
+    const used = new Set<number>();
+    for (let i = 0; i < parsed.length; i++) {
+      if (used.has(i)) continue;
+      const group = [parsed[i]]; used.add(i);
+      for (let j = i + 1; j < parsed.length; j++) {
+        if (used.has(j)) continue;
+        const a = parsed[i]; const b = parsed[j];
+        const aEnd = a.endTime ?? Date.now(); const bEnd = b.endTime ?? Date.now();
+        if (Math.abs(a.startTime - b.startTime) <= OVERLAP_TOLERANCE || (b.startTime < aEnd && a.startTime < bEnd)) { group.push(b); used.add(j); }
+      }
+      groups.push(group);
+    }
+    return groups.map(group => {
+      const allIds = [...new Set(group.flatMap(e => e.resolvedIds))];
+      const startTime = Math.min(...group.map(e => e.startTime));
+      const endTimes = group.map(e => e.endTime);
+      const endTime = endTimes.includes(null) ? null : Math.max(...(endTimes as number[]));
+      const notes = group.map(e => e.note).filter(Boolean);
+      return {memberIds: allIds, startTime, endTime, note: notes.join(' | '), mood: undefined, location: undefined} as HistoryEntry;
+    }).filter(h => h.memberIds.length > 0);
   };
 
   const convertPKSwitches = (switches: any[], idMap: Record<string, string>): HistoryEntry[] => {
     return switches.map((sw: any, i: number, arr: any[]) => {
       const next = arr[i - 1];
-      const externalMemberIds: string[] = Array.isArray(sw.members) ? sw.members : [];
-      const resolvedIds = externalMemberIds.map((eid: string) => idMap[eid]).filter(Boolean) as string[];
-
-      return {
-        memberIds: resolvedIds,
-        startTime: new Date(sw.timestamp).getTime(),
-        endTime: next ? new Date(next.timestamp).getTime() : null,
-        note: '',
-        mood: undefined,
-        location: undefined,
-      };
+      const resolvedIds = (Array.isArray(sw.members) ? sw.members : []).map((eid: string) => idMap[eid]).filter(Boolean) as string[];
+      return {memberIds: resolvedIds, startTime: new Date(sw.timestamp).getTime(), endTime: next ? new Date(next.timestamp).getTime() : null, note: '', mood: undefined, location: undefined};
     }).filter(h => h.memberIds.length > 0);
   };
 
   const handleExtImport = () => {
     if (!extPreview) return;
     const isPK = importSource === 'pluralkit';
-    Alert.alert('Import Data', 'This will add data to your existing records. Continue?', [
-      {text: 'Cancel', style: 'cancel'},
-      {text: 'Import', onPress: async () => {
+    Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('share.importBtn'), onPress: async () => {
         if (extSel.system && extPreview.system) {
-          const name = isPK
-            ? extPreview.system.name
-            : (extPreview.system.content?.username || extPreview.system.content?.name || extPreview.system.username || extPreview.system.name || system.name);
-          const desc = isPK
-            ? (extPreview.system.description || system.description)
-            : (extPreview.system.content?.desc || extPreview.system.content?.description || extPreview.system.description || system.description);
+          const name = isPK ? extPreview.system.name : (extPreview.system.content?.username || extPreview.system.content?.name || extPreview.system.username || extPreview.system.name || system.name);
+          const desc = isPK ? (extPreview.system.description || system.description) : (extPreview.system.content?.desc || extPreview.system.content?.description || extPreview.system.description || system.description);
           await store.set(KEYS.system, {...system, name: name || system.name, description: desc});
         }
-
         if (extSel.members && extPreview.members.length > 0) {
-          const newM: Member[] = extPreview.members.map((m: any) => ({
-            id: uid(),
-            name: isPK ? m.display_name || m.name : (m.content?.name || m.name || 'Unknown'),
-            pronouns: isPK ? (m.pronouns || '') : (m.content?.pronouns || ''),
-            role: isPK ? '' : (m.content?.role || ''),
-            color: isPK ? (m.color ? `#${m.color}` : '#DAA520') : (m.content?.color || '#DAA520'),
-            description: isPK ? (m.description || '') : (m.content?.desc || ''),
-          }));
+          const newM: Member[] = extPreview.members.map((m: any) => ({id: uid(), name: isPK ? m.display_name || m.name : (m.content?.name || m.name || 'Unknown'), pronouns: isPK ? (m.pronouns || '') : (m.content?.pronouns || ''), role: isPK ? '' : (m.content?.role || ''), color: isPK ? (m.color ? `#${m.color}` : '#DAA520') : (m.content?.color || '#DAA520'), description: isPK ? (m.description || '') : (m.content?.desc || '')}));
           const merged = [...members, ...newM.filter(nm => !members.find(em => em.name.toLowerCase() === nm.name.toLowerCase()))];
           await store.set(KEYS.members, merged);
-
           const idMap: Record<string, string> = {};
-          extPreview.members.forEach((m: any, i: number) => {
-            const externalId = isPK ? (m.uuid || m.id) : (m.id);
-            const localMember = merged.find(lm => lm.name.toLowerCase() === newM[i]?.name.toLowerCase());
-            if (externalId && localMember) idMap[externalId] = localMember.id;
-            if (isPK && m.id && localMember) idMap[m.id] = localMember.id;
-          });
-
-          if (extSel.frontHistory && extPreview.switches.length > 0) {
-            const newH: HistoryEntry[] = isPK
-              ? convertPKSwitches(extPreview.switches, idMap)
-              : convertSPSwitches(extPreview.switches, idMap);
-
-            if (newH.length > 0) {
-              await store.set(KEYS.history, [...newH, ...history].sort((a, b) => b.startTime - a.startTime).slice(0, 1000));
-            }
-          }
+          extPreview.members.forEach((m: any, i: number) => { const eid = isPK ? (m.uuid || m.id) : m.id; const lm = merged.find(l => l.name.toLowerCase() === newM[i]?.name.toLowerCase()); if (eid && lm) idMap[eid] = lm.id; if (isPK && m.id && lm) idMap[m.id] = lm.id; });
+          if (extSel.frontHistory && extPreview.switches.length > 0) { const newH = isPK ? convertPKSwitches(extPreview.switches, idMap) : convertSPSwitches(extPreview.switches, idMap); if (newH.length > 0) await store.set(KEYS.history, [...newH, ...history].sort((a, b) => b.startTime - a.startTime).slice(0, 1000)); }
         } else if (extSel.frontHistory && extPreview.switches.length > 0) {
           const existingIdMap: Record<string, string> = {};
-          extPreview.members.forEach((m: any) => {
-            const externalId = isPK ? (m.uuid || m.id) : m.id;
-            const name = isPK ? (m.display_name || m.name || '') : (m.content?.name || m.name || '');
-            const localMember = members.find(lm => lm.name.toLowerCase() === name.toLowerCase());
-            if (externalId && localMember) existingIdMap[externalId] = localMember.id;
-            if (isPK && m.id && localMember) existingIdMap[m.id] = localMember.id;
-          });
-
-          const newH: HistoryEntry[] = isPK
-            ? convertPKSwitches(extPreview.switches, existingIdMap)
-            : convertSPSwitches(extPreview.switches, existingIdMap);
-
-          if (newH.length > 0) {
-            await store.set(KEYS.history, [...newH, ...history].sort((a, b) => b.startTime - a.startTime).slice(0, 1000));
-          }
+          extPreview.members.forEach((m: any) => { const eid = isPK ? (m.uuid || m.id) : m.id; const name = isPK ? (m.display_name || m.name || '') : (m.content?.name || m.name || ''); const lm = members.find(l => l.name.toLowerCase() === name.toLowerCase()); if (eid && lm) existingIdMap[eid] = lm.id; if (isPK && m.id && lm) existingIdMap[m.id] = lm.id; });
+          const newH = isPK ? convertPKSwitches(extPreview.switches, existingIdMap) : convertSPSwitches(extPreview.switches, existingIdMap);
+          if (newH.length > 0) await store.set(KEYS.history, [...newH, ...history].sort((a, b) => b.startTime - a.startTime).slice(0, 1000));
         }
-
         setExtPreview(null); setExtToken(''); setTimeout(() => onDataImported(), 500);
       }},
     ]);
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert('Delete All Data', 'This will permanently erase everything. This cannot be undone.', [
-      {text: 'Cancel', style: 'cancel'},
-      {text: 'Delete Everything', style: 'destructive', onPress: () => {
-        Alert.alert('Are you absolutely sure?', 'All your data will be gone forever.', [
-          {text: 'Cancel', style: 'cancel'},
-          {text: 'Yes, Delete Everything', style: 'destructive', onPress: onDeleteAccount},
+    Alert.alert(t('share.deleteAllDataTitle'), t('share.deleteAllDataMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('share.deleteEverything'), style: 'destructive', onPress: () => {
+        Alert.alert(t('share.areYouAbsolutelySure'), t('share.allDataGone'), [
+          {text: t('common.cancel'), style: 'cancel'},
+          {text: t('share.yesDeleteEverything'), style: 'destructive', onPress: onDeleteAccount},
         ]);
       }},
     ]);
@@ -314,67 +259,70 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   );
 
   const Toggle = ({value, onToggle}: {value: boolean; onToggle: () => void}) => (
-    <TouchableOpacity onPress={onToggle} activeOpacity={0.8}
-      style={{width: 40, height: 22, borderRadius: 11, backgroundColor: value ? T.accent : T.muted, justifyContent: 'center'}}>
+    <TouchableOpacity onPress={onToggle} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: value ? T.accent : T.muted, justifyContent: 'center'}}>
       <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: value ? 20 : 3}} />
     </TouchableOpacity>
   );
 
   const SectionRow = ({label, sublabel, value, onToggle, disabled = false}: any) => (
-    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13,
-      borderBottomWidth: 1, borderBottomColor: T.border, paddingHorizontal: 14, opacity: disabled ? 0.4 : 1}}>
-      <View style={{flex: 1}}>
-        <Text style={{fontSize: 14, color: T.text, fontWeight: '500'}}>{label}</Text>
-        {sublabel && <Text style={{fontSize: 11, color: T.muted, marginTop: 2}}>{sublabel}</Text>}
-      </View>
+    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: T.border, paddingHorizontal: 14, opacity: disabled ? 0.4 : 1}}>
+      <View style={{flex: 1}}><Text style={{fontSize: 14, color: T.text, fontWeight: '500'}}>{label}</Text>{sublabel && <Text style={{fontSize: 11, color: T.muted, marginTop: 2}}>{sublabel}</Text>}</View>
       <Toggle value={value && !disabled} onToggle={disabled ? () => {} : onToggle} />
     </View>
   );
 
-  return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content}
-      keyboardShouldPersistTaps="handled">
-      <Text style={[s.heading, {color: T.text}]}>Share & Export</Text>
+  const PreviewTier = ({label, fronters, color}: {label: string; fronters: Member[]; color: string}) => {
+    if (fronters.length === 0) return null;
+    return (
+      <View style={{marginTop: 8}}>
+        <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '600', marginBottom: 5}}>{label}</Text>
+        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
+          {fronters.map(m => (
+            <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: `${m.color}18`, borderColor: `${m.color}30`}}>
+              <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} /><Text style={{fontSize: 13, color: T.text}}>{m.name}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  };
 
+  return (
+    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+      <Text style={[s.heading, {color: T.text}]}>{t('share.title')}</Text>
       <View style={{flexDirection: 'row', gap: 6, marginBottom: 4}}>
-        <SectionBtn id="export" label="Export" />
-        <SectionBtn id="import" label="Import" />
-        <SectionBtn id="shareview" label="Share View" />
+        <SectionBtn id="export" label={t('share.export')} />
+        <SectionBtn id="import" label={t('share.import')} />
+        <SectionBtn id="shareview" label={t('share.shareView')} />
       </View>
 
       {section === 'export' && (
         <View>
-          <Divider label="Full System Export" />
-          <Text style={[s.para, {color: T.dim}]}>Downloads directly to your Downloads folder.</Text>
+          <Divider label={t('share.fullSystemExport')} />
+          <Text style={[s.para, {color: T.dim}]}>{t('share.downloadsDirectly')}</Text>
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ JSON', handleJSON, T.accentBg, T.accent, `${T.accent}40`], ['↓ HTML', handleHTML, T.infoBg, T.info, `${T.info}40`]].map(([label, fn, bg, color, border]: any) => (
-              <TouchableOpacity key={label} onPress={fn} activeOpacity={0.7}
-                style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
+              <TouchableOpacity key={label} onPress={fn} activeOpacity={0.7} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
                 <Text style={{fontSize: 14, fontWeight: '500', color}}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={[s.hint, {color: T.muted}]}>HTML opens natively in Google Docs when uploaded to Drive.</Text>
-
-          <Divider label="Journal Export" />
-          <Text style={[s.para, {color: T.dim}]}>Export only your journal entries.</Text>
+          <Text style={[s.hint, {color: T.muted}]}>{t('share.htmlHint')}</Text>
+          <Divider label={t('share.journalExport')} />
+          <Text style={[s.para, {color: T.dim}]}>{t('share.exportJournalOnly')}</Text>
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ .txt', 'txt', T.accentBg, T.accent, `${T.accent}40`], ['↓ .md', 'md', T.infoBg, T.info, `${T.info}40`], ['↓ .json', 'json', 'transparent', T.dim, T.border]].map(([label, fmt, bg, color, border]: any) => (
-              <TouchableOpacity key={fmt} onPress={() => handleJournalExport(fmt)} activeOpacity={0.7}
-                style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
+              <TouchableOpacity key={fmt} onPress={() => handleJournalExport(fmt)} activeOpacity={0.7} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
                 <Text style={{fontSize: 13, fontWeight: '500', color}}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={[s.hint, {color: T.muted}]}>Per-entry export: tap the ↑ icon on any journal card.</Text>
-
-          <Divider label="Send via Email" />
-          <TextInput value={emailAddr} onChangeText={setEmailAddr} placeholder="recipient@email.com"
-            placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
+          <Text style={[s.hint, {color: T.muted}]}>{t('share.perEntryHint')}</Text>
+          <Divider label={t('share.sendEmail')} />
+          <TextInput value={emailAddr} onChangeText={setEmailAddr} placeholder="recipient@email.com" placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10}} />
-          <TouchableOpacity onPress={handleEmail} activeOpacity={0.7}
-            style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-            <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>✉ Open in Mail App</Text>
+          <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+            <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{t('share.openInMail')}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -382,95 +330,76 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       {section === 'import' && (
         <View>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12, marginBottom: 4}}>
-            <SourceBtn id="journal" label="Journal File" />
-            <SourceBtn id="backup" label="Backup" />
-            <SourceBtn id="simplyplural" label="Simply Plural" />
-            <SourceBtn id="pluralkit" label="PluralKit" />
+            <SourceBtn id="journal" label={t('share.journalFile')} />
+            <SourceBtn id="backup" label={t('share.backup')} />
+            <SourceBtn id="simplyplural" label={t('share.simplyPlural')} />
+            <SourceBtn id="pluralkit" label={t('share.pluralKit')} />
           </View>
-
           {importSource === 'journal' && (
             <View>
-              <Divider label="Import Journal Entry" />
-              <Text style={[s.para, {color: T.dim}]}>Import a .txt, .md, or .json file as a new journal entry.</Text>
-              <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
-                <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>↑ Pick File to Import</Text>
+              <Divider label={t('share.importJournalEntry')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.importJournalDesc')}</Text>
+              <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{t('share.pickFile')}</Text>
               </TouchableOpacity>
               {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: 13, color: T.success}}>✓ {importMsg}</Text></View>}
               {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: 13, color: T.danger}}>⚠ {importMsg}</Text></View>}
             </View>
           )}
-
           {importSource === 'backup' && (
             <View>
-              <Divider label="Restore Backup" />
-              <Text style={[s.para, {color: T.dim}]}>Load a previously exported JSON backup.</Text>
-              <TouchableOpacity onPress={handlePickBackup} activeOpacity={0.7}
-                style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: restoreFile ? T.success : T.border, borderRadius: 10, padding: 22, alignItems: 'center', marginBottom: 14, gap: 6,
-                  backgroundColor: restoreFile ? T.successBg : 'transparent'}}>
+              <Divider label={t('share.restoreBackup')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.restoreBackupDesc')}</Text>
+              <TouchableOpacity onPress={handlePickBackup} activeOpacity={0.7} style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: restoreFile ? T.success : T.border, borderRadius: 10, padding: 22, alignItems: 'center', marginBottom: 14, gap: 6, backgroundColor: restoreFile ? T.successBg : 'transparent'}}>
                 <Text style={{fontSize: 20, color: T.dim}}>↑</Text>
-                <Text style={{fontSize: 13, color: restoreFile ? T.success : T.dim, textAlign: 'center'}}>{restoreFile || 'Tap to select a .json backup file'}</Text>
-                {restoreData && <Text style={{fontSize: 11, color: T.muted}}>Exported {new Date(restoreData._meta.exportedAt).toLocaleString()}</Text>}
+                <Text style={{fontSize: 13, color: restoreFile ? T.success : T.dim, textAlign: 'center'}}>{restoreFile || t('share.tapToSelect')}</Text>
+                {restoreData && <Text style={{fontSize: 11, color: T.muted}}>{t('share.exported', {date: new Date(restoreData._meta.exportedAt).toLocaleString()})}</Text>}
               </TouchableOpacity>
               {restoreError ? <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: 13, color: T.danger}}>⚠ {restoreError}</Text></View> : null}
               {restoreData && (
                 <>
-                  <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>Restore these categories</Text>
+                  <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.restoreCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    {([['system', 'System Name & Description', !!restoreData.system, null], ['members', 'Member Profiles', !!restoreData.members, restoreData.members?.length], ['journal', 'Journal Entries', !!restoreData.journal, restoreData.journal?.length], ['frontHistory', 'Front History', !!restoreData.frontHistory, restoreData.frontHistory?.length]] as any[]).map(([k, label, avail, count]) => (
-                      <SectionRow key={k} label={label} sublabel={avail && count !== null ? `${count} records` : avail ? undefined : 'Not in export'}
-                        value={restoreSel[k as keyof typeof restoreSel]} onToggle={() => togR(k)} disabled={!avail} />
+                    {([['system', t('share.systemNameDesc'), !!restoreData.system, null], ['members', t('share.memberProfiles'), !!restoreData.members, restoreData.members?.length], ['journal', t('share.journalEntries'), !!restoreData.journal, restoreData.journal?.length], ['frontHistory', t('share.frontHistory'), !!restoreData.frontHistory, restoreData.frontHistory?.length]] as any[]).map(([k, label, avail, count]) => (
+                      <SectionRow key={k} label={label} sublabel={avail && count !== null ? t('common.records', {count}) : avail ? undefined : t('common.notInExport')} value={restoreSel[k as keyof typeof restoreSel]} onToggle={() => togR(k)} disabled={!avail} />
                     ))}
                   </View>
-                  {restoreDone
-                    ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: 13, color: T.success, fontWeight: '500'}}>✓ Restore complete. Reloading…</Text></View>
-                    : <TouchableOpacity onPress={handleRestore} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
-                        <Text style={{fontSize: 14, fontWeight: '500', color: T.danger}}>⚠ Restore Selected Data</Text>
-                      </TouchableOpacity>}
+                  {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: 13, color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
+                    : <TouchableOpacity onPress={handleRestore} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: 14, fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
                 </>
               )}
-              <Divider label="Delete Account" />
-              <Text style={[s.para, {color: T.dim}]}>Permanently erase all data and return to setup.</Text>
-              <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
-                <Text style={{fontSize: 14, fontWeight: '500', color: T.danger}}>✕ Delete All Data</Text>
+              <Divider label={t('share.deleteAccount')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.deleteAccountDesc')}</Text>
+              <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+                <Text style={{fontSize: 14, fontWeight: '500', color: T.danger}}>{t('share.deleteAllData')}</Text>
               </TouchableOpacity>
             </View>
           )}
-
           {(importSource === 'simplyplural' || importSource === 'pluralkit') && (
             <View>
-              <Divider label={importSource === 'simplyplural' ? 'Simply Plural Import' : 'PluralKit Import'} />
-              <Text style={[s.para, {color: T.dim}]}>
-                {importSource === 'simplyplural'
-                  ? 'Generate a Read token in Simply Plural under Settings → Account → Tokens.'
-                  : "Get your token by DMing the PluralKit bot: pk;token"}
-              </Text>
-              <TextInput value={extToken} onChangeText={setExtToken}
-                placeholder={importSource === 'simplyplural' ? 'Paste your Simply Plural token' : 'Paste your PluralKit token'}
-                placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
+              <Divider label={importSource === 'simplyplural' ? t('share.spImport') : t('share.pkImport')} />
+              <Text style={[s.para, {color: T.dim}]}>{importSource === 'simplyplural' ? t('share.spTokenHint') : t('share.pkTokenHint')}</Text>
+              <TextInput value={extToken} onChangeText={setExtToken} placeholder={importSource === 'simplyplural' ? t('share.spTokenPlaceholder') : t('share.pkTokenPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 10, fontFamily: 'monospace'}} />
-              <TouchableOpacity onPress={importSource === 'simplyplural' ? handleSimplyPluralFetch : handlePluralKitFetch}
-                disabled={extLoading} activeOpacity={0.7}
+              <TouchableOpacity onPress={importSource === 'simplyplural' ? handleSimplyPluralFetch : handlePluralKitFetch} disabled={extLoading} activeOpacity={0.7}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10, opacity: extLoading ? 0.5 : 1}}>
-                <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{extLoading ? 'Fetching…' : 'Fetch Data'}</Text>
+                <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{extLoading ? t('share.fetching') : t('share.fetchData')}</Text>
               </TouchableOpacity>
               {extLoading && <ActivityIndicator color={T.accent} style={{marginTop: 12}} />}
               {extPreview && (
                 <View>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 14}}>
-                    <Text style={{fontSize: 16, fontWeight: '600', color: T.accent}}>{extPreview.system?.content?.username || extPreview.system?.name || extPreview.system?.username || 'System'}</Text>
-                    <Text style={{fontSize: 12, color: T.dim, marginTop: 2}}>{extPreview.members.length} members · {extPreview.switches.length} front entries</Text>
+                    <Text style={{fontSize: 16, fontWeight: '600', color: T.accent}}>{extPreview.system?.content?.username || extPreview.system?.name || extPreview.system?.username || t('share.system')}</Text>
+                    <Text style={{fontSize: 12, color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: extPreview.members.length})} · {t('share.frontEntries', {count: extPreview.switches.length})}</Text>
                   </View>
-                  <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>Import these categories</Text>
+                  <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label="System Name & Description" value={extSel.system} onToggle={() => togE('system')} />
-                    <SectionRow label="Member Profiles" sublabel={`${extPreview.members.length} members`} value={extSel.members} onToggle={() => togE('members')} />
-                    <SectionRow label="Front History" sublabel={`${extPreview.switches.length} entries`} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    <SectionRow label={t('share.systemNameDesc')} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow label={t('share.memberProfiles')} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow label={t('share.frontHistory')} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
-                  <TouchableOpacity onPress={handleExtImport} activeOpacity={0.7}
-                    style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
-                    <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>Import Selected</Text>
+                  <TouchableOpacity onPress={handleExtImport} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                    <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -481,34 +410,26 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
       {section === 'shareview' && (
         <View>
-          <Text style={[s.para, {color: T.dim, marginTop: 8}]}>Control what's visible in shared exports and email summaries.</Text>
+          <Text style={[s.para, {color: T.dim, marginTop: 8}]}>{t('share.controlVisibility')}</Text>
           <View style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 4}}>
-            <SectionRow label="Show current front" value={shareSettings.showFront} onToggle={() => tog('showFront')} />
-            <SectionRow label="Show member list" value={shareSettings.showMembers} onToggle={() => tog('showMembers')} />
-            <SectionRow label="Show member descriptions" value={shareSettings.showDescriptions} onToggle={() => tog('showDescriptions')} />
+            <SectionRow label={t('share.showCurrentFront')} value={shareSettings.showFront} onToggle={() => tog('showFront')} />
+            <SectionRow label={t('share.showMemberList')} value={shareSettings.showMembers} onToggle={() => tog('showMembers')} />
+            <SectionRow label={t('share.showMemberDescriptions')} value={shareSettings.showDescriptions} onToggle={() => tog('showDescriptions')} />
           </View>
-          <Divider label="Preview" />
+          <Divider label={t('share.preview')} />
           <View style={{backgroundColor: T.surface, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <Text style={{fontFamily: 'Georgia', fontSize: 20, color: T.accent, marginBottom: 4, fontStyle: 'italic'}}>{system.name}</Text>
             {system.description ? <Text style={{fontSize: 12, color: T.dim, lineHeight: 18, marginBottom: 12}}>{system.description}</Text> : null}
             {shareSettings.showFront && (
-              <View style={{marginTop: 10}}>
-                <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>Currently Fronting</Text>
-                {fronters.length > 0 ? (
-                  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
-                    {fronters.map(m => (
-                      <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: `${m.color}18`, borderColor: `${m.color}30`}}>
-                        <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
-                        <Text style={{fontSize: 13, color: T.text}}>{m.name}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : <Text style={{fontSize: 12, color: T.muted}}>Nobody set</Text>}
+              <View>
+                {primaryFronters.length === 0 && coFronters.length === 0 && coConsciousFronters.length === 0
+                  ? <Text style={{fontSize: 12, color: T.muted, marginTop: 8}}>{t('share.nobodySet')}</Text>
+                  : (<><PreviewTier label={t('tier.primaryFront')} fronters={primaryFronters} color={T.accent} /><PreviewTier label={t('tier.coFront')} fronters={coFronters} color={T.info} /><PreviewTier label={t('tier.coConscious')} fronters={coConsciousFronters} color={T.success} /></>)}
               </View>
             )}
             {shareSettings.showMembers && members.length > 0 && (
               <View style={{marginTop: 10}}>
-                <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>Members ({members.length})</Text>
+                <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.membersLabel', {count: members.length})}</Text>
                 {members.slice(0, 4).map(m => (
                   <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5}}>
                     <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
@@ -516,7 +437,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                     {m.pronouns ? <Text style={{fontSize: 11, color: T.dim}}>({m.pronouns})</Text> : null}
                   </View>
                 ))}
-                {members.length > 4 && <Text style={{fontSize: 11, color: T.muted, marginTop: 2}}>+{members.length - 4} more</Text>}
+                {members.length > 4 && <Text style={{fontSize: 11, color: T.muted, marginTop: 2}}>{t('share.more', {count: members.length - 4})}</Text>}
               </View>
             )}
           </View>

@@ -10,6 +10,8 @@ export const KEYS = {
   share:    'ps:share',
   settings: 'ps:settings',
   lightMode:'ps:lightMode',
+  language: 'ps:language',
+  groups:   'ps:groups',
 };
 
 export const store = {
@@ -18,32 +20,18 @@ export const store = {
       const raw = await AsyncStorage.getItem(key);
       if (raw === null) return fallback;
       return JSON.parse(raw) as T;
-    } catch {
-      return fallback;
-    }
+    } catch { return fallback; }
   },
-
   async set(key: string, value: unknown): Promise<void> {
-    try {
-      await AsyncStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.error('Storage write error:', e);
-    }
+    try { await AsyncStorage.setItem(key, JSON.stringify(value)); }
+    catch (e) { console.error('Storage write error:', e); }
   },
-
   async remove(key: string): Promise<void> {
-    try {
-      await AsyncStorage.removeItem(key);
-    } catch (e) {
-      console.error('Storage remove error:', e);
-    }
+    try { await AsyncStorage.removeItem(key); }
+    catch (e) { console.error('Storage remove error:', e); }
   },
-
   async clearAll(): Promise<void> {
-    try {
-      await AsyncStorage.multiRemove(Object.values(KEYS));
-    } catch (e) {
-      console.error('Storage clear error:', e);
-    }
+    try { await AsyncStorage.multiRemove(Object.values(KEYS)); }
+    catch (e) { console.error('Storage clear error:', e); }
   },
 };
