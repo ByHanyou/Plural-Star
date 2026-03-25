@@ -1,6 +1,6 @@
 // src/components/Sheet.tsx
-import React, {ReactNode, useRef, useState} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent} from 'react-native';
+import React, {ReactNode, useRef} from 'react';
+import {View, Text, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform} from 'react-native';
 import Modal from 'react-native-modal';
 import {Fonts} from '../theme';
 
@@ -15,32 +15,15 @@ interface SheetProps {
 
 export const Sheet = ({visible, title, theme: T, onClose, children, footer}: SheetProps) => {
   const scrollRef = useRef<ScrollView>(null);
-  const [scrollOffset, setScrollOffset] = useState(0);
-
-  const handleOnScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setScrollOffset(e.nativeEvent.contentOffset.y);
-  };
-
-  const handleScrollTo = (p: {x?: number; y?: number; animated?: boolean}) => {
-    scrollRef.current?.scrollTo(p);
-  };
 
   return (
     <Modal
       isVisible={visible}
       onBackdropPress={onClose}
-      onSwipeComplete={onClose}
-      swipeDirection="down"
       style={{justifyContent: 'flex-end', margin: 0}}
       backdropOpacity={0.85}
-      propagateSwipe
-      scrollTo={handleScrollTo}
-      scrollOffset={scrollOffset}
-      scrollOffsetMax={400}
       onModalShow={() => {
-        // Reset scroll position every time the modal opens
         scrollRef.current?.scrollTo({y: 0, animated: false});
-        setScrollOffset(0);
       }}
     >
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -55,13 +38,13 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
           <ScrollView
             ref={scrollRef}
             style={s.body}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="handled"
-            onScroll={handleOnScroll}
             scrollEventThrottle={16}
+            nestedScrollEnabled
           >
             {children}
-            <View style={{height: 16}} />
+            <View style={{height: 80}} />
           </ScrollView>
           {footer && <View style={[s.footer, {borderTopColor: T.border}]}>{footer}</View>}
         </View>
@@ -77,6 +60,6 @@ const s = StyleSheet.create({
   title: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic'},
   closeBtn: {padding: 4},
   closeX: {fontSize: 16},
-  body: {paddingHorizontal: 20, paddingTop: 16},
+  body: {paddingHorizontal: 20, paddingTop: 16, flex: 1},
   footer: {flexDirection: 'row', justifyContent: 'flex-end', gap: 8, paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 1},
 });

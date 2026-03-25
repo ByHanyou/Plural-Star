@@ -138,6 +138,29 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   );
 };
 
+// ── Mood Picker (standalone to prevent re-mount on keystroke) ──────────────
+
+const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom, setShowCustom, allMoods, T, t}: any) => (
+  <>
+    <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}>
+      <View style={{flexDirection: 'row', gap: 5}}>
+        {allMoods.map((m: string) => (
+          <TouchableOpacity key={m} onPress={() => {setMood(m); setShowCustom(false);}} activeOpacity={0.7}
+            style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, backgroundColor: mood === m && !showCustom ? `${T.accent}20` : T.surface, borderColor: mood === m && !showCustom ? `${T.accent}60` : T.border}}>
+            <Text style={{fontSize: 11, color: mood === m && !showCustom ? T.accent : T.dim, fontWeight: mood === m && !showCustom ? '600' : '400'}}>{m}</Text>
+          </TouchableOpacity>))}
+        <TouchableOpacity onPress={() => {setShowCustom(true); setMood('');}} activeOpacity={0.7}
+          style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, backgroundColor: showCustom ? `${T.accent}20` : T.surface, borderColor: showCustom ? `${T.accent}60` : T.border}}>
+          <Text style={{fontSize: 11, color: showCustom ? T.accent : T.dim}}>{t('modal.custom')}</Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
+    {showCustom && <TextInput value={customMood} onChangeText={setCustomMood} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
+      style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, marginTop: 4}} />}
+  </>
+);
+
 // ── Set Front Modal (three-tier, searchable chip picker) ──────────────────
 
 export const SetFrontModal = ({visible, theme: T, members, groups, current, settings, lastKnownLocation, onSave, onClose}: any) => {
@@ -201,33 +224,12 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     onClose();
   };
 
-  const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom, setShowCustom}: any) => (
-    <>
-      <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}>
-        <View style={{flexDirection: 'row', gap: 5}}>
-          {allMoods.map((m: string) => (
-            <TouchableOpacity key={m} onPress={() => {setMood(m); setShowCustom(false);}} activeOpacity={0.7}
-              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, backgroundColor: mood === m && !showCustom ? `${T.accent}20` : T.surface, borderColor: mood === m && !showCustom ? `${T.accent}60` : T.border}}>
-              <Text style={{fontSize: 11, color: mood === m && !showCustom ? T.accent : T.dim, fontWeight: mood === m && !showCustom ? '600' : '400'}}>{m}</Text>
-            </TouchableOpacity>))}
-          <TouchableOpacity onPress={() => {setShowCustom(true); setMood('');}} activeOpacity={0.7}
-            style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, backgroundColor: showCustom ? `${T.accent}20` : T.surface, borderColor: showCustom ? `${T.accent}60` : T.border}}>
-            <Text style={{fontSize: 11, color: showCustom ? T.accent : T.dim}}>{t('modal.custom')}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-      {showCustom && <TextInput value={customMood} onChangeText={setCustomMood} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
-        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, marginTop: 4}} />}
-    </>
-  );
-
   return (
     <Sheet visible={visible} title={t('modal.updateFront')} theme={T} onClose={onClose} footer={<><Btn variant="ghost" T={T} onPress={() => {onSave(EMPTY_TIER, EMPTY_TIER, EMPTY_TIER); onClose();}}>{t('common.clear')}</Btn><Btn T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       {/* Primary */}
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
       <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={members} groups={groups} allAssigned={allAssigned} T={T} t={t} />
-      <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} />
+      <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
       {allLocations.length > 0 && (<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}><View style={{flexDirection: 'row', gap: 5}}>
@@ -240,14 +242,14 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       {/* Co-Front */}
       <SectionDivider label={t('tier.coFront')} color={T.info} T={T} />
       <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={members} groups={groups} allAssigned={allAssigned} T={T} t={t} />
-      <MoodPicker mood={coFrontMood} setMood={setCoFrontMood} customMood={coFrontCustomMood} setCustomMood={setCoFrontCustomMood} showCustom={coFrontShowCustom} setShowCustom={setCoFrontShowCustom} />
+      <MoodPicker mood={coFrontMood} setMood={setCoFrontMood} customMood={coFrontCustomMood} setCustomMood={setCoFrontCustomMood} showCustom={coFrontShowCustom} setShowCustom={setCoFrontShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 8}} />
       <Field label={t('modal.noteOptional')} value={coFrontNote} onChange={setCoFrontNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
 
       {/* Co-Conscious */}
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
       <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={members} groups={groups} allAssigned={allAssigned} T={T} t={t} />
-      <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} />
+      <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 8}} />
       <Field label={t('modal.noteOptional')} value={coConsciousNote} onChange={setCoConsciousNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
     </Sheet>
