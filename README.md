@@ -16,9 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.buymeacoffee.com/pluralspace">
-    <img src="https://img.shields.io/badge/Support%20on%20BMC-DAA520?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Buy Me a Coffee" />
-  </a>
+  <a href="https://www.buymeacoffee.com/PluralSpace" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 </p>
 
 <p align="center">
@@ -35,10 +33,10 @@ Simply Plural is being discontinued. Plural Space is the replacement you own ent
 Track who's fronting across three distinct tiers: Primary Front, Co-Front, and Co-Conscious. Each tier has its own member selection, mood, and notes. Primary Front also tracks location. Members are exclusive to one tier at a time. Set all three tiers from a single unified modal with a searchable member picker — type a name or filter by tag to find members instantly, even in large systems. A persistent notification keeps all three tiers visible from your notification shade.
 
 **◇ Member Profiles**  
-Build out your system roster with names, pronouns, roles, colors, and bios. Organize members with freeform tags and named groups. Tag members however makes sense for your system — by role, subsystem, origin, or anything else. Create colored named groups and assign members to multiple groups. Filter the member list by group, tag, or search. Members display tier-specific badges (Primary, Co-Front, Co-Con) when fronting.
+Build out your system roster with names, pronouns, roles, colors, and bios. Organize members with freeform tags and named groups. Tag members however makes sense for your system — by role, subsystem, origin, or anything else. Create colored named groups and assign members to multiple groups. Filter the member list by group, tag, or search. Members display tier-specific badges (Primary, Co-Front, Co-Con) when fronting. Archive dormant members to keep your active roster clean — archived members are hidden from the front picker but their history is fully preserved, and they can be restored at any time.
 
 **◷ History & Insights**  
-Front History gives you a complete timestamped log of every switch, organized by day, with co-front and co-conscious tiers displayed inline. Member History shows everything about a specific headmate — every front session across all tiers, mood changes, location changes, note updates, and journal entries they authored — alongside a summary of total time fronted, sessions, top mood, and top location.
+Front History gives you a complete timestamped log of every switch, organized by day, with co-front and co-conscious tiers displayed inline. Member History shows everything about a specific headmate — every front session across all tiers, mood changes, location changes, note updates, and journal entries they authored — alongside a summary of total time fronted, sessions, top mood, and top location. Add retroactive history entries manually with full three-tier support, start/end time selection, and a "Current" option for ongoing sessions — the app detects overlaps with existing entries and lets you choose how to handle them.
 
 **◉ System Journal**  
 Write journal entries as a system. Tag entries with authors (specific headmates), add topic hashtags, and optionally lock individual entries or the entire journal behind passwords. Filter entries by author or tag. Export individual entries or the full journal in `.txt`, `.md`, or `.json`.
@@ -49,10 +47,10 @@ Migrating from Simply Plural or PluralKit? Import your full system data — memb
 Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Import `.txt`, `.md`, or `.json` files directly as journal entries.
 
 **🌐 Multilingual**  
-Full interface available in English, Español, Français, Português, and Deutsch. Auto-detects your device language on first launch. Change anytime in System Settings.
+Full interface available in English, Español, Français, Deutsch, and Português. Auto-detects your device language on first launch. Change anytime in System Settings.
 
 **Other Features**
-- Obsidian Blue dark theme and Steel light theme
+- Obsidian Blue dark theme and Steel light theme built-in, plus 10 custom palette slots — define your own four-color theme
 - Mood picker with preset and custom mood support
 - Location tagging with optional GPS auto-fill (resolves to neighbourhood or city — raw coordinates are never stored)
 - Notification toggle in System Settings
@@ -100,9 +98,9 @@ cd android && gradlew.bat assembleRelease
 
 ## License
 
-[GNU General Public License v3.0](LICENSE)
+[GNU Affero General Public License v3.0](LICENSE)
 
-This software is free and open source. You are free to use, modify, and distribute it under the terms of the GPL-3.0 license. Any distributed modifications must also be released under GPL-3.0.
+This software is free and open source. You are free to use, modify, and distribute it under the terms of the AGPL-3.0 license. Any distributed modifications or network-accessible deployments must also be released under AGPL-3.0.
 
 ---
 
@@ -110,9 +108,7 @@ This software is free and open source. You are free to use, modify, and distribu
 
 Plural Space is free, always. If it's been useful to you, a contribution helps cover Play Store fees and development time.
 
-<a href="https://www.buymeacoffee.com/pluralspace">
-  <img src="https://img.buymeacoffee.com/button-api/?text=Support+PS&amp;emoji=&amp;slug=pluralspace&amp;button_colour=0a1f2e&amp;font_colour=ffffff&amp;font_family=Cookie&amp;outline_colour=ffffff&amp;coffee_colour=FFDD00" alt="Support on Buy Me a Coffee" />
-</a>
+<a href="https://www.buymeacoffee.com/PluralSpace" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 ---
 
