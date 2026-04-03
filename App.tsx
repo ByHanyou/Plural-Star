@@ -137,10 +137,10 @@ function MainAppContent() {
   }, []);
 
   const requestPermissions = async () => {
-    if (Platform.OS !== 'android') return;
     try {
       await notifee.requestPermission();
     } catch (e) { console.error('[PS] notification permission error:', e); }
+    if (Platform.OS !== 'android') return;
     try {
       if (appSettings.gpsEnabled) {
         await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
@@ -177,15 +177,15 @@ function MainAppContent() {
   useEffect(() => { if (loaded && !firstRun) requestPermissions(); }, [loaded, firstRun]);
 
   useEffect(() => {
-    if (appSettings.notificationsEnabled) { showFrontNotification(front, members).catch(e => console.error('[PS] notif error:', e)); }
+    if (appSettings.notificationsEnabled) { showFrontNotification(front, members, system.name).catch(e => console.error('[PS] notif error:', e)); }
     else { clearFrontNotification().catch(e => console.error('[PS] clear notif error:', e)); }
-  }, [front, members, appSettings.notificationsEnabled]);
+  }, [front, members, appSettings.notificationsEnabled, system.name]);
 
   useEffect(() => {
     if (!front || !appSettings.notificationsEnabled) return;
-    const interval = setInterval(() => { showFrontNotification(front, members).catch(e => console.error('[PS] notif refresh error:', e)); }, 5 * 60 * 1000);
+    const interval = setInterval(() => { showFrontNotification(front, members, system.name).catch(e => console.error('[PS] notif refresh error:', e)); }, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [front, members, appSettings.notificationsEnabled]);
+  }, [front, members, appSettings.notificationsEnabled, system.name]);
 
   const saveSystem = async (d: SystemInfo) => {setSystem(d); await store.set(KEYS.system, d);};
   const saveMembers = async (d: Member[]) => {setMembers(d); await store.set(KEYS.members, d);};
@@ -364,7 +364,7 @@ function MainAppContent() {
   return (
     <View style={[styles.root, {backgroundColor: C.bg}]}>
       <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor={C.bg} translucent={false} />
-      <View style={{backgroundColor: C.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0}}>
+      <View style={{backgroundColor: C.bg, paddingTop: Platform.OS === 'ios' ? Math.max(insets.top - 6, 0) : StatusBar.currentHeight || 0}}>
         <View style={[styles.header, {borderBottomColor: C.border, backgroundColor: C.bg}]}>
           <AccentText T={C} style={[styles.headerTitle, {color: C.accent}]}>{system.name}</AccentText>
           <View style={styles.headerRight}>
@@ -375,9 +375,9 @@ function MainAppContent() {
         </View>
       </View>
       <View style={styles.content}>{renderScreen()}</View>
-      <View style={[styles.tabBar, {backgroundColor: C.surface, borderTopColor: C.border, paddingBottom: insets.bottom || 0}]}>
+      <View style={[styles.tabBar, {backgroundColor: C.surface, borderTopColor: C.border}]}>
         {TAB_IDS.map(id => (
-          <TouchableOpacity key={id} onPress={() => setTab(id)} activeOpacity={0.7} style={styles.tabBtn}>
+          <TouchableOpacity key={id} onPress={() => setTab(id)} activeOpacity={0.7} style={[styles.tabBtn, {paddingBottom: 8 + (insets.bottom || 0)}]}>
             <AccentText T={C} style={[styles.tabIcon, {color: tab === id ? C.accent : C.dim}]}>{TAB_ICONS[id]}</AccentText>
             <AccentText T={C} style={[styles.tabLabel, {color: tab === id ? C.accent : C.dim}]}>{t(`tabs.${id}`)}</AccentText>
           </TouchableOpacity>

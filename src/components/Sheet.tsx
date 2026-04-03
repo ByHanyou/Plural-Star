@@ -1,6 +1,7 @@
-import React, {ReactNode, useRef, useState} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent} from 'react-native';
+import React, {ReactNode, useRef} from 'react';
+import {View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform} from 'react-native';
 import Modal from 'react-native-modal';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts} from '../theme';
 
 interface SheetProps {
@@ -13,16 +14,8 @@ interface SheetProps {
 }
 
 export const Sheet = ({visible, title, theme: T, onClose, children, footer}: SheetProps) => {
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
-  const [scrollOffset, setScrollOffset] = useState(0);
-  const [contentHeight, setContentHeight] = useState(0);
-  const [containerHeight, setContainerHeight] = useState(0);
-
-  const scrollOffsetMax = Math.max(0, contentHeight - containerHeight);
-
-  const handleOnScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setScrollOffset(e.nativeEvent.contentOffset.y);
-  };
 
   const handleScrollTo = (p: {x?: number; y?: number; animated?: boolean}) => {
     scrollRef.current?.scrollTo(p);
@@ -36,41 +29,38 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
       swipeDirection="down"
       style={{justifyContent: 'flex-end', margin: 0}}
       backdropOpacity={0.85}
+      animationIn="slideInUp"
+      animationOut="slideOutDown"
+      animationInTiming={220}
+      animationOutTiming={180}
+      backdropTransitionInTiming={220}
+      backdropTransitionOutTiming={180}
+      useNativeDriver={false}
+      useNativeDriverForBackdrop={false}
+      avoidKeyboard={Platform.OS === 'ios'}
       propagateSwipe
       scrollTo={handleScrollTo}
-      scrollOffset={scrollOffset}
-      scrollOffsetMax={scrollOffsetMax}
-      onModalShow={() => {
-        scrollRef.current?.scrollTo({y: 0, animated: false});
-        setScrollOffset(0);
-      }}
     >
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={[s.sheet, {backgroundColor: T.card, borderColor: T.border}]}>
-          <View style={[s.handle, {backgroundColor: T.borderLt}]} />
-          <View style={[s.header, {borderBottomColor: T.border}]}>
-            <Text style={[s.title, {color: T.text}]}>{title}</Text>
-            <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={s.closeBtn}>
-              <Text style={[s.closeX, {color: T.dim}]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            ref={scrollRef}
-            style={s.body}
-            showsVerticalScrollIndicator={true}
-            keyboardShouldPersistTaps="handled"
-            onScroll={handleOnScroll}
-            scrollEventThrottle={16}
-            nestedScrollEnabled
-            onLayout={e => setContainerHeight(e.nativeEvent.layout.height)}
-            onContentSizeChange={(_w, h) => setContentHeight(h)}
-          >
-            {children}
-            <View style={{height: 80}} />
-          </ScrollView>
-          {footer && <View style={[s.footer, {borderTopColor: T.border}]}>{footer}</View>}
+      <View style={[s.sheet, {backgroundColor: T.card, borderColor: T.border}]}>
+        <View style={[s.handle, {backgroundColor: T.borderLt}]} />
+        <View style={[s.header, {borderBottomColor: T.border}]}>
+          <Text style={[s.title, {color: T.text}]}>{title}</Text>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={s.closeBtn}>
+            <Text style={[s.closeX, {color: T.dim}]}>✕</Text>
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+        <ScrollView
+          ref={scrollRef}
+          style={s.body}
+          contentContainerStyle={{paddingBottom: footer ? 24 : 24 + insets.bottom}}
+          showsVerticalScrollIndicator={true}
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          {children}
+        </ScrollView>
+        {footer && <View style={[s.footer, {borderTopColor: T.border, paddingBottom: 16 + insets.bottom}]}>{footer}</View>}
+      </View>
     </Modal>
   );
 };

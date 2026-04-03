@@ -4,7 +4,9 @@ import notifee, {
   AndroidVisibility,
   AndroidStyle,
 } from '@notifee/react-native';
+import {Platform} from 'react-native';
 import {FrontState, Member, fmtDur, fmtTime, isFrontEmpty} from '../utils';
+import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 
 export const NOTIF_CHANNEL_ID = 'plural-space-front';
 export const NOTIF_ID = 'ps-front-status';
@@ -46,8 +48,14 @@ const getTierField = (front: any, tier: string, field: string): string | undefin
 export const showFrontNotification = async (
   front: FrontState | null,
   members: Member[],
+  systemName = 'Plural Space',
 ) => {
   try {
+    if (Platform.OS === 'ios') {
+      await updateFrontLiveActivity(front, members, systemName);
+      return;
+    }
+
     if (!front) {
       await clearFrontNotification();
       return;
@@ -123,6 +131,10 @@ export const showFrontNotification = async (
 
 export const clearFrontNotification = async () => {
   try {
+    if (Platform.OS === 'ios') {
+      await endFrontLiveActivity();
+      return;
+    }
     await notifee.cancelNotification(NOTIF_ID);
   } catch (e) {
     console.error('[PluralSpace] Clear notification error:', e);
