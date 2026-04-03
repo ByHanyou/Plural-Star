@@ -30,5 +30,61 @@ target 'PluralSpace' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Xcode 26 in this environment does not materialize the document picker
+    # module map at PODS_CONFIGURATION_BUILD_DIR soon enough for app target
+    # compilation, so point the app xcconfigs at the stable generated file.
+    support_files = [
+      'Target Support Files/Pods-PluralSpace/Pods-PluralSpace.debug.xcconfig',
+      'Target Support Files/Pods-PluralSpace/Pods-PluralSpace.release.xcconfig',
+    ]
+    from = '${PODS_CONFIGURATION_BUILD_DIR}/react-native-document-picker/react_native_document_picker.modulemap'
+    to = '${PODS_ROOT}/Target Support Files/react-native-document-picker/react-native-document-picker.modulemap'
+
+    support_files.each do |relative_path|
+      xcconfig_path = File.join(installer.sandbox.root, relative_path)
+      next unless File.exist?(xcconfig_path)
+
+      contents = File.read(xcconfig_path)
+      updated = contents.gsub(from, to)
+      File.write(xcconfig_path, updated) if updated != contents
+    end
+
+    fmt_support_files = [
+      'Target Support Files/fmt/fmt.debug.xcconfig',
+      'Target Support Files/fmt/fmt.release.xcconfig',
+    ]
+
+    fmt_support_files.each do |relative_path|
+      xcconfig_path = File.join(installer.sandbox.root, relative_path)
+      next unless File.exist?(xcconfig_path)
+
+      contents = File.read(xcconfig_path)
+      updated = contents.gsub(
+        'GCC_PREPROCESSOR_DEFINITIONS = $(inherited) COCOAPODS=1',
+        'GCC_PREPROCESSOR_DEFINITIONS = $(inherited) COCOAPODS=1 FMT_USE_CONSTEVAL=0'
+      )
+      File.write(xcconfig_path, updated) if updated != contents
+    end
+
+    fmt_base_header = File.join(installer.sandbox.root, 'fmt/include/fmt/base.h')
+    if File.exist?(fmt_base_header)
+      contents = File.read(fmt_base_header)
+      updated = contents.gsub(
+        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#if !defined(__cpp_lib_is_constant_evaluated)",
+        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#ifdef FMT_USE_CONSTEVAL\n// Use the provided definition.\n#elif !defined(__cpp_lib_is_constant_evaluated)"
+      )
+      File.write(fmt_base_header, updated) if updated != contents
+    end
+
+    pods_project_path = File.join(installer.sandbox.root, 'Pods.xcodeproj/project.pbxproj')
+    if File.exist?(pods_project_path)
+      contents = File.read(pods_project_path)
+      updated = contents.gsub(
+        '/bin/sh -c "$WITH_ENVIRONMENT $SCRIPT_PHASES_SCRIPT"',
+        '"$WITH_ENVIRONMENT" "$SCRIPT_PHASES_SCRIPT"'
+      )
+      File.write(pods_project_path, updated) if updated != contents
+    end
   end
 end

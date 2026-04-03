@@ -1,6 +1,7 @@
 // src/export/exportUtils.ts
-import {Alert, Linking} from 'react-native';
+import {Alert, Linking, Platform} from 'react-native';
 import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 import {
   SystemInfo,
   Member,
@@ -132,13 +133,36 @@ export const buildEmailBody = (
 const dateSlug = () => new Date().toISOString().slice(0, 10);
 
 const saveToDownloads = async (content: string, filename: string): Promise<void> => {
-  const path = `${RNFS.DownloadDirectoryPath}/${filename}`;
+  const isAndroid = Platform.OS === 'android';
+  const basePath = isAndroid
+    ? RNFS.DownloadDirectoryPath
+    : RNFS.TemporaryDirectoryPath || RNFS.DocumentDirectoryPath;
+  const path = `${basePath}/${filename}`;
   await RNFS.writeFile(path, content, 'utf8');
-  Alert.alert(
-    'Saved to Downloads',
-    `${filename} has been saved to your Downloads folder.`,
-    [{text: 'OK'}],
-  );
+  if (isAndroid) {
+    Alert.alert(
+      'Saved to Downloads',
+      `${filename} has been saved to your Downloads folder.`,
+      [{text: 'OK'}],
+    );
+    return;
+  }
+
+  try {
+    await Share.open({
+      url: `file://${path}`,
+      type: 'text/plain',
+      filename,
+      failOnCancel: false,
+      saveToFiles: true,
+    });
+  } catch (e) {
+    Alert.alert(
+      'Export Ready',
+      `${filename} was generated, but the iOS share sheet could not be opened automatically.`,
+      [{text: 'OK'}],
+    );
+  }
 };
 
 // ── Full system export ────────────────────────────────────────────────────────
