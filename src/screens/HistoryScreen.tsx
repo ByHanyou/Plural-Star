@@ -106,8 +106,8 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
     return (
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2}}>
         <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: color}} />
-        <Text style={{fontSize: 10, color, fontWeight: '600', letterSpacing: 0.5}}>{label}</Text>
-        <Text style={{fontSize: 11, color: T.dim}} numberOfLines={1}>{names}</Text>
+        <Text style={{fontSize: fs(10), color, fontWeight: '600', letterSpacing: 0.5}}>{label}</Text>
+        <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{names}</Text>
       </View>
     );
   };
@@ -149,7 +149,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
           ) : (
             Object.entries(frontGroups).map(([date, entries]) => (
               <View key={date} style={{marginBottom: 24}}>
-                <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase',
+                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase',
                   color: T.dim, marginBottom: 8, fontWeight: '600'}}>{date}</Text>
                 {entries.map((entry, i) => {
                   const primaryFronters = (entry.memberIds || []).map(getMember).filter(Boolean) as Member[];
@@ -178,7 +178,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                           <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={1}>
                             {primaryFronters.map(m => m.name).join(', ') || t('common.unknown')}
                           </Text>
-                          <AccentText T={T} style={{fontSize: 12, color: T.accent, fontWeight: '500'}}>
+                          <AccentText T={T} style={{fontSize: fs(12), color: T.accent, fontWeight: '500'}}>
                             {fmtDur(entry.startTime, entry.endTime)}
                           </AccentText>
                         </View>
@@ -191,7 +191,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                           </View>
                         )}
 
-                        <Text style={{fontSize: 11, color: T.muted, marginBottom: 4}}>
+                        <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 4}}>
                           {fmtTime(entry.startTime)}
                           {isOpen ? ` → ${t('history.now')}` : entry.endTime ? ` → ${fmtTime(entry.endTime)}` : ''}
                         </Text>
@@ -199,21 +199,21 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                           <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
                             {entry.mood && (
                               <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                <Text style={{fontSize: 10, color: T.dim}}>{t('history.mood')} </Text>
-                                <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{entry.mood}</Text>
+                                <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
+                                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.mood}</Text>
                               </View>
                             )}
                             {entry.location && (
                               <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                <Text style={{fontSize: 10, color: T.dim}}>{t('history.at')} </Text>
-                                <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{entry.location}</Text>
+                                <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
+                                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.location}</Text>
                               </View>
                             )}
                           </View>
                         )}
                         {entry.note ? (
                           <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 8}}>
-                            <Text style={{fontSize: 12, color: T.dim, lineHeight: 18}}>{entry.note}</Text>
+                            <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18}}>{entry.note}</Text>
                           </View>
                         ) : null}
                       </View>
@@ -242,7 +242,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                     <Avatar member={selectedMember} size={32} T={T} />
                     <View style={{flex: 1}}>
                       <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text}}>{selectedMember.name}</Text>
-                      {selectedMember.pronouns ? <Text style={{fontSize: 11, color: T.dim}}>{selectedMember.pronouns}</Text> : null}
+                      {selectedMember.pronouns ? <Text style={{fontSize: fs(11), color: T.dim}}>{selectedMember.pronouns}</Text> : null}
                     </View>
                     <TouchableOpacity onPress={() => {setSelectedMemberId(null); setMemberSearch('');}} activeOpacity={0.7}>
                       <Text style={{fontSize: fs(14), color: T.dim}}>✕</Text>
@@ -284,23 +284,23 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                 return (
                   <View style={{flexDirection: 'row', gap: 8, margin: 16, marginBottom: 8}}>
                     <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.totalTime')}</Text>
+                      <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.totalTime')}</Text>
                       <AccentText T={T} style={{fontSize: fs(15), fontWeight: '700', color: T.accent}}>{fmtDur(0, totalMs)}</AccentText>
                     </View>
                     <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.sessions')}</Text>
+                      <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.sessions')}</Text>
                       <Text style={{fontSize: fs(15), fontWeight: '700', color: T.text}}>{frontE.length}</Text>
                     </View>
                     {topMood && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                        <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topMood')}</Text>
-                        <Text style={{fontSize: 12, fontWeight: '600', color: T.text}} numberOfLines={1}>{topMood[0]}</Text>
+                        <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topMood')}</Text>
+                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{topMood[0]}</Text>
                       </View>
                     )}
                     {topLoc && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
-                        <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topLocation')}</Text>
-                        <Text style={{fontSize: 12, fontWeight: '600', color: T.text}} numberOfLines={1}>{topLoc[0]}</Text>
+                        <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topLocation')}</Text>
+                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{topLoc[0]}</Text>
                       </View>
                     )}
                   </View>
@@ -334,9 +334,9 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                         </View>
                         <View style={[s.card, {flex: 1, backgroundColor: T.card, borderColor: T.border}]}>
                           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
-                            <Text style={{fontSize: 12, color, marginRight: 6, fontWeight: '600',
+                            <Text style={{fontSize: fs(12), color, marginRight: 6, fontWeight: '600',
                               }}>{icon} {label}</Text>
-                            <Text style={{fontSize: 11, color: T.muted, marginLeft: 'auto'}}>{fmtTime(event.time)}</Text>
+                            <Text style={{fontSize: fs(11), color: T.muted, marginLeft: 'auto'}}>{fmtTime(event.time)}</Text>
                           </View>
 
                           {'entry' in event && event.entry && (() => {
@@ -345,7 +345,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                             return (
                               <>
                                 {event.type === 'front' && (
-                                  <Text style={{fontSize: 11, color: T.muted, marginBottom: 4}}>
+                                  <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 4}}>
                                     {fmtTime(e.startTime)}{isOpen ? ` → ${t('history.now')}` : e.endTime ? ` → ${fmtTime(e.endTime)}` : ''}
                                     {'  '}<AccentText T={T} style={{color: T.accent}}>{fmtDur(e.startTime, e.endTime)}</AccentText>
                                   </Text>
@@ -354,21 +354,21 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                                   <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: e.note ? 4 : 0}}>
                                     {e.mood && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                        <Text style={{fontSize: 10, color: T.dim}}>{t('history.mood')} </Text>
-                                        <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{e.mood}</Text>
+                                        <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
+                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{e.mood}</Text>
                                       </View>
                                     )}
                                     {e.location && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                        <Text style={{fontSize: 10, color: T.dim}}>{t('history.at')} </Text>
-                                        <Text style={{fontSize: 11, color: T.text, fontWeight: '500'}}>{e.location}</Text>
+                                        <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
+                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{e.location}</Text>
                                       </View>
                                     )}
                                   </View>
                                 )}
                                 {e.note ? (
                                   <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 7}}>
-                                    <Text style={{fontSize: 12, color: T.dim, lineHeight: 17}}>{e.note}</Text>
+                                    <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}}>{e.note}</Text>
                                   </View>
                                 ) : null}
                               </>
@@ -381,7 +381,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                                 {event.journalEntry.title || t('common.untitled')}
                               </Text>
                               {event.journalEntry.body ? (
-                                <Text style={{fontSize: 12, color: T.dim, lineHeight: 17}} numberOfLines={2}>
+                                <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}} numberOfLines={2}>
                                   {event.journalEntry.body}
                                 </Text>
                               ) : null}
@@ -390,7 +390,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members}: 
                                   {(event.journalEntry.hashtags || []).map((t: string) => (
                                     <View key={t} style={{paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
                                       backgroundColor: `${T.info}12`, borderWidth: 1, borderColor: `${T.info}30`}}>
-                                      <Text style={{fontSize: 10, color: T.info}}>{t}</Text>
+                                      <Text style={{fontSize: fs(10), color: T.info}}>{t}</Text>
                                     </View>
                                   ))}
                                 </View>

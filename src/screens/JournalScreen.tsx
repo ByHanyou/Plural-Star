@@ -98,7 +98,7 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
           placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
           style={[s.input, {width: '100%', backgroundColor: T.surface, color: T.text, borderColor: globalPwError ? T.danger : T.border, marginBottom: 6}]}
           onSubmitEditing={handleGlobalUnlock} />
-        {globalPwError && <Text style={{fontSize: 12, color: T.danger, marginBottom: 10, alignSelf: 'flex-start'}}>{t('journal.incorrectPassword')}</Text>}
+        {globalPwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, alignSelf: 'flex-start'}}>{t('journal.incorrectPassword')}</Text>}
         <TouchableOpacity onPress={handleGlobalUnlock} activeOpacity={0.8}
           style={{width: '100%', backgroundColor: T.accent, borderRadius: 8, paddingVertical: 13, alignItems: 'center', marginTop: 8}}>
           <Text style={{fontSize: fs(15), fontWeight: '700', color: '#0a0508'}}>{t('journal.unlockJournal')}</Text>
@@ -123,13 +123,13 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
             {activeTag && (
               <TouchableOpacity onPress={() => {setActiveTag(null); setTagSearch('');}} activeOpacity={0.7}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
-                <Text style={{fontSize: 11, color: T.info, fontWeight: '600'}}>{activeTag}</Text>
-                <Text style={{fontSize: 10, color: T.danger}}>✕</Text>
+                <Text style={{fontSize: fs(11), color: T.info, fontWeight: '600'}}>{activeTag}</Text>
+                <Text style={{fontSize: fs(10), color: T.danger}}>✕</Text>
               </TouchableOpacity>
             )}
             <TextInput value={tagSearch} onChangeText={v => {setTagSearch(v); setShowTagResults(v.length > 0);}} onFocus={() => setShowTagResults(tagSearch.length > 0)}
               placeholder={t('journal.searchTags')} placeholderTextColor={T.muted}
-              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: 12}} />
+              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(12)}} />
           </View>
           {showTagResults && filteredTags.length > 0 && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
@@ -137,7 +137,7 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
                 {filteredTags.map(tag => (
                   <TouchableOpacity key={tag} onPress={() => {setActiveTag(activeTag === tag ? null : tag); setTagSearch(''); setShowTagResults(false);}} activeOpacity={0.7}
                     style={{paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeTag === tag ? `${T.info}12` : 'transparent'}}>
-                    <Text style={{fontSize: 12, color: activeTag === tag ? T.info : T.text}}>{tag}</Text>
+                    <Text style={{fontSize: fs(12), color: activeTag === tag ? T.info : T.text}}>{tag}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -155,14 +155,14 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
                 <TouchableOpacity onPress={() => {setActiveAuthor(null); setAuthorSearch('');}} activeOpacity={0.7}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}18`, borderWidth: 1, borderColor: `${m.color}40`}}>
                   <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                  <Text style={{fontSize: 11, color: m.color, fontWeight: '600'}}>{m.name}</Text>
-                  <Text style={{fontSize: 10, color: T.danger}}>✕</Text>
+                  <Text style={{fontSize: fs(11), color: m.color, fontWeight: '600'}}>{m.name}</Text>
+                  <Text style={{fontSize: fs(10), color: T.danger}}>✕</Text>
                 </TouchableOpacity>
               ) : null;
             })()}
             <TextInput value={authorSearch} onChangeText={v => {setAuthorSearch(v); setShowAuthorResults(v.length > 0);}} onFocus={() => setShowAuthorResults(authorSearch.length > 0)}
               placeholder={t('journal.searchAuthors')} placeholderTextColor={T.muted}
-              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: 12}} />
+              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(12)}} />
           </View>
           {showAuthorResults && filteredAuthors.length > 0 && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
@@ -171,7 +171,7 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
                   <TouchableOpacity key={m.id} onPress={() => {setActiveAuthor(activeAuthor === m.id ? null : m.id); setAuthorSearch(''); setShowAuthorResults(false);}} activeOpacity={0.7}
                     style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeAuthor === m.id ? `${m.color}12` : 'transparent'}}>
                     <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                    <Text style={{fontSize: 12, color: activeAuthor === m.id ? m.color : T.text}}>{m.name}</Text>
+                    <Text style={{fontSize: fs(12), color: activeAuthor === m.id ? m.color : T.text}}>{m.name}</Text>
                     {activeAuthor === m.id && <Text style={{color: m.color, marginLeft: 'auto'}}>✓</Text>}
                   </TouchableOpacity>
                 ))}
@@ -210,21 +210,21 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
                     <TouchableOpacity onPress={() => handleDeleteTap(e)} style={{padding: 4}}><Text style={{fontSize: fs(14), color: T.muted}}>✕</Text></TouchableOpacity>
                   </View>
                 </View>
-                <Text style={{fontSize: 11, color: T.muted, marginBottom: 8}}>{fmtTime(e.timestamp)}</Text>
+                <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 8}}>{fmtTime(e.timestamp)}</Text>
                 {authors.length > 0 && (
                   <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8}}>
                     {authors.map(m => (
                       <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3,
                         borderRadius: 999, borderWidth: 1, backgroundColor: `${m.color}20`, borderColor: `${m.color}45`}}>
                         <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                        <Text style={{fontSize: 11, fontWeight: '600', color: m.color}}>{m.name}</Text>
+                        <Text style={{fontSize: fs(11), fontWeight: '600', color: m.color}}>{m.name}</Text>
                       </View>
                     ))}
                   </View>
                 )}
                 {isLocked ? (
                   <TouchableOpacity onPress={() => handleEntryTap(e)} style={{paddingVertical: 8, alignItems: 'center'}}>
-                    <Text style={{fontSize: 12, color: T.muted, fontStyle: 'italic'}}>{t('journal.tapToUnlock')}</Text>
+                    <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic'}}>{t('journal.tapToUnlock')}</Text>
                   </TouchableOpacity>
                 ) : (
                   <>
@@ -234,7 +234,7 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
                         {(e.hashtags || []).map(tag => (
                           <TouchableOpacity key={tag} onPress={() => {setActiveTag(activeTag === tag ? null : tag); setTagSearch('');}} activeOpacity={0.7}
                             style={[s.tagChip, {backgroundColor: activeTag === tag ? `${T.info}25` : `${T.info}12`, borderColor: activeTag === tag ? `${T.info}60` : `${T.info}30`}]}>
-                            <Text style={{fontSize: 11, color: T.info}}>{tag}</Text>
+                            <Text style={{fontSize: fs(11), color: T.info}}>{tag}</Text>
                           </TouchableOpacity>
                         ))}
                       </View>
@@ -280,7 +280,7 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
               placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
               style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: entryPwError ? T.danger : T.border, marginBottom: 6}]}
               onSubmitEditing={handleEntryPwConfirm} />
-            {entryPwError && <Text style={{fontSize: 12, color: T.danger, marginBottom: 10}}>{t('journal.incorrectPassword')}</Text>}
+            {entryPwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10}}>{t('journal.incorrectPassword')}</Text>}
             <View style={{flexDirection: 'row', gap: 8, marginTop: 12}}>
               <TouchableOpacity onPress={() => setEntryPwModal(null)} activeOpacity={0.7}
                 style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>

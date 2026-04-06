@@ -67,12 +67,12 @@ const DateTimeEditor = ({date, onChange, label, T}: {date: Date; onChange: (d: D
 
   return (
     <View style={{marginBottom: 14}}>
-      {label ? <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text> : null}
+      {label ? <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text> : null}
       <TouchableOpacity onPress={() => setExpanded(!expanded)} activeOpacity={0.7}
         style={{flexDirection: 'row', gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: expanded ? `${T.accent}50` : T.border}}>
         <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{fmtDateDisplay(date)}</Text>
         <Text style={{fontSize: fs(14), color: T.text}}>{fmtTimeDisplay(date)}</Text>
-        <Text style={{fontSize: 12, color: T.dim}}>{expanded ? '▲' : '▼'}</Text>
+        <Text style={{fontSize: fs(12), color: T.dim}}>{expanded ? '▲' : '▼'}</Text>
       </TouchableOpacity>
       {expanded && (
         <View style={{backgroundColor: T.card, borderWidth: 1, borderColor: T.border, borderRadius: 8, marginTop: 6, padding: 12}}>
@@ -111,7 +111,7 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
     <View style={{marginBottom: 16}}>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8}}>
         <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: color}} />
-        <Text style={{fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '700'}}>{label}</Text>
+        <Text style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '700'}}>{label}</Text>
         <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
       </View>
       {selected.length > 0 && (
@@ -123,8 +123,8 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
               <TouchableOpacity key={id} onPress={() => toggle(id)} activeOpacity={0.7}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
                 <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
-                <Text style={{fontSize: 12, color: m.color}}>{m.name}</Text>
-                <Text style={{fontSize: 10, color: T.danger}}>✕</Text>
+                <Text style={{fontSize: fs(12), color: m.color}}>{m.name}</Text>
+                <Text style={{fontSize: fs(10), color: T.danger}}>✕</Text>
               </TouchableOpacity>
             );
           })}
@@ -144,8 +144,8 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
                   style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherLabel && !inThis ? 0.45 : 1}}>
                   <Avatar member={m} size={24} T={T} />
                   <Text style={{fontSize: fs(13), color: inThis ? m.color : T.text, fontWeight: inThis ? '600' : '400'}}>{m.name}</Text>
-                  {m.pronouns ? <Text style={{fontSize: 11, color: T.muted}}>{m.pronouns}</Text> : null}
-                  {otherLabel && !inThis ? <Text style={{fontSize: 10, color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
+                  {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
+                  {otherLabel && !inThis ? <Text style={{fontSize: fs(10), color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
                   {inThis && <Text style={{color: m.color, marginLeft: 'auto'}}>✓</Text>}
                 </TouchableOpacity>
               );
@@ -291,10 +291,10 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       <DateTimeEditor date={startDate} onChange={setStartDate} label={t('hub.startTime')} T={T} />
 
       <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6}}>
-        <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('hub.endTime')}</Text>
+        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('hub.endTime')}</Text>
         <TouchableOpacity onPress={() => setIsCurrent(!isCurrent)} activeOpacity={0.7}
           style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-          <Text style={{fontSize: 12, color: isCurrent ? T.accent : T.dim}}>{t('hub.current')}</Text>
+          <Text style={{fontSize: fs(12), color: isCurrent ? T.accent : T.dim}}>{t('hub.current')}</Text>
           <View style={{width: 40, height: 22, borderRadius: 11, backgroundColor: isCurrent ? T.accent : T.toggleOff, justifyContent: 'center'}}>
             <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: isCurrent ? 20 : 3}} />
           </View>
@@ -309,15 +309,15 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       <TierMemberPicker tierKey="coFront" label={t('tier.coFront')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={members} allSelected={allSelected} T={T} />
       <TierMemberPicker tierKey="coConscious" label={t('tier.coConscious')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={members} allSelected={allSelected} T={T} />
 
-      <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
       <TextInput value={mood} onChangeText={setMood} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14}} />
 
-      <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
       <TextInput value={location} onChangeText={setLocation} placeholder={t('modal.typeLocation')} placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14}} />
 
-      <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.note')}</Text>
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.note')}</Text>
       <TextInput value={note} onChangeText={setNote} placeholder={t('modal.whatHappening')} placeholderTextColor={T.muted} multiline numberOfLines={3}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), minHeight: 80, textAlignVertical: 'top', marginBottom: 20}} />
 
@@ -412,7 +412,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
           <TouchableOpacity key={tile.id} onPress={() => handleTilePress(tile)} activeOpacity={0.7}
             style={{width: '31%', aspectRatio: 1, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, alignItems: 'center', justifyContent: 'center', padding: 10}}>
             <Text style={{fontSize: fs(28), color: T.accent, marginBottom: 8}}>{tile.icon}</Text>
-            <Text style={{fontSize: 11, fontWeight: '600', color: T.text, textAlign: 'center'}} numberOfLines={2}>{tile.label}</Text>
+            <Text style={{fontSize: fs(11), fontWeight: '600', color: T.text, textAlign: 'center'}} numberOfLines={2}>{tile.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

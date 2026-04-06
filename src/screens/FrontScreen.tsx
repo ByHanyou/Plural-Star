@@ -144,7 +144,7 @@ const TierCard = ({
         />
         <Text
           style={{
-            fontSize: 10,
+            fontSize: fs(10),
             letterSpacing: 1,
             textTransform: 'uppercase',
             color: accentColor,
@@ -170,12 +170,12 @@ const TierCard = ({
                     {m.name}
                   </Text>
                   {m.pronouns ? (
-                    <Text style={{fontSize: 12, color: T.dim}}>
+                    <Text style={{fontSize: fs(12), color: T.dim}}>
                       {m.pronouns}
                     </Text>
                   ) : null}
                   {m.role ? (
-                    <Text style={{fontSize: 10, fontWeight: '600', letterSpacing: 1, marginTop: 1, color: m.color}}>
+                    <Text style={{fontSize: fs(10), fontWeight: '600', letterSpacing: 1, marginTop: 1, color: m.color}}>
                       {m.role.toUpperCase()}
                     </Text>
                   ) : null}
@@ -183,7 +183,7 @@ const TierCard = ({
               </View>
             ))
           ) : (
-            <Text style={{fontSize: 12, color: T.muted}}>
+            <Text style={{fontSize: fs(12), color: T.muted}}>
               {t('front.noOneFronting')}
             </Text>
           )}
@@ -191,7 +191,7 @@ const TierCard = ({
 
         {isPrimary && (
           <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8, marginBottom: 8}}>
-            <Text style={{fontSize: 11, color: T.muted}}>
+            <Text style={{fontSize: fs(11), color: T.muted}}>
               {t('front.frontingFor')}{' '}
               <Text style={{color: T.accent}}>{fmtDur(front.startTime)}</Text>{' '}
               · {t('front.since')} {fmtTime(front.startTime)}
@@ -200,11 +200,11 @@ const TierCard = ({
         )}
 
         <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
-          <Text style={{fontSize: 9, letterSpacing: 1, color: T.dim}}>
+          <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim}}>
             {t('front.frontNote')}
           </Text>
 
-          <Text style={{fontSize: 12, color: note ? T.text : T.muted, marginTop: 4}}>
+          <Text style={{fontSize: fs(12), color: note ? T.text : T.muted, marginTop: 4}}>
             {note || t('front.noNote')}
           </Text>
         </View>
@@ -222,8 +222,7 @@ export const FrontScreen = ({
   onEditDetails,
 }: Props) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
-
+  
   const empty = isFrontEmpty(front);
 
   return (
