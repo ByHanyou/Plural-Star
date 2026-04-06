@@ -12,7 +12,7 @@ import {T, TLight, BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {AccentText} from './src/components/AccentText';
 import {store, KEYS} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, ShareSettings, AppSettings, EMPTY_TIER, findOpenFrontInHistory, migrateFrontState, isFrontEmpty, frontToHistoryEntry} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ChatChannel, ChatMessage, DEFAULT_CHANNELS, EMPTY_TIER, findOpenFrontInHistory, migrateFrontState, isFrontEmpty, frontToHistoryEntry, uid} from './src/utils';
 import {showFrontNotification, clearFrontNotification} from './src/services/NotificationService';
 
 import {SetupScreen} from './src/screens/SetupScreen';
@@ -22,6 +22,8 @@ import {HistoryScreen} from './src/screens/HistoryScreen';
 import {JournalScreen} from './src/screens/JournalScreen';
 import {ShareScreen} from './src/screens/ShareScreen';
 import {HubScreen} from './src/screens/HubScreen';
+import {StatsScreen} from './src/screens/StatsScreen';
+import {ChatScreen} from './src/screens/ChatScreen';
 import {SetFrontModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal} from './src/modals';
 
 type Tab = 'front' | 'members' | 'hub' | 'journal' | 'history';
@@ -31,7 +33,7 @@ const TAB_ICONS: Record<Tab, string> = {
   front: '◈', members: '◇', hub: '⬡', journal: '◉', history: '◷',
 };
 
-const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, activePaletteId: '__dark__'};
+const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, activePaletteId: '__dark__', textScale: 1.0};
 
 const getGPSLocation = (): Promise<string | null> =>
   new Promise(async resolve => {
@@ -79,6 +81,8 @@ function MainAppContent() {
   const [groups, setGroups] = useState<MemberGroup[]>([]);
   const [palettes, setPalettes] = useState<CustomPalette[]>([]);
   const [activePaletteId, setActivePaletteId] = useState<string>('__dark__');
+  const [chatChannels, setChatChannels] = useState<ChatChannel[]>([]);
+  const [allChatMessages, setAllChatMessages] = useState<ChatMessage[]>([]);
 
   const [showSetFront, setShowSetFront] = useState(false);
   const [showEditFrontDetail, setShowEditFrontDetail] = useState(false);
@@ -97,8 +101,18 @@ function MainAppContent() {
     return deriveTheme(pal.bg, pal.accent, pal.text, pal.mid);
   }, [activePaletteId, palettes]);
 
+  const loadChatMessages = useCallback(async (channels: ChatChannel[]) => {
+    const allMsgs: ChatMessage[] = [];
+    for (const ch of channels) {
+      if (ch.archived) continue;
+      const msgs = await store.get<ChatMessage[]>(`ps:chat:${ch.id}`, []);
+      if (msgs) allMsgs.push(...msgs);
+    }
+    setAllChatMessages(allMsgs);
+  }, []);
+
   const loadAll = useCallback(async () => {
-    const [sys, mem, fr, hist, jour, share, settings, savedLang, grps, savedPalettes] = await Promise.all([
+    const [sys, mem, fr, hist, jour, share, settings, savedLang, grps, savedPalettes, savedChannels] = await Promise.all([
       store.get<SystemInfo>(KEYS.system),
       store.get<Member[]>(KEYS.members, []),
       store.get<any>(KEYS.front),
@@ -109,6 +123,7 @@ function MainAppContent() {
       store.get<string>(KEYS.language, ''),
       store.get<MemberGroup[]>(KEYS.groups, []),
       store.get<CustomPalette[]>(KEYS.palettes, []),
+      store.get<ChatChannel[]>(KEYS.chatChannels, []),
     ]);
     if (!sys) {setFirstRun(true);} else {setSystem(sys);}
     setMembers(mem || []);
@@ -124,6 +139,14 @@ function MainAppContent() {
     setAppSettings(mergedSettings);
     setGroups(grps || []);
     setPalettes(savedPalettes || []);
+
+    let channels = savedChannels || [];
+    if (channels.length === 0) {
+      channels = DEFAULT_CHANNELS.map(c => ({id: uid(), name: c.name, createdAt: Date.now()}));
+      await store.set(KEYS.chatChannels, channels);
+    }
+    setChatChannels(channels);
+    await loadChatMessages(channels);
 
     const paletteId = mergedSettings.activePaletteId || '__dark__';
     if (mergedSettings.lightMode && !mergedSettings.activePaletteId) {
@@ -194,6 +217,7 @@ function MainAppContent() {
   const saveShareSettings = async (d: ShareSettings) => {setShareSettings(d); await store.set(KEYS.share, d);};
   const saveGroups = async (d: MemberGroup[]) => {setGroups(d); await store.set(KEYS.groups, d);};
   const savePalettes = async (d: CustomPalette[]) => {setPalettes(d); await store.set(KEYS.palettes, d);};
+  const saveChatChannels = async (d: ChatChannel[]) => {setChatChannels(d); await store.set(KEYS.chatChannels, d); await loadChatMessages(d);};
 
   const selectPalette = async (id: string) => {
     setActivePaletteId(id);
@@ -313,6 +337,7 @@ function MainAppContent() {
     setHistory([]); setJournal([]);
     setShareSettings({showFront: true, showMembers: true, showDescriptions: false});
     setAppSettings(DEFAULT_SETTINGS); setGroups([]); setPalettes([]); setActivePaletteId('__dark__');
+    setChatChannels([]); setAllChatMessages([]);
     setTab('front'); setFirstRun(true);
   };
 
@@ -346,6 +371,14 @@ function MainAppContent() {
     <ShareScreen theme={C} system={system} members={members} front={front} history={history} journal={journal} shareSettings={shareSettings} appSettings={appSettings} onSettingsChange={saveShareSettings} getMember={getMember} onDataImported={loadAll} onAddJournalEntry={addJournalEntry} onDeleteAccount={handleDeleteAccount} />
   );
 
+  const renderStatsScreen = () => (
+    <StatsScreen theme={C} history={history} members={members} chatMessages={allChatMessages} />
+  );
+
+  const renderChatScreen = () => (
+    <ChatScreen theme={C} members={members} channels={chatChannels} onSaveChannels={saveChatChannels} />
+  );
+
   const renderScreen = () => {
     switch (tab) {
       case 'front':
@@ -353,7 +386,7 @@ function MainAppContent() {
       case 'members':
         return <MembersScreen theme={C} members={members} front={front} groups={groups} onAdd={() => {setEditMember(null); setShowMember(true);}} onEdit={m => {setEditMember(m); setShowMember(true);}} onSaveGroups={saveGroups} />;
       case 'hub':
-        return <HubScreen theme={C} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} />;
+        return <HubScreen theme={C} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} />;
       case 'journal':
         return <JournalScreen theme={C} journal={journal} members={members} systemJournalPassword={system.journalPassword} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} />;
       case 'history':

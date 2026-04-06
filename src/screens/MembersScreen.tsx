@@ -4,26 +4,20 @@ import {View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, 
 import {useTranslation} from 'react-i18next';
 import {Fonts, PALETTE} from '../theme';
 import {Member, MemberGroup, FrontState, FrontTierKey, getInitials, allFrontMemberIds, uid, isValidHex, normalizeHex} from '../utils';
+import {RichText} from '../components/MarkdownRenderer';
 
-const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?\S*)?/gi;
-
-const RichDescription = ({text, T}: {text: string; T: any}) => {
-  if (!text) return null;
-  const parts: {type: 'text' | 'image'; value: string}[] = [];
-  let last = 0;
-  const matches = [...text.matchAll(IMAGE_URL_RE)];
-  if (matches.length === 0) return <Text style={{fontSize: 13, color: T.dim, lineHeight: 20}}>{text}</Text>;
-  for (const match of matches) { const idx = match.index ?? 0; if (idx > last) parts.push({type: 'text', value: text.slice(last, idx).trim()}); parts.push({type: 'image', value: match[0]}); last = idx + match[0].length; }
-  if (last < text.length) parts.push({type: 'text', value: text.slice(last).trim()});
-  return (<View style={{gap: 8}}>{parts.map((p, i) => p.type === 'image' ? <Image key={i} source={{uri: p.value}} style={{width: '100%', height: 200, borderRadius: 8}} resizeMode="contain" /> : p.value ? <Text key={i} style={{fontSize: 13, color: T.dim, lineHeight: 20}}>{p.value}</Text> : null)}</View>);
+const Avatar = ({member, size = 40, pulse = false, T}: {member?: Member | null; size?: number; pulse?: boolean; T: any}) => {
+  if (member?.avatar) {
+    return <Image source={{uri: member.avatar}} style={{width: size, height: size, borderRadius: size / 2,
+      shadowColor: pulse ? member.color : 'transparent', shadowOpacity: pulse ? 0.5 : 0, shadowRadius: pulse ? 8 : 0, elevation: pulse ? 4 : 0}} />;
+  }
+  return (
+    <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.toggleOff, alignItems: 'center', justifyContent: 'center',
+      shadowColor: pulse ? member?.color : 'transparent', shadowOpacity: pulse ? 0.5 : 0, shadowRadius: pulse ? 8 : 0, elevation: pulse ? 4 : 0}}>
+      <Text style={{fontSize: size * 0.35, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(member?.name || '?')}</Text>
+    </View>
+  );
 };
-
-const Avatar = ({member, size = 40, pulse = false, T}: {member?: Member | null; size?: number; pulse?: boolean; T: any}) => (
-  <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.toggleOff, alignItems: 'center', justifyContent: 'center',
-    shadowColor: pulse ? member?.color : 'transparent', shadowOpacity: pulse ? 0.5 : 0, shadowRadius: pulse ? 8 : 0, elevation: pulse ? 4 : 0}}>
-    <Text style={{fontSize: size * 0.35, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(member?.name || '?')}</Text>
-  </View>
-);
 
 const getMemberTier = (id: string, front: FrontState | null): FrontTierKey | null => {
   if (!front) return null;
@@ -241,7 +235,7 @@ export const MembersScreen = ({theme: T, members, front, groups, onAdd, onEdit, 
                         {(m.tags || []).map(tag => (<View key={tag} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, backgroundColor: `${T.info}12`, borderWidth: 1, borderColor: `${T.info}30`}}><Text style={{fontSize: 11, color: T.info}}>{tag}</Text></View>))}
                       </View>
                     )}
-                    {m.description ? <RichDescription text={m.description} T={T} /> : null}
+                    {m.description ? <RichText text={m.description} T={T} /> : null}
                   </View>
                 )}
               </TouchableOpacity>

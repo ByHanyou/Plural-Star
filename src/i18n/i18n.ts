@@ -7,8 +7,10 @@ import es from './es.json';
 import fr from './fr.json';
 import de from './de.json';
 import pt from './pt.json';
+import fi from './fi.json';
+import nb from './nb.json';
 
-export const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'pt'] as const;
+export const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'pt', 'fi', 'nb'] as const;
 export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 
 const getDeviceLanguage = (): SupportedLanguage => {
@@ -18,6 +20,7 @@ const getDeviceLanguage = (): SupportedLanguage => {
     if (SUPPORTED_LANGUAGES.includes(code as SupportedLanguage)) {
       return code as SupportedLanguage;
     }
+    if (code === 'no' || code === 'nn') return 'nb';
   }
   return 'en';
 };
@@ -25,7 +28,7 @@ const getDeviceLanguage = (): SupportedLanguage => {
 i18n
   .use(initReactI18next)
   .init({
-    resources: {en: {translation: en}, es: {translation: es}, fr: {translation: fr}, de: {translation: de}, pt: {translation: pt}},
+    resources: {en: {translation: en}, es: {translation: es}, fr: {translation: fr}, de: {translation: de}, pt: {translation: pt}, fi: {translation: fi}, nb: {translation: nb}},
     lng: getDeviceLanguage(),
     fallbackLng: 'en',
     interpolation: {escapeValue: false},

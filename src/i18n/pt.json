@@ -115,7 +115,9 @@
     "unlockPasswordPrompt": "Digite a senha para desbloquear esta entrada.",
     "unlock": "Desbloquear",
     "deleteEntry": "Excluir Entrada",
-    "areYouSure": "Tem certeza?"
+    "areYouSure": "Tem certeza?",
+    "searchTags": "Buscar tags…",
+    "searchAuthors": "Buscar autores…"
   },
   "share": {
     "title": "Compartilhar e Exportar",
@@ -197,7 +199,12 @@
     "unsupportedFormat": "Formato não suportado \".{{ext}}\". Suportados: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" importado como nova entrada.",
     "notValidExport": "Não é um arquivo de exportação válido do Plural Space.",
-    "filesDisabled": "O acesso a arquivos está desativado. Ative nas Configurações do Sistema."
+    "filesDisabled": "O acesso a arquivos está desativado. Ative nas Configurações do Sistema.",
+    "spFile": "Arquivo SP",
+    "spFileImport": "Importar Arquivo Simply Plural",
+    "spFileHint": "Importar de um arquivo de exportação do Simply Plural.",
+    "pickSPFile": "Selecionar Arquivo SP",
+    "notValidSPExport": "Este arquivo não parece ser uma exportação válida do Simply Plural."
   },
   "hub": {
     "title": "Central",
@@ -219,7 +226,12 @@
     "activeFrontExists": "Frente Ativa Existente",
     "activeFrontExistsMsg": "Há uma sessão de frente ativa para {{names}}.",
     "overwrite": "Sobrescrever",
-    "addTo": "Adicionar A"
+    "addTo": "Adicionar A",
+    "importExport": "Importar / Exportar",
+    "retroHistory": "Histórico Retro",
+    "statistics": "Estatísticas",
+    "systemChat": "Chat do Sistema",
+    "discord": "Discord"
   },
   "modal": {
     "updateFront": "Atualizar Frente",
@@ -293,7 +305,17 @@
     "palPreviewAccent": "Destaque",
     "palPreviewText": "Texto",
     "palPreviewMid": "Médio",
-    "paletteSlots": "{{used}} / {{max}} paletas personalizadas"
+    "paletteSlots": "{{used}} / {{max}} paletas personalizadas",
+    "pfpFailed": "Erro na Imagem",
+    "removePfp": "Remover Foto",
+    "fancyPants": "Editor Visual",
+    "selectedText": "texto",
+    "searchAuthors": "Buscar autores…",
+    "textSize": "Tamanho do Texto",
+    "textSizeDesc": "Ajustar o tamanho do texto no app.",
+    "textScaleNormal": "Normal",
+    "textScaleLarge": "Grande",
+    "textScaleExtraLarge": "Extra Grande"
   },
   "notification": {
     "locationPermTitle": "Permissão de Localização",
@@ -318,7 +340,9 @@
     "es": "Español",
     "fr": "Français",
     "de": "Deutsch",
-    "pt": "Português"
+    "pt": "Português",
+    "fi": "Suomi",
+    "nb": "Norsk"
   },
   "memberGroups": {
     "title": "Grupos",
@@ -327,5 +351,42 @@
     "addPlaceholder": "Nome do novo grupo…",
     "deleteGroup": "Excluir Grupo",
     "deleteGroupMsg": "Remover este grupo? Os membros não serão excluídos."
+  },
+  "stats": {
+    "allTime": "Tudo",
+    "last7": "7 Dias",
+    "last30": "30 Dias",
+    "totalTime": "Tempo Total",
+    "sessions": "Sessões",
+    "messages": "Mensagens",
+    "topFronters": "Mais Frequentes",
+    "topCoFronters": "Top Co-Front",
+    "topCoCon": "Top Co-Consciente",
+    "topChatters": "Mais Ativos",
+    "topMoods": "Humores Frequentes",
+    "topLocations": "Locais Frequentes"
+  },
+  "chat": {
+    "channels": "Canais",
+    "newChannel": "Novo Canal",
+    "channelName": "Nome do canal…",
+    "deleteChannel": "Excluir Canal",
+    "deleteChannelMsg": "Isso excluirá permanentemente este canal e todas as mensagens.",
+    "archiveChannel": "Arquivar Canal",
+    "archiveChannelMsg": "Exportar mensagens e arquivar este canal?",
+    "archiveClose": "Arquivar e Fechar",
+    "archiveFresh": "Arquivar e Continuar",
+    "archived": "Arquivado",
+    "archivedMsg": "Canal arquivado. Exportação salva como {{filename}}.",
+    "archivedFreshMsg": "Mensagens arquivadas como {{filename}}. Canal limpo.",
+    "archivedChannels": "Canais Arquivados",
+    "archivedOn": "Arquivado em {{date}}",
+    "channelLimit": "Limite de Canais",
+    "channelLimitMsg": "Máximo de 100 canais atingido.",
+    "selectSpeaker": "Selecionar",
+    "searchSpeaker": "Buscar…",
+    "noMessages": "Sem mensagens ainda.",
+    "typeMessage": "Digite uma mensagem…",
+    "imageFailed": "Erro na Imagem"
   }
 }

@@ -1,27 +1,19 @@
-// src/modals/index.tsx
 import React, {useState, useMemo} from 'react';
-import {View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Image, Linking, Keyboard} from 'react-native';
+import {View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Image, Linking, Keyboard, Alert} from 'react-native';
 import {useTranslation} from 'react-i18next';
+import RNFS from 'react-native-fs';
+import {pick as pickDocument, isCancel as isPickerCancel} from '@react-native-documents/picker';
 import {Sheet} from '../components/Sheet';
 import {PALETTE, BUILTIN_PALETTES, deriveTheme} from '../theme';
 import type {CustomPalette} from '../theme';
-import {Member, MemberGroup, JournalEntry, FrontState, FrontTier, FrontTierKey, SystemInfo, AppSettings, uid, isValidHex, normalizeHex, DEFAULT_MOODS, EMPTY_TIER, TIER_LABELS} from '../utils';
+import {Member, MemberGroup, JournalEntry, FrontState, FrontTier, FrontTierKey, SystemInfo, AppSettings, TextScale, TEXT_SCALE_OPTIONS, uid, isValidHex, normalizeHex, DEFAULT_MOODS, EMPTY_TIER, TIER_LABELS} from '../utils';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
 
-const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?\S*)?/gi;
+import {RichText as RichDescription} from '../components/MarkdownRenderer';
+import {RichTextEditor} from '../components/RichTextEditor';
 
-const RichDescription = ({text, T}: {text: string; T: any}) => {
-  if (!text) return null;
-  const parts: {type: 'text' | 'image'; value: string}[] = [];
-  let last = 0;
-  const matches = [...text.matchAll(IMAGE_URL_RE)];
-  if (matches.length === 0) return <Text style={{fontSize: 13, color: T.dim, lineHeight: 20}}>{text}</Text>;
-  for (const match of matches) { const idx = match.index ?? 0; if (idx > last) parts.push({type: 'text', value: text.slice(last, idx).trim()}); parts.push({type: 'image', value: match[0]}); last = idx + match[0].length; }
-  if (last < text.length) parts.push({type: 'text', value: text.slice(last).trim()});
-  return (<View style={{gap: 8}}>{parts.map((p, i) => p.type === 'image' ? <Image key={i} source={{uri: p.value}} style={{width: '100%', height: 200, borderRadius: 8}} resizeMode="contain" /> : p.value ? <Text key={i} style={{fontSize: 13, color: T.dim, lineHeight: 20}}>{p.value}</Text> : null)}</View>);
-};
+const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
 const Btn = ({children, onPress, variant = 'primary', disabled = false, style = {}, T}: any) => {
   const variants: any = {primary: {bg: T.accentBg, color: T.accent, border: `${T.accent}40`}, ghost: {bg: 'transparent', color: T.dim, border: T.border}, danger: {bg: T.dangerBg, color: T.danger, border: `${T.danger}40`}, solid: {bg: T.accent, color: '#0a0508', border: T.accent}, info: {bg: T.infoBg, color: T.info, border: `${T.info}40`}};
@@ -295,19 +287,54 @@ export const MemberModal = ({visible, theme: T, member, groups, onSave, onDelete
   const [f, setF] = useState<Member>(member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []});
   const [hexInput, setHexInput] = useState(member?.color || PALETTE[0]); const [hexError, setHexError] = useState(false); const [confirmDel, setConfirmDel] = useState(false);
   const [tagInput, setTagInput] = useState('');
+  const [showDescEditor, setShowDescEditor] = useState(false);
 
-  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setHexInput(fresh.color); setHexError(false); setConfirmDel(false); setTagInput(''); } }, [visible, member]);
+  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setHexInput(fresh.color); setHexError(false); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); } }, [visible, member]);
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const handleHexChange = (val: string) => { setHexInput(val); const n = normalizeHex(val); if (isValidHex(n)) {set('color', n); setHexError(false);} else setHexError(val.length > 1); };
 
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
 
+  const pickAvatar = async () => {
+    try {
+      const [res] = await pickDocument({type: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']});
+      const base64 = await RNFS.readFile(res.uri, 'base64');
+      const ext = (res.name || '').split('.').pop()?.toLowerCase() || 'png';
+      const mimeMap: Record<string, string> = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp'};
+      const mime = mimeMap[ext] || 'image/png';
+      set('avatar', `data:${mime};base64,${base64}`);
+    } catch (e: any) {
+      if (!isPickerCancel(e)) Alert.alert(t('modal.pfpFailed'), e.message || '');
+    }
+  };
+
   return (
     <Sheet visible={visible} title={isNew ? t('modal.addMember') : t('modal.editMember')} theme={T} onClose={onClose} footer={<>
       {!isNew && !confirmDel && <Btn variant="danger" T={T} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
       {confirmDel && (<><Btn variant="danger" T={T} onPress={() => {onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn T={T} onPress={() => {if (f.name.trim()) {onSave(f); onClose();}}}>{t('common.save')}</Btn>}</>}>
+
+      <View style={{alignItems: 'center', marginBottom: 16}}>
+        <TouchableOpacity onPress={pickAvatar} activeOpacity={0.7}>
+          {f.avatar ? (
+            <Image source={{uri: f.avatar}} style={{width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: f.color}} />
+          ) : (
+            <View style={{width: 80, height: 80, borderRadius: 40, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
+              <Text style={{fontSize: 28, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(f.name || '?')}</Text>
+            </View>
+          )}
+          <View style={{position: 'absolute', bottom: 0, right: 0, width: 24, height: 24, borderRadius: 12, backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center'}}>
+            <Text style={{fontSize: 12, color: T.bg}}>📷</Text>
+          </View>
+        </TouchableOpacity>
+        {f.avatar && (
+          <TouchableOpacity onPress={() => set('avatar', undefined)} activeOpacity={0.7} style={{marginTop: 6}}>
+            <Text style={{fontSize: 11, color: T.danger}}>{t('modal.removePfp')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <Field label={t('modal.name')} value={f.name} onChange={(v: string) => set('name', v)} placeholder={t('modal.headmateName')} T={T} />
       <Field label={t('modal.pronouns')} value={f.pronouns} onChange={(v: string) => set('pronouns', v)} placeholder={t('modal.pronounsPlaceholder')} T={T} />
       <Field label={t('modal.role')} value={f.role} onChange={(v: string) => set('role', v)} placeholder={t('modal.rolePlaceholder')} T={T} />
@@ -360,8 +387,15 @@ export const MemberModal = ({visible, theme: T, member, groups, onSave, onDelete
         <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
       </View>
 
-      <Field label={t('modal.descriptionBio')} value={f.description} onChange={(v: string) => set('description', v)} placeholder={t('modal.descriptionPlaceholder')} multiline numberOfLines={4} T={T} />
-      {f.description ? (<View style={{marginBottom: 14}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.preview')}</Text><View style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12}}><RichDescription text={f.description} T={T} /></View></View>) : null}
+      <View style={{marginBottom: 14}}>
+        <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
+        <TouchableOpacity onPress={() => setShowDescEditor(true)} activeOpacity={0.7}
+          style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 80}}>
+          {f.description ? <RichDescription text={f.description} T={T} /> : <Text style={{fontSize: 13, color: T.muted}}>{t('modal.descriptionPlaceholder')}</Text>}
+        </TouchableOpacity>
+      </View>
+      <RichTextEditor visible={showDescEditor} title={t('modal.descriptionBio')} initialContent={f.description || ''} theme={T}
+        onSave={(html: string) => {set('description', html); setShowDescEditor(false);}} onClose={() => setShowDescEditor(false)} />
 
       {!isNew && (
         <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}}>
@@ -381,14 +415,16 @@ export const MemberModal = ({visible, theme: T, member, groups, onSave, onDelete
   );
 };
 
-// ── Journal Modal (unchanged from v1.1) ───────────────────────────────────
+// ── Journal Modal (rich text + author search) ─────────────────────────────
 
 export const JournalModal = ({visible, theme: T, entry, members, onSave, onClose}: any) => {
   const {t} = useTranslation();
   const isNew = !entry;
   const [f, setF] = useState<JournalEntry>(entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()});
   const [showPwField, setShowPwField] = useState(false); const [tagInput, setTagInput] = useState('');
-  React.useEffect(() => { if (visible) { const fresh = entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()}; setF(fresh); setShowPwField(!!fresh.password); setTagInput(''); } }, [visible, entry]);
+  const [authorSearch, setAuthorSearch] = useState('');
+  const [showBodyEditor, setShowBodyEditor] = useState(false);
+  React.useEffect(() => { if (visible) { const fresh = entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()}; setF(fresh); setShowPwField(!!fresh.password); setTagInput(''); setAuthorSearch(''); setShowBodyEditor(false); } }, [visible, entry]);
   const set = (k: keyof JournalEntry, v: any) => setF(x => ({...x, [k]: v}));
   const togAuthor = (id: string) => set('authorIds', (f.authorIds || []).includes(id) ? (f.authorIds || []).filter((i: string) => i !== id) : [...(f.authorIds || []), id]);
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.hashtags || []; if (!cur.includes(`#${raw}`)) set('hashtags', [...cur, `#${raw}`]); setTagInput(''); };
@@ -396,15 +432,57 @@ export const JournalModal = ({visible, theme: T, entry, members, onSave, onClose
   return (
     <Sheet visible={visible} title={isNew ? t('modal.newEntry') : t('modal.editEntry')} theme={T} onClose={onClose} footer={<Btn T={T} onPress={() => {onSave({...f, timestamp: isNew ? Date.now() : f.timestamp, password: showPwField && f.password ? f.password : undefined}); onClose();}}>{t('common.save')}</Btn>}>
       <Field label={t('modal.entryTitle')} value={f.title} onChange={(v: string) => set('title', v)} placeholder={t('modal.entryTitlePlaceholder')} T={T} />
-      <Field label={t('modal.body')} value={f.body} onChange={(v: string) => set('body', v)} placeholder={t('modal.writeHere')} multiline numberOfLines={6} T={T} />
+
+      <View style={{marginBottom: 14}}>
+        <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.body')}</Text>
+        <TouchableOpacity onPress={() => setShowBodyEditor(true)} activeOpacity={0.7}
+          style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 100}}>
+          {f.body ? <RichDescription text={f.body} T={T} /> : <Text style={{fontSize: 13, color: T.muted}}>{t('modal.writeHere')}</Text>}
+        </TouchableOpacity>
+      </View>
+      <RichTextEditor visible={showBodyEditor} title={t('modal.body')} initialContent={f.body || ''} theme={T}
+        onSave={(html: string) => {set('body', html); setShowBodyEditor(false);}} onClose={() => setShowBodyEditor(false)} />
+
       <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
       {(f.hashtags || []).length > 0 && (<View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>{(f.hashtags || []).map((tag: string) => (<TouchableOpacity key={tag} onPress={() => set('hashtags', (f.hashtags || []).filter((x: string) => x !== tag))} activeOpacity={0.7} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}><Text style={{fontSize: 12, color: T.info}}>{tag}</Text><Text style={{fontSize: 10, color: T.danger}}>✕</Text></TouchableOpacity>))}</View>)}
       <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 14}}>
         <TextInput value={tagInput} onChangeText={setTagInput} placeholder={t('modal.topic')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 13}} onSubmitEditing={addTag} returnKeyType="done" />
         <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
       </View>
-      {members.length > 0 && (<><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
-        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14}}>{members.map((m: Member) => { const active = (f.authorIds || []).includes(m.id); return (<TouchableOpacity key={m.id} onPress={() => togAuthor(m.id)} activeOpacity={0.7} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, backgroundColor: active ? `${m.color}20` : T.surface, borderColor: active ? `${m.color}50` : T.border}}><View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} /><Text style={{fontSize: 12, color: active ? m.color : T.dim}}>{m.name}</Text>{active && <Text style={{fontSize: 11, fontWeight: '700', color: m.color}}>✓</Text>}</TouchableOpacity>); })}</View></>)}
+      {members.length > 0 && (<>
+        <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
+        {(f.authorIds || []).length > 0 && (
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
+            {(f.authorIds || []).map((id: string) => { const m = members.find((x: Member) => x.id === id); if (!m) return null; return (
+              <TouchableOpacity key={id} onPress={() => togAuthor(id)} activeOpacity={0.7}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
+                <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
+                <Text style={{fontSize: 12, color: m.color}}>{m.name}</Text>
+                <Text style={{fontSize: 10, color: T.danger}}>✕</Text>
+              </TouchableOpacity>
+            ); })}
+          </View>
+        )}
+        <TextInput value={authorSearch} onChangeText={setAuthorSearch} placeholder={t('modal.searchAuthors')} placeholderTextColor={T.muted}
+          style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, marginBottom: 4}} />
+        {authorSearch.length > 0 && (
+          <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 160, overflow: 'hidden', marginBottom: 8}}>
+            <ScrollView nestedScrollEnabled>
+              {members.filter((m: Member) => !m.archived && m.name.toLowerCase().includes(authorSearch.toLowerCase())).map((m: Member) => {
+                const active = (f.authorIds || []).includes(m.id);
+                return (
+                  <TouchableOpacity key={m.id} onPress={() => {togAuthor(m.id); setAuthorSearch('');}} activeOpacity={0.7}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
+                    <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
+                    <Text style={{fontSize: 13, color: active ? m.color : T.text, fontWeight: active ? '600' : '400'}}>{m.name}</Text>
+                    {active && <Text style={{color: m.color, marginLeft: 'auto'}}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+      </>)}
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14}}>
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.entryPassword')}</Text><TouchableOpacity onPress={() => {setShowPwField(!showPwField); if (showPwField) set('password', undefined);}}><Text style={{fontSize: 12, color: T.accent, fontWeight: '600'}}>{showPwField ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
         {showPwField && <TextInput value={f.password || ''} onChangeText={(v: string) => set('password', v || undefined)} placeholder={t('modal.entryPasswordPlaceholder')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14}} />}
@@ -423,12 +501,14 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [selectedLang, setSelectedLang] = useState<SupportedLanguage>(settings?.language || 'en');
   const [notifEnabled, setNotifEnabled] = useState<boolean>(settings?.notificationsEnabled ?? true);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
+  const [showLangPicker, setShowLangPicker] = useState(false);
+  const [textScale, setTextScale] = useState<TextScale>(settings?.textScale ?? 1.0);
   const [editPalette, setEditPalette] = useState<CustomPalette | null>(null);
   const [paletteName, setPaletteName] = useState('');
   const [palBg, setPalBg] = useState(''); const [palAccent, setPalAccent] = useState('');
   const [palText, setPalText] = useState(''); const [palMid, setPalMid] = useState('');
 
-  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setEditPalette(null); } }, [visible, system, settings]);
+  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setTextScale(settings?.textScale ?? 1.0); setShowLangPicker(false); setEditPalette(null); } }, [visible, system, settings]);
 
   const addLoc = () => {if (newLocation.trim() && !locs.includes(newLocation.trim())) {setLocs([...locs, newLocation.trim()]); setNewLocation('');}};
   const addMood = () => {if (newMood.trim() && !moods.includes(newMood.trim())) {setMoods([...moods, newMood.trim()]); setNewMood('');}};
@@ -474,7 +554,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn T={T} onPress={() => {
       onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
-      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled});
+      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale});
       onClose();
     }}>{t('common.save')}</Btn>}>
       <Field label={t('modal.systemName')} value={f.name} onChange={(v: string) => setF((x: any) => ({...x, name: v}))} placeholder={t('modal.systemNamePlaceholder')} T={T} />
@@ -555,7 +635,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('modal.gpsDesc')}</Text></View>
-          <TouchableOpacity onPress={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled});}} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: settings?.gpsEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: settings?.gpsEnabled ? 20 : 3}} /></TouchableOpacity></View>
+          <TouchableOpacity onPress={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale});}} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: settings?.gpsEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: settings?.gpsEnabled ? 20 : 3}} /></TouchableOpacity></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.fileAccess')}</Text><Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('modal.fileAccessDesc')}</Text></View>
@@ -567,7 +647,32 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{marginBottom: 8}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.language')}</Text><Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('modal.languageDesc')}</Text></View>
-        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7}}>{SUPPORTED_LANGUAGES.map((lang) => (<TouchableOpacity key={lang} onPress={() => setSelectedLang(lang)} activeOpacity={0.7} style={{paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: selectedLang === lang ? `${T.accent}20` : T.surface, borderColor: selectedLang === lang ? `${T.accent}60` : T.border}}><Text style={{fontSize: 13, color: selectedLang === lang ? T.accent : T.dim, fontWeight: selectedLang === lang ? '600' : '400'}}>{t(`language.${lang}`)}</Text></TouchableOpacity>))}</View>
+        <TouchableOpacity onPress={() => setShowLangPicker(!showLangPicker)} activeOpacity={0.7}
+          style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showLangPicker ? `${T.accent}60` : T.border}}>
+          <Text style={{fontSize: 14, color: T.text}}>{t(`language.${selectedLang}`)}</Text>
+          <Text style={{fontSize: 12, color: T.dim}}>{showLangPicker ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+        {showLangPicker && (
+          <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
+            {SUPPORTED_LANGUAGES.map((lang) => (
+              <TouchableOpacity key={lang} onPress={() => {setSelectedLang(lang); setShowLangPicker(false);}} activeOpacity={0.7}
+                style={{paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border,
+                  backgroundColor: selectedLang === lang ? `${T.accent}15` : 'transparent'}}>
+                <Text style={{fontSize: 14, color: selectedLang === lang ? T.accent : T.text, fontWeight: selectedLang === lang ? '600' : '400'}}>{t(`language.${lang}`)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
+      <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
+        <View style={{marginBottom: 8}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.textSize')}</Text><Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('modal.textSizeDesc')}</Text></View>
+        <View style={{flexDirection: 'row', gap: 7}}>{TEXT_SCALE_OPTIONS.map((opt) => (
+          <TouchableOpacity key={opt.value} onPress={() => setTextScale(opt.value)} activeOpacity={0.7}
+            style={{flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, alignItems: 'center',
+              backgroundColor: textScale === opt.value ? `${T.accent}20` : T.surface, borderColor: textScale === opt.value ? `${T.accent}60` : T.border}}>
+            <Text style={{fontSize: 13, color: textScale === opt.value ? T.accent : T.dim, fontWeight: textScale === opt.value ? '600' : '400'}}>{t(`modal.textScale${opt.label.replace(/\s/g, '')}`)}</Text>
+          </TouchableOpacity>
+        ))}</View>
       </View>
       {[[t('modal.locations'), locs, setLocs, newLocation, setNewLocation, addLoc, t('modal.addLocationPlaceholder')], [t('modal.customMoods'), moods, setMoods, newMood, setNewMood, addMood, t('modal.addMoodPlaceholder')]].map(([label, items, setItems, val, setVal, add, placeholder]: any) => (
         <View key={label} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>

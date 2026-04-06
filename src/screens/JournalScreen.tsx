@@ -1,10 +1,10 @@
-// src/screens/JournalScreen.tsx
 import React, {useState} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert, StyleSheet} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Image, StyleSheet} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {JournalEntry, Member, fmtTime} from '../utils';
 import {exportEntryTxt, exportEntryMd, exportEntryJSON} from '../export/exportUtils';
+import {RichText} from '../components/MarkdownRenderer';
 
 interface Props {
   theme: any;
@@ -28,6 +28,10 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
   const [exportMenuEntry, setExportMenuEntry] = useState<JournalEntry | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeAuthor, setActiveAuthor] = useState<string | null>(null);
+  const [tagSearch, setTagSearch] = useState('');
+  const [authorSearch, setAuthorSearch] = useState('');
+  const [showTagResults, setShowTagResults] = useState(false);
+  const [showAuthorResults, setShowAuthorResults] = useState(false);
 
   const getMember = (id: string) => members.find(m => m.id === id);
   const allTags = [...new Set(journal.flatMap(e => e.hashtags || []))].sort();
@@ -38,6 +42,9 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
     const authorMatch = !activeAuthor || (e.authorIds || []).includes(activeAuthor);
     return tagMatch && authorMatch;
   });
+
+  const filteredTags = allTags.filter(tag => !tagSearch || tag.toLowerCase().includes(tagSearch.toLowerCase()));
+  const filteredAuthors = activeAuthors.filter(m => !authorSearch || m.name.toLowerCase().includes(authorSearch.toLowerCase()));
 
   const handleGlobalUnlock = () => {
     if (globalPwInput === systemJournalPassword) {setJournalUnlocked(true); setGlobalPwError(false); setGlobalPwInput('');}
@@ -100,7 +107,7 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
   }
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content}>
+    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       <View style={s.headerRow}>
         <Text style={[s.heading, {color: T.text}]}>{t('journal.title')}</Text>
         <TouchableOpacity onPress={onAdd} activeOpacity={0.7}
@@ -110,40 +117,67 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
       </View>
 
       {allTags.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 8}}>
-          <View style={{flexDirection: 'row', gap: 6}}>
-            <TouchableOpacity onPress={() => setActiveTag(null)} activeOpacity={0.7}
-              style={[s.tagChip, {backgroundColor: !activeTag ? `${T.info}18` : T.surface, borderColor: !activeTag ? `${T.info}50` : T.border}]}>
-              <Text style={{fontSize: 11, color: !activeTag ? T.info : T.dim, fontWeight: !activeTag ? '600' : '400'}}>{t('journal.allTags')}</Text>
-            </TouchableOpacity>
-            {allTags.map(tag => (
-              <TouchableOpacity key={tag} onPress={() => setActiveTag(activeTag === tag ? null : tag)} activeOpacity={0.7}
-                style={[s.tagChip, {backgroundColor: activeTag === tag ? `${T.info}18` : T.surface, borderColor: activeTag === tag ? `${T.info}50` : T.border}]}>
-                <Text style={{fontSize: 11, color: activeTag === tag ? T.info : T.dim, fontWeight: activeTag === tag ? '600' : '400'}}>{tag}</Text>
+        <View style={{marginBottom: 8}}>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4}}>
+            {activeTag && (
+              <TouchableOpacity onPress={() => {setActiveTag(null); setTagSearch('');}} activeOpacity={0.7}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
+                <Text style={{fontSize: 11, color: T.info, fontWeight: '600'}}>{activeTag}</Text>
+                <Text style={{fontSize: 10, color: T.danger}}>✕</Text>
               </TouchableOpacity>
-            ))}
+            )}
+            <TextInput value={tagSearch} onChangeText={v => {setTagSearch(v); setShowTagResults(v.length > 0);}} onFocus={() => setShowTagResults(tagSearch.length > 0)}
+              placeholder={t('journal.searchTags')} placeholderTextColor={T.muted}
+              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: 12}} />
           </View>
-        </ScrollView>
+          {showTagResults && filteredTags.length > 0 && (
+            <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
+              <ScrollView nestedScrollEnabled>
+                {filteredTags.map(tag => (
+                  <TouchableOpacity key={tag} onPress={() => {setActiveTag(activeTag === tag ? null : tag); setTagSearch(''); setShowTagResults(false);}} activeOpacity={0.7}
+                    style={{paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeTag === tag ? `${T.info}12` : 'transparent'}}>
+                    <Text style={{fontSize: 12, color: activeTag === tag ? T.info : T.text}}>{tag}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
       )}
 
       {activeAuthors.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}}>
-          <View style={{flexDirection: 'row', gap: 6}}>
-            <TouchableOpacity onPress={() => setActiveAuthor(null)} activeOpacity={0.7}
-              style={[s.tagChip, {backgroundColor: !activeAuthor ? `${T.accent}18` : T.surface, borderColor: !activeAuthor ? `${T.accent}50` : T.border}]}>
-              <Text style={{fontSize: 11, color: !activeAuthor ? T.accent : T.dim, fontWeight: !activeAuthor ? '600' : '400'}}>{t('journal.allAuthors')}</Text>
-            </TouchableOpacity>
-            {activeAuthors.map(m => (
-              <TouchableOpacity key={m.id} onPress={() => setActiveAuthor(activeAuthor === m.id ? null : m.id)} activeOpacity={0.7}
-                style={[s.tagChip, {backgroundColor: activeAuthor === m.id ? `${m.color}18` : T.surface, borderColor: activeAuthor === m.id ? `${m.color}50` : T.border}]}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
+        <View style={{marginBottom: 14}}>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4}}>
+            {activeAuthor && (() => {
+              const m = getMember(activeAuthor);
+              return m ? (
+                <TouchableOpacity onPress={() => {setActiveAuthor(null); setAuthorSearch('');}} activeOpacity={0.7}
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}18`, borderWidth: 1, borderColor: `${m.color}40`}}>
                   <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                  <Text style={{fontSize: 11, color: activeAuthor === m.id ? m.color : T.dim, fontWeight: activeAuthor === m.id ? '600' : '400'}}>{m.name}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <Text style={{fontSize: 11, color: m.color, fontWeight: '600'}}>{m.name}</Text>
+                  <Text style={{fontSize: 10, color: T.danger}}>✕</Text>
+                </TouchableOpacity>
+              ) : null;
+            })()}
+            <TextInput value={authorSearch} onChangeText={v => {setAuthorSearch(v); setShowAuthorResults(v.length > 0);}} onFocus={() => setShowAuthorResults(authorSearch.length > 0)}
+              placeholder={t('journal.searchAuthors')} placeholderTextColor={T.muted}
+              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: 12}} />
           </View>
-        </ScrollView>
+          {showAuthorResults && filteredAuthors.length > 0 && (
+            <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
+              <ScrollView nestedScrollEnabled>
+                {filteredAuthors.map(m => (
+                  <TouchableOpacity key={m.id} onPress={() => {setActiveAuthor(activeAuthor === m.id ? null : m.id); setAuthorSearch(''); setShowAuthorResults(false);}} activeOpacity={0.7}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeAuthor === m.id ? `${m.color}12` : 'transparent'}}>
+                    <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
+                    <Text style={{fontSize: 12, color: activeAuthor === m.id ? m.color : T.text}}>{m.name}</Text>
+                    {activeAuthor === m.id && <Text style={{color: m.color, marginLeft: 'auto'}}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
       )}
 
       {!filteredJournal.length ? (
@@ -193,11 +227,11 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
                   </TouchableOpacity>
                 ) : (
                   <>
-                    {e.body ? <Text style={{fontSize: 13, color: T.dim, lineHeight: 19}} numberOfLines={3}>{e.body}</Text> : null}
+                    {e.body ? <View style={{maxHeight: 80, overflow: 'hidden'}}><RichText text={e.body} T={T} numberOfLines={4} /></View> : null}
                     {(e.hashtags || []).length > 0 && (
                       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8}}>
                         {(e.hashtags || []).map(tag => (
-                          <TouchableOpacity key={tag} onPress={() => setActiveTag(activeTag === tag ? null : tag)} activeOpacity={0.7}
+                          <TouchableOpacity key={tag} onPress={() => {setActiveTag(activeTag === tag ? null : tag); setTagSearch('');}} activeOpacity={0.7}
                             style={[s.tagChip, {backgroundColor: activeTag === tag ? `${T.info}25` : `${T.info}12`, borderColor: activeTag === tag ? `${T.info}60` : `${T.info}30`}]}>
                             <Text style={{fontSize: 11, color: T.info}}>{tag}</Text>
                           </TouchableOpacity>
@@ -212,7 +246,6 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
         </View>
       )}
 
-      {/* Export menu */}
       <Modal visible={!!exportMenuEntry} transparent animationType="fade" onRequestClose={() => setExportMenuEntry(null)}>
         <View style={s.overlay}>
           <View style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
@@ -235,7 +268,6 @@ export const JournalScreen = ({theme: T, journal, members, systemJournalPassword
         </View>
       </Modal>
 
-      {/* Password modal */}
       <Modal visible={!!entryPwModal} transparent animationType="fade" onRequestClose={() => setEntryPwModal(null)}>
         <View style={s.overlay}>
           <View style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>

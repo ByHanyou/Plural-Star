@@ -115,7 +115,9 @@
     "unlockPasswordPrompt": "Introduce la contraseña para desbloquear.",
     "unlock": "Desbloquear",
     "deleteEntry": "Eliminar Entrada",
-    "areYouSure": "¿Estás seguro?"
+    "areYouSure": "¿Estás seguro?",
+    "searchTags": "Buscar etiquetas…",
+    "searchAuthors": "Buscar autores…"
   },
   "share": {
     "title": "Compartir y Exportar",
@@ -197,7 +199,12 @@
     "unsupportedFormat": "Formato no soportado \".{{ext}}\". Soportados: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" importado como nueva entrada.",
     "notValidExport": "No es un archivo de exportación válido de Plural Space.",
-    "filesDisabled": "El acceso a archivos está desactivado. Actívalo en Ajustes del Sistema."
+    "filesDisabled": "El acceso a archivos está desactivado. Actívalo en Ajustes del Sistema.",
+    "spFile": "Archivo SP",
+    "spFileImport": "Importar Archivo de Simply Plural",
+    "spFileHint": "Importar desde un archivo de exportación de Simply Plural.",
+    "pickSPFile": "Seleccionar Archivo SP",
+    "notValidSPExport": "Este archivo no parece ser una exportación válida de Simply Plural."
   },
   "hub": {
     "title": "Centro",
@@ -219,7 +226,12 @@
     "activeFrontExists": "Frente Activo Existente",
     "activeFrontExistsMsg": "Hay una sesión de frente activa para {{names}}.",
     "overwrite": "Sobrescribir",
-    "addTo": "Añadir A"
+    "addTo": "Añadir A",
+    "importExport": "Importar / Exportar",
+    "retroHistory": "Historial Retro",
+    "statistics": "Estadísticas",
+    "systemChat": "Chat del Sistema",
+    "discord": "Discord"
   },
   "modal": {
     "updateFront": "Actualizar Frente",
@@ -293,7 +305,17 @@
     "palPreviewAccent": "Acento",
     "palPreviewText": "Texto",
     "palPreviewMid": "Medio",
-    "paletteSlots": "{{used}} / {{max}} paletas personalizadas"
+    "paletteSlots": "{{used}} / {{max}} paletas personalizadas",
+    "pfpFailed": "Error de Imagen",
+    "removePfp": "Eliminar Foto",
+    "fancyPants": "Edición Visual",
+    "selectedText": "texto",
+    "searchAuthors": "Buscar autores…",
+    "textSize": "Tamaño de Texto",
+    "textSizeDesc": "Ajustar el tamaño del texto en la app.",
+    "textScaleNormal": "Normal",
+    "textScaleLarge": "Grande",
+    "textScaleExtraLarge": "Extra Grande"
   },
   "notification": {
     "locationPermTitle": "Permiso de Ubicación",
@@ -318,7 +340,9 @@
     "es": "Español",
     "fr": "Français",
     "de": "Deutsch",
-    "pt": "Português"
+    "pt": "Português",
+    "fi": "Suomi",
+    "nb": "Norsk"
   },
   "memberGroups": {
     "title": "Grupos",
@@ -327,5 +351,42 @@
     "addPlaceholder": "Nombre del nuevo grupo…",
     "deleteGroup": "Eliminar Grupo",
     "deleteGroupMsg": "¿Quitar este grupo? Los miembros no se eliminarán."
+  },
+  "stats": {
+    "allTime": "Todo",
+    "last7": "7 Días",
+    "last30": "30 Días",
+    "totalTime": "Tiempo Total",
+    "sessions": "Sesiones",
+    "messages": "Mensajes",
+    "topFronters": "Más Frecuentes",
+    "topCoFronters": "Top Co-Front",
+    "topCoCon": "Top Co-Consciente",
+    "topChatters": "Más Activos",
+    "topMoods": "Estados Más Comunes",
+    "topLocations": "Lugares Más Comunes"
+  },
+  "chat": {
+    "channels": "Canales",
+    "newChannel": "Nuevo Canal",
+    "channelName": "Nombre del canal…",
+    "deleteChannel": "Eliminar Canal",
+    "deleteChannelMsg": "Esto eliminará permanentemente este canal y todos sus mensajes.",
+    "archiveChannel": "Archivar Canal",
+    "archiveChannelMsg": "¿Exportar mensajes y archivar este canal?",
+    "archiveClose": "Archivar y Cerrar",
+    "archiveFresh": "Archivar y Continuar",
+    "archived": "Archivado",
+    "archivedMsg": "Canal archivado. Exportación guardada como {{filename}}.",
+    "archivedFreshMsg": "Mensajes archivados como {{filename}}. Canal limpiado.",
+    "archivedChannels": "Canales Archivados",
+    "archivedOn": "Archivado el {{date}}",
+    "channelLimit": "Límite de Canales",
+    "channelLimitMsg": "Máximo de 100 canales alcanzado.",
+    "selectSpeaker": "Seleccionar",
+    "searchSpeaker": "Buscar…",
+    "noMessages": "Sin mensajes aún.",
+    "typeMessage": "Escribe un mensaje…",
+    "imageFailed": "Error de Imagen"
   }
 }

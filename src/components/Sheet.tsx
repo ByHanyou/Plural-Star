@@ -1,4 +1,4 @@
-import React, {ReactNode, useCallback, useState, useRef} from 'react';
+import React, {ReactNode, useCallback, useState, useRef, useEffect} from 'react';
 import {View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform} from 'react-native';
 import Modal from 'react-native-modal';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -19,6 +19,15 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
   const [scrollOffset, setScrollOffset] = useState(0);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
+  const [layoutReady, setLayoutReady] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      setLayoutReady(false);
+      const timer = setTimeout(() => setLayoutReady(true), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
 
   const handleScrollTo = useCallback((p: {x?: number; y?: number; animated?: boolean}) => {
     scrollRef.current?.scrollTo(p);
@@ -33,7 +42,7 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
     scrollRef.current?.scrollTo({x: 0, y: 0, animated: false});
   }, []);
 
-  const scrollOffsetMax = Math.max(0, contentHeight - scrollViewHeight);
+  const scrollOffsetMax = layoutReady ? Math.max(0, contentHeight - scrollViewHeight) : 9999;
 
   return (
     <Modal
@@ -74,6 +83,9 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
           scrollEventThrottle={16}
+          removeClippedSubviews={Platform.OS === 'ios'}
+          bounces={Platform.OS === 'ios'}
+          overScrollMode="never"
           onScroll={handleScroll}
           onLayout={event => setScrollViewHeight(event.nativeEvent.layout.height)}
           onContentSizeChange={(_, height) => setContentHeight(height)}

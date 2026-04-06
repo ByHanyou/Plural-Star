@@ -115,7 +115,9 @@
     "unlockPasswordPrompt": "Entrez le mot de passe pour déverrouiller cette entrée.",
     "unlock": "Déverrouiller",
     "deleteEntry": "Supprimer l'Entrée",
-    "areYouSure": "Êtes-vous sûr ?"
+    "areYouSure": "Êtes-vous sûr ?",
+    "searchTags": "Rechercher des tags…",
+    "searchAuthors": "Rechercher auteurs…"
   },
   "share": {
     "title": "Partager et Exporter",
@@ -197,7 +199,12 @@
     "unsupportedFormat": "Format non supporté \".{{ext}}\". Supportés : .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" importé comme nouvelle entrée de journal.",
     "notValidExport": "Ce n'est pas un fichier d'export Plural Space valide.",
-    "filesDisabled": "L'accès aux fichiers est désactivé. Activez-le dans les Paramètres du Système."
+    "filesDisabled": "L'accès aux fichiers est désactivé. Activez-le dans les Paramètres du Système.",
+    "spFile": "Fichier SP",
+    "spFileImport": "Importer un Fichier Simply Plural",
+    "spFileHint": "Importer depuis un fichier d'export Simply Plural.",
+    "pickSPFile": "Choisir le Fichier SP",
+    "notValidSPExport": "Ce fichier ne semble pas être une exportation Simply Plural valide."
   },
   "modal": {
     "updateFront": "Mettre à Jour le Front",
@@ -271,7 +278,17 @@
     "palPreviewAccent": "Accent",
     "palPreviewText": "Texte",
     "palPreviewMid": "Moyen",
-    "paletteSlots": "{{used}} / {{max}} palettes personnalisées"
+    "paletteSlots": "{{used}} / {{max}} palettes personnalisées",
+    "pfpFailed": "Erreur d'Image",
+    "removePfp": "Supprimer la Photo",
+    "fancyPants": "Éditeur Visuel",
+    "selectedText": "texte",
+    "searchAuthors": "Rechercher auteurs…",
+    "textSize": "Taille du Texte",
+    "textSizeDesc": "Ajuster la taille du texte dans l'app.",
+    "textScaleNormal": "Normal",
+    "textScaleLarge": "Grand",
+    "textScaleExtraLarge": "Très Grand"
   },
   "notification": {
     "locationPermTitle": "Permission de Localisation",
@@ -296,7 +313,9 @@
     "es": "Español",
     "fr": "Français",
     "de": "Deutsch",
-    "pt": "Português"
+    "pt": "Português",
+    "fi": "Suomi",
+    "nb": "Norsk"
   },
   "memberGroups": {
     "title": "Groupes",
@@ -326,6 +345,48 @@
     "activeFrontExists": "Front Actif Existant",
     "activeFrontExistsMsg": "Il y a une session de front active pour {{names}}.",
     "overwrite": "Écraser",
-    "addTo": "Ajouter À"
+    "addTo": "Ajouter À",
+    "importExport": "Importer / Exporter",
+    "retroHistory": "Historique Rétro",
+    "statistics": "Statistiques",
+    "systemChat": "Chat Système",
+    "discord": "Discord"
+  },
+  "stats": {
+    "allTime": "Tout",
+    "last7": "7 Jours",
+    "last30": "30 Jours",
+    "totalTime": "Temps Total",
+    "sessions": "Sessions",
+    "messages": "Messages",
+    "topFronters": "Plus Fréquents",
+    "topCoFronters": "Top Co-Front",
+    "topCoCon": "Top Co-Conscient",
+    "topChatters": "Plus Actifs",
+    "topMoods": "Humeurs Fréquentes",
+    "topLocations": "Lieux Fréquents"
+  },
+  "chat": {
+    "channels": "Canaux",
+    "newChannel": "Nouveau Canal",
+    "channelName": "Nom du canal…",
+    "deleteChannel": "Supprimer le Canal",
+    "deleteChannelMsg": "Cela supprimera définitivement ce canal et tous ses messages.",
+    "archiveChannel": "Archiver le Canal",
+    "archiveChannelMsg": "Exporter les messages et archiver ce canal ?",
+    "archiveClose": "Archiver et Fermer",
+    "archiveFresh": "Archiver et Continuer",
+    "archived": "Archivé",
+    "archivedMsg": "Canal archivé. Export enregistré sous {{filename}}.",
+    "archivedFreshMsg": "Messages archivés sous {{filename}}. Canal vidé.",
+    "archivedChannels": "Canaux Archivés",
+    "archivedOn": "Archivé le {{date}}",
+    "channelLimit": "Limite de Canaux",
+    "channelLimitMsg": "Maximum de 100 canaux atteint.",
+    "selectSpeaker": "Sélectionner",
+    "searchSpeaker": "Rechercher…",
+    "noMessages": "Pas encore de messages.",
+    "typeMessage": "Écrire un message…",
+    "imageFailed": "Erreur d'Image"
   }
 }

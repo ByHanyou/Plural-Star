@@ -23,6 +23,7 @@ export interface Member {
   tags?: string[];
   groupIds?: string[];
   archived?: boolean;
+  avatar?: string;
 }
 
 export type HistoryChangeType = 'front' | 'mood' | 'location' | 'note';
@@ -76,6 +77,8 @@ export interface ShareSettings {
   showDescriptions: boolean;
 }
 
+export type TextScale = 1.0 | 1.25 | 1.5;
+
 export interface AppSettings {
   locations: string[];
   customMoods: string[];
@@ -85,6 +88,7 @@ export interface AppSettings {
   language: SupportedLanguage;
   notificationsEnabled: boolean;
   activePaletteId: string;
+  textScale: TextScale;
 }
 
 export interface ExportPayload {
@@ -94,6 +98,33 @@ export interface ExportPayload {
   frontHistory: HistoryEntry[];
   journal: JournalEntry[];
 }
+
+export type ChatMessageType = 'text' | 'image' | 'file' | 'reply' | 'reaction';
+
+export interface ChatMessage {
+  id: string;
+  channelId: string;
+  authorId: string;
+  type: ChatMessageType;
+  content: string;
+  replyToId?: string;
+  reactions?: Record<string, string[]>;
+  timestamp: number;
+}
+
+export interface ChatChannel {
+  id: string;
+  name: string;
+  archived?: boolean;
+  archivedAt?: number;
+  createdAt: number;
+}
+
+export const DEFAULT_CHANNELS: {name: string}[] = [
+  {name: 'General'},
+  {name: 'Venting'},
+  {name: 'Planning'},
+];
 
 export const DEFAULT_MOODS = [
   'Calm', 'Happy', 'Anxious', 'Tired', 'Energetic',
@@ -172,7 +203,7 @@ export const uid = (): string =>
 
 const getLocale = (): string => {
   const lang = i18n.language || 'en';
-  const localeMap: Record<string, string> = {en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE'};
+  const localeMap: Record<string, string> = {en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', pt: 'pt-BR', fi: 'fi-FI', nb: 'nb-NO'};
   return localeMap[lang] || 'en-US';
 };
 
@@ -210,3 +241,9 @@ export const TIER_LABELS: Record<FrontTierKey, string> = {
   coFront: 'Co-Front',
   coConscious: 'Co-Conscious',
 };
+
+export const TEXT_SCALE_OPTIONS: {label: string; value: TextScale}[] = [
+  {label: 'Normal', value: 1.0},
+  {label: 'Large', value: 1.25},
+  {label: 'Extra Large', value: 1.5},
+];

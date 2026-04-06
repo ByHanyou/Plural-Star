@@ -115,7 +115,9 @@
     "unlockPasswordPrompt": "Enter the password to unlock this entry.",
     "unlock": "Unlock",
     "deleteEntry": "Delete Entry",
-    "areYouSure": "Are you sure?"
+    "areYouSure": "Are you sure?",
+    "searchTags": "Search tags…",
+    "searchAuthors": "Search authors…"
   },
   "share": {
     "title": "Share & Export",
@@ -197,7 +199,12 @@
     "unsupportedFormat": "Unsupported format \".{{ext}}\". Supported: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" imported as a new journal entry.",
     "notValidExport": "Not a valid Plural Space export file.",
-    "filesDisabled": "File access is disabled. Enable it in System Settings."
+    "filesDisabled": "File access is disabled. Enable it in System Settings.",
+    "spFile": "SP File",
+    "spFileImport": "Simply Plural File Import",
+    "spFileHint": "Import from a Simply Plural data export file.",
+    "pickSPFile": "Pick SP Export File",
+    "notValidSPExport": "This file doesn't appear to be a valid Simply Plural export."
   },
   "hub": {
     "title": "Hub",
@@ -219,7 +226,12 @@
     "activeFrontExists": "Active Front Exists",
     "activeFrontExistsMsg": "There is an active front session for {{names}}.",
     "overwrite": "Overwrite",
-    "addTo": "Add To"
+    "addTo": "Add To",
+    "importExport": "Import / Export",
+    "retroHistory": "Retro History",
+    "statistics": "Statistics",
+    "systemChat": "System Chat",
+    "discord": "Discord"
   },
   "modal": {
     "updateFront": "Update Front",
@@ -293,7 +305,17 @@
     "palPreviewAccent": "Accent",
     "palPreviewText": "Text",
     "palPreviewMid": "Mid",
-    "paletteSlots": "{{used}} / {{max}} custom palettes"
+    "paletteSlots": "{{used}} / {{max}} custom palettes",
+    "pfpFailed": "Image Failed",
+    "removePfp": "Remove Photo",
+    "fancyPants": "Fancy Pants",
+    "selectedText": "text",
+    "searchAuthors": "Search authors…",
+    "textSize": "Text Size",
+    "textSizeDesc": "Adjust text size across the app.",
+    "textScaleNormal": "Normal",
+    "textScaleLarge": "Large",
+    "textScaleExtraLarge": "Extra Large"
   },
   "notification": {
     "locationPermTitle": "Location Permission",
@@ -318,7 +340,9 @@
     "es": "Español",
     "fr": "Français",
     "de": "Deutsch",
-    "pt": "Português"
+    "pt": "Português",
+    "fi": "Suomi",
+    "nb": "Norsk"
   },
   "memberGroups": {
     "title": "Groups",
@@ -327,5 +351,42 @@
     "addPlaceholder": "New group name…",
     "deleteGroup": "Delete Group",
     "deleteGroupMsg": "Remove this group? Members won't be deleted."
+  },
+  "stats": {
+    "allTime": "All Time",
+    "last7": "7 Days",
+    "last30": "30 Days",
+    "totalTime": "Total Time",
+    "sessions": "Sessions",
+    "messages": "Messages",
+    "topFronters": "Top Fronters",
+    "topCoFronters": "Top Co-Fronters",
+    "topCoCon": "Top Co-Conscious",
+    "topChatters": "Top Chatters",
+    "topMoods": "Top Moods",
+    "topLocations": "Top Locations"
+  },
+  "chat": {
+    "channels": "Channels",
+    "newChannel": "New Channel",
+    "channelName": "Channel name…",
+    "deleteChannel": "Delete Channel",
+    "deleteChannelMsg": "This will permanently delete this channel and all its messages.",
+    "archiveChannel": "Archive Channel",
+    "archiveChannelMsg": "Export messages and archive this channel?",
+    "archiveClose": "Archive & Close",
+    "archiveFresh": "Archive & Continue Fresh",
+    "archived": "Archived",
+    "archivedMsg": "Channel archived. Export saved as {{filename}}.",
+    "archivedFreshMsg": "Messages archived as {{filename}}. Channel cleared.",
+    "archivedChannels": "Archived Channels",
+    "archivedOn": "Archived on {{date}}",
+    "channelLimit": "Channel Limit",
+    "channelLimitMsg": "Maximum 100 channels reached.",
+    "selectSpeaker": "Select Speaker",
+    "searchSpeaker": "Search speaker…",
+    "noMessages": "No messages yet.",
+    "typeMessage": "Type a message…",
+    "imageFailed": "Image Failed"
   }
 }

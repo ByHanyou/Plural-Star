@@ -12,7 +12,10 @@ export const KEYS = {
   language: 'ps:language',
   groups:   'ps:groups',
   palettes: 'ps:palettes',
+  chatChannels: 'ps:chatChannels',
 };
+
+export const chatMsgKey = (channelId: string): string => `ps:chat:${channelId}`;
 
 export const store = {
   async get<T>(key: string, fallback: T | null = null): Promise<T | null> {
@@ -31,7 +34,10 @@ export const store = {
     catch (e) { console.error('Storage remove error:', e); }
   },
   async clearAll(): Promise<void> {
-    try { await AsyncStorage.multiRemove(Object.values(KEYS)); }
-    catch (e) { console.error('Storage clear error:', e); }
+    try {
+      const allKeys = await AsyncStorage.getAllKeys();
+      const psKeys = allKeys.filter(k => k.startsWith('ps:'));
+      await AsyncStorage.multiRemove(psKeys);
+    } catch (e) { console.error('Storage clear error:', e); }
   },
 };

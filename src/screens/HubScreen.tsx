@@ -1,8 +1,8 @@
 import React, {useState} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Linking} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
-import {Member, HistoryEntry, FrontState, FrontTierKey, EMPTY_TIER, uid, fmtTime, fmtDur, getInitials, allFrontMemberIds} from '../utils';
+import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, getInitials, allFrontMemberIds} from '../utils';
 
 const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; T: any}) => (
   <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.toggleOff,
@@ -11,7 +11,7 @@ const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; 
   </View>
 );
 
-type HubTile = 'share' | 'retroHistory';
+type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'discord';
 
 interface Props {
   theme: any;
@@ -21,6 +21,8 @@ interface Props {
   onSaveHistory: (h: HistoryEntry[]) => void;
   onSetFront: (f: FrontState | null) => void;
   renderShareScreen: () => React.ReactNode;
+  renderStatsScreen: () => React.ReactNode;
+  renderChatScreen: () => React.ReactNode;
 }
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -65,7 +67,7 @@ const DateTimeEditor = ({date, onChange, label, T}: {date: Date; onChange: (d: D
 
   return (
     <View style={{marginBottom: 14}}>
-      <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
+      {label ? <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text> : null}
       <TouchableOpacity onPress={() => setExpanded(!expanded)} activeOpacity={0.7}
         style={{flexDirection: 'row', gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: expanded ? `${T.accent}50` : T.border}}>
         <Text style={{flex: 1, fontSize: 14, color: T.text}}>{fmtDateDisplay(date)}</Text>
@@ -283,7 +285,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
           <Text style={{fontSize: 18, color: T.dim}}>←</Text>
         </TouchableOpacity>
-        <Text style={{fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', color: T.text}}>{t('hub.addHistoryEntry')}</Text>
+        <Text style={{fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', color: T.text}}>{t('hub.retroHistory')}</Text>
       </View>
 
       <DateTimeEditor date={startDate} onChange={setStartDate} label={t('hub.startTime')} T={T} />
@@ -333,7 +335,9 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   );
 };
 
-export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onSetFront, renderShareScreen}: Props) => {
+const DISCORD_URL = 'https://discord.gg/FFQw33cu8m';
+
+export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen}: Props) => {
   const {t} = useTranslation();
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
 
@@ -344,7 +348,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: 18, color: T.dim}}>←</Text>
           </TouchableOpacity>
-          <Text style={{fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', color: T.text}}>{t('share.title')}</Text>
+          <Text style={{fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', color: T.text}}>{t('hub.importExport')}</Text>
         </View>
         {renderShareScreen()}
       </View>
@@ -355,26 +359,59 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return <RetroHistoryScreen T={T} members={members} history={history} front={front} onSaveHistory={onSaveHistory} onSetFront={onSetFront} onBack={() => setActiveTile(null)} />;
   }
 
-  const tiles: {id: HubTile; icon: string; label: string; desc: string}[] = [
-    {id: 'share', icon: '↑', label: t('hub.shareExport'), desc: t('hub.shareExportDesc')},
-    {id: 'retroHistory', icon: '◷', label: t('hub.addHistoryEntry'), desc: t('hub.addHistoryDesc')},
+  if (activeTile === 'statistics') {
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+            <Text style={{fontSize: 18, color: T.dim}}>←</Text>
+          </TouchableOpacity>
+          <Text style={{fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', color: T.text}}>{t('hub.statistics')}</Text>
+        </View>
+        {renderStatsScreen()}
+      </View>
+    );
+  }
+
+  if (activeTile === 'chat') {
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+            <Text style={{fontSize: 18, color: T.dim}}>←</Text>
+          </TouchableOpacity>
+          <Text style={{fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', color: T.text}}>{t('hub.systemChat')}</Text>
+        </View>
+        {renderChatScreen()}
+      </View>
+    );
+  }
+
+  const tiles: {id: HubTile; icon: string; label: string; external?: boolean}[] = [
+    {id: 'share', icon: '⇅', label: t('hub.importExport')},
+    {id: 'retroHistory', icon: '◷', label: t('hub.retroHistory')},
+    {id: 'statistics', icon: '⊞', label: t('hub.statistics')},
+    {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
+    {id: 'discord', icon: '💬', label: t('hub.discord'), external: true},
   ];
+
+  const handleTilePress = (tile: typeof tiles[0]) => {
+    if (tile.external && tile.id === 'discord') {
+      Linking.openURL(DISCORD_URL);
+    } else {
+      setActiveTile(tile.id);
+    }
+  };
 
   return (
     <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
       <Text style={{fontFamily: Fonts.display, fontSize: 26, fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 20}}>{t('hub.title')}</Text>
-      <View style={{gap: 12}}>
+      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 10}}>
         {tiles.map(tile => (
-          <TouchableOpacity key={tile.id} onPress={() => setActiveTile(tile.id)} activeOpacity={0.7}
-            style={{flexDirection: 'row', alignItems: 'center', gap: 16, padding: 18, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border}}>
-            <View style={{width: 48, height: 48, borderRadius: 12, backgroundColor: T.accentBg, alignItems: 'center', justifyContent: 'center'}}>
-              <Text style={{fontSize: 22, color: T.accent}}>{tile.icon}</Text>
-            </View>
-            <View style={{flex: 1}}>
-              <Text style={{fontSize: 16, fontWeight: '600', color: T.text, marginBottom: 3}}>{tile.label}</Text>
-              <Text style={{fontSize: 12, color: T.dim, lineHeight: 17}}>{tile.desc}</Text>
-            </View>
-            <Text style={{fontSize: 16, color: T.dim}}>›</Text>
+          <TouchableOpacity key={tile.id} onPress={() => handleTilePress(tile)} activeOpacity={0.7}
+            style={{width: '31%', aspectRatio: 1, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, alignItems: 'center', justifyContent: 'center', padding: 10}}>
+            <Text style={{fontSize: 28, color: T.accent, marginBottom: 8}}>{tile.icon}</Text>
+            <Text style={{fontSize: 11, fontWeight: '600', color: T.text, textAlign: 'center'}} numberOfLines={2}>{tile.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

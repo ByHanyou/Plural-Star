@@ -8,7 +8,7 @@ import {store, KEYS} from '../storage';
 import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
-type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit';
+type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit' | 'spfile';
 
 interface Props {
   theme: any; system: SystemInfo; members: Member[]; front: FrontState | null;
@@ -238,6 +238,76 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     ]);
   };
 
+  const handleSPFileImport = async () => {
+    try {
+      const [res] = await pickDocument({type: ['application/json', 'text/plain']});
+      const content = await RNFS.readFile(res.uri, 'utf8');
+      const data = JSON.parse(content);
+      if (!data.members && !data.frontHistory && !data.users) {
+        Alert.alert(t('share.importFailed'), t('share.notValidSPExport'));
+        return;
+      }
+      const spMembers = Array.isArray(data.members) ? data.members : [];
+      const spHistory = Array.isArray(data.frontHistory) ? data.frontHistory : [];
+      const spUsers = Array.isArray(data.users) ? data.users : [];
+      const systemInfo = spUsers[0] || {};
+      const sanitized = spMembers.map((m: any) => {
+        if (m?.name) m.name = String(m.name).replace(/[-\u001F\u007F]/g, '').trim();
+        return m;
+      });
+      setExtPreview({system: {content: systemInfo}, members: sanitized, switches: spHistory});
+      setImportSource('spfile');
+    } catch (e: any) {
+      if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || '');
+    }
+  };
+
+  const handleSPFileConfirmImport = () => {
+    if (!extPreview) return;
+    Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('share.importBtn'), onPress: async () => {
+        const spMembers = extPreview.members;
+        const spHistory = extPreview.switches;
+        const sysData = extPreview.system?.content || extPreview.system || {};
+        if (extSel.system && sysData) {
+          const name = sysData.username || sysData.name || system.name;
+          const desc = sysData.desc || sysData.description || system.description;
+          await store.set(KEYS.system, {...system, name: name || system.name, description: desc});
+        }
+        if (extSel.members && spMembers.length > 0) {
+          const newM: Member[] = spMembers.map((m: any) => ({
+            id: uid(),
+            name: m.name || 'Unknown',
+            pronouns: m.pronouns || '',
+            role: '',
+            color: m.color || '#DAA520',
+            description: m.desc || '',
+            archived: m.archived || false,
+          }));
+          const merged = [...members, ...newM.filter(nm => !members.find(em => em.name.toLowerCase() === nm.name.toLowerCase()))];
+          await store.set(KEYS.members, merged);
+          if (extSel.frontHistory && spHistory.length > 0) {
+            const idMap: Record<string, string> = {};
+            spMembers.forEach((m: any, i: number) => {
+              const lm = merged.find(l => l.name.toLowerCase() === newM[i]?.name.toLowerCase());
+              if (m._id && lm) idMap[m._id] = lm.id;
+            });
+            const newH = convertSPSwitches(spHistory.map((sh: any) => ({content: sh, ...sh})), idMap);
+            if (newH.length > 0) {
+              const mergedHistory = [...newH, ...history].sort((a, b) => b.startTime - a.startTime).slice(0, 1000);
+              await store.set(KEYS.history, mergedHistory);
+              const importedOpenFront = findOpenFrontInHistory(mergedHistory);
+              if (importedOpenFront) await store.set(KEYS.front, importedOpenFront);
+            }
+          }
+        }
+        setExtPreview(null);
+        setTimeout(() => onDataImported(), 500);
+      }},
+    ]);
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(t('share.deleteAllDataTitle'), t('share.deleteAllDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
@@ -356,6 +426,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             <SourceBtn id="backup" label={t('share.backup')} />
             <SourceBtn id="simplyplural" label={t('share.simplyPlural')} />
             <SourceBtn id="pluralkit" label={t('share.pluralKit')} />
+            <SourceBtn id="spfile" label={t('share.spFile')} />
           </View>
           {importSource === 'journal' && (
             <View>
@@ -421,6 +492,33 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                     <SectionRow label={t('share.frontHistory')} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
                   <TouchableOpacity onPress={handleExtImport} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                    <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+          {importSource === 'spfile' && (
+            <View>
+              <Divider label={t('share.spFileImport')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.spFileHint')}</Text>
+              <TouchableOpacity onPress={handleSPFileImport} activeOpacity={0.7}
+                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{t('share.pickSPFile')}</Text>
+              </TouchableOpacity>
+              {extPreview && (
+                <View>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 14}}>
+                    <Text style={{fontSize: 16, fontWeight: '600', color: T.accent}}>{extPreview.system?.content?.username || extPreview.system?.username || t('share.system')}</Text>
+                    <Text style={{fontSize: 12, color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: extPreview.members.length})} · {t('share.frontEntries', {count: extPreview.switches.length})}</Text>
+                  </View>
+                  <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
+                    <SectionRow label={t('share.systemNameDesc')} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow label={t('share.memberProfiles')} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow label={t('share.frontHistory')} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                  </View>
+                  <TouchableOpacity onPress={handleSPFileConfirmImport} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>

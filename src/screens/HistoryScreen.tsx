@@ -1,17 +1,22 @@
 // src/screens/HistoryScreen.tsx
 import React, {useState} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, TextInput, Image, StyleSheet} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {AccentText} from '../components/AccentText';
 import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, getInitials, TIER_LABELS} from '../utils';
 
-const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; T: any}) => (
-  <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.toggleOff,
-    alignItems: 'center', justifyContent: 'center'}}>
-    <Text style={{fontSize: size * 0.35, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(member?.name || '?')}</Text>
-  </View>
-);
+const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; T: any}) => {
+  if (member?.avatar) {
+    return <Image source={{uri: member.avatar}} style={{width: size, height: size, borderRadius: size / 2}} />;
+  }
+  return (
+    <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.toggleOff,
+      alignItems: 'center', justifyContent: 'center'}}>
+      <Text style={{fontSize: size * 0.35, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(member?.name || '?')}</Text>
+    </View>
+  );
+};
 
 // Check if a member appears in any tier of a history entry
 const memberInEntry = (memberId: string, entry: HistoryEntry): boolean =>

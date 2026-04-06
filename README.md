@@ -23,6 +23,10 @@
   <a href="https://www.buymeacoffee.com/PluralSpace">
     <img src="https://img.buymeacoffee.com/button-api/?text=Support+PS&amp;emoji=%E2%98%95&amp;slug=PluralSpace&amp;button_colour=151929&amp;font_colour=ffffff&amp;font_family=Cookie&amp;outline_colour=ffffff&amp;coffee_colour=FFDD00" alt="Support PS on Buy Me a Coffee" />
   </a>
+  &nbsp;
+  <a href="https://discord.gg/FFQw33cu8m">
+    <img src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Join our Discord" />
+  </a>
 </p>
 
 <p align="center">
@@ -39,35 +43,43 @@ Simply Plural is being discontinued. Plural Space is the replacement you own ent
 Track who's fronting across three distinct tiers: Primary Front, Co-Front, and Co-Conscious. Each tier has its own member selection, mood, and notes. Primary Front also tracks location. Members are exclusive to one tier at a time. Set all three tiers from a single unified modal with a searchable member picker — type a name or filter by tag to find members instantly, even in large systems. A persistent notification keeps all three tiers visible from your notification shade.
 
 **◇ Member Profiles**  
-Build out your system roster with names, pronouns, roles, colors, and bios. Organize members with freeform tags and named groups. Tag members however makes sense for your system — by role, subsystem, origin, or anything else. Create colored named groups and assign members to multiple groups. Filter the member list by group, tag, or search. Members display tier-specific badges (Primary, Co-Front, Co-Con) when fronting. Archive dormant members to keep your active roster clean — archived members are hidden from the front picker but their history is fully preserved, and they can be restored at any time.
+Build out your system roster with profile pictures, names, pronouns, roles, colors, and rich text bios. Write descriptions with full markdown formatting — bold, italic, strikethrough, headers, links, lists, block quotes, inline code, and more — using a dual-mode editor (Fancy Pants toolbar or raw Markdown). Organize members with freeform tags and named groups. Create colored named groups and assign members to multiple groups. Filter the member list by group, tag, or search. Members display tier-specific badges (Primary, Co-Front, Co-Con) when fronting. Archive dormant members to keep your active roster clean — archived members are hidden from the front picker but their history is fully preserved, and they can be restored at any time.
 
 **◷ History & Insights**  
 Front History gives you a complete timestamped log of every switch, organized by day, with co-front and co-conscious tiers displayed inline. Member History shows everything about a specific headmate — every front session across all tiers, mood changes, location changes, note updates, and journal entries they authored — alongside a summary of total time fronted, sessions, top mood, and top location. Add retroactive history entries manually with full three-tier support, start/end time selection, and a "Current" option for ongoing sessions — the app detects overlaps with existing entries and lets you choose how to handle them.
 
-**◉ System Journal**  
-Write journal entries as a system. Tag entries with authors (specific headmates), add topic hashtags, and optionally lock individual entries or the entire journal behind passwords. Filter entries by author or tag. Export individual entries or the full journal in `.txt`, `.md`, or `.json`.
+**⊞ System Statistics**  
+System-wide stats at a glance: total fronting time, session count, and message count with time range filtering (All Time, 7 Days, 30 Days). Top 5 leaderboards for fronters, co-fronters, co-conscious, chatters, moods, and locations.
 
-**↑ Import & Export**  
-Migrating from Simply Plural or PluralKit? Import your full system data — members, history, and system info — with a single API token. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Octocon users can use the PluralKit import path.
+**⌨ System Chat**  
+Local-only IRC-style chat for your system. Create, rename, and organize channels (up to 100) with defaults for General, Venting, and Planning. Select a speaker from your member roster independently of who's fronting — chat activity doesn't affect front or history. Send text messages, share images (stored as base64 — delete the source and the chat copy persists), reply to messages, and react with emoji. Archive channels to free storage with the option to close the channel or continue fresh with a clean slate — archived messages export as `ChannelName_YYYY-MM-DD.json`.
+
+**◉ System Journal**  
+Write journal entries with full rich text formatting — the same dual-mode editor (Fancy Pants or Markdown) available in member profiles. Tag entries with authors (searchable by name), add topic hashtags (searchable by tag), and optionally lock individual entries or the entire journal behind passwords. Export individual entries or the full journal in `.txt`, `.md`, or `.json`.
+
+**⇅ Import & Export**  
+Migrating from Simply Plural or PluralKit? Import your full system data — members, history, and system info — with a single API token or directly from a Simply Plural data export JSON file. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Profile pictures are imported from SP/PK avatar URLs. Octocon users can use the PluralKit import path.
 
 Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Import `.txt`, `.md`, or `.json` files directly as journal entries.
 
 **🌐 Multilingual**  
-Full interface available in English, Español, Français, Deutsch, and Português. Auto-detects your device language on first launch. Change anytime in System Settings.
+Full interface available in English, Español, Français, Deutsch, Português, Suomi, and Norsk. Auto-detects your device language on first launch. Change anytime via dropdown in System Settings.
 
 **Other Features**
 - Obsidian Blue dark theme and Steel light theme built-in, plus 10 custom palette slots — define your own four-color theme
+- Profile pictures on member avatars throughout the app
+- Adjustable text size — Normal, Large, or Extra Large
 - Mood picker with preset and custom mood support
 - Location tagging with optional GPS auto-fill (resolves to neighbourhood or city — raw coordinates are never stored)
 - Notification toggle in System Settings
 - Password protection per journal entry and for the full journal
-- Hashtag tagging system for journal topics
-- Author filter and tag filter in journal
+- Searchable tag and author filters in journal
 - Member tags and named groups with multi-group assignment
 - Searchable member picker with tag filtering in front selection
 - Per-member history with full event log
-- Simply Plural and PluralKit token import with co-front grouping
+- Simply Plural token import, file import, and PluralKit token import with co-front grouping
 - Full data export and restore
+- Discord community accessible directly from the Hub
 
 ---
 
@@ -128,4 +140,4 @@ Plural Space is free, always. If it's been useful to you, a contribution helps c
 ## Contact
 
 **The Hanyou System**  
-[r/PluralSpace](https://www.reddit.com/r/PluralSpace/) · [GitHub Issues](https://github.com/TheHanyou/Plural-Space/issues)
+[Discord](https://discord.gg/FFQw33cu8m) · [r/PluralSpace](https://www.reddit.com/r/PluralSpace/) · [GitHub Issues](https://github.com/TheHanyou/Plural-Space/issues)

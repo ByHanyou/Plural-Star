@@ -115,7 +115,9 @@
     "unlockPasswordPrompt": "Gib das Passwort ein, um diesen Eintrag zu entsperren.",
     "unlock": "Entsperren",
     "deleteEntry": "Eintrag Löschen",
-    "areYouSure": "Bist du sicher?"
+    "areYouSure": "Bist du sicher?",
+    "searchTags": "Tags suchen…",
+    "searchAuthors": "Autoren suchen…"
   },
   "share": {
     "title": "Teilen & Exportieren",
@@ -197,7 +199,12 @@
     "unsupportedFormat": "Nicht unterstütztes Format \".{{ext}}\". Unterstützt: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" als neuer Tagebucheintrag importiert.",
     "notValidExport": "Keine gültige Plural Space Export-Datei.",
-    "filesDisabled": "Dateizugriff ist deaktiviert. Aktiviere ihn in den Systemeinstellungen."
+    "filesDisabled": "Dateizugriff ist deaktiviert. Aktiviere ihn in den Systemeinstellungen.",
+    "spFile": "SP-Datei",
+    "spFileImport": "Simply Plural Datei-Import",
+    "spFileHint": "Aus einer Simply Plural Exportdatei importieren.",
+    "pickSPFile": "SP-Exportdatei Wählen",
+    "notValidSPExport": "Diese Datei scheint kein gültiger Simply Plural Export zu sein."
   },
   "modal": {
     "updateFront": "Front Aktualisieren",
@@ -271,7 +278,17 @@
     "palPreviewAccent": "Akzent",
     "palPreviewText": "Text",
     "palPreviewMid": "Mittel",
-    "paletteSlots": "{{used}} / {{max}} benutzerdefinierte Paletten"
+    "paletteSlots": "{{used}} / {{max}} benutzerdefinierte Paletten",
+    "pfpFailed": "Bild Fehlgeschlagen",
+    "removePfp": "Foto Entfernen",
+    "fancyPants": "Visueller Editor",
+    "selectedText": "Text",
+    "searchAuthors": "Autoren suchen…",
+    "textSize": "Textgröße",
+    "textSizeDesc": "Textgröße in der App anpassen.",
+    "textScaleNormal": "Normal",
+    "textScaleLarge": "Groß",
+    "textScaleExtraLarge": "Sehr Groß"
   },
   "notification": {
     "locationPermTitle": "Standortberechtigung",
@@ -296,7 +313,9 @@
     "es": "Español",
     "fr": "Français",
     "de": "Deutsch",
-    "pt": "Português"
+    "pt": "Português",
+    "fi": "Suomi",
+    "nb": "Norsk"
   },
   "memberGroups": {
     "title": "Gruppen",
@@ -326,6 +345,48 @@
     "activeFrontExists": "Aktiver Front Vorhanden",
     "activeFrontExistsMsg": "Es gibt eine aktive Front-Sitzung für {{names}}.",
     "overwrite": "Überschreiben",
-    "addTo": "Hinzufügen"
+    "addTo": "Hinzufügen",
+    "importExport": "Import / Export",
+    "retroHistory": "Retro-Verlauf",
+    "statistics": "Statistiken",
+    "systemChat": "System-Chat",
+    "discord": "Discord"
+  },
+  "stats": {
+    "allTime": "Gesamt",
+    "last7": "7 Tage",
+    "last30": "30 Tage",
+    "totalTime": "Gesamtzeit",
+    "sessions": "Sitzungen",
+    "messages": "Nachrichten",
+    "topFronters": "Top Fronter",
+    "topCoFronters": "Top Co-Fronter",
+    "topCoCon": "Top Co-Bewusst",
+    "topChatters": "Top Chatter",
+    "topMoods": "Top Stimmungen",
+    "topLocations": "Top Orte"
+  },
+  "chat": {
+    "channels": "Kanäle",
+    "newChannel": "Neuer Kanal",
+    "channelName": "Kanalname…",
+    "deleteChannel": "Kanal Löschen",
+    "deleteChannelMsg": "Dies löscht diesen Kanal und alle Nachrichten dauerhaft.",
+    "archiveChannel": "Kanal Archivieren",
+    "archiveChannelMsg": "Nachrichten exportieren und Kanal archivieren?",
+    "archiveClose": "Archivieren & Schließen",
+    "archiveFresh": "Archivieren & Neu Starten",
+    "archived": "Archiviert",
+    "archivedMsg": "Kanal archiviert. Export gespeichert als {{filename}}.",
+    "archivedFreshMsg": "Nachrichten archiviert als {{filename}}. Kanal geleert.",
+    "archivedChannels": "Archivierte Kanäle",
+    "archivedOn": "Archiviert am {{date}}",
+    "channelLimit": "Kanallimit",
+    "channelLimitMsg": "Maximum von 100 Kanälen erreicht.",
+    "selectSpeaker": "Sprecher",
+    "searchSpeaker": "Suchen…",
+    "noMessages": "Noch keine Nachrichten.",
+    "typeMessage": "Nachricht schreiben…",
+    "imageFailed": "Bild Fehlgeschlagen"
   }
 }

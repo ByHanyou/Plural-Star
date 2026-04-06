@@ -1,19 +1,25 @@
 // src/screens/FrontScreen.tsx
 import React, {useState, useEffect} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, TextInput, Image, StyleSheet} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {FrontState, FrontTier, FrontTierKey, Member, fmtTime, fmtDur, isFrontEmpty} from '../utils';
 
 const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-const Avatar = ({member, size = 40, pulse = false, T}: {member?: Member | null; size?: number; pulse?: boolean; T: any}) => (
-  <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.toggleOff,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: pulse ? member?.color : 'transparent', shadowOpacity: pulse ? 0.5 : 0, shadowRadius: pulse ? 8 : 0, elevation: pulse ? 4 : 0}}>
-    <Text style={{fontSize: size * 0.35, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(member?.name || '?')}</Text>
-  </View>
-);
+const Avatar = ({member, size = 40, pulse = false, T}: {member?: Member | null; size?: number; pulse?: boolean; T: any}) => {
+  if (member?.avatar) {
+    return <Image source={{uri: member.avatar}} style={{width: size, height: size, borderRadius: size / 2,
+      shadowColor: pulse ? member.color : 'transparent', shadowOpacity: pulse ? 0.5 : 0, shadowRadius: pulse ? 8 : 0, elevation: pulse ? 4 : 0}} />;
+  }
+  return (
+    <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: member?.color || T.toggleOff,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: pulse ? member?.color : 'transparent', shadowOpacity: pulse ? 0.5 : 0, shadowRadius: pulse ? 8 : 0, elevation: pulse ? 4 : 0}}>
+      <Text style={{fontSize: size * 0.35, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(member?.name || '?')}</Text>
+    </View>
+  );
+};
 
 interface Props {
   theme: any;
