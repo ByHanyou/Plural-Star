@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, StyleSheet, ActivityIndicator} from 'react-native';
 import {useTranslation} from 'react-i18next';
-import {safePick, isPickerCancel} from '../utils/safePicker';
+import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import RNFS from 'react-native-fs';
 import {exportJSON, exportHTML, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd} from '../export/exportUtils';
 import {store, KEYS} from '../storage';
@@ -77,9 +77,9 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const ext = (res.name || '').split('.').pop()?.toLowerCase() || '';
       const titleBase = (res.name || 'Imported Entry').replace(/\.[^.]+$/, '');
       let body = '';
-      if (['txt', 'md', 'markdown'].includes(ext)) {body = await RNFS.readFile(res.uri, 'utf8');}
+      if (['txt', 'md', 'markdown'].includes(ext)) {body = await RNFS.readFile(getPickedFilePath(res), 'utf8');}
       else if (ext === 'json') {
-        const raw = await RNFS.readFile(res.uri, 'utf8');
+        const raw = await RNFS.readFile(getPickedFilePath(res), 'utf8');
         try { const parsed = JSON.parse(raw); if (parsed._meta?.app === 'Plural Space') {setImportStatus('error'); setImportMsg(t('share.backupLooksLike')); return;} body = typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
         } catch {body = raw;}
       } else {setImportStatus('error'); setImportMsg(t('share.unsupportedFormat', {ext})); return;}
@@ -92,7 +92,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     setRestoreError(''); setRestoreData(null); setRestoreFile(null); setRestoreDone(false);
     try {
       const [res] = await safePick({type: ['application/json']});
-      const content = await RNFS.readFile(res.uri, 'utf8');
+      const content = await RNFS.readFile(getPickedFilePath(res), 'utf8');
       const parsed: ExportPayload = JSON.parse(content);
       if (!parsed._meta || parsed._meta.app !== 'Plural Space') throw new Error(t('share.notValidExport'));
       setRestoreFile(res.name || 'backup.json'); setRestoreData(parsed);
@@ -276,7 +276,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const handleSPFileImport = async () => {
     try {
       const [res] = await safePick({type: ['application/json', 'text/plain']});
-      const content = await RNFS.readFile(res.uri, 'utf8');
+      const content = await RNFS.readFile(getPickedFilePath(res), 'utf8');
       const data = JSON.parse(content);
       if (!data.members && !data.frontHistory && !data.users) {
         Alert.alert(t('share.importFailed'), t('share.notValidSPExport'));

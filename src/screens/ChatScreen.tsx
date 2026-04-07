@@ -1,8 +1,9 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, FlatList, Image, Linking} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, FlatList, Image, Linking, Platform} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import RNFS from 'react-native-fs';
-import {safePick, isPickerCancel} from '../utils/safePicker';
+import Share from 'react-native-share';
+import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {Fonts} from '../theme';
 import {Member, ChatChannel, ChatMessage, DEFAULT_CHANNELS, uid, getInitials, fmtTime} from '../utils';
 import {store, chatMsgKey} from '../storage';
@@ -92,7 +93,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
     if (!activeChannelId || !activeMemberId) return;
     try {
       const [res] = await safePick({type: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']});
-      const base64 = await RNFS.readFile(res.uri, 'base64');
+      const base64 = await RNFS.readFile(getPickedFilePath(res), 'base64');
       const ext = (res.name || '').split('.').pop()?.toLowerCase() || 'png';
       const mimeMap: Record<string, string> = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp'};
       const mime = mimeMap[ext] || 'image/png';
@@ -154,6 +155,23 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
     setEditChannelName('');
   };
 
+  const exportChannelSnapshot = async (filename: string, channel: ChatChannel, msgs: ChatMessage[]) => {
+    const basePath = Platform.OS === 'android'
+      ? RNFS.DownloadDirectoryPath
+      : RNFS.TemporaryDirectoryPath || RNFS.DocumentDirectoryPath;
+    const path = `${basePath}/${filename}`;
+    await RNFS.writeFile(path, JSON.stringify({channel, messages: msgs}, null, 2), 'utf8');
+    if (Platform.OS === 'ios') {
+      await Share.open({
+        url: `file://${path}`,
+        type: 'application/json',
+        filename,
+        failOnCancel: false,
+        saveToFiles: true,
+      });
+    }
+  };
+
   const deleteChannel = (id: string) => {
     Alert.alert(t('chat.deleteChannel'), t('chat.deleteChannelMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
@@ -174,8 +192,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
       {text: t('chat.archiveClose'), onPress: async () => {
         const msgs = await store.get<ChatMessage[]>(chatMsgKey(id), []);
         const filename = `${ch.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
-        const path = `${RNFS.DownloadDirectoryPath}/${filename}`;
-        await RNFS.writeFile(path, JSON.stringify({channel: ch, messages: msgs}, null, 2), 'utf8');
+        await exportChannelSnapshot(filename, ch, msgs);
         await store.remove(chatMsgKey(id));
         onSaveChannels(channels.map(c => c.id === id ? {...c, archived: true, archivedAt: Date.now()} : c));
         if (activeChannelId === id) setActiveChannelId(activeChannels.filter(c => c.id !== id)[0]?.id || null);
@@ -184,8 +201,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
       {text: t('chat.archiveFresh'), onPress: async () => {
         const msgs = await store.get<ChatMessage[]>(chatMsgKey(id), []);
         const filename = `${ch.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
-        const path = `${RNFS.DownloadDirectoryPath}/${filename}`;
-        await RNFS.writeFile(path, JSON.stringify({channel: ch, messages: msgs}, null, 2), 'utf8');
+        await exportChannelSnapshot(filename, ch, msgs);
         await store.set(chatMsgKey(id), []);
         setMessages([]);
         Alert.alert(t('chat.archived'), t('chat.archivedFreshMsg', {filename}));

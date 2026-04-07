@@ -108,68 +108,93 @@ function MainAppContent() {
     const allMsgs: ChatMessage[] = [];
     for (const ch of channels) {
       if (ch.archived) continue;
-      const msgs = await store.get<ChatMessage[]>(`ps:chat:${ch.id}`, []);
-      if (msgs) {
-        const {messages: migrated, changed} = await migrateInlineChatMedia(msgs);
-        if (changed) await store.set(`ps:chat:${ch.id}`, migrated);
-        allMsgs.push(...(changed ? migrated : msgs));
+      try {
+        const msgs = await store.get<ChatMessage[]>(`ps:chat:${ch.id}`, []);
+        if (msgs) {
+          const {messages: migrated, changed} = await migrateInlineChatMedia(msgs);
+          if (changed) await store.set(`ps:chat:${ch.id}`, migrated);
+          allMsgs.push(...(changed ? migrated : msgs));
+        }
+      } catch (e) {
+        console.error('[PS] chat load error:', ch.id, e);
       }
     }
     setAllChatMessages(allMsgs);
   }, []);
 
   const loadAll = useCallback(async () => {
-    const [sys, mem, fr, hist, jour, share, settings, savedLang, grps, savedPalettes, savedChannels] = await Promise.all([
-      store.get<SystemInfo>(KEYS.system),
-      store.get<Member[]>(KEYS.members, []),
-      store.get<any>(KEYS.front),
-      store.get<HistoryEntry[]>(KEYS.history, []),
-      store.get<JournalEntry[]>(KEYS.journal, []),
-      store.get<ShareSettings>(KEYS.share, {showFront: true, showMembers: true, showDescriptions: false}),
-      store.get<AppSettings>(KEYS.settings, DEFAULT_SETTINGS),
-      store.get<string>(KEYS.language, ''),
-      store.get<MemberGroup[]>(KEYS.groups, []),
-      store.get<CustomPalette[]>(KEYS.palettes, []),
-      store.get<ChatChannel[]>(KEYS.chatChannels, []),
-    ]);
-    if (!sys) {setFirstRun(true);} else {setSystem(sys);}
-    let loadedMembers = mem || [];
-    const {members: migratedMembers, changed: avatarsChanged} = await migrateInlineAvatars(loadedMembers);
-    if (avatarsChanged) {
-      loadedMembers = migratedMembers;
-      await store.set(KEYS.members, loadedMembers);
-    }
-    setMembers(loadedMembers);
-    const migratedFront = migrateFrontState(fr) || findOpenFrontInHistory(hist || []);
-    setFront(migratedFront);
-    if ((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) {
-      await store.set(KEYS.front, migratedFront);
-    }
-    setHistory(hist || []);
-    setJournal(jour || []);
-    setShareSettings(share || {showFront: true, showMembers: true, showDescriptions: false});
-    const mergedSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
-    setAppSettings(mergedSettings);
-    setGroups(grps || []);
-    setPalettes(savedPalettes || []);
+    try {
+      const [sys, mem, fr, hist, jour, share, settings, savedLang, grps, savedPalettes, savedChannels] = await Promise.all([
+        store.get<SystemInfo>(KEYS.system),
+        store.get<Member[]>(KEYS.members, []),
+        store.get<any>(KEYS.front),
+        store.get<HistoryEntry[]>(KEYS.history, []),
+        store.get<JournalEntry[]>(KEYS.journal, []),
+        store.get<ShareSettings>(KEYS.share, {showFront: true, showMembers: true, showDescriptions: false}),
+        store.get<AppSettings>(KEYS.settings, DEFAULT_SETTINGS),
+        store.get<string>(KEYS.language, ''),
+        store.get<MemberGroup[]>(KEYS.groups, []),
+        store.get<CustomPalette[]>(KEYS.palettes, []),
+        store.get<ChatChannel[]>(KEYS.chatChannels, []),
+      ]);
+      if (!sys) {setFirstRun(true);} else {setSystem(sys);}
+      let loadedMembers = mem || [];
+      try {
+        const {members: migratedMembers, changed: avatarsChanged} = await migrateInlineAvatars(loadedMembers);
+        if (avatarsChanged) {
+          loadedMembers = migratedMembers;
+          await store.set(KEYS.members, loadedMembers);
+        }
+      } catch (e) {
+        console.error('[PS] avatar migration error:', e);
+      }
+      setMembers(loadedMembers);
+      const migratedFront = migrateFrontState(fr) || findOpenFrontInHistory(hist || []);
+      setFront(migratedFront);
+      if ((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) {
+        await store.set(KEYS.front, migratedFront);
+      }
+      setHistory(hist || []);
+      setJournal(jour || []);
+      setShareSettings(share || {showFront: true, showMembers: true, showDescriptions: false});
+      const mergedSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
+      setAppSettings(mergedSettings);
+      setGroups(grps || []);
+      setPalettes(savedPalettes || []);
 
-    let channels = savedChannels || [];
-    if (channels.length === 0) {
-      channels = DEFAULT_CHANNELS.map(c => ({id: uid(), name: c.name, createdAt: Date.now()}));
-      await store.set(KEYS.chatChannels, channels);
-    }
-    setChatChannels(channels);
-    await loadChatMessages(channels);
+      let channels = savedChannels || [];
+      if (channels.length === 0) {
+        channels = DEFAULT_CHANNELS.map(c => ({id: uid(), name: c.name, createdAt: Date.now()}));
+        await store.set(KEYS.chatChannels, channels);
+      }
+      setChatChannels(channels);
+      await loadChatMessages(channels);
 
-    const paletteId = mergedSettings.activePaletteId || '__dark__';
-    if (mergedSettings.lightMode && !mergedSettings.activePaletteId) {
-      setActivePaletteId('__light__');
-    } else {
-      setActivePaletteId(paletteId);
-    }
+      const paletteId = mergedSettings.activePaletteId || '__dark__';
+      if (mergedSettings.lightMode && !mergedSettings.activePaletteId) {
+        setActivePaletteId('__light__');
+      } else {
+        setActivePaletteId(paletteId);
+      }
 
-    if (savedLang) changeLanguage(savedLang as SupportedLanguage);
-    setLoaded(true);
+      if (savedLang) changeLanguage(savedLang as SupportedLanguage);
+    } catch (e) {
+      console.error('[PS] startup load error:', e);
+      setSystem({name: '', description: ''});
+      setMembers([]);
+      setFront(null);
+      setHistory([]);
+      setJournal([]);
+      setShareSettings({showFront: true, showMembers: true, showDescriptions: false});
+      setAppSettings(DEFAULT_SETTINGS);
+      setGroups([]);
+      setPalettes([]);
+      setChatChannels(DEFAULT_CHANNELS.map(c => ({id: uid(), name: c.name, createdAt: Date.now()})));
+      setAllChatMessages([]);
+      setFirstRun(true);
+    } finally {
+      setLoaded(true);
+    }
   }, []);
 
   const requestPermissions = async () => {

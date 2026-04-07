@@ -2,6 +2,10 @@ import {Keyboard, Platform, InteractionManager} from 'react-native';
 import {pick as pickDocument, isCancel as isPickerCancel} from '@react-native-documents/picker';
 
 export {isPickerCancel};
+export const getPickedFilePath = (result: any): string => {
+  const uri = result?.fileCopyUri || result?.uri || '';
+  return uri.startsWith('file://') ? uri.replace('file://', '') : uri;
+};
 
 /**
  * Resolves the best readable URI for a picked file result.
