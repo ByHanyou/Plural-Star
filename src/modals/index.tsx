@@ -12,6 +12,7 @@ import type {SupportedLanguage} from '../i18n/i18n';
 
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
+import {saveAvatar, deleteAvatar} from '../utils/mediaUtils';
 
 const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
@@ -300,13 +301,16 @@ export const MemberModal = ({visible, theme: T, member, groups, onSave, onDelete
     try {
       const [res] = await safePick({type: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']});
       const base64 = await RNFS.readFile(res.uri, 'base64');
-      const ext = (res.name || '').split('.').pop()?.toLowerCase() || 'png';
-      const mimeMap: Record<string, string> = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp'};
-      const mime = mimeMap[ext] || 'image/png';
-      set('avatar', `data:${mime};base64,${base64}`);
+      const uri = await saveAvatar(f.id, base64);
+      set('avatar', uri);
     } catch (e: any) {
       if (!isPickerCancel(e)) Alert.alert(t('modal.pfpFailed'), e.message || '');
     }
+  };
+
+  const removeAvatar = async () => {
+    await deleteAvatar(f.id);
+    set('avatar', undefined);
   };
 
   return (
@@ -329,7 +333,7 @@ export const MemberModal = ({visible, theme: T, member, groups, onSave, onDelete
           </View>
         </TouchableOpacity>
         {f.avatar && (
-          <TouchableOpacity onPress={() => set('avatar', undefined)} activeOpacity={0.7} style={{marginTop: 6}}>
+          <TouchableOpacity onPress={removeAvatar} activeOpacity={0.7} style={{marginTop: 6}}>
             <Text style={{fontSize: 11, color: T.danger}}>{t('modal.removePfp')}</Text>
           </TouchableOpacity>
         )}

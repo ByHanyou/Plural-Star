@@ -8,6 +8,7 @@ import {Fonts} from '../theme';
 import {Member, ChatChannel, ChatMessage, DEFAULT_CHANNELS, uid, getInitials, fmtTime} from '../utils';
 import {store, chatMsgKey} from '../storage';
 import {RichText as RichContent} from '../components/MarkdownRenderer';
+import {saveChatMedia, getChatMediaFileName} from '../utils/mediaUtils';
 
 const Avatar = ({member, size = 28, T}: {member?: Member | null; size?: number; T: any}) => {
   if (member?.avatar) {
@@ -89,21 +90,23 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
     setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
   };
 
-  const sendImage = async () => {
+  const sendMedia = async () => {
     if (!activeChannelId || !activeMemberId) return;
     try {
-      const [res] = await safePick({type: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']});
+      const [res] = await safePick({type: ['*/*']});
+      const fileName = res.name || 'file';
+      const ext = fileName.split('.').pop()?.toLowerCase() || '';
+      const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+      const isImage = imageExts.includes(ext);
       const base64 = await RNFS.readFile(getPickedFilePath(res), 'base64');
-      const ext = (res.name || '').split('.').pop()?.toLowerCase() || 'png';
-      const mimeMap: Record<string, string> = {png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp'};
-      const mime = mimeMap[ext] || 'image/png';
-      const dataUri = `data:${mime};base64,${base64}`;
+      const msgId = uid();
+      const fileUri = await saveChatMedia(msgId, base64, fileName);
       const msg: ChatMessage = {
-        id: uid(),
+        id: msgId,
         channelId: activeChannelId,
         authorId: activeMemberId,
-        type: 'image',
-        content: dataUri,
+        type: isImage ? 'image' : 'file',
+        content: fileUri,
         timestamp: Date.now(),
       };
       const updated = [...messages, msg];
@@ -236,6 +239,11 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
             </View>
             {msg.type === 'image' ? (
               <Image source={{uri: msg.content}} style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
+            ) : msg.type === 'file' ? (
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, marginTop: 4}}>
+                <Text style={{fontSize: fs(18)}}>📄</Text>
+                <Text style={{fontSize: fs(13), color: T.info, flex: 1}} numberOfLines={1}>{getChatMediaFileName(msg.content)}</Text>
+              </View>
             ) : (
               <RichContent text={msg.content} T={T} />
             )}
@@ -411,7 +419,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
       )}
 
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}>
-        <TouchableOpacity onPress={sendImage} activeOpacity={0.7} style={{padding: 4}}>
+        <TouchableOpacity onPress={sendMedia} activeOpacity={0.7} style={{padding: 4}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>📎</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setShowFormatBar(!showFormatBar)} activeOpacity={0.7} style={{padding: 4}}>

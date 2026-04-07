@@ -28,6 +28,7 @@ interface Props {
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 const DateTimeEditor = ({date, onChange, label, T}: {date: Date; onChange: (d: Date) => void; label: string; T: any}) => {
+  const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [expanded, setExpanded] = useState(false);
   const month = date.getMonth();
   const day = date.getDate();
@@ -100,6 +101,7 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
   members: Member[]; allSelected: Record<FrontTierKey, string[]>; T: any;
 }) => {
   const {t} = useTranslation();
+  const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [search, setSearch] = useState('');
   const otherTiers: Record<FrontTierKey, string> = {primary: t('tier.primaryShort'), coFront: t('tier.coFrontShort'), coConscious: t('tier.coConShort')};
   const filtered = members.filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()));
@@ -162,6 +164,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   onSaveHistory: (h: HistoryEntry[]) => void; onSetFront: (f: FrontState | null) => void; onBack: () => void;
 }) => {
   const {t} = useTranslation();
+  const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [primaryIds, setPrimaryIds] = useState<string[]>([]);
   const [coFrontIds, setCoFrontIds] = useState<string[]>([]);
   const [coConIds, setCoConIds] = useState<string[]>([]);

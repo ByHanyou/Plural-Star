@@ -10,22 +10,7 @@ import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSetting
 type Section = 'export' | 'import' | 'shareview';
 type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit' | 'spfile';
 
-const fetchAvatarBase64 = async (url: string): Promise<string | undefined> => {
-  if (!url || !url.startsWith('http')) return undefined;
-  try {
-    // FileReader is a browser Web API and is unreliable in React Native's JS runtime.
-    // Use RNFS.downloadFile instead, which works correctly on both iOS and Android.
-    const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || 'jpg';
-    const mimeMap: Record<string, string> = {jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp'};
-    const mime = mimeMap[ext] || 'image/jpeg';
-    const tmpPath = `${RNFS.TemporaryDirectoryPath}/ps_avatar_${Date.now()}.${ext}`;
-    const result = await RNFS.downloadFile({fromUrl: url, toFile: tmpPath}).promise;
-    if (result.statusCode < 200 || result.statusCode >= 300) return undefined;
-    const base64 = await RNFS.readFile(tmpPath, 'base64');
-    RNFS.unlink(tmpPath).catch(() => {}); // clean up temp file, fire-and-forget
-    return `data:${mime};base64,${base64}`;
-  } catch { return undefined; }
-};
+import {saveAvatarFromUrl} from '../utils/mediaUtils';
 
 interface Props {
   theme: any; system: SystemInfo; members: Member[]; front: FrontState | null;
@@ -238,7 +223,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           if (avatarEntries.length > 0) {
             const withAvatars = [...merged];
             for (const [memberId, url] of avatarEntries) {
-              const avatar = await fetchAvatarBase64(url);
+              const avatar = await saveAvatarFromUrl(memberId, url);
               if (avatar) {
                 const idx = withAvatars.findIndex(m => m.id === memberId);
                 if (idx >= 0) withAvatars[idx] = {...withAvatars[idx], avatar};
@@ -332,7 +317,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           if (avatarEntries.length > 0) {
             const withAvatars = [...merged];
             for (const [memberId, url] of avatarEntries) {
-              const avatar = await fetchAvatarBase64(url);
+              const avatar = await saveAvatarFromUrl(memberId, url);
               if (avatar) {
                 const idx = withAvatars.findIndex(m => m.id === memberId);
                 if (idx >= 0) withAvatars[idx] = {...withAvatars[idx], avatar};
