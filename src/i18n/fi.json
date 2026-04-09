@@ -93,7 +93,8 @@
     "tierSuffix": " ({{tier}})",
     "now": "nyt",
     "mood": "mieliala",
-    "at": "paikassa"
+    "at": "paikassa",
+    "noHistoryFilter": "Mikään historia ei vastaa suodattimiasi."
   },
   "journal": {
     "title": "Päiväkirja",

@@ -93,7 +93,8 @@
     "now": "jetzt",
     "mood": "Stimmung",
     "at": "bei",
-    "searchMember": "Mitglieder suchen…"
+    "searchMember": "Mitglieder suchen…",
+    "noHistoryFilter": "Kein Verlauf entspricht deinen Filtern."
   },
   "journal": {
     "title": "Tagebuch",

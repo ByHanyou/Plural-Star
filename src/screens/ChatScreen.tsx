@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, FlatList, Image, Linking, Platform} from 'react-native';
+import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, FlatList, Image, Linking, Platform, KeyboardAvoidingView} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
@@ -339,7 +339,8 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
   }
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <TouchableOpacity onPress={() => setShowChannelList(true)} activeOpacity={0.7} style={{marginRight: 10}}>
           <Text style={{fontSize: fs(16), color: T.dim}}>☰</Text>
@@ -434,5 +435,6 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
         </TouchableOpacity>
       </View>
     </View>
+    </KeyboardAvoidingView>
   );
 };

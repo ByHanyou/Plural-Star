@@ -93,7 +93,8 @@
     "tierSuffix": " ({{tier}})",
     "now": "agora",
     "mood": "humor",
-    "at": "em"
+    "at": "em",
+    "noHistoryFilter": "Nenhum histórico corresponde aos seus filtros."
   },
   "journal": {
     "title": "Diário",

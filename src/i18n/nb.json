@@ -93,7 +93,8 @@
     "tierSuffix": " ({{tier}})",
     "now": "nå",
     "mood": "humør",
-    "at": "på"
+    "at": "på",
+    "noHistoryFilter": "Ingen historikk samsvarer med filtrene dine."
   },
   "journal": {
     "title": "Dagbok",

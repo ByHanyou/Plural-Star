@@ -93,7 +93,8 @@
     "tierSuffix": " ({{tier}})",
     "now": "now",
     "mood": "mood",
-    "at": "at"
+    "at": "at",
+    "noHistoryFilter": "No history matches your filters."
   },
   "journal": {
     "title": "Journal",
