@@ -2,6 +2,7 @@ import RNFS from 'react-native-fs';
 
 const AVATAR_DIR = `${RNFS.DocumentDirectoryPath}/ps_avatars`;
 const CHAT_MEDIA_DIR = `${RNFS.DocumentDirectoryPath}/ps_chat_media`;
+const BIO_IMAGE_DIR = `${RNFS.DocumentDirectoryPath}/ps_bio_images`;
 
 const ensureDir = async (dir: string) => {
   const exists = await RNFS.exists(dir);
@@ -61,6 +62,66 @@ export const deleteChatMedia = async (messageId: string, ext: string = 'jpg'): P
   } catch {}
 };
 
+export const saveBioImage = async (
+  imageId: string,
+  base64: string,
+  ext: string = 'png'
+): Promise<string> => {
+  await ensureDir(BIO_IMAGE_DIR);
+  const raw = base64.includes(',') ? base64.split(',')[1] : base64;
+  const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '') || 'bin';
+  const path = `${BIO_IMAGE_DIR}/${imageId}.${safeExt}`;
+  await RNFS.writeFile(path, raw, 'base64');
+  return `file://${path}`;
+};
+
+export const migrateInlineImagesInDescriptions = async (
+  members: any[]
+): Promise<{ members: any[]; changed: boolean }> => {
+  let changed = false;
+  const updated: any[] = [];
+
+  const imageRegex = /!\[([^\]]*)\]\(data:([^;]+);base64,([A-Za-z0-9+/=]+)\)/g;
+
+  for (const m of members) {
+    if (typeof m.description !== 'string' || !m.description.includes('data:')) {
+      updated.push(m);
+      continue;
+    }
+
+    let newDesc = m.description;
+    let match: RegExpExecArray | null;
+
+    while ((match = imageRegex.exec(m.description)) !== null) {
+      const alt = match[1];
+      const mime = match[2];
+      const b64 = match[3];
+
+      const extMap: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+      };
+      const ext = extMap[mime] || 'bin';
+
+      const bioId = `${m.id}_bio_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+      try {
+        const fileUri = await saveBioImage(bioId, b64, ext);
+        newDesc = newDesc.replace(match[0], `![${alt}](${fileUri})`);
+        changed = true;
+      } catch (e) {
+        console.error('[PS] Failed to migrate bio image for', m.id, e);
+      }
+    }
+
+    updated.push({ ...m, description: newDesc });
+  }
+
+  return { members: updated, changed };
+};
+
 export const migrateInlineAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
   let changed = false;
   const updated = [];
@@ -115,5 +176,7 @@ export const clearAllMedia = async (): Promise<void> => {
     if (avatarExists) await RNFS.unlink(AVATAR_DIR);
     const chatExists = await RNFS.exists(CHAT_MEDIA_DIR);
     if (chatExists) await RNFS.unlink(CHAT_MEDIA_DIR);
+    const bioExists = await RNFS.exists(BIO_IMAGE_DIR);
+    if (bioExists) await RNFS.unlink(BIO_IMAGE_DIR);
   } catch {}
 };
