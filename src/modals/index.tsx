@@ -2,7 +2,7 @@ import React, {useState, useMemo} from 'react';
 import {View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Image, Linking, Keyboard, Alert} from 'react-native';
 import {useTranslation} from 'react-i18next';
 import RNFS from 'react-native-fs';
-import {safePick, isPickerCancel} from '../utils/safePicker';
+import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {Sheet} from '../components/Sheet';
 import {PALETTE, BUILTIN_PALETTES, deriveTheme} from '../theme';
 import type {CustomPalette} from '../theme';
@@ -311,7 +311,7 @@ export const MemberModal = ({visible, theme: T, member, groups, onSave, onDelete
   const pickAvatar = async () => {
     try {
       const [res] = await safePick({type: ['image/png', 'image/jpeg', 'image/gif', 'image/webp']});
-      const base64 = await RNFS.readFile(res.uri, 'base64');
+      const base64 = await RNFS.readFile(getPickedFilePath(res), 'base64');
       const uri = await saveAvatar(f.id, base64);
       set('avatar', uri);
     } catch (e: any) {

@@ -115,7 +115,16 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           for (const m of (restoreData.members || [])) { if ((m as any).avatar && !avatarMap[(m as any).id]) avatarMap[(m as any).id] = (m as any).avatar; }
           if (Object.keys(avatarMap).length > 0) {
             const existing = await store.get<Member[]>(KEYS.members) || [];
-            const updated = existing.map(m => avatarMap[m.id] ? {...m, avatar: avatarMap[m.id]} : m);
+            const updated = await Promise.all(existing.map(async m => {
+              const raw = avatarMap[m.id];
+              if (!raw) return m;
+              if (raw.startsWith('data:')) {
+                const b64 = raw.split(',')[1];
+                const fileUri = await saveAvatar(m.id, b64).catch(() => null);
+                return fileUri ? {...m, avatar: fileUri} : {...m, avatar: undefined};
+              }
+              return {...m, avatar: raw};
+            }));
             await store.set(KEYS.members, updated);
           }
         }

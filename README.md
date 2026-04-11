@@ -105,7 +105,7 @@ Download the latest APK from the button above or from [Releases](https://github.
 **iOS — IPA (sideload)**  
 Download the latest IPA from the button above or from [Releases](https://github.com/TheHanyou/Plural-Space/releases). Install using [AltStore](https://altstore.io/) or a Mac with Xcode. Requires either AltStore or an Apple Developer account.
 
-Direct AltStore Download: (paste into Safari) altstore://install?url=https://github.com/TheHanyou/Plural-Space/releases/download/v1.2.0/PluralSpace.ipa
+Direct AltStore Download: (paste into Safari) altstore://install?url=https://github.com/TheHanyou/Plural-Space/releases/latest/download/PluralSpace.ipa
 
 ---
 
