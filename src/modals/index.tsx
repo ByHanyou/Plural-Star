@@ -26,6 +26,8 @@ const HexField = ({label, value, onChange, T}: {label: string; value: string; on
   </View>
 );
 
+const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
 const Btn = ({children, onPress, variant = 'primary', disabled = false, style = {}, T}: any) => {
   const variants: any = {primary: {bg: T.accentBg, color: T.accent, border: `${T.accent}40`}, ghost: {bg: 'transparent', color: T.dim, border: T.border}, danger: {bg: T.dangerBg, color: T.danger, border: `${T.danger}40`}, solid: {bg: T.accent, color: '#0a0508', border: T.accent}, info: {bg: T.infoBg, color: T.info, border: `${T.info}40`}};
   const v = variants[variant] || variants.primary;
@@ -900,8 +902,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
         <View style={{marginTop: 12}}>
           <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.frontCheck')}</Text>
           <Text style={{fontSize: 11, color: T.muted, lineHeight: 15, marginBottom: 8}}>{t('notification.frontCheckDesc')}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow: 0}}>
-            <View style={{flexDirection: 'row', gap: 6}}>
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
               {[0, 1, 2, 3, 4, 6, 8, 12].map(hours => (
                 <TouchableOpacity key={hours} onPress={() => setFrontCheckInterval(hours)} activeOpacity={0.7}
                   style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
@@ -912,8 +913,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
                   </Text>
                 </TouchableOpacity>
               ))}
-            </View>
-          </ScrollView>
+          </View>
         </View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
