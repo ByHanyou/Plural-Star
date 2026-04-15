@@ -94,7 +94,12 @@
     "now": "nå",
     "mood": "humør",
     "at": "på",
-    "noHistoryFilter": "Ingen historikk samsvarer med filtrene dine."
+    "noHistoryFilter": "Ingen historikk samsvarer med filtrene dine.",
+    "deleteConfirm1": "Er du sikker på at du vil slette denne oppføringen?",
+    "deleteConfirm2": "Denne handlingen kan ikke angres. Vil du virkelig slette?",
+    "deleteConfirm3": "Endelig bekreftelse: slett denne oppføringen permanent?",
+    "deleteEntry": "Slett oppføring",
+    "deleteEntryMsg": "Dette fjerner denne historikkoppføringen permanent."
   },
   "journal": {
     "title": "Dagbok",
@@ -315,7 +320,15 @@
     "textSizeDesc": "Juster tekststørrelse i appen.",
     "textScaleNormal": "Normal",
     "textScaleLarge": "Stor",
-    "textScaleExtraLarge": "Ekstra stor"
+    "textScaleExtraLarge": "Ekstra stor",
+    "addMembersFirst": "Legg til medlemmer først.",
+    "custom": "Egendefinert…",
+    "descriptionFieldPlaceholder": "En kort beskrivelse…",
+    "descriptionLabel": "Beskrivelse",
+    "editFrontDetails": "Rediger frontdetaljer",
+    "headmateName": "Headmate-navn",
+    "noteOptional": "Notat (valgfritt)",
+    "updateFront": "Oppdater front"
   },
   "notification": {
     "locationPermTitle": "Stedstillatelse",
@@ -333,7 +346,12 @@
     "coFront": "Co-Front: {{names}}",
     "coConscious": "Co-Bevisst: {{names}}",
     "cfShort": "CF: {{names}}",
-    "ccShort": "CB: {{names}}"
+    "ccShort": "CB: {{names}}",
+    "everyNHours": "Hver {{count}} time",
+    "frontCheck": "Frontsjekk",
+    "frontCheckDesc": "Minne meg på å sjekke hvem som fronter.",
+    "frontCheckInterval": "Sjekkintervall",
+    "whosFronting": "Hvem fronter akkurat nå?"
   },
   "language": {
     "en": "English",
@@ -366,7 +384,14 @@
     "topCoCon": "Mest co-bevisst",
     "topChatters": "Mest aktive",
     "topMoods": "Mest humør",
-    "topLocations": "Mest steder"
+    "topLocations": "Mest steder",
+    "avgEnergy": "Gjennomsnittsenergi",
+    "customRange": "Egendefinert periode",
+    "from": "Fra",
+    "memberLeaderboard": "Når {{name}} fronter",
+    "peakHours": "Topptimer",
+    "to": "Til",
+    "topCoMembers": "Topp co-medlemmer"
   },
   "chat": {
     "channels": "Kanaler",
@@ -390,5 +415,94 @@
     "noMessages": "Ingen meldinger ennå.",
     "typeMessage": "Skriv en melding…",
     "imageFailed": "Bilde feilet"
+  },
+  "customFields": {
+    "addField": "+ Legg til felt",
+    "confirmChanges": "Bekreft endringer",
+    "deleteField": "Slett felt",
+    "deleteFieldMsg": "Dette fjerner dette feltet fra alle medlemmer.",
+    "editFieldsInfo": "Rediger feltinformasjon",
+    "endDate": "Slutt",
+    "fieldName": "Feltnavn",
+    "fieldType": "Type",
+    "manageFields": "Administrer felt",
+    "noFields": "Ingen egendefinerte felt ennå.",
+    "noFieldsInfo": "Ingen feltinformasjon er fylt ut for dette medlemmet",
+    "reorder": "Omorganiser",
+    "startDate": "Start",
+    "title": "Egendefinerte felt",
+    "typeColor": "Farge",
+    "typeDate": "Dato",
+    "typeDateRange": "Datoperiode",
+    "typeMarkdown": "Rik tekst",
+    "typeMonth": "Måned",
+    "typeMonthDay": "Måned + Dag",
+    "typeMonthYear": "Måned + År",
+    "typeNumber": "Tall",
+    "typeText": "Tekst",
+    "typeTimestamp": "Tidsstempel",
+    "typeToggle": "Veksler",
+    "typeYear": "År"
+  },
+  "energy": {
+    "avgEnergy": "Gjennomsnittsenergi",
+    "high": "Høy",
+    "label": "Energi",
+    "level": "Energinivå",
+    "low": "Lav",
+    "medium": "Middels"
+  },
+  "memberProfile": {
+    "banner": "Banner",
+    "changeBanner": "Endre banner",
+    "removeBanner": "Fjern banner"
+  },
+  "memberSort": {
+    "age": "Eldste først",
+    "alphabetical": "A → Z",
+    "color": "Etter farge",
+    "label": "Sorter medlemmer",
+    "manual": "Manuell rekkefølge",
+    "reverse-alphabetical": "Z → A",
+    "role": "Etter rolle"
+  },
+  "noteboard": {
+    "addNote": "+ Legg til notat",
+    "by": "av {{name}}",
+    "deleteNote": "Slett notat",
+    "deleteNoteMsg": "Fjerne dette notatet?",
+    "noNotes": "Ingen notater ennå. Legg igjen et notat for dette headmate.",
+    "pin": "Fest",
+    "pinned": "Festet",
+    "placeholder": "Skriv et notat...",
+    "title": "Notattavle",
+    "unpin": "Løsne"
+  },
+  "polls": {
+    "addOption": "+ Legg til alternativ",
+    "closePoll": "Lukk avstemning",
+    "closed": "Lukket",
+    "createPoll": "+ Opprett avstemning",
+    "deletePoll": "Slett avstemning",
+    "deletePollMsg": "Dette sletter denne avstemningen permanent.",
+    "hideVoters": "Skjul velgernavn",
+    "noPolls": "Ingen avstemninger ennå.",
+    "optionPlaceholder": "Alternativ...",
+    "question": "Spørsmål",
+    "questionPlaceholder": "Hva vil du spørre om?",
+    "reopenPoll": "Gjenåpne avstemning",
+    "title": "Avstemninger",
+    "vote": "Stem",
+    "votedBy": "Stemt av: {{names}}",
+    "votes": "{{count}} stemmer"
+  },
+  "systemProfile": {
+    "avatar": "Systemavatar",
+    "banner": "Systembanner",
+    "changeAvatar": "Endre avatar",
+    "changeBanner": "Endre banner",
+    "removeAvatar": "Fjern avatar",
+    "removeBanner": "Fjern banner",
+    "title": "Systemprofil"
   }
 }

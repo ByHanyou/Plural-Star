@@ -243,7 +243,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               return (
                 <View key={h} style={{flex: 1, alignItems: 'center'}}>
                   <View style={{width: '100%', height: Math.max((count / max) * 45, 1), backgroundColor: count === max && count > 0 ? T.accent : `${T.dim}40`, borderRadius: 1}} />
-                  {h % 6 === 0 && <Text style={{fontSize: 7, color: T.muted, marginTop: 2}}>{h}</Text>}
+                  <Text style={{fontSize: 7, color: h % 6 === 0 ? T.muted : 'transparent', marginTop: 2}}>{h % 6 === 0 ? h : ''}</Text>
                 </View>
               );
             })}

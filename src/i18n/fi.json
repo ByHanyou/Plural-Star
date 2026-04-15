@@ -94,7 +94,12 @@
     "now": "nyt",
     "mood": "mieliala",
     "at": "paikassa",
-    "noHistoryFilter": "Mikään historia ei vastaa suodattimiasi."
+    "noHistoryFilter": "Mikään historia ei vastaa suodattimiasi.",
+    "deleteConfirm1": "Haluatko varmasti poistaa tämän merkinnän?",
+    "deleteConfirm2": "Tätä toimintoa ei voi kumota. Haluatko todella poistaa?",
+    "deleteConfirm3": "Viimeinen vahvistus: poistetaanko tämä merkintä pysyvästi?",
+    "deleteEntry": "Poista merkintä",
+    "deleteEntryMsg": "Tämä poistaa tämän historiatiedon pysyvästi."
   },
   "journal": {
     "title": "Päiväkirja",
@@ -315,7 +320,15 @@
     "textSizeDesc": "Säädä tekstin kokoa sovelluksessa.",
     "textScaleNormal": "Normaali",
     "textScaleLarge": "Suuri",
-    "textScaleExtraLarge": "Erittäin suuri"
+    "textScaleExtraLarge": "Erittäin suuri",
+    "addMembersFirst": "Lisää jäsenet ensin.",
+    "custom": "Mukautettu…",
+    "descriptionFieldPlaceholder": "Lyhyt kuvaus…",
+    "descriptionLabel": "Kuvaus",
+    "editFrontDetails": "Muokkaa fronttitietoja",
+    "headmateName": "Headmaten nimi",
+    "noteOptional": "Muistiinpano (valinnainen)",
+    "updateFront": "Päivitä front"
   },
   "notification": {
     "locationPermTitle": "Sijaintilupa",
@@ -333,7 +346,12 @@
     "coFront": "Rinnakkais-Front: {{names}}",
     "coConscious": "Rinnakkais-Tietoinen: {{names}}",
     "cfShort": "RF: {{names}}",
-    "ccShort": "RT: {{names}}"
+    "ccShort": "RT: {{names}}",
+    "everyNHours": "Joka {{count}} tunti",
+    "frontCheck": "Fronttitarkistus",
+    "frontCheckDesc": "Muistuta minua tarkistamaan, kuka on edessä.",
+    "frontCheckInterval": "Tarkistusväli",
+    "whosFronting": "Kuka fronttaa juuri nyt?"
   },
   "language": {
     "en": "English",
@@ -366,7 +384,14 @@
     "topCoCon": "Eniten yhteistietoisia",
     "topChatters": "Eniten viestijät",
     "topMoods": "Yleisimmät mielialat",
-    "topLocations": "Yleisimmät paikat"
+    "topLocations": "Yleisimmät paikat",
+    "avgEnergy": "Keskienergia",
+    "customRange": "Mukautettu aikaväli",
+    "from": "Alkaen",
+    "memberLeaderboard": "Kun {{name}} fronttaa",
+    "peakHours": "Huipputunnit",
+    "to": "Asti",
+    "topCoMembers": "Parhaat yhteisnjäsenet"
   },
   "chat": {
     "channels": "Kanavat",
@@ -390,5 +415,94 @@
     "noMessages": "Ei viestejä vielä.",
     "typeMessage": "Kirjoita viesti…",
     "imageFailed": "Kuva epäonnistui"
+  },
+  "customFields": {
+    "addField": "+ Lisää kenttä",
+    "confirmChanges": "Vahvista muutokset",
+    "deleteField": "Poista kenttä",
+    "deleteFieldMsg": "Tämä poistaa kentän kaikilta jäseniltä.",
+    "editFieldsInfo": "Muokkaa kenttätietoja",
+    "endDate": "Loppu",
+    "fieldName": "Kentän nimi",
+    "fieldType": "Tyyppi",
+    "manageFields": "Hallinnoi kenttiä",
+    "noFields": "Ei mukautettuja kenttiä vielä.",
+    "noFieldsInfo": "Tälle jäsenelle ei ole täytetty kenttätietoja",
+    "reorder": "Järjestä uudelleen",
+    "startDate": "Alku",
+    "title": "Mukautetut kentät",
+    "typeColor": "Väri",
+    "typeDate": "Päivämäärä",
+    "typeDateRange": "Päivämääräväli",
+    "typeMarkdown": "Muotoiltu teksti",
+    "typeMonth": "Kuukausi",
+    "typeMonthDay": "Kuukausi + Päivä",
+    "typeMonthYear": "Kuukausi + Vuosi",
+    "typeNumber": "Numero",
+    "typeText": "Teksti",
+    "typeTimestamp": "Aikaleima",
+    "typeToggle": "Kytkin",
+    "typeYear": "Vuosi"
+  },
+  "energy": {
+    "avgEnergy": "Keskienergia",
+    "high": "Korkea",
+    "label": "Energia",
+    "level": "Energiataso",
+    "low": "Matala",
+    "medium": "Keskitaso"
+  },
+  "memberProfile": {
+    "banner": "Banneri",
+    "changeBanner": "Vaihda banneri",
+    "removeBanner": "Poista banneri"
+  },
+  "memberSort": {
+    "age": "Vanhimmat ensin",
+    "alphabetical": "A → Z",
+    "color": "Värin mukaan",
+    "label": "Lajittele jäsenet",
+    "manual": "Manuaalinen järjestys",
+    "reverse-alphabetical": "Z → A",
+    "role": "Roolin mukaan"
+  },
+  "noteboard": {
+    "addNote": "+ Lisää muistiinpano",
+    "by": "kirjoittanut {{name}}",
+    "deleteNote": "Poista muistiinpano",
+    "deleteNoteMsg": "Poistetaanko tämä muistiinpano?",
+    "noNotes": "Ei muistiinpanoja vielä. Jätä muistiinpano tälle headmatelle.",
+    "pin": "Kiinnitä",
+    "pinned": "Kiinnitetty",
+    "placeholder": "Kirjoita muistiinpano...",
+    "title": "Muistiinpanotaulu",
+    "unpin": "Irrota"
+  },
+  "polls": {
+    "addOption": "+ Lisää vaihtoehto",
+    "closePoll": "Sulje kysely",
+    "closed": "Suljettu",
+    "createPoll": "+ Luo kysely",
+    "deletePoll": "Poista kysely",
+    "deletePollMsg": "Tämä poistaa tämän kyselyn pysyvästi.",
+    "hideVoters": "Piilota äänestäjien nimet",
+    "noPolls": "Ei kyselyitä vielä.",
+    "optionPlaceholder": "Vaihtoehto...",
+    "question": "Kysymys",
+    "questionPlaceholder": "Mitä haluat kysyä?",
+    "reopenPoll": "Avaa kysely uudelleen",
+    "title": "Kyselyt",
+    "vote": "Äänestä",
+    "votedBy": "Äänesti: {{names}}",
+    "votes": "{{count}} ääntä"
+  },
+  "systemProfile": {
+    "avatar": "Järjestelmän avatar",
+    "banner": "Järjestelmän banneri",
+    "changeAvatar": "Vaihda avatar",
+    "changeBanner": "Vaihda banneri",
+    "removeAvatar": "Poista avatar",
+    "removeBanner": "Poista banneri",
+    "title": "Järjestelmäprofiili"
   }
 }

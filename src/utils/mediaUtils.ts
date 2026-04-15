@@ -12,10 +12,6 @@ const ensureDir = async (dir: string) => {
 export const saveAvatar = async (memberId: string, base64: string): Promise<string> => {
   await ensureDir(AVATAR_DIR);
   const raw = base64.includes(',') ? base64.split(',')[1] : base64;
-  // Detect actual format from the first bytes of the base64 data rather than
-  // trusting the declared MIME type — picked images are often mislabelled as JPEG
-  // when they're actually PNG, leading to files saved with the wrong extension.
-  // Base64 magic byte prefixes: PNG=iVBOR, GIF=R0lGO, WEBP=/9j is JPEG, PNG/WEBP differ
   let ext = 'jpg';
   if (raw.startsWith('iVBOR')) ext = 'png';
   else if (raw.startsWith('R0lGO')) ext = 'gif';
@@ -191,4 +187,67 @@ export const clearAllMedia = async (): Promise<void> => {
     const bioExists = await RNFS.exists(BIO_IMAGE_DIR);
     if (bioExists) await RNFS.unlink(BIO_IMAGE_DIR);
   } catch {}
+};
+
+export const postProcessImportedMembers = async (
+  members: any[],
+  rawSpPkData: any
+): Promise<{ members: any[]; changed: boolean }> => {
+  let changed = false;
+
+  for (const m of members) {
+    const pfpUrl =
+      m.avatar_url ||
+      m.avatar ||
+      m.pfp ||
+      m.image ||
+      (rawSpPkData.members?.find((x: any) => x.id === m.id)?.avatar_url);
+
+    if (pfpUrl && typeof pfpUrl === 'string' && pfpUrl.startsWith('http')) {
+      const localUri = await saveAvatarFromUrl(m.id, pfpUrl);
+      if (localUri) {
+        m.avatar = localUri;
+        changed = true;
+      }
+    }
+  }
+
+  const { members: migratedAvatars, changed: avatarChanged } =
+    await migrateInlineAvatars(members);
+  changed = changed || avatarChanged;
+
+  const { members: finalMembers, changed: descChanged } =
+    await migrateInlineImagesInDescriptions(migratedAvatars);
+  changed = changed || descChanged;
+
+  if (rawSpPkData.custom_fields || rawSpPkData.customFields) {
+    const cfDefs: any[] = [];
+    const fieldMap = new Map();
+
+    (rawSpPkData.custom_fields || rawSpPkData.customFields || []).forEach((f: any) => {
+      const def = {
+        id: f.id || `cf_${Date.now()}`,
+        name: f.name || f.label,
+        type: f.type || 'text',
+      };
+      cfDefs.push(def);
+      fieldMap.set(f.id || f.name, def.id);
+    });
+
+    finalMembers.forEach((m: any) => {
+      m.customFields = m.customFields || [];
+      const sourceMember = rawSpPkData.members?.find((x: any) => x.id === m.id);
+      if (sourceMember?.custom_fields) {
+        Object.entries(sourceMember.custom_fields).forEach(([key, value]) => {
+          const fieldId = fieldMap.get(key);
+          if (fieldId) {
+            m.customFields!.push({ fieldId, value });
+            changed = true;
+          }
+        });
+      }
+    });
+  }
+
+  return { members: finalMembers, changed };
 };

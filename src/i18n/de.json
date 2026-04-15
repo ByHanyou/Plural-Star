@@ -94,7 +94,12 @@
     "mood": "Stimmung",
     "at": "bei",
     "searchMember": "Mitglieder suchen…",
-    "noHistoryFilter": "Kein Verlauf entspricht deinen Filtern."
+    "noHistoryFilter": "Kein Verlauf entspricht deinen Filtern.",
+    "deleteConfirm1": "Möchten Sie diesen Eintrag wirklich löschen?",
+    "deleteConfirm2": "Diese Aktion kann nicht rückgängig gemacht werden. Wirklich löschen?",
+    "deleteConfirm3": "Letzte Bestätigung: diesen Eintrag dauerhaft löschen?",
+    "deleteEntry": "Eintrag löschen",
+    "deleteEntryMsg": "Dies entfernt diesen Verlaufseintrag dauerhaft."
   },
   "journal": {
     "title": "Tagebuch",
@@ -314,7 +319,12 @@
     "coFront": "Co-Front: {{names}}",
     "coConscious": "Co-Bewusst: {{names}}",
     "cfShort": "CF: {{names}}",
-    "ccShort": "CB: {{names}}"
+    "ccShort": "CB: {{names}}",
+    "everyNHours": "Alle {{count}} Stunden",
+    "frontCheck": "Front-Überprüfung",
+    "frontCheckDesc": "Mich daran erinnern, wer vorne ist.",
+    "frontCheckInterval": "Prüfintervall",
+    "whosFronting": "Wer ist gerade vorne?"
   },
   "language": {
     "en": "English",
@@ -374,7 +384,14 @@
     "topCoCon": "Top Co-Bewusst",
     "topChatters": "Top Chatter",
     "topMoods": "Top Stimmungen",
-    "topLocations": "Top Orte"
+    "topLocations": "Top Orte",
+    "avgEnergy": "Durchschnittsenergie",
+    "customRange": "Benutzerdefinierter Zeitraum",
+    "from": "Von",
+    "memberLeaderboard": "Wenn {{name}} vorne ist",
+    "peakHours": "Stoßzeiten",
+    "to": "Bis",
+    "topCoMembers": "Top Co-Mitglieder"
   },
   "chat": {
     "channels": "Kanäle",
@@ -398,5 +415,94 @@
     "noMessages": "Noch keine Nachrichten.",
     "typeMessage": "Nachricht schreiben…",
     "imageFailed": "Bild Fehlgeschlagen"
+  },
+  "customFields": {
+    "addField": "+ Feld hinzufügen",
+    "confirmChanges": "Änderungen bestätigen",
+    "deleteField": "Feld löschen",
+    "deleteFieldMsg": "Dies entfernt dieses Feld von allen Mitgliedern.",
+    "editFieldsInfo": "Feldinformationen bearbeiten",
+    "endDate": "Ende",
+    "fieldName": "Feldname",
+    "fieldType": "Typ",
+    "manageFields": "Felder verwalten",
+    "noFields": "Noch keine benutzerdefinierten Felder definiert.",
+    "noFieldsInfo": "Für dieses Mitglied wurden keine Feldinformationen ausgefüllt",
+    "reorder": "Neu anordnen",
+    "startDate": "Beginn",
+    "title": "Benutzerdefinierte Felder",
+    "typeColor": "Farbe",
+    "typeDate": "Datum",
+    "typeDateRange": "Datumsbereich",
+    "typeMarkdown": "Rich Text",
+    "typeMonth": "Monat",
+    "typeMonthDay": "Monat + Tag",
+    "typeMonthYear": "Monat + Jahr",
+    "typeNumber": "Zahl",
+    "typeText": "Text",
+    "typeTimestamp": "Zeitstempel",
+    "typeToggle": "Schalter",
+    "typeYear": "Jahr"
+  },
+  "energy": {
+    "avgEnergy": "Durchschnittsenergie",
+    "high": "Hoch",
+    "label": "Energie",
+    "level": "Energielevel",
+    "low": "Niedrig",
+    "medium": "Mittel"
+  },
+  "memberProfile": {
+    "banner": "Banner",
+    "changeBanner": "Banner ändern",
+    "removeBanner": "Banner entfernen"
+  },
+  "memberSort": {
+    "age": "Älteste zuerst",
+    "alphabetical": "A → Z",
+    "color": "Nach Farbe",
+    "label": "Mitglieder sortieren",
+    "manual": "Manuelle Reihenfolge",
+    "reverse-alphabetical": "Z → A",
+    "role": "Nach Rolle"
+  },
+  "noteboard": {
+    "addNote": "+ Notiz hinzufügen",
+    "by": "von {{name}}",
+    "deleteNote": "Notiz löschen",
+    "deleteNoteMsg": "Diese Notiz entfernen?",
+    "noNotes": "Noch keine Notizen. Hinterlasse eine Notiz für dieses Headmate.",
+    "pin": "Anheften",
+    "pinned": "Angeheftet",
+    "placeholder": "Eine Notiz schreiben...",
+    "title": "Notizboard",
+    "unpin": "Loslösen"
+  },
+  "polls": {
+    "addOption": "+ Option hinzufügen",
+    "closePoll": "Umfrage schließen",
+    "closed": "Geschlossen",
+    "createPoll": "+ Umfrage erstellen",
+    "deletePoll": "Umfrage löschen",
+    "deletePollMsg": "Dies löscht diese Umfrage dauerhaft.",
+    "hideVoters": "Wählernamen ausblenden",
+    "noPolls": "Noch keine Umfragen.",
+    "optionPlaceholder": "Option...",
+    "question": "Frage",
+    "questionPlaceholder": "Was möchten Sie fragen?",
+    "reopenPoll": "Umfrage wieder öffnen",
+    "title": "Umfragen",
+    "vote": "Abstimmen",
+    "votedBy": "Abgestimmt von: {{names}}",
+    "votes": "{{count}} Stimmen"
+  },
+  "systemProfile": {
+    "avatar": "System-Avatar",
+    "banner": "System-Banner",
+    "changeAvatar": "Avatar ändern",
+    "changeBanner": "Banner ändern",
+    "removeAvatar": "Avatar entfernen",
+    "removeBanner": "Banner entfernen",
+    "title": "Systemprofil"
   }
 }
