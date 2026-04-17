@@ -55,7 +55,10 @@
     "addMood": "+ Add mood",
     "frontNote": "NOTE",
     "whatHappening": "What's happening right now?",
-    "noNote": "No note. Tap ✎ to add one."
+    "noNote": "No note. Tap ✎ to add one.",
+    "clearFront": "Clear Front",
+    "clearFrontMsg": "This will clear all tiers and log the end of the current session. Continue?",
+    "clearFrontTitle": "Clear Front?"
   },
   "members": {
     "title": "Members",
@@ -128,7 +131,8 @@
     "deleteEntry": "Delete Entry",
     "areYouSure": "Are you sure?",
     "searchTags": "Search tags…",
-    "searchAuthors": "Search authors…"
+    "searchAuthors": "Search authors…",
+    "noEntriesFilter": "No entries match this filter."
   },
   "share": {
     "title": "Share & Export",
@@ -226,7 +230,21 @@
     "savedToDownloads": "Saved to Downloads",
     "savedToDownloadsMsg": "{{filename}} has been saved to your Downloads folder.",
     "exportReady": "Export Ready",
-    "exportReadyMsg": "{{filename}} was generated, but the share sheet could not be opened automatically."
+    "exportReadyMsg": "{{filename}} was generated, but the share sheet could not be opened automatically.",
+    "clearAllConfirm": "Are you absolutely sure? This cannot be undone.",
+    "clearAllData": "Delete All Data",
+    "clearAllDataDesc": "Permanently erase all data and return to setup.",
+    "dangerZone": "Danger Zone",
+    "exportBackup": "Export Backup",
+    "exportDesc": "Download a full JSON backup of your system data.",
+    "historyCount": "{{count}} history entries",
+    "importFromSP": "Import from Simply Plural",
+    "importPSBackup": "Tap to select a .json backup file",
+    "importing": "Importing…",
+    "journalCount": "{{count}} journal entries",
+    "membersCountSimple": "{{count}} members",
+    "restoreDesc": "Load a previously exported JSON backup.",
+    "spMergeDesc": "Merge Simply Plural backup data into your current system."
   },
   "hub": {
     "title": "Hub",
@@ -253,7 +271,8 @@
     "retroHistory": "Retro History",
     "statistics": "Statistics",
     "systemChat": "System Chat",
-    "discord": "Discord"
+    "discord": "Discord",
+    "dashboard": "← Dashboard"
   },
   "modal": {
     "updateFront": "Update Front",
@@ -404,7 +423,13 @@
     "energyPerTen": "/10 avg energy",
     "sessionCount": "sessions",
     "msgsSuffix": "msgs",
-    "sessionsSuffix": "sessions"
+    "sessionsSuffix": "sessions",
+    "chatMessages": "Chat Messages",
+    "noLocationsRecorded": "No locations recorded yet.",
+    "noMoodsRecorded": "No moods recorded yet.",
+    "totalFrontTime": "Total Front Time",
+    "totalSessions": "Total Sessions",
+    "uniqueFronters": "Unique Fronters"
   },
   "chat": {
     "channels": "Channels",

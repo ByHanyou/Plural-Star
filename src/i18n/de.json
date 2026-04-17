@@ -55,7 +55,10 @@
     "addMood": "+ Stimmung hinzufügen",
     "frontNote": "NOTIZ",
     "whatHappening": "Was passiert gerade?",
-    "noNote": "Keine Notiz. Tippe ✎ um eine hinzuzufügen."
+    "noNote": "Keine Notiz. Tippe ✎ um eine hinzuzufügen.",
+    "clearFront": "Front leeren",
+    "clearFrontMsg": "Dies leert alle Ebenen und protokolliert das Ende der Sitzung. Fortfahren?",
+    "clearFrontTitle": "Front leeren?"
   },
   "members": {
     "title": "Mitglieder",
@@ -128,7 +131,8 @@
     "deleteEntry": "Eintrag Löschen",
     "areYouSure": "Bist du sicher?",
     "searchTags": "Tags suchen…",
-    "searchAuthors": "Autoren suchen…"
+    "searchAuthors": "Autoren suchen…",
+    "noEntriesFilter": "Keine Einträge passen zu diesem Filter."
   },
   "share": {
     "title": "Teilen & Exportieren",
@@ -226,7 +230,21 @@
     "savedToDownloads": "In Downloads gespeichert",
     "savedToDownloadsMsg": "{{filename}} in Downloads gespeichert.",
     "exportReady": "Export bereit",
-    "exportReadyMsg": "{{filename}} wurde erstellt, aber der Dialog konnte nicht geöffnet werden."
+    "exportReadyMsg": "{{filename}} wurde erstellt, aber der Dialog konnte nicht geöffnet werden.",
+    "clearAllConfirm": "Sind Sie absolut sicher? Das kann nicht rückgängig gemacht werden.",
+    "clearAllData": "Alle Daten löschen",
+    "clearAllDataDesc": "Alle Daten dauerhaft löschen und zur Einrichtung zurückkehren.",
+    "dangerZone": "Gefahrenzone",
+    "exportBackup": "Backup exportieren",
+    "exportDesc": "Laden Sie ein vollständiges JSON-Backup der Systemdaten herunter.",
+    "historyCount": "{{count}} Verlaufseinträge",
+    "importFromSP": "Aus Simply Plural importieren",
+    "importPSBackup": "Tippen Sie, um eine .json-Datei auszuwählen",
+    "importing": "Importiere…",
+    "journalCount": "{{count}} Tagebuch-Einträge",
+    "membersCountSimple": "{{count}} Mitglieder",
+    "restoreDesc": "Zuvor exportiertes JSON-Backup laden.",
+    "spMergeDesc": "Simply-Plural-Backup in das aktuelle System einfügen."
   },
   "modal": {
     "updateFront": "Front Aktualisieren",
@@ -260,7 +278,7 @@
     "entryTitlePlaceholder": "Eintragstitel…",
     "body": "Inhalt",
     "writeHere": "Hier schreiben…",
-    "tags": "Tags",
+    "tags": "Schlagwörter",
     "topic": "#Thema",
     "authors": "Autoren",
     "entryPassword": "Eintrags-Passwort",
@@ -283,7 +301,7 @@
     "addLocationPlaceholder": "Ort hinzufügen…",
     "addMoodPlaceholder": "Stimmung hinzufügen…",
     "supportPS": "☕  PS Unterstützen",
-    "memberTags": "Tags",
+    "memberTags": "Schlagwörter",
     "memberTagPlaceholder": "#Tag",
     "fileAccess": "Dateizugriff",
     "fileAccessDesc": "Import und Export von Dateien erlauben. Standardmäßig aktiviert.",
@@ -379,7 +397,8 @@
     "retroHistory": "Retro-Verlauf",
     "statistics": "Statistiken",
     "systemChat": "System-Chat",
-    "discord": "Discord"
+    "discord": "Discord",
+    "dashboard": "← Startseite"
   },
   "stats": {
     "allTime": "Gesamt",
@@ -404,7 +423,13 @@
     "energyPerTen": "/10 durchschn. Energie",
     "from": "Von",
     "sessionCount": "Sitzungen",
-    "to": "Bis"
+    "to": "Bis",
+    "chatMessages": "Chat-Nachrichten",
+    "noLocationsRecorded": "Keine Orte erfasst.",
+    "noMoodsRecorded": "Keine Stimmungen erfasst.",
+    "totalFrontTime": "Gesamt-Frontzeit",
+    "totalSessions": "Sitzungen gesamt",
+    "uniqueFronters": "Einzigartige Fronter"
   },
   "chat": {
     "channels": "Kanäle",

@@ -27,10 +27,10 @@
     "coConscious": "Co-Consciente",
     "primaryBadge": "PRINCIPAL",
     "coFrontBadge": "CO-FRENTE",
-    "coConBadge": "CO-CON",
+    "coConBadge": "CO-CONSCIENTE",
     "primaryShort": "Principal",
     "coFrontShort": "Co-Frente",
-    "coConShort": "Co-Con",
+    "coConShort": "Co-Consc.",
     "editTier": "Editar {{tier}}"
   },
   "setup": {
@@ -55,7 +55,10 @@
     "addMood": "+ Añadir ánimo",
     "frontNote": "NOTA",
     "whatHappening": "¿Qué está pasando ahora?",
-    "noNote": "Sin nota. Toca ✎ para añadir una."
+    "noNote": "Sin nota. Toca ✎ para añadir una.",
+    "clearFront": "Limpiar front",
+    "clearFrontMsg": "Esto limpiará todos los niveles y registrará el final de la sesión actual. ¿Continuar?",
+    "clearFrontTitle": "¿Limpiar front?"
   },
   "members": {
     "title": "Miembros",
@@ -128,7 +131,8 @@
     "deleteEntry": "Eliminar Entrada",
     "areYouSure": "¿Estás seguro?",
     "searchTags": "Buscar etiquetas…",
-    "searchAuthors": "Buscar autores…"
+    "searchAuthors": "Buscar autores…",
+    "noEntriesFilter": "Ninguna entrada coincide con este filtro."
   },
   "share": {
     "title": "Compartir y Exportar",
@@ -226,7 +230,21 @@
     "savedToDownloads": "Guardado en Descargas",
     "savedToDownloadsMsg": "{{filename}} guardado en Descargas.",
     "exportReady": "Exportación lista",
-    "exportReadyMsg": "{{filename}} generado, pero no se pudo abrir la ventana de compartir."
+    "exportReadyMsg": "{{filename}} generado, pero no se pudo abrir la ventana de compartir.",
+    "clearAllConfirm": "¿Estás absolutamente seguro? Esto no se puede deshacer.",
+    "clearAllData": "Eliminar todos los datos",
+    "clearAllDataDesc": "Borrar permanentemente todos los datos y volver a la configuración.",
+    "dangerZone": "Zona de peligro",
+    "exportBackup": "Exportar copia",
+    "exportDesc": "Descargar una copia JSON completa de los datos del sistema.",
+    "historyCount": "{{count}} entradas de historial",
+    "importFromSP": "Importar desde Simply Plural",
+    "importPSBackup": "Toca para seleccionar un archivo .json",
+    "importing": "Importando…",
+    "journalCount": "{{count}} entradas de diario",
+    "membersCountSimple": "{{count}} miembros",
+    "restoreDesc": "Cargar una copia JSON exportada previamente.",
+    "spMergeDesc": "Fusionar copia de Simply Plural con el sistema actual."
   },
   "hub": {
     "title": "Centro",
@@ -253,7 +271,8 @@
     "retroHistory": "Historial Retro",
     "statistics": "Estadísticas",
     "systemChat": "Chat del Sistema",
-    "discord": "Discord"
+    "discord": "Discord",
+    "dashboard": "← Panel"
   },
   "modal": {
     "updateFront": "Actualizar Frente",
@@ -394,7 +413,7 @@
     "topChatters": "Más Activos",
     "topMoods": "Estados Más Comunes",
     "topLocations": "Lugares Más Comunes",
-    "msgsSuffix": "msgs",
+    "msgsSuffix": "msjs",
     "sessionsSuffix": "sesiones",
     "peakHours": "Horas pico",
     "topCoMembers": "Compañeros más frecuentes",
@@ -404,7 +423,13 @@
     "energyPerTen": "/10 energía media",
     "from": "Desde",
     "sessionCount": "sesiones",
-    "to": "Hasta"
+    "to": "Hasta",
+    "chatMessages": "Mensajes de chat",
+    "noLocationsRecorded": "Sin ubicaciones registradas.",
+    "noMoodsRecorded": "Sin estados de ánimo registrados.",
+    "totalFrontTime": "Tiempo total al frente",
+    "totalSessions": "Sesiones totales",
+    "uniqueFronters": "Miembros únicos al frente"
   },
   "chat": {
     "channels": "Canales",
@@ -506,7 +531,7 @@
     "medium": "Media"
   },
   "memberProfile": {
-    "banner": "Banner",
+    "banner": "Estandarte",
     "changeBanner": "Cambiar banner",
     "removeBanner": "Quitar banner"
   },

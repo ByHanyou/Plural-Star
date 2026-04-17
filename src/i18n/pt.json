@@ -27,10 +27,10 @@
     "coConscious": "Co-Consciente",
     "primaryBadge": "PRINCIPAL",
     "coFrontBadge": "CO-FRENTE",
-    "coConBadge": "CO-CON",
+    "coConBadge": "CO-CONSC.",
     "primaryShort": "Principal",
     "coFrontShort": "Co-Frente",
-    "coConShort": "Co-Con",
+    "coConShort": "Co-Consc.",
     "editTier": "Editar {{tier}}"
   },
   "setup": {
@@ -55,7 +55,10 @@
     "addMood": "+ Adicionar humor",
     "frontNote": "NOTA",
     "whatHappening": "O que está acontecendo agora?",
-    "noNote": "Sem nota. Toque ✎ para adicionar."
+    "noNote": "Sem nota. Toque ✎ para adicionar.",
+    "clearFront": "Limpar front",
+    "clearFrontMsg": "Isso limpará todos os níveis e registrará o fim da sessão. Continuar?",
+    "clearFrontTitle": "Limpar front?"
   },
   "members": {
     "title": "Membros",
@@ -128,7 +131,8 @@
     "deleteEntry": "Excluir Entrada",
     "areYouSure": "Tem certeza?",
     "searchTags": "Buscar tags…",
-    "searchAuthors": "Buscar autores…"
+    "searchAuthors": "Buscar autores…",
+    "noEntriesFilter": "Nenhuma entrada corresponde a este filtro."
   },
   "share": {
     "title": "Compartilhar e Exportar",
@@ -147,7 +151,7 @@
     "invalidEmailMsg": "Digite um email válido primeiro.",
     "exportFailed": "Falha na Exportação",
     "journalFile": "Arquivo do Diário",
-    "backup": "Backup",
+    "backup": "Cópia",
     "simplyPlural": "Simply Plural",
     "pluralKit": "PluralKit",
     "importJournalEntry": "Importar Entrada do Diário",
@@ -226,7 +230,21 @@
     "savedToDownloads": "Salvo em Downloads",
     "savedToDownloadsMsg": "{{filename}} salvo em Downloads.",
     "exportReady": "Exportação pronta",
-    "exportReadyMsg": "{{filename}} gerado, mas o compartilhamento não pôde ser aberto."
+    "exportReadyMsg": "{{filename}} gerado, mas o compartilhamento não pôde ser aberto.",
+    "clearAllConfirm": "Tem certeza absoluta? Isto não pode ser desfeito.",
+    "clearAllData": "Excluir todos os dados",
+    "clearAllDataDesc": "Apagar permanentemente todos os dados e voltar à configuração.",
+    "dangerZone": "Zona de perigo",
+    "exportBackup": "Exportar backup",
+    "exportDesc": "Baixar um backup JSON completo dos dados do sistema.",
+    "historyCount": "{{count}} entradas de histórico",
+    "importFromSP": "Importar do Simply Plural",
+    "importPSBackup": "Toque para selecionar um arquivo .json",
+    "importing": "Importando…",
+    "journalCount": "{{count}} entradas de diário",
+    "membersCountSimple": "{{count}} membros",
+    "restoreDesc": "Carregar um backup JSON exportado anteriormente.",
+    "spMergeDesc": "Mesclar backup do Simply Plural com o sistema atual."
   },
   "hub": {
     "title": "Central",
@@ -253,7 +271,8 @@
     "retroHistory": "Histórico Retro",
     "statistics": "Estatísticas",
     "systemChat": "Chat do Sistema",
-    "discord": "Discord"
+    "discord": "Discord",
+    "dashboard": "← Painel"
   },
   "modal": {
     "updateFront": "Atualizar Frente",
@@ -289,7 +308,7 @@
     "entryTitlePlaceholder": "Título da entrada…",
     "body": "Corpo",
     "writeHere": "Escreva aqui…",
-    "tags": "Tags",
+    "tags": "Etiquetas",
     "topic": "#tópico",
     "authors": "Autores",
     "entryPassword": "Senha da Entrada",
@@ -312,7 +331,7 @@
     "addLocationPlaceholder": "Adicionar localização…",
     "addMoodPlaceholder": "Adicionar humor…",
     "supportPS": "☕  Apoiar PS",
-    "memberTags": "Tags",
+    "memberTags": "Etiquetas",
     "memberTagPlaceholder": "#tag",
     "fileAccess": "Acesso a Arquivos",
     "fileAccessDesc": "Permitir importar e exportar arquivos. Ativado por padrão.",
@@ -404,7 +423,13 @@
     "energyPerTen": "/10 energia média",
     "from": "De",
     "sessionCount": "sessões",
-    "to": "Até"
+    "to": "Até",
+    "chatMessages": "Mensagens de chat",
+    "noLocationsRecorded": "Nenhum local registrado.",
+    "noMoodsRecorded": "Nenhum humor registrado.",
+    "totalFrontTime": "Tempo total no front",
+    "totalSessions": "Total de sessões",
+    "uniqueFronters": "Fronters únicos"
   },
   "chat": {
     "channels": "Canais",
@@ -461,7 +486,7 @@
     "typeMonth": "Mês",
     "typeYear": "Ano",
     "typeMonthYear": "Mês + Ano",
-    "typeTimestamp": "Timestamp",
+    "typeTimestamp": "Data e hora",
     "typeMonthDay": "Mês + Dia",
     "typeDateRange": "Intervalo de datas",
     "typeNumber": "Número",
