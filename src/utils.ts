@@ -154,6 +154,7 @@ export interface AppSettings {
   textScale: TextScale;
   memberSortMode?: MemberSortMode;
   frontCheckInterval?: number;
+  noteboardNotifications?: boolean;
 }
 
 export interface ExportPayload {

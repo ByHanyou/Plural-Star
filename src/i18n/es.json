@@ -213,7 +213,7 @@
     "backupLooksLike": "Eso parece un archivo de respaldo. Usa Restaurar Respaldo.",
     "unsupportedFormat": "Formato no soportado \".{{ext}}\". Soportados: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" importado como nueva entrada.",
-    "notValidExport": "No es un archivo de exportación válido de Plural Space.",
+    "notValidExport": "No es un archivo de exportación válido de Plural Star.",
     "filesDisabled": "El acceso a archivos está desactivado. Actívalo en Ajustes del Sistema.",
     "spFile": "Archivo SP",
     "spFileImport": "Importar Archivo de Simply Plural",
@@ -244,7 +244,19 @@
     "journalCount": "{{count}} entradas de diario",
     "membersCountSimple": "{{count}} miembros",
     "restoreDesc": "Cargar una copia JSON exportada previamente.",
-    "spMergeDesc": "Fusionar copia de Simply Plural con el sistema actual."
+    "spMergeDesc": "Fusionar copia de Simply Plural con el sistema actual.",
+    "recoverData": "Recuperar Datos",
+    "recoverDataDesc": "Si tus datos desaparecieron tras un reinicio (vuelve la pantalla de bienvenida, faltan miembros o grupos, etc.), Plural Star aún puede tener copias de seguridad en disco separadas del almacenamiento principal de la app. Escanea para ver qué se puede recuperar.",
+    "scanForBackups": "Buscar copias recuperables",
+    "noBackupsFound": "No se encontraron copias recuperables en disco.",
+    "scanAgain": "Escanear de nuevo",
+    "recoverConfirmTitle": "¿Recuperar datos?",
+    "recoverConfirmMsg": "¿Restaurar {{count}} elemento(s) de copia en la app? Esto sobrescribirá los datos actuales en esas categorías.",
+    "recoverConfirm": "Recuperar",
+    "recoverSelected": "Recuperar seleccionados",
+    "recoverComplete": "✓ Recuperación completa — recargando…",
+    "recoverScanFailed": "Falló el escaneo de recuperación",
+    "exportCategories": "Categorías de exportación"
   },
   "hub": {
     "title": "Centro",
@@ -272,7 +284,10 @@
     "statistics": "Estadísticas",
     "systemChat": "Chat del Sistema",
     "discord": "Discord",
-    "dashboard": "← Panel"
+    "dashboard": "← Panel",
+    "credits": "Créditos",
+    "creditLogo": "Logo de Plural Star",
+    "creditIos": "Port de Plural Star para iOS"
   },
   "modal": {
     "updateFront": "Actualizar Frente",
@@ -360,11 +375,11 @@
   },
   "notification": {
     "locationPermTitle": "Ubicación",
-    "locationPermMsg": "Permitir a Plural Space etiquetar tu ubicación aproximada al estar al frente.",
+    "locationPermMsg": "Permitir a Plural Star etiquetar tu ubicación aproximada al estar al frente.",
     "allow": "Permitir",
     "deny": "Denegar",
     "notifPermTitle": "Notificaciones",
-    "notifPermMsg": "Permitir que Plural Space muestre notificaciones de estado de frente.",
+    "notifPermMsg": "Permitir que Plural Star muestre notificaciones de estado de frente.",
     "notNow": "Ahora no",
     "mood": "Ánimo: {{mood}}",
     "at": "En: {{location}}",
@@ -379,7 +394,13 @@
     "frontCheckDesc": "Notificación periódica para verificar quién está al frente.",
     "everyNHours": "Cada {{count}}h",
     "frontCheckInterval": "Intervalo",
-    "whosFronting": "¿Quién está al frente ahora?"
+    "whosFronting": "¿Quién está al frente ahora?",
+    "noteboard": "Notificaciones del Tablero",
+    "noteboardDesc": "Notificarme cuando un miembro al frente tenga notas sin leer en su tablero.",
+    "noteboardUnreadTitle": "◇ {{count}} nota sin leer",
+    "noteboardUnreadTitle_other": "◇ {{count}} notas sin leer",
+    "noteboardUnreadLine": "{{name}}: {{count}} nota nueva",
+    "noteboardUnreadLine_other": "{{name}}: {{count}} notas nuevas"
   },
   "language": {
     "en": "English",
@@ -390,7 +411,9 @@
     "fi": "Suomi",
     "nb": "Norsk",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "ru": "Русский",
+    "uk": "Українська"
   },
   "memberGroups": {
     "title": "Grupos",

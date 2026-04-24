@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useCallback, useMemo} from 'react';
+import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {View, Text, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert} from 'react-native';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
@@ -12,9 +12,9 @@ import {T, TLight, BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {AccentText} from './src/components/AccentText';
 import {store, KEYS} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ChatChannel, ChatMessage, DEFAULT_CHANNELS, EMPTY_TIER, findOpenFrontInHistory, migrateFrontState, isFrontEmpty, frontToHistoryEntry, uid} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DEFAULT_CHANNELS, EMPTY_TIER, findOpenFrontInHistory, migrateFrontState, isFrontEmpty, frontToHistoryEntry, uid} from './src/utils';
 import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia} from './src/utils/mediaUtils';
-import {showFrontNotification, clearFrontNotification} from './src/services/NotificationService';
+import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, showNoteboardNotification, clearNoteboardNotification} from './src/services/NotificationService';
 
 import {SetupScreen} from './src/screens/SetupScreen';
 import {FrontScreen} from './src/screens/FrontScreen';
@@ -54,7 +54,7 @@ const getGPSLocation = (): Promise<string | null> =>
             const {latitude, longitude} = pos.coords;
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
-              {headers: {'User-Agent': 'PluralSpace/1.0'}},
+              {headers: {'User-Agent': 'PluralStar/1.0'}},
             );
             const data = await res.json();
             const a = data.address || {};
@@ -140,7 +140,13 @@ function MainAppContent() {
         store.get<CustomPalette[]>(KEYS.palettes, []),
         store.get<ChatChannel[]>(KEYS.chatChannels, []),
       ]);
-      if (!sys) {setFirstRun(true);} else {setSystem(sys);}
+      console.log(`[STARTUP] loadAll begin — sys:${!!sys} members:${(mem||[]).length} groups:${(grps||[]).length} journal:${(jour||[]).length} history:${(hist||[]).length} channels:${(savedChannels||[]).length}`);
+      if (!sys) {
+        console.warn('[STARTUP] No system info loaded — entering first-run state. If this is unexpected, check for AsyncStorage failures above.');
+        setFirstRun(true);
+      } else {
+        setSystem(sys);
+      }
       let loadedMembers = mem || [];
       try {
         const {members: migratedMembers, changed: avatarsChanged} = await migrateInlineAvatars(loadedMembers);
@@ -229,7 +235,7 @@ function MainAppContent() {
     try {
       if (Platform.Version < 33) {
         const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          {title: 'File Access', message: 'Allow Plural Space to import and export files.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
+          {title: 'File Access', message: 'Allow Plural Star to import and export files.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
         if (result !== PermissionsAndroid.RESULTS.GRANTED) {
           console.warn('[PS] File permission denied:', result);
         }
@@ -251,6 +257,76 @@ function MainAppContent() {
     return () => clearInterval(interval);
   }, [front, members, appSettings.notificationsEnabled, system.name]);
 
+  // Schedule or cancel the recurring front-check reminder whenever the interval
+  // setting or master notification toggle changes. Setting interval to 0 (or
+  // turning off notifications) cancels the reminder. Valid hour values are
+  // 1, 2, 4, 8, 12, 24 per the System Settings picker.
+  useEffect(() => {
+    const interval = appSettings.frontCheckInterval || 0;
+    if (!appSettings.notificationsEnabled || interval <= 0) {
+      cancelFrontCheckReminder().catch(e => console.error('[PS] front-check cancel error:', e));
+    } else {
+      scheduleFrontCheckReminder(interval).catch(e => console.error('[PS] front-check schedule error:', e));
+    }
+  }, [appSettings.frontCheckInterval, appSettings.notificationsEnabled]);
+
+  // Noteboard unread-notes notification. Fires when a member takes front at any
+  // tier (Primary / Co-Front / Co-Conscious) AND they have noteboard entries
+  // newer than the last time they viewed their own noteboard. The "read" marker
+  // is per-member and is updated when the member taps or scrolls a note (see
+  // modals/index.tsx). We track the previous fronting-member set in a ref so we
+  // only trigger on the transition into fronting, not on every front update
+  // (mood/location changes etc. should not re-notify).
+  const prevFrontIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!appSettings.notificationsEnabled || !appSettings.noteboardNotifications) {
+      prevFrontIdsRef.current = new Set();
+      clearNoteboardNotification().catch(() => {});
+      return;
+    }
+    const collectFrontIds = (f: FrontState | null): Set<string> => {
+      const ids = new Set<string>();
+      if (!f) return ids;
+      const tiers: (keyof FrontState)[] = ['primary', 'coFront', 'coConscious'];
+      for (const tk of tiers) {
+        const tier = (f as any)[tk];
+        const tierIds: string[] = tier?.memberIds || [];
+        tierIds.forEach(id => ids.add(id));
+      }
+      return ids;
+    };
+    const currentIds = collectFrontIds(front);
+    // Members who just started fronting this cycle
+    const newlyFronting: string[] = [];
+    currentIds.forEach(id => { if (!prevFrontIdsRef.current.has(id)) newlyFronting.push(id); });
+    prevFrontIdsRef.current = currentIds;
+    if (currentIds.size === 0) {
+      // No one's fronting — clear any lingering notification.
+      clearNoteboardNotification().catch(() => {});
+      return;
+    }
+    if (newlyFronting.length === 0) return; // No transition, nothing to do.
+    (async () => {
+      try {
+        const allNotes = await store.get<NoteboardEntry[]>(KEYS.noteboards, []) || [];
+        const lastSeen = await store.get<Record<string, number>>(KEYS.lastNoteboardSeen, {}) || {};
+        const entries: {memberName: string; unreadCount: number}[] = [];
+        for (const memberId of newlyFronting) {
+          const member = members.find(m => m.id === memberId);
+          if (!member) continue;
+          const lastSeenTs = lastSeen[memberId] || 0;
+          const unread = allNotes.filter(n => n.memberId === memberId && n.timestamp > lastSeenTs);
+          if (unread.length > 0) {
+            entries.push({memberName: member.name, unreadCount: unread.length});
+          }
+        }
+        if (entries.length > 0) {
+          await showNoteboardNotification(entries);
+        }
+      } catch (e) { console.error('[PS] noteboard unread check error:', e); }
+    })();
+  }, [front, members, appSettings.notificationsEnabled, appSettings.noteboardNotifications]);
+
   const saveSystem = async (d: SystemInfo) => {setSystem(d); await store.set(KEYS.system, d);};
   const saveMembers = async (d: Member[]) => {
     if (!loaded && d.length === 0) {
@@ -269,7 +345,10 @@ function MainAppContent() {
     setJournal(d); await store.set(KEYS.journal, d);
   };
   const saveShareSettings = async (d: ShareSettings) => {setShareSettings(d); await store.set(KEYS.share, d);};
-  const saveGroups = async (d: MemberGroup[]) => {setGroups(d); await store.set(KEYS.groups, d);};
+  const saveGroups = async (d: MemberGroup[]) => {
+    if (!loaded && d.length === 0) return;
+    setGroups(d); await store.set(KEYS.groups, d);
+  };
   const savePalettes = async (d: CustomPalette[]) => {setPalettes(d); await store.set(KEYS.palettes, d);};
   const saveChatChannels = async (d: ChatChannel[]) => {setChatChannels(d); await store.set(KEYS.chatChannels, d); await loadChatMessages(d);};
 
@@ -430,7 +509,7 @@ function MainAppContent() {
       <View style={[styles.loading, {backgroundColor: T.bg}]}>
         <StatusBar barStyle="light-content" backgroundColor={T.bg} translucent={false} />
         <Image source={require('./src/assets/splash-logo.png')} style={styles.splashLogo} resizeMode="contain" />
-        <Text style={[styles.splashName, {color: T.accent}]}>Plural Space</Text>
+        <Text style={[styles.splashName, {color: T.accent}]}>Plural Star</Text>
       </View>
     );
   }
@@ -514,7 +593,7 @@ function MainAppContent() {
           onSave={async (mood: string, location: string, note: string) => {await updateFrontDetails(editTier, mood, location, note); setShowEditFrontDetail(false);}}
           onClose={() => setShowEditFrontDetail(false)} />
       )}
-      <MemberModal key={editMember?.id || 'new-member'} visible={showMember} theme={C} member={editMember} members={members} groups={groups}
+      <MemberModal key={editMember?.id || 'new-member'} visible={showMember} theme={C} member={editMember} members={members} groups={groups} settings={appSettings}
         onSave={async (m: Member) => {await saveMember(m); setShowMember(false); setEditMember(null);}}
         onDelete={async (id: string) => {await deleteMember(id); setShowMember(false); setEditMember(null);}}
         onClose={() => {setShowMember(false); setEditMember(null);}} />

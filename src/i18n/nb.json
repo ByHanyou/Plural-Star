@@ -213,7 +213,7 @@
     "backupLooksLike": "Dette ser ut som en sikkerhetskopi. Bruk Gjenopprett sikkerhetskopi i stedet.",
     "unsupportedFormat": "Formatet \".{{ext}}\" støttes ikke. Støttede: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" importert som ny dagbokoppføring.",
-    "notValidExport": "Ikke en gyldig Plural Space-eksportfil.",
+    "notValidExport": "Ikke en gyldig Plural Star-eksportfil.",
     "filesDisabled": "Filtilgang er deaktivert. Aktiver i systeminnstillinger.",
     "spFile": "SP-fil",
     "spFileImport": "Simply Plural filimport",
@@ -244,7 +244,19 @@
     "journalCount": "{{count}} dagbokoppføringer",
     "membersCountSimple": "{{count}} medlemmer",
     "restoreDesc": "Last inn en tidligere eksportert JSON-sikkerhetskopi.",
-    "spMergeDesc": "Flett Simply Plural-sikkerhetskopi med gjeldende system."
+    "spMergeDesc": "Flett Simply Plural-sikkerhetskopi med gjeldende system.",
+    "recoverData": "Gjenopprett data",
+    "recoverDataDesc": "Hvis dataene dine forsvant etter omstart (velkomstskjermen kommer tilbake, medlemmer eller grupper mangler osv.), kan Plural Star fortsatt ha sikkerhetskopier på disken som er adskilt fra appens hovedlagring. Skann for å se hva som kan gjenopprettes.",
+    "scanForBackups": "Skann etter gjenopprettbare sikkerhetskopier",
+    "noBackupsFound": "Ingen gjenopprettbare sikkerhetskopier funnet på disk.",
+    "scanAgain": "Skann igjen",
+    "recoverConfirmTitle": "Gjenopprett data?",
+    "recoverConfirmMsg": "Gjenopprett {{count}} sikkerhetskopi-element(er) til appen? Dette vil overskrive gjeldende data for disse kategoriene.",
+    "recoverConfirm": "Gjenopprett",
+    "recoverSelected": "Gjenopprett valgte",
+    "recoverComplete": "✓ Gjenoppretting fullført — laster på nytt…",
+    "recoverScanFailed": "Gjenopprettingsskanning mislyktes",
+    "exportCategories": "Eksportkategorier"
   },
   "hub": {
     "title": "Hub",
@@ -272,7 +284,10 @@
     "statistics": "Statistikk",
     "systemChat": "Systemchat",
     "discord": "Discord",
-    "dashboard": "← Dashbord"
+    "dashboard": "← Dashbord",
+    "credits": "Bidragsytere",
+    "creditLogo": "Plural Star-logo",
+    "creditIos": "Plural Star iOS-port"
   },
   "modal": {
     "systemSettings": "Systeminnstillinger",
@@ -360,11 +375,11 @@
   },
   "notification": {
     "locationPermTitle": "Plassering",
-    "locationPermMsg": "Tillat Plural Space å merke omtrentlig plassering når du fronter.",
+    "locationPermMsg": "Tillat Plural Star å merke omtrentlig plassering når du fronter.",
     "allow": "Tillat",
     "deny": "Avslå",
     "notifPermTitle": "Varsler",
-    "notifPermMsg": "Tillat Plural Space å vise fronstatusvarsler.",
+    "notifPermMsg": "Tillat Plural Star å vise fronstatusvarsler.",
     "notNow": "Ikke nå",
     "mood": "Humør: {{mood}}",
     "at": "På: {{location}}",
@@ -379,7 +394,13 @@
     "frontCheckDesc": "Periodisk varsel for å sjekke hvem som fronter.",
     "everyNHours": "Hver {{count}}.t",
     "frontCheckInterval": "Intervall",
-    "whosFronting": "Hvem fronter nå?"
+    "whosFronting": "Hvem fronter nå?",
+    "noteboard": "Notattavle-varsler",
+    "noteboardDesc": "Varsle meg når et frontende medlem har uleste notater på sin notattavle.",
+    "noteboardUnreadTitle": "◇ {{count}} ulest notat",
+    "noteboardUnreadTitle_other": "◇ {{count}} uleste notater",
+    "noteboardUnreadLine": "{{name}}: {{count}} nytt notat",
+    "noteboardUnreadLine_other": "{{name}}: {{count}} nye notater"
   },
   "language": {
     "en": "English",
@@ -390,7 +411,9 @@
     "fi": "Suomi",
     "nb": "Norsk",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "ru": "Русский",
+    "uk": "Українська"
   },
   "memberGroups": {
     "title": "Grupper",

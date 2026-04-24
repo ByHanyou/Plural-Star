@@ -329,7 +329,7 @@ export const EditFrontDetailModal = ({visible, theme: T, front, tier, settings, 
 
 // ── Member Modal (with tags + group selection) ────────────────────────────
 
-export const MemberModal = ({visible, theme: T, member, members, groups, onSave, onDelete, onClose}: any) => {
+export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose}: any) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const isNew = !member;
@@ -397,6 +397,20 @@ export const MemberModal = ({visible, theme: T, member, members, groups, onSave,
     {text: t('common.cancel'), style: 'cancel'},
     {text: t('common.delete'), style: 'destructive', onPress: () => saveNotes(allNotes.filter(n => n.id !== id))},
   ]);
+
+  // Mark this member's noteboard as "read" up to now. Called when the member
+  // (whose noteboard is being viewed) taps any note. Updates the per-member
+  // lastSeen timestamp in storage so App.tsx's front-change effect won't
+  // re-notify for the notes they've now seen. No-op if not a real member
+  // (e.g. the "new member" form).
+  const markNoteboardRead = async () => {
+    if (!f.id || isNew) return;
+    try {
+      const lastSeen = (await store.get<Record<string, number>>(KEYS.lastNoteboardSeen, {})) || {};
+      lastSeen[f.id] = Date.now();
+      await store.set(KEYS.lastNoteboardSeen, lastSeen);
+    } catch (e) { /* non-fatal */ }
+  };
 
   const togglePin = (id: string) => saveNotes(allNotes.map(n => n.id === id ? {...n, pinned: !n.pinned} : n));
 
@@ -604,7 +618,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, onSave,
           {memberNotes.length > 0 ? memberNotes.map(note => {
             const author = (members || []).find((m: Member) => m.id === note.authorId);
             return (
-              <View key={note.id} style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: 1, borderColor: note.pinned ? T.accent : T.border, padding: 12, marginBottom: 8}}>
+              <TouchableOpacity key={note.id} onPress={markNoteboardRead} activeOpacity={0.85}
+                style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: 1, borderColor: note.pinned ? T.accent : T.border, padding: 12, marginBottom: 8}}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
                   <View style={{width: 22, height: 22, borderRadius: 11, backgroundColor: author?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
                     <Text style={{fontSize: 9, fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(author?.name || '?')}</Text>
@@ -614,14 +629,14 @@ export const MemberModal = ({visible, theme: T, member, members, groups, onSave,
                 </View>
                 <Text style={{fontSize: fs(13), color: T.text, lineHeight: 20}}>{note.content}</Text>
                 <View style={{flexDirection: 'row', gap: 12, marginTop: 8}}>
-                  <TouchableOpacity onPress={() => togglePin(note.id)} activeOpacity={0.7}>
+                  <TouchableOpacity onPress={() => {togglePin(note.id); markNoteboardRead();}} activeOpacity={0.7}>
                     <Text style={{fontSize: fs(11), color: note.pinned ? T.accent : T.dim}}>{note.pinned ? `📌 ${t('noteboard.unpin')}` : t('noteboard.pin')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteNote(note.id)} activeOpacity={0.7}>
                     <Text style={{fontSize: fs(11), color: T.danger}}>{t('noteboard.deleteNote')}</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           }) : (
             <View style={{alignItems: 'center', paddingVertical: 40}}>
@@ -745,6 +760,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [selectedLang, setSelectedLang] = useState<SupportedLanguage>(settings?.language || 'en');
   const [notifEnabled, setNotifEnabled] = useState<boolean>(settings?.notificationsEnabled ?? true);
   const [frontCheckInterval, setFrontCheckInterval] = useState<number>(settings?.frontCheckInterval || 0);
+  const [noteboardNotifs, setNoteboardNotifs] = useState<boolean>(settings?.noteboardNotifications ?? false);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
   const [textScale, setTextScale] = useState<TextScale>(settings?.textScale ?? 1.0);
   const [showLangPicker, setShowLangPicker] = useState(false);
@@ -754,7 +770,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [palBg, setPalBg] = useState(''); const [palAccent, setPalAccent] = useState('');
   const [palText, setPalText] = useState(''); const [palMid, setPalMid] = useState('');
 
-  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setTextScale(settings?.textScale ?? 1.0); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); } }, [visible, system, settings]);
+  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setTextScale(settings?.textScale ?? 1.0); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNoteboardNotifs(settings?.noteboardNotifications ?? false); } }, [visible, system, settings]);
 
   const addLoc = () => {if (newLocation.trim() && !locs.includes(newLocation.trim())) {setLocs([...locs, newLocation.trim()]); setNewLocation('');}};
   const addMood = () => {if (newMood.trim() && !moods.includes(newMood.trim())) {setMoods([...moods, newMood.trim()]); setNewMood('');}};
@@ -790,7 +806,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn T={T} onPress={() => {
       onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
-      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, frontCheckInterval});
+      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, frontCheckInterval, noteboardNotifications: noteboardNotifs});
       onClose();
     }}>{t('common.save')}</Btn>}>
       <Field label={t('modal.systemName')} value={f.name} onChange={(v: string) => setF((x: any) => ({...x, name: v}))} placeholder={t('modal.systemNamePlaceholder')} T={T} />
@@ -905,7 +921,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('modal.gpsDesc')}</Text></View>
-          <TouchableOpacity onPress={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, frontCheckInterval});}} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: settings?.gpsEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: settings?.gpsEnabled ? 20 : 3}} /></TouchableOpacity></View>
+          <TouchableOpacity onPress={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, frontCheckInterval, noteboardNotifications: noteboardNotifs});}} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: settings?.gpsEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: settings?.gpsEnabled ? 20 : 3}} /></TouchableOpacity></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.fileAccess')}</Text><Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('modal.fileAccessDesc')}</Text></View>
@@ -937,6 +953,15 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
               ))}
             </View>
           )}
+        </View>
+
+        {/* Noteboard notifications toggle */}
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14}}>
+          <View style={{flex: 1}}>
+            <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.noteboard', {defaultValue: 'Noteboard Notifications'})}</Text>
+            <Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('notification.noteboardDesc', {defaultValue: 'Notify me when a new note is added to a member noteboard.'})}</Text>
+          </View>
+          <TouchableOpacity onPress={() => setNoteboardNotifs(!noteboardNotifs)} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: noteboardNotifs ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: noteboardNotifs ? 20 : 3}} /></TouchableOpacity>
         </View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
@@ -975,7 +1000,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}><TextInput value={val} onChangeText={setVal} placeholder={placeholder} placeholderTextColor={T.muted} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 13}} onSubmitEditing={add} returnKeyType="done" /><Btn T={T} onPress={add} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn></View>
         </View>))}
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14, alignItems: 'center'}}>
-        <TouchableOpacity onPress={() => Linking.openURL('https://www.buymeacoffee.com/PluralSpace')} activeOpacity={0.8} style={{paddingVertical: 11, paddingHorizontal: 28, borderRadius: 8, borderWidth: 1, borderColor: T.accent, backgroundColor: T.accentBg}}>
+        <TouchableOpacity onPress={() => Linking.openURL('https://www.buymeacoffee.com/PluralStar')} activeOpacity={0.8} style={{paddingVertical: 11, paddingHorizontal: 28, borderRadius: 8, borderWidth: 1, borderColor: T.accent, backgroundColor: T.accentBg}}>
           <Text style={{fontSize: 15, fontWeight: '600', color: T.accent}}>{t('modal.supportPS')}</Text>
         </TouchableOpacity>
       </View>

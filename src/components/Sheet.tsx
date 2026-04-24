@@ -66,7 +66,7 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
         <ScrollView
           ref={scrollRef}
           style={s.body}
-          contentContainerStyle={{paddingBottom: footer ? 24 : 24 + insets.bottom}}
+          contentContainerStyle={{paddingBottom: footer ? 24 : 24 + insets.bottom, flexGrow: 1}}
           showsVerticalScrollIndicator={true}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
@@ -75,9 +75,7 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
           overScrollMode="never"
           onScroll={handleScroll}
         >
-          <View onStartShouldSetResponder={() => true} style={{flex: 1}}>
-            {children}
-          </View>
+          {children}
         </ScrollView>
         {footer && <View style={[s.footer, {borderTopColor: T.border, paddingBottom: 16 + insets.bottom}]}>{footer}</View>}
       </View>
@@ -86,12 +84,12 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
 };
 
 const s = StyleSheet.create({
-  sheet: {borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, maxHeight: '92%'},
+  sheet: {borderTopLeftRadius: 20, borderTopRightRadius: 20, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, height: '92%'},
   handle: {width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginTop: 10, marginBottom: 6},
   header: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1},
   title: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic'},
   closeBtn: {padding: 4},
   closeX: {fontSize: 16},
-  body: {paddingHorizontal: 20, paddingTop: 16},
+  body: {flex: 1, paddingHorizontal: 20, paddingTop: 16},
   footer: {flexDirection: 'row', justifyContent: 'flex-end', gap: 8, paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 1},
 });

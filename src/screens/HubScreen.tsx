@@ -11,7 +11,7 @@ const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; 
   </View>
 );
 
-type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'polls' | 'discord';
+type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'polls' | 'discord' | 'credits';
 
 interface Props {
   theme: any;
@@ -427,6 +427,37 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     );
   }
 
+  if (activeTile === 'credits') {
+    // Community Credits — full-width tile per contributor, tap opens their link.
+    const credits: {name: string; role: string; url: string}[] = [
+      {name: 'The Loud House System', role: t('hub.creditLogo', {defaultValue: 'Plural Star Logo'}), url: 'https://x.com/theloudhousesys?s=21'},
+      {name: 'realcatdev', role: t('hub.creditIos', {defaultValue: 'Plural Star iOS Port'}), url: 'https://github.com/realcatdev'},
+    ];
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+            <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
+          </TouchableOpacity>
+          <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text}}>{t('hub.credits', {defaultValue: 'Credits'})}</Text>
+        </View>
+        <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
+          {credits.map((c, i) => (
+            <TouchableOpacity key={i} onPress={() => Linking.openURL(c.url)} activeOpacity={0.7}
+              style={{flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, padding: 14, marginBottom: 10}}>
+              <Text style={{fontSize: fs(22), color: T.accent, marginRight: 14}}>✦</Text>
+              <View style={{flex: 1}}>
+                <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}} numberOfLines={1}>{c.name}</Text>
+                <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={1}>{c.role}</Text>
+              </View>
+              <Text style={{fontSize: fs(14), color: T.dim, marginLeft: 8}}>↗</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  }
+
   const tiles: {id: HubTile; icon: string; label: string; external?: boolean}[] = [
     {id: 'share', icon: '⇅', label: t('hub.importExport')},
     {id: 'retroHistory', icon: '◷', label: t('hub.retroHistory')},
@@ -434,6 +465,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
     {id: 'customFields', icon: '☰', label: t('customFields.title')},
     {id: 'polls', icon: '📊', label: t('polls.title')},
+    {id: 'credits', icon: '✦', label: t('hub.credits', {defaultValue: 'Credits'})},
     {id: 'discord', icon: '💬', label: t('hub.discord'), external: true},
   ];
 

@@ -121,7 +121,7 @@ export const buildExportPayload = async (
   return {
     _meta: {
       version: '1.2',
-      app: 'Plural Space',
+      app: 'Plural Star',
       exportedAt: new Date().toISOString(),
     },
     system: cat.system ? system : undefined as any,
@@ -192,7 +192,7 @@ export const buildHtmlExport = (
     .join('');
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>${system.name} — Plural Space Export</title>
+  <title>${system.name} — Plural Star Export</title>
   <style>
     body{font-family:Georgia,serif;max-width:860px;margin:40px auto;padding:0 24px;color:#222;line-height:1.6}
     h1{font-size:32px;margin-bottom:4px}
@@ -204,7 +204,7 @@ export const buildHtmlExport = (
   <body>
   <h1>${system.name}</h1>
   ${system.description ? `<p style="font-size:16px;color:#555;margin-top:0">${system.description}</p>` : ''}
-  <div class="meta">Exported ${new Date().toLocaleString('en-US', {dateStyle: 'long', timeStyle: 'short'})} via Plural Space · ${members.length} members · ${journal.length} journal entries · ${history.length} front history records</div>
+  <div class="meta">Exported ${new Date().toLocaleString('en-US', {dateStyle: 'long', timeStyle: 'short'})} via Plural Star · ${members.length} members · ${journal.length} journal entries · ${history.length} front history records</div>
   <h2>Members</h2>
   ${members.length ? `<table><thead><tr><th>Name</th><th>Pronouns</th><th>Role</th><th>Description</th></tr></thead><tbody>${memberRows}</tbody></table>` : '<p style="color:#888">No members recorded.</p>'}
   <h2>System Journal</h2>
@@ -237,7 +237,7 @@ export const buildEmailBody = (
     })
     .join('\n');
 
-  return `SYSTEM EXPORT — ${system.name}\nExported: ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ MEMBERS (${members.length}) ━━\n${mList || 'None recorded.'}\n\n━━ JOURNAL (${journal.length} entries${journal.length > 10 ? ' — showing 10 most recent' : ''}) ━━\n${jList || 'No entries.'}\n\n━━ FRONT HISTORY (${history.length} records${history.length > 20 ? ' — showing 20 most recent' : ''}) ━━\n${hList || 'No history.'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\nFull data available by exporting JSON from Plural Space.`;
+  return `SYSTEM EXPORT — ${system.name}\nExported: ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ MEMBERS (${members.length}) ━━\n${mList || 'None recorded.'}\n\n━━ JOURNAL (${journal.length} entries${journal.length > 10 ? ' — showing 10 most recent' : ''}) ━━\n${jList || 'No entries.'}\n\n━━ FRONT HISTORY (${history.length} records${history.length > 20 ? ' — showing 20 most recent' : ''}) ━━\n${hList || 'No history.'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\nFull data available by exporting JSON from Plural Star.`;
 };
 
 // ── Download helpers ──────────────────────────────────────────────────────────
@@ -315,7 +315,7 @@ export const exportEmail = (
   recipient: string,
 ): void => {
   const subject = encodeURIComponent(
-    `${system.name} — Plural Space Export · ${new Date().toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})}`,
+    `${system.name} — Plural Star Export · ${new Date().toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})}`,
   );
   const body = encodeURIComponent(buildEmailBody(system, members, history, journal));
   Linking.openURL(`mailto:${recipient}?subject=${subject}&body=${body}`);

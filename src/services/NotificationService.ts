@@ -3,13 +3,23 @@ import notifee, {
   AndroidImportance,
   AndroidVisibility,
   AndroidStyle,
+  TriggerType,
+  TimeUnit,
+  IntervalTrigger,
 } from '@notifee/react-native';
 import {Platform} from 'react-native';
-import {FrontState, Member, fmtDur, fmtTime, isFrontEmpty} from '../utils';
+import {FrontState, Member, fmtDur, fmtTime} from '../utils';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
+import i18n from '../i18n/i18n';
 
 export const NOTIF_CHANNEL_ID = 'plural-space-front';
 export const NOTIF_ID = 'ps-front-status';
+
+// Separate channel and ID for reminder-style notifications. Default importance so they
+// actually ping (front status is LOW importance for the persistent card).
+export const REMINDER_CHANNEL_ID = 'plural-space-reminders';
+export const FRONT_CHECK_NOTIF_ID = 'ps-front-check';
+export const NOTEBOARD_NOTIF_ID = 'ps-noteboard-unread';
 
 export const setupNotificationChannel = async () => {
   await notifee.createChannel({
@@ -18,6 +28,15 @@ export const setupNotificationChannel = async () => {
     importance: AndroidImportance.LOW,
     visibility: AndroidVisibility.PUBLIC,
     sound: '',
+  });
+};
+
+export const setupReminderChannel = async () => {
+  await notifee.createChannel({
+    id: REMINDER_CHANNEL_ID,
+    name: 'Reminders',
+    importance: AndroidImportance.DEFAULT,
+    visibility: AndroidVisibility.PUBLIC,
   });
 };
 
@@ -48,7 +67,7 @@ const getTierField = (front: any, tier: string, field: string): string | undefin
 export const showFrontNotification = async (
   front: FrontState | null,
   members: Member[],
-  systemName = 'Plural Space',
+  systemName = 'Plural Star',
 ) => {
   try {
     if (Platform.OS === 'ios') {
@@ -138,5 +157,110 @@ export const clearFrontNotification = async () => {
     await notifee.cancelNotification(NOTIF_ID);
   } catch (e) {
     console.error('[PluralSpace] Clear notification error:', e);
+  }
+};
+
+// ── Front-check reminder ──────────────────────────────────────────────────
+// Schedules a recurring local notification at a user-chosen hour interval.
+// Valid intervals: 1, 2, 4, 8, 12, 24 hours. Any value <= 0 cancels the reminder.
+// Uses IntervalTrigger because repeatFrequency on TimestampTrigger is limited to
+// HOURLY/DAILY/WEEKLY constants and can't express 2/4/8/12 hour spacings.
+export const scheduleFrontCheckReminder = async (intervalHours: number) => {
+  try {
+    await cancelFrontCheckReminder();
+    if (!intervalHours || intervalHours <= 0) return;
+    if (Platform.OS !== 'android') return; // iOS handled via Live Activity / foreground notifs elsewhere
+    await setupReminderChannel();
+    const trigger: IntervalTrigger = {
+      type: TriggerType.INTERVAL,
+      interval: intervalHours,
+      timeUnit: TimeUnit.HOURS,
+    };
+    await notifee.createTriggerNotification(
+      {
+        id: FRONT_CHECK_NOTIF_ID,
+        title: `◈ ${i18n.t('notification.frontCheck', {defaultValue: 'Front Check'})}`,
+        body: i18n.t('notification.whosFronting', {defaultValue: "Who's fronting right now?"}),
+        android: {
+          channelId: REMINDER_CHANNEL_ID,
+          smallIcon: 'ic_notif',
+          importance: AndroidImportance.DEFAULT,
+          visibility: AndroidVisibility.PUBLIC,
+          pressAction: {id: 'default'},
+          color: '#DAA520',
+        },
+      },
+      trigger,
+    );
+  } catch (e) {
+    console.error('[PluralSpace] Front-check schedule error:', e);
+  }
+};
+
+export const cancelFrontCheckReminder = async () => {
+  try {
+    await notifee.cancelTriggerNotification(FRONT_CHECK_NOTIF_ID);
+  } catch (e) {
+    console.error('[PluralSpace] Front-check cancel error:', e);
+  }
+};
+
+// ── Noteboard unread-notes notification ───────────────────────────────────
+// Fires when fronting members have unread noteboard entries waiting for them.
+// The "read" marker is per-member and is only updated when that member scrolls
+// or taps a note in their own noteboard (see modals/index.tsx).
+//
+// `entries` shape: array of {memberName, unreadCount} — one row per fronting
+// member who has unread notes. A single combined notification is displayed
+// regardless of how many members qualify.
+export const showNoteboardNotification = async (
+  entries: {memberName: string; unreadCount: number}[],
+) => {
+  try {
+    if (Platform.OS !== 'android') return;
+    if (!entries || entries.length === 0) return;
+    await setupReminderChannel();
+    const totalNotes = entries.reduce((sum, e) => sum + e.unreadCount, 0);
+    const title = i18n.t('notification.noteboardUnreadTitle', {
+      count: totalNotes,
+      defaultValue: totalNotes === 1 ? '◇ 1 unread note' : `◇ ${totalNotes} unread notes`,
+    });
+    // Summary line (collapsed view): "Alex (3), Jordan (1)"
+    const summary = entries.map(e => `${e.memberName} (${e.unreadCount})`).join(', ');
+    // BIGTEXT expanded view: one line per member
+    const bigLines = entries.map(e => {
+      const label = i18n.t('notification.noteboardUnreadLine', {
+        name: e.memberName,
+        count: e.unreadCount,
+        defaultValue: e.unreadCount === 1
+          ? `${e.memberName}: 1 new note`
+          : `${e.memberName}: ${e.unreadCount} new notes`,
+      });
+      return label;
+    }).join('\n');
+    await notifee.displayNotification({
+      id: NOTEBOARD_NOTIF_ID,
+      title,
+      body: summary,
+      android: {
+        channelId: REMINDER_CHANNEL_ID,
+        smallIcon: 'ic_notif',
+        importance: AndroidImportance.DEFAULT,
+        visibility: AndroidVisibility.PUBLIC,
+        pressAction: {id: 'default'},
+        color: '#DAA520',
+        style: {type: AndroidStyle.BIGTEXT, text: bigLines},
+      },
+    });
+  } catch (e) {
+    console.error('[PluralSpace] Noteboard notification error:', e);
+  }
+};
+
+export const clearNoteboardNotification = async () => {
+  try {
+    await notifee.cancelNotification(NOTEBOARD_NOTIF_ID);
+  } catch (e) {
+    console.error('[PluralSpace] Noteboard notification clear error:', e);
   }
 };

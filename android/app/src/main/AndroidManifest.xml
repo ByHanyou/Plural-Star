@@ -36,7 +36,7 @@
           android:exported="false">
           <property
               android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-              android:value="Local notifications for Plural Space" />
+              android:value="Local notifications for Plural Star" />
       </service>
 
     </application>

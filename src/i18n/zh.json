@@ -219,7 +219,7 @@
     "backupLooksLike": "看起来像备份文件。请使用恢复备份代替。",
     "unsupportedFormat": "不支持的格式 \".{{ext}}\"。支持：.txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" 已作为新日记条目导入。",
-    "notValidExport": "不是有效的 Plural Space 导出文件。",
+    "notValidExport": "不是有效的 Plural Star 导出文件。",
     "filesDisabled": "文件访问已禁用。请在系统设置中启用。",
     "spFile": "SP 文件",
     "spFileImport": "Simply Plural 文件导入",
@@ -244,7 +244,19 @@
     "savedToDownloads": "已保存到下载",
     "savedToDownloadsMsg": "{{filename}} 已保存到下载文件夹。",
     "exportReady": "导出完成",
-    "exportReadyMsg": "{{filename}} 已生成，但无法自动打开分享界面。"
+    "exportReadyMsg": "{{filename}} 已生成，但无法自动打开分享界面。",
+    "recoverData": "恢复数据",
+    "recoverDataDesc": "如果您的数据在重启后消失（欢迎屏幕重新出现、成员或群组丢失等），Plural Star 可能仍有与应用主存储分离的磁盘备份。扫描以查看可恢复的内容。",
+    "scanForBackups": "扫描可恢复的备份",
+    "noBackupsFound": "磁盘上未找到可恢复的备份。",
+    "scanAgain": "再次扫描",
+    "recoverConfirmTitle": "恢复数据？",
+    "recoverConfirmMsg": "将 {{count}} 个备份项恢复到应用中？这将覆盖这些类别的当前数据。",
+    "recoverConfirm": "恢复",
+    "recoverSelected": "恢复所选",
+    "recoverComplete": "✓ 恢复完成 — 重新加载中…",
+    "recoverScanFailed": "恢复扫描失败",
+    "exportCategories": "导出类别"
   },
   "hub": {
     "title": "中心",
@@ -272,7 +284,10 @@
     "statistics": "统计",
     "systemChat": "系统聊天",
     "discord": "Discord",
-    "dashboard": "← 仪表板"
+    "dashboard": "← 仪表板",
+    "credits": "致谢",
+    "creditLogo": "Plural Star 标志",
+    "creditIos": "Plural Star iOS 移植"
   },
   "modal": {
     "updateFront": "更新前台",
@@ -360,11 +375,11 @@
   },
   "notification": {
     "locationPermTitle": "位置权限",
-    "locationPermMsg": "Plural Space 希望在前台时标记你的大致位置。",
+    "locationPermMsg": "Plural Star 希望在前台时标记你的大致位置。",
     "allow": "允许",
     "deny": "拒绝",
     "notifPermTitle": "通知",
-    "notifPermMsg": "允许 Plural Space 显示前台状态通知。",
+    "notifPermMsg": "允许 Plural Star 显示前台状态通知。",
     "notNow": "暂时不要",
     "mood": "情绪：{{mood}}",
     "at": "在：{{location}}",
@@ -379,7 +394,13 @@
     "frontCheckDesc": "提醒我检查谁在前台。",
     "frontCheckInterval": "检查间隔",
     "everyNHours": "每 {{count}} 小时",
-    "whosFronting": "现在谁在前台？"
+    "whosFronting": "现在谁在前台？",
+    "noteboard": "留言板通知",
+    "noteboardDesc": "当前台成员的留言板上有未读留言时通知我。",
+    "noteboardUnreadTitle": "◇ {{count}} 条未读留言",
+    "noteboardUnreadTitle_other": "◇ {{count}} 条未读留言",
+    "noteboardUnreadLine": "{{name}}：{{count}} 条新留言",
+    "noteboardUnreadLine_other": "{{name}}：{{count}} 条新留言"
   },
   "language": {
     "en": "English",
@@ -390,7 +411,9 @@
     "fi": "Suomi",
     "nb": "Norsk",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "ru": "Русский",
+    "uk": "Українська"
   },
   "memberGroups": {
     "title": "组",

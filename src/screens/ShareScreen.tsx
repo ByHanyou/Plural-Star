@@ -4,7 +4,7 @@ import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import RNFS from 'react-native-fs';
 import {exportJSON, exportHTML, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories} from '../export/exportUtils';
-import {store, KEYS, chatMsgKey} from '../storage';
+import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
 import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
@@ -29,6 +29,14 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const [restoreSel, setRestoreSel] = useState({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true});
   const [restoreError, setRestoreError] = useState('');
   const [restoreDone, setRestoreDone] = useState(false);
+  // Recover Data flow: scans the on-disk RNFS backup directory and lets the
+  // user pick which orphaned backups to restore. Used when AsyncStorage was
+  // wiped (Samsung SQLite cap, force-stop on low storage, etc.) but the
+  // on-disk backups survived.
+  const [recoverEntries, setRecoverEntries] = useState<RecoverableEntry[] | null>(null);
+  const [recoverScanning, setRecoverScanning] = useState(false);
+  const [recoverSel, setRecoverSel] = useState<Record<string, boolean>>({});
+  const [recoverDone, setRecoverDone] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [importMsg, setImportMsg] = useState('');
@@ -52,9 +60,8 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     customFields: true, noteboards: true, polls: true,
   });
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
-  const [showExportOptions, setShowExportOptions] = useState(false);
 
-  const handleJSON = async () => {try {await exportJSON(system, members, history, journal, showExportOptions ? exportSel : undefined);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
+  const handleJSON = async () => {try {await exportJSON(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleHTML = async () => {try {await exportHTML(system, members, history, journal);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleEmail = () => {
     if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
@@ -75,7 +82,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       if (['txt', 'md', 'markdown'].includes(ext)) {body = await RNFS.readFile(getPickedFilePath(res), 'utf8');}
       else if (ext === 'json') {
         const raw = await RNFS.readFile(getPickedFilePath(res), 'utf8');
-        try { const parsed = JSON.parse(raw); if (parsed._meta?.app === 'Plural Space') {setImportStatus('error'); setImportMsg(t('share.backupLooksLike')); return;} body = typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
+        try { const parsed = JSON.parse(raw); if (parsed._meta?.app === 'Plural Space' || parsed._meta?.app === 'Plural Star') {setImportStatus('error'); setImportMsg(t('share.backupLooksLike')); return;} body = typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
         } catch {body = raw;}
       } else {setImportStatus('error'); setImportMsg(t('share.unsupportedFormat', {ext})); return;}
       onAddJournalEntry({id: uid(), title: titleBase, body, authorIds: [], hashtags: [], timestamp: Date.now()});
@@ -102,14 +109,19 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         // Last-resort: try the original uri in case getPickedFilePath lost something.
         content = await RNFS.readFile(res.uri || res.fileCopyUri || pickedPath, 'utf8');
       }
-      // Quick sanity check — confirm it's a Plural Space backup before proceeding.
+      // Quick sanity check — confirm it's a native Plural Star / Plural Space backup, OR
+      // a Simply Plural raw-Mongo export (no _meta, has members[] with _id and a top-level
+      // customFields array). handleRestore routes each shape to the correct import path.
       let parsed: any;
       try { parsed = JSON.parse(content); } catch {
-        setRestoreError('File is not valid JSON. Please pick a Plural Space backup (.json) file.');
+        setRestoreError('File is not valid JSON. Please pick a Plural Star or Simply Plural backup (.json) file.');
         return;
       }
-      if (!parsed._meta || parsed._meta.app !== 'Plural Space') {
-        setRestoreError('This does not look like a Plural Space backup. Use the Simply Plural option for SP exports.');
+      const isNativePS = parsed._meta && (parsed._meta.app === 'Plural Star' || parsed._meta.app === 'Plural Space');
+      const isSPExport = !parsed._meta && Array.isArray(parsed.members) && parsed.members.length > 0
+        && parsed.members[0]._id !== undefined && Array.isArray(parsed.customFields);
+      if (!isNativePS && !isSPExport) {
+        setRestoreError('This does not look like a Plural Star or Simply Plural backup. Pick a .json file exported from either app.');
         return;
       }
       // Copy into a reliable app-internal temp path so handleRestore can always
@@ -138,7 +150,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           // Detect Simply Plural JSON export shape and route through SP pipeline if so.
           // SP exports are raw Mongo dumps: top-level keys are collection names, member
           // docs have `_id` and `info`, and there is a `customFields` collection array.
-          // Plural-Space exports have `_meta.app === 'Plural Space'` and use `customFieldDefs`.
+          // Plural Star / Plural Space exports have `_meta.app === 'Plural Star'` or `'Plural Space'` and use `customFieldDefs`.
           const looksLikeSP = !rawData._meta && Array.isArray(rawData.members) && rawData.members.length > 0
             && rawData.members[0]._id !== undefined && Array.isArray(rawData.customFields);
           if (looksLikeSP) {
@@ -243,7 +255,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             setRestoreDone(true); setRestoring(false);
             return;
           }
-          // Plural Space native JSON export path below.
+          // Plural Star native JSON export path below (also handles legacy Plural Space backups — same shape).
           const data: ExportPayload = rawData;
           // Normalize inline avatars (pre-1.2 format) into the avatars dict.
           // Use data.avatars directly throughout — never spread/copy it.
@@ -398,7 +410,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     if (!extToken.trim()) {Alert.alert(t('share.tokenRequired'), t('share.pkTokenRequiredMsg')); return;}
     setExtLoading(true); setExtPreview(null);
     try {
-      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralSpace/1.0'};
+      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.0'};
       const [sRes, mRes, swRes] = await Promise.all([
         fetch('https://api.pluralkit.me/v2/systems/@me', {headers}),
         fetch('https://api.pluralkit.me/v2/systems/@me/members', {headers}),
@@ -736,6 +748,64 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     ]);
   };
 
+  // Scan the on-disk RNFS backup directory and present what's recoverable.
+  // The Recover Data flow is the last-line-of-defense for users whose
+  // AsyncStorage was wiped (Samsung SQLite cap, system-level data clear, etc).
+  // RNFS backups survive AsyncStorage failures because they're separate file-system
+  // writes — the backup directory at DocumentDirectoryPath/ps_backup is independent.
+  const handleScanRecovery = async () => {
+    setRecoverScanning(true);
+    setRecoverDone(false);
+    try {
+      const entries = await listRecoverableBackups();
+      setRecoverEntries(entries);
+      // Default-select all entries so the user sees pre-checked options
+      const sel: Record<string, boolean> = {};
+      entries.forEach(e => { sel[e.key] = true; });
+      setRecoverSel(sel);
+    } catch (e) {
+      Alert.alert(t('share.recoverScanFailed', {defaultValue: 'Recovery scan failed'}), String(e));
+      setRecoverEntries([]);
+    } finally {
+      setRecoverScanning(false);
+    }
+  };
+
+  const handleApplyRecovery = async () => {
+    if (!recoverEntries) return;
+    const toRestore = recoverEntries.filter(e => recoverSel[e.key]);
+    if (toRestore.length === 0) return;
+    Alert.alert(
+      t('share.recoverConfirmTitle', {defaultValue: 'Recover data?'}),
+      t('share.recoverConfirmMsg', {count: toRestore.length, defaultValue: `Restore ${toRestore.length} backup item${toRestore.length === 1 ? '' : 's'} into the app? This will overwrite current data for those categories.`}),
+      [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: t('share.recoverConfirm', {defaultValue: 'Recover'}), style: 'destructive', onPress: async () => {
+          let okCount = 0;
+          for (const entry of toRestore) {
+            const ok = await restoreFromBackup(entry.key);
+            if (ok) okCount++;
+          }
+          setRecoverDone(true);
+          setTimeout(() => onDataImported(), 600);
+        }},
+      ]
+    );
+  };
+
+  const friendlyKeyName = (key: string): string => {
+    switch (key) {
+      case KEYS.system: return t('share.systemNameDesc');
+      case KEYS.members: return t('share.memberProfiles');
+      case KEYS.front: return t('hub.front', {defaultValue: 'Front'});
+      case KEYS.history: return t('share.frontHistory');
+      case KEYS.journal: return t('share.journalEntries');
+      case KEYS.groups: return t('share.memberGroups');
+      case KEYS.chatChannels: return t('share.chatData');
+      default: return key.replace(/^ps:/, '');
+    }
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(t('share.deleteAllDataTitle'), t('share.deleteAllDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
@@ -814,34 +884,31 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           <Divider label={t('share.fullSystemExport')} />
           <Text style={[s.para, {color: T.dim}]}>{t('share.downloadsDirectly')}</Text>
 
-          {/* Export Category Toggle */}
-          <TouchableOpacity onPress={() => setShowExportOptions(!showExportOptions)} activeOpacity={0.7}
-            style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, marginBottom: 8}}>
-            <Text style={{fontSize: 12, color: T.accent, fontWeight: '500'}}>{showExportOptions ? '▾' : '▸'} {t('share.customizeExport')}</Text>
-          </TouchableOpacity>
-
-          {showExportOptions && (
-            <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 12}}>
-              {([
-                ['system', t('share.systemNameDesc')],
-                ['members', t('share.memberProfiles')],
-                ['avatars', t('share.profilePictures')],
-                ['banners', t('share.banners', {defaultValue: 'Banners'})],
-                ['frontHistory', t('share.frontHistory')],
-                ['journal', t('share.journalEntries')],
-                ['groups', t('share.memberGroups')],
-                ['chat', t('share.chatData')],
-                ['moods', t('share.customMoodsLabel')],
-                ['palettes', t('share.themePalettes')],
-                ['settings', t('share.appSettings')],
-                ['customFields', t('customFields.title')],
-                ['noteboards', t('noteboard.title')],
-                ['polls', t('polls.title')],
-              ] as [keyof ExportCategories, string][]).map(([k, label]) => (
-                <SectionRow key={k} label={label} value={!!exportSel[k]} onToggle={() => togExp(k)} />
-              ))}
-            </View>
-          )}
+          {/* Export Categories — always visible, matches the Restore drawer's style.
+              Each toggle controls whether that category is included in JSON export.
+              HTML/email exports always include the static feature set (JSON-only
+              categories like noteboards/polls are not exposed in HTML or email). */}
+          <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8, marginTop: 4}}>{t('share.exportCategories', {defaultValue: 'Export Categories'})}</Text>
+          <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
+            {([
+              ['system', t('share.systemNameDesc')],
+              ['members', t('share.memberProfiles')],
+              ['avatars', t('share.profilePictures')],
+              ['banners', t('share.banners', {defaultValue: 'Banners'})],
+              ['frontHistory', t('share.frontHistory')],
+              ['journal', t('share.journalEntries')],
+              ['groups', t('share.memberGroups')],
+              ['chat', t('share.chatData')],
+              ['moods', t('share.customMoodsLabel')],
+              ['palettes', t('share.themePalettes')],
+              ['settings', t('share.appSettings')],
+              ['customFields', t('customFields.title')],
+              ['noteboards', t('noteboard.title')],
+              ['polls', t('polls.title')],
+            ] as [keyof ExportCategories, string][]).map(([k, label]) => (
+              <SectionRow key={k} label={label} value={!!exportSel[k]} onToggle={() => togExp(k)} />
+            ))}
+          </View>
 
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ JSON', handleJSON, T.accentBg, T.accent, `${T.accent}40`], ['↓ HTML', handleHTML, T.infoBg, T.info, `${T.info}40`]].map(([label, fn, bg, color, border]: any) => (
@@ -932,6 +999,56 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                   {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: 13, color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
                     : restoring ? <View style={{alignItems: 'center', paddingVertical: 16}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: 12, color: T.dim, marginTop: 8}}>{t('share.importing')}</Text></View>
                     : <TouchableOpacity onPress={handleRestore} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: 14, fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
+                </>
+              )}
+              <Divider label={t('share.recoverData', {defaultValue: 'Recover Data'})} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.recoverDataDesc', {defaultValue: "If your data disappeared after a restart (welcome screen returns, members or groups gone, etc.), Plural Star may still have on-disk backups separate from the app's main storage. Scan to see what can be recovered."})}</Text>
+              {!recoverEntries ? (
+                <TouchableOpacity onPress={handleScanRecovery} disabled={recoverScanning} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 14, opacity: recoverScanning ? 0.5 : 1}}>
+                  {recoverScanning ? <ActivityIndicator color={T.accent} size="small" /> : <Text style={{fontSize: 14, fontWeight: '500', color: T.text}}>{t('share.scanForBackups', {defaultValue: 'Scan for recoverable backups'})}</Text>}
+                </TouchableOpacity>
+              ) : recoverEntries.length === 0 ? (
+                <View style={{padding: 14, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 14}}>
+                  <Text style={{fontSize: 13, color: T.dim, textAlign: 'center'}}>{t('share.noBackupsFound', {defaultValue: 'No recoverable backups found on disk.'})}</Text>
+                  <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverDone(false);}} activeOpacity={0.7} style={{alignSelf: 'center', marginTop: 8}}>
+                    <Text style={{fontSize: 12, color: T.accent}}>{t('share.scanAgain', {defaultValue: 'Scan again'})}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
+                    {recoverEntries.map(entry => {
+                      const sizeLabel = entry.sizeBytes > 1024 * 1024 ? `${(entry.sizeBytes / 1024 / 1024).toFixed(1)} MB` : entry.sizeBytes > 1024 ? `${(entry.sizeBytes / 1024).toFixed(0)} KB` : `${entry.sizeBytes} B`;
+                      const dateLabel = entry.mtime ? new Date(entry.mtime).toLocaleString() : '';
+                      const checked = !!recoverSel[entry.key];
+                      return (
+                        <TouchableOpacity key={entry.key} onPress={() => setRecoverSel(s => ({...s, [entry.key]: !s[entry.key]}))} activeOpacity={0.7}
+                          style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: T.border, gap: 12}}>
+                          <View style={{width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
+                            {checked ? <Text style={{fontSize: 11, color: '#fff', fontWeight: '700'}}>✓</Text> : null}
+                          </View>
+                          <View style={{flex: 1}}>
+                            <Text style={{fontSize: 14, color: T.text, fontWeight: '500'}}>{friendlyKeyName(entry.key)}</Text>
+                            <Text style={{fontSize: 11, color: T.muted, marginTop: 2}}>{entry.preview} · {sizeLabel}{dateLabel ? ` · ${dateLabel}` : ''}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  {recoverDone ? (
+                    <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 14}}>
+                      <Text style={{fontSize: 13, color: T.success, fontWeight: '500'}}>{t('share.recoverComplete', {defaultValue: '✓ Recovery complete — reloading…'})}</Text>
+                    </View>
+                  ) : (
+                    <View style={{flexDirection: 'row', gap: 8, marginBottom: 14}}>
+                      <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverSel({}); setRecoverDone(false);}} activeOpacity={0.7} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+                        <Text style={{fontSize: 13, fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleApplyRecovery} activeOpacity={0.7} disabled={Object.values(recoverSel).every(v => !v)} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: Object.values(recoverSel).every(v => !v) ? 0.4 : 1}}>
+                        <Text style={{fontSize: 14, fontWeight: '500', color: T.accent}}>{t('share.recoverSelected', {defaultValue: 'Recover selected'})}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </>
               )}
               <Divider label={t('share.deleteAccount')} />

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plural Space — Privacy Policy</title>
+<title>Plural Star — Privacy Policy</title>
 <style>
   body { font-family: Georgia, serif; max-width: 800px; margin: 40px auto; padding: 0 24px; color: #222; line-height: 1.7; }
   h1 { font-size: 28px; color: #0A1F2E; border-bottom: 2px solid #DAA520; padding-bottom: 10px; }
@@ -12,62 +12,81 @@
   a { color: #0A1F2E; }
   .updated { color: #888; font-size: 13px; margin-top: -10px; display: block; }
   .logo { font-style: italic; font-size: 22px; color: #DAA520; margin-bottom: 4px; display: block; }
+  .rename-note { background: #FFF8E7; border-left: 3px solid #DAA520; padding: 12px 16px; margin: 20px 0; font-size: 14px; color: #444; border-radius: 0 4px 4px 0; }
   .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #ddd; font-size: 13px; color: #888; }
   .footer a { color: #888; }
 </style>
 </head>
 <body>
 
-<span class="logo">Plural Space</span>
+<span class="logo">Plural Star</span>
 <h1>Privacy Policy</h1>
-<span class="updated">Last updated: March 2026</span>
+<span class="updated">Last updated: April 2026</span>
 
-<p>Plural Space is a front-tracking and system journal application for plural systems. Your privacy is fundamental to how this app is built. This policy explains what data the app collects, how it is used, and how it is stored.</p>
+<div class="rename-note">
+  <strong>Renamed from Plural Space.</strong> The app, repository, and subreddit were renamed to Plural Star for community clarity — another app was also using the Plural Space name. Your installation, data, backups, and any links continue to work; the app behavior and privacy practices described below have not changed as part of the rename.
+</div>
 
-<h2>1. Data We Collect</h2>
-<p>Plural Space only collects data you explicitly enter into the app:</p>
+<p>Plural Star is a private front-tracking, journaling, and system-management application for plural systems. Your privacy is fundamental to how this app is built. This policy explains what data the app handles, how it is used, and how it is stored.</p>
+
+<h2>1. Data the App Handles</h2>
+<p>All content you enter in the app is stored exclusively on your device:</p>
 <ul>
-  <li><strong>System information</strong> — your system name and description</li>
-  <li><strong>Member profiles</strong> — names, pronouns, roles, colors, and descriptions of headmates</li>
-  <li><strong>Front history</strong> — records of who is fronting, including timestamps, mood, location, and notes</li>
-  <li><strong>Journal entries</strong> — text entries with optional authors, hashtags, and passwords</li>
+  <li><strong>System information</strong> — system name, description, system-level banner and avatar</li>
+  <li><strong>Member profiles</strong> — names, pronouns, roles, colors, markdown descriptions, profile pictures, 900&times;300 banners, tags, group assignments</li>
+  <li><strong>Front history</strong> — timestamped records of who fronted across Primary, Co-Front, and Co-Conscious tiers, with mood, location, energy level, and notes per tier</li>
+  <li><strong>Journal entries</strong> — text entries with optional authors, hashtags, and per-entry or whole-journal passwords</li>
+  <li><strong>Chat</strong> — local-only system chat with channels, text messages, images (stored as base64 on your device), replies, and reactions</li>
+  <li><strong>Custom fields</strong> — user-defined per-member fields and values</li>
+  <li><strong>Noteboards</strong> — per-member note threads written by other headmates</li>
+  <li><strong>Polls</strong> — system polls with options, votes, and voter tracking</li>
+  <li><strong>Settings and preferences</strong> — theme, language, notification toggles, front-check interval, custom palettes, custom moods, saved locations</li>
   <li><strong>Approximate location</strong> — only when GPS is explicitly enabled in Settings (off by default). Your device's coordinates are reverse-geocoded to a neighbourhood or city name via OpenStreetMap Nominatim. Raw GPS coordinates are never stored.</li>
 </ul>
 
 <h2>2. How Your Data Is Used</h2>
-<p>All data is used solely to provide app features — tracking fronting sessions, maintaining a system journal, and generating history and insights. Your data is never used for advertising, analytics, profiling, or any purpose beyond what you see in the app.</p>
+<p>All data is used solely to provide app features — tracking fronting sessions, maintaining a system journal, managing custom fields and noteboards, running polls, and generating history and insights. Your data is never used for advertising, analytics, profiling, or any purpose beyond what you see in the app.</p>
 
 <h2>3. Data Storage</h2>
-<p>All data is stored locally on your device. Plural Space does not operate any servers, does not require an account, and does not transmit your data to any third party, with two narrow exceptions:</p>
+<p>All data is stored locally on your device. Plural Star does not operate any servers, does not require an account, and does not transmit your data to any third party, with three narrow exceptions:</p>
 <ul>
-  <li><strong>GPS location (optional):</strong> If you enable the GPS feature, your device's coordinates are sent over HTTPS to <a href="https://nominatim.openstreetmap.org">Nominatim (OpenStreetMap)</a> to resolve a neighbourhood or city name. Only coordinates are sent — no identifiers, no account information.</li>
-  <li><strong>Simply Plural / PluralKit import (optional):</strong> If you use the import feature, your API token is used for a one-time request to those services to fetch your data. The token is not stored by Plural Space after the import is complete.</li>
+  <li><strong>GPS location (optional):</strong> If you enable the GPS feature, your device's coordinates are sent over HTTPS to <a href="https://nominatim.openstreetmap.org">Nominatim (OpenStreetMap)</a> to resolve a neighbourhood or city name. Only coordinates are sent — no identifiers, no account information, no system data.</li>
+  <li><strong>Simply Plural / PluralKit token import (optional):</strong> If you use the import feature with a token, the token is used for one-time API requests to those services to fetch your data. The token is not stored by Plural Star after the import completes.</li>
+  <li><strong>Simply Plural file import (optional):</strong> If you import a Simply Plural JSON export file, the file is read from your device's local storage only. No network traffic occurs during file import.</li>
 </ul>
 
 <h2>4. Data Sharing</h2>
-<p>Plural Space does not sell, share, or transmit your personal data to any third parties for any purpose beyond what is described in Section 3.</p>
+<p>Plural Star does not sell, share, or transmit your personal data to any third parties for any purpose beyond what is described in Section 3.</p>
 
 <h2>5. Notifications</h2>
-<p>Plural Space displays a local persistent notification showing current front status when someone is fronting. This notification is generated entirely on-device and is not transmitted anywhere.</p>
+<p>Plural Star can display local notifications on your device. All notifications are generated entirely on-device and are not transmitted anywhere.</p>
+<ul>
+  <li><strong>Front status notification:</strong> A persistent notification showing who is currently fronting across all three tiers. Displays when someone is fronting and updates when the front changes.</li>
+  <li><strong>Front-check reminders (optional):</strong> If you set a front-check interval in Settings (1, 2, 4, 8, 12, or 24 hours), the app schedules a recurring local reminder to prompt you to update the front. Notifications can be disabled at any time by clearing the interval or turning off notifications in Settings.</li>
+  <li><strong>Noteboard notifications (optional):</strong> When a new noteboard entry is created for a member, the app can surface a local notification. Disabled by turning off notifications in Settings.</li>
+</ul>
 
-<h2>6. Data Deletion</h2>
-<p>You can permanently erase all app data at any time using <strong>Share → Import → Delete All Data</strong>. Uninstalling the app also removes all locally stored data from your device.</p>
+<h2>6. Export &amp; Backup</h2>
+<p>Plural Star includes optional export features you control entirely. JSON exports are reimportable; HTML exports are for offline viewing or upload to services like Google Drive; email exports open your device's native mail app with pre-filled content (the app does not send email directly). All exports offer per-category toggles so you choose exactly what leaves your device. Avatars and banners are encoded as base64 inside the payload so images travel with the backup.</p>
 
-<h2>7. Children's Privacy</h2>
-<p>Plural Space is not directed at children under 13. We do not knowingly collect information from children under 13.</p>
+<h2>7. Data Deletion</h2>
+<p>You can permanently erase all app data at any time using <strong>Share → Delete All Data</strong>. Uninstalling the app also removes all locally stored data from your device.</p>
 
-<h2>8. Changes to This Policy</h2>
+<h2>8. Children's Privacy</h2>
+<p>Plural Star is not directed at children under 13. We do not knowingly collect information from children under 13.</p>
+
+<h2>9. Changes to This Policy</h2>
 <p>If we make material changes to this policy, the updated version will be published at this URL with a revised date at the top.</p>
 
-<h2>9. Contact</h2>
+<h2>10. Contact</h2>
 <p>Questions about this privacy policy can be directed to:<br>
 <strong><a href="mailto:the1hanyou@gmail.com">the1hanyou@gmail.com</a></strong></p>
 
 <div class="footer">
   <p>
-    Plural Space is open source under the
-    <a href="https://github.com/TheHanyou/Plural-Space/blob/main/LICENSE">GNU Affero General Public License v3.0</a>.<br>
-    Source code: <a href="https://github.com/TheHanyou/Plural-Space">github.com/TheHanyou/Plural-Space</a>
+    Plural Star is open source under the
+    <a href="https://github.com/TheHanyou/Plural-Star/blob/main/LICENSE">GNU Affero General Public License v3.0</a>.<br>
+    Source code: <a href="https://github.com/TheHanyou/Plural-Star">github.com/TheHanyou/Plural-Star</a>
   </p>
 </div>
 

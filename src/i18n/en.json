@@ -179,6 +179,17 @@
     "restore": "Restore",
     "deleteAccount": "Delete Account",
     "deleteAccountDesc": "Permanently erase all data and return to setup.",
+    "recoverData": "Recover Data",
+    "recoverDataDesc": "If your data disappeared after a restart (welcome screen returns, members or groups gone, etc.), Plural Star may still have on-disk backups separate from the app's main storage. Scan to see what can be recovered.",
+    "scanForBackups": "Scan for recoverable backups",
+    "noBackupsFound": "No recoverable backups found on disk.",
+    "scanAgain": "Scan again",
+    "recoverConfirmTitle": "Recover data?",
+    "recoverConfirmMsg": "Restore {{count}} backup item(s) into the app? This will overwrite current data for those categories.",
+    "recoverConfirm": "Recover",
+    "recoverSelected": "Recover selected",
+    "recoverComplete": "✓ Recovery complete — reloading…",
+    "recoverScanFailed": "Recovery scan failed",
     "deleteAllData": "✕ Delete All Data",
     "deleteAllDataTitle": "Delete All Data",
     "deleteAllDataMsg": "This will permanently erase everything. This cannot be undone.",
@@ -219,7 +230,7 @@
     "backupLooksLike": "That looks like a backup file. Use Restore Backup instead.",
     "unsupportedFormat": "Unsupported format \".{{ext}}\". Supported: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" imported as a new journal entry.",
-    "notValidExport": "Not a valid Plural Space export file.",
+    "notValidExport": "Not a valid Plural Star export file.",
     "filesDisabled": "File access is disabled. Enable it in System Settings.",
     "spFile": "SP File",
     "spFileImport": "Simply Plural File Import",
@@ -227,6 +238,7 @@
     "pickSPFile": "Pick SP Export File",
     "notValidSPExport": "This file doesn't appear to be a valid Simply Plural export.",
     "customizeExport": "Customize Export",
+    "exportCategories": "Export Categories",
     "savedToDownloads": "Saved to Downloads",
     "savedToDownloadsMsg": "{{filename}} has been saved to your Downloads folder.",
     "exportReady": "Export Ready",
@@ -272,7 +284,10 @@
     "statistics": "Statistics",
     "systemChat": "System Chat",
     "discord": "Discord",
-    "dashboard": "← Dashboard"
+    "dashboard": "← Dashboard",
+    "credits": "Credits",
+    "creditLogo": "Plural Star Logo",
+    "creditIos": "Plural Star iOS Port"
   },
   "modal": {
     "updateFront": "Update Front",
@@ -360,11 +375,11 @@
   },
   "notification": {
     "locationPermTitle": "Location Permission",
-    "locationPermMsg": "Plural Space wants to tag your approximate location when fronting.",
+    "locationPermMsg": "Plural Star wants to tag your approximate location when fronting.",
     "allow": "Allow",
     "deny": "Deny",
     "notifPermTitle": "Notifications",
-    "notifPermMsg": "Allow Plural Space to show front status notifications.",
+    "notifPermMsg": "Allow Plural Star to show front status notifications.",
     "notNow": "Not now",
     "mood": "Mood: {{mood}}",
     "at": "At: {{location}}",
@@ -379,7 +394,13 @@
     "frontCheckDesc": "Remind me to check who is fronting.",
     "frontCheckInterval": "Check Interval",
     "everyNHours": "Every {{count}} hours",
-    "whosFronting": "Who's fronting right now?"
+    "whosFronting": "Who's fronting right now?",
+    "noteboard": "Noteboard Notifications",
+    "noteboardDesc": "Notify me when a fronting member has unread notes on their noteboard.",
+    "noteboardUnreadTitle": "◇ {{count}} unread note",
+    "noteboardUnreadTitle_other": "◇ {{count}} unread notes",
+    "noteboardUnreadLine": "{{name}}: {{count}} new note",
+    "noteboardUnreadLine_other": "{{name}}: {{count}} new notes"
   },
   "language": {
     "en": "English",
@@ -390,7 +411,9 @@
     "fi": "Suomi",
     "nb": "Norsk",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "ru": "Русский",
+    "uk": "Українська"
   },
   "memberGroups": {
     "title": "Groups",

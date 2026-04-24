@@ -213,7 +213,7 @@
     "backupLooksLike": "Das sieht nach einer Sicherungsdatei aus. Verwende stattdessen Sicherung Wiederherstellen.",
     "unsupportedFormat": "Nicht unterstütztes Format \".{{ext}}\". Unterstützt: .txt, .md, .json",
     "importedAsEntry": "\"{{title}}\" als neuer Tagebucheintrag importiert.",
-    "notValidExport": "Keine gültige Plural Space Export-Datei.",
+    "notValidExport": "Keine gültige Plural Star Export-Datei.",
     "filesDisabled": "Dateizugriff ist deaktiviert. Aktiviere ihn in den Systemeinstellungen.",
     "spFile": "SP-Datei",
     "spFileImport": "Simply Plural Datei-Import",
@@ -244,7 +244,19 @@
     "journalCount": "{{count}} Tagebuch-Einträge",
     "membersCountSimple": "{{count}} Mitglieder",
     "restoreDesc": "Zuvor exportiertes JSON-Backup laden.",
-    "spMergeDesc": "Simply-Plural-Backup in das aktuelle System einfügen."
+    "spMergeDesc": "Simply-Plural-Backup in das aktuelle System einfügen.",
+    "recoverData": "Daten wiederherstellen",
+    "recoverDataDesc": "Wenn deine Daten nach einem Neustart verschwunden sind (Willkommensbildschirm kehrt zurück, Mitglieder oder Gruppen fehlen usw.), hat Plural Star möglicherweise noch Sicherungskopien auf der Festplatte, die vom Hauptspeicher der App getrennt sind. Scanne, um zu sehen, was wiederhergestellt werden kann.",
+    "scanForBackups": "Nach wiederherstellbaren Sicherungen suchen",
+    "noBackupsFound": "Keine wiederherstellbaren Sicherungen auf der Festplatte gefunden.",
+    "scanAgain": "Erneut scannen",
+    "recoverConfirmTitle": "Daten wiederherstellen?",
+    "recoverConfirmMsg": "{{count}} Sicherungselement(e) in die App wiederherstellen? Dies überschreibt die aktuellen Daten für diese Kategorien.",
+    "recoverConfirm": "Wiederherstellen",
+    "recoverSelected": "Ausgewählte wiederherstellen",
+    "recoverComplete": "✓ Wiederherstellung abgeschlossen — Neuladen…",
+    "recoverScanFailed": "Wiederherstellungsscan fehlgeschlagen",
+    "exportCategories": "Exportkategorien"
   },
   "modal": {
     "updateFront": "Front Aktualisieren",
@@ -332,11 +344,11 @@
   },
   "notification": {
     "locationPermTitle": "Standort",
-    "locationPermMsg": "Plural Space erlauben, Ihren ungefähren Standort beim Fronten zu markieren.",
+    "locationPermMsg": "Plural Star erlauben, Ihren ungefähren Standort beim Fronten zu markieren.",
     "allow": "Erlauben",
     "deny": "Ablehnen",
     "notifPermTitle": "Benachrichtigungen",
-    "notifPermMsg": "Erlaube Plural Space, Front-Status-Benachrichtigungen anzuzeigen.",
+    "notifPermMsg": "Erlaube Plural Star, Front-Status-Benachrichtigungen anzuzeigen.",
     "notNow": "Nicht jetzt",
     "mood": "Stimmung: {{mood}}",
     "at": "Bei: {{location}}",
@@ -351,7 +363,13 @@
     "frontCheckDesc": "Regelmäßige Benachrichtigung, um den aktuellen Fronter zu prüfen.",
     "everyNHours": "Alle {{count}}h",
     "frontCheckInterval": "Intervall",
-    "whosFronting": "Wer ist gerade am Front?"
+    "whosFronting": "Wer ist gerade am Front?",
+    "noteboard": "Notizbrett-Benachrichtigungen",
+    "noteboardDesc": "Mich benachrichtigen, wenn ein frontendes Mitglied ungelesene Notizen auf seinem Notizbrett hat.",
+    "noteboardUnreadTitle": "◇ {{count}} ungelesene Notiz",
+    "noteboardUnreadTitle_other": "◇ {{count}} ungelesene Notizen",
+    "noteboardUnreadLine": "{{name}}: {{count}} neue Notiz",
+    "noteboardUnreadLine_other": "{{name}}: {{count}} neue Notizen"
   },
   "language": {
     "en": "English",
@@ -362,7 +380,9 @@
     "fi": "Suomi",
     "nb": "Norsk",
     "zh": "中文",
-    "ja": "日本語"
+    "ja": "日本語",
+    "ru": "Русский",
+    "uk": "Українська"
   },
   "memberGroups": {
     "title": "Gruppen",
@@ -398,7 +418,10 @@
     "statistics": "Statistiken",
     "systemChat": "System-Chat",
     "discord": "Discord",
-    "dashboard": "← Startseite"
+    "dashboard": "← Startseite",
+    "credits": "Mitwirkende",
+    "creditLogo": "Plural Star Logo",
+    "creditIos": "Plural Star iOS-Portierung"
   },
   "stats": {
     "allTime": "Gesamt",

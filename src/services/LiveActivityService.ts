@@ -33,7 +33,7 @@ export const updateFrontLiveActivity = async (
   }
 
   await nativeModule.startOrUpdate({
-    systemName: systemName || 'Plural Space',
+    systemName: systemName || 'Plural Star',
     primaryText,
     coFrontText: front.coFront.memberIds.length > 0 ? resolveNames(front.coFront.memberIds, members) : undefined,
     coConsciousText: front.coConscious.memberIds.length > 0 ? resolveNames(front.coConscious.memberIds, members) : undefined,
