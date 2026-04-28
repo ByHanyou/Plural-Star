@@ -107,7 +107,9 @@
     "searchPlaceholder": "搜索历史...",
     "allMembers": "所有成员",
     "entryCount": "{{count}} 条记录",
-    "entryCountOne": "1 条记录"
+    "entryCountOne": "1 条记录",
+    "showMore": "展开",
+    "showLess": "收起"
   },
   "journal": {
     "title": "日记",
@@ -284,7 +286,6 @@
     "statistics": "统计",
     "systemChat": "系统聊天",
     "discord": "Discord",
-    "supportPS": "支持 PS",
     "dashboard": "← 仪表板",
     "credits": "致谢",
     "creditLogo": "Plural Star 标志",

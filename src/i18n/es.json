@@ -107,7 +107,9 @@
     "deleteEntryMsg": "Esto eliminará permanentemente esta entrada.",
     "entryCount": "{{count}} entradas",
     "entryCountOne": "1 entrada",
-    "searchPlaceholder": "Buscar historial..."
+    "searchPlaceholder": "Buscar historial...",
+    "showMore": "Mostrar más",
+    "showLess": "Mostrar menos"
   },
   "journal": {
     "title": "Diario",
@@ -284,7 +286,6 @@
     "statistics": "Estadísticas",
     "systemChat": "Chat del Sistema",
     "discord": "Discord",
-    "supportPS": "Apoyar PS",
     "dashboard": "← Panel",
     "credits": "Créditos",
     "creditLogo": "Logo de Plural Star",

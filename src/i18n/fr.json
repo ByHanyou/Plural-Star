@@ -107,7 +107,9 @@
     "deleteEntryMsg": "Cela supprimera définitivement cette entrée d'historique.",
     "entryCount": "{{count}} entrées",
     "entryCountOne": "1 entrée",
-    "searchPlaceholder": "Rechercher dans l'historique..."
+    "searchPlaceholder": "Rechercher dans l'historique...",
+    "showMore": "Afficher plus",
+    "showLess": "Afficher moins"
   },
   "journal": {
     "title": "Journal",
@@ -418,7 +420,6 @@
     "statistics": "Statistiques",
     "systemChat": "Chat Système",
     "discord": "Discord",
-    "supportPS": "Soutenir PS",
     "dashboard": "← Tableau de bord",
     "credits": "Crédits",
     "creditLogo": "Logo Plural Star",

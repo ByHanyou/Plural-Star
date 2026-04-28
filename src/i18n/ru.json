@@ -107,7 +107,9 @@
     "searchPlaceholder": "Поиск в истории...",
     "allMembers": "Все участники",
     "entryCount": "{{count}} записей",
-    "entryCountOne": "1 запись"
+    "entryCountOne": "1 запись",
+    "showMore": "Показать больше",
+    "showLess": "Показать меньше"
   },
   "journal": {
     "title": "Журнал",
@@ -284,7 +286,6 @@
     "statistics": "Статистика",
     "systemChat": "Чат системы",
     "discord": "Discord",
-    "supportPS": "Поддержать PS",
     "dashboard": "← Панель",
     "credits": "Благодарности",
     "creditLogo": "Логотип Plural Star",

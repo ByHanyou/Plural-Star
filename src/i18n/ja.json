@@ -107,7 +107,9 @@
     "searchPlaceholder": "履歴を検索...",
     "allMembers": "全メンバー",
     "entryCount": "{{count}} 件",
-    "entryCountOne": "1 件"
+    "entryCountOne": "1 件",
+    "showMore": "もっと見る",
+    "showLess": "折りたたむ"
   },
   "journal": {
     "title": "ジャーナル",
@@ -284,7 +286,6 @@
     "statistics": "統計",
     "systemChat": "システムチャット",
     "discord": "Discord",
-    "supportPS": "PSを応援",
     "dashboard": "← ダッシュボード",
     "credits": "クレジット",
     "creditLogo": "Plural Star ロゴ",

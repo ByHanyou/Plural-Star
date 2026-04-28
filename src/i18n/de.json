@@ -107,7 +107,9 @@
     "deleteEntryMsg": "Dies löscht diesen Verlaufseintrag dauerhaft.",
     "entryCount": "{{count}} Einträge",
     "entryCountOne": "1 Eintrag",
-    "searchPlaceholder": "Verlauf durchsuchen..."
+    "searchPlaceholder": "Verlauf durchsuchen...",
+    "showMore": "Mehr anzeigen",
+    "showLess": "Weniger anzeigen"
   },
   "journal": {
     "title": "Tagebuch",
@@ -418,7 +420,6 @@
     "statistics": "Statistiken",
     "systemChat": "System-Chat",
     "discord": "Discord",
-    "supportPS": "PS Unterstützen",
     "dashboard": "← Startseite",
     "credits": "Mitwirkende",
     "creditLogo": "Plural Star Logo",

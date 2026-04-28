@@ -107,7 +107,9 @@
     "searchPlaceholder": "Search history...",
     "allMembers": "All members",
     "entryCount": "{{count}} entries",
-    "entryCountOne": "1 entry"
+    "entryCountOne": "1 entry",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "journal": {
     "title": "Journal",
@@ -284,7 +286,6 @@
     "statistics": "Statistics",
     "systemChat": "System Chat",
     "discord": "Discord",
-    "supportPS": "Support PS",
     "dashboard": "← Dashboard",
     "credits": "Credits",
     "creditLogo": "Plural Star Logo",

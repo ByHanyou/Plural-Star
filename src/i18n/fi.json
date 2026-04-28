@@ -107,7 +107,9 @@
     "deleteEntryMsg": "Tämä poistaa merkinnän pysyvästi.",
     "entryCount": "{{count}} merkintää",
     "entryCountOne": "1 merkintä",
-    "searchPlaceholder": "Etsi historiasta..."
+    "searchPlaceholder": "Etsi historiasta...",
+    "showMore": "Näytä lisää",
+    "showLess": "Näytä vähemmän"
   },
   "journal": {
     "title": "Päiväkirja",
@@ -284,7 +286,6 @@
     "statistics": "Tilastot",
     "systemChat": "Järjestelmäkeskustelu",
     "discord": "Discord",
-    "supportPS": "Tue PS:ää",
     "dashboard": "← Hallintapaneeli",
     "credits": "Tekijät",
     "creditLogo": "Plural Star -logo",

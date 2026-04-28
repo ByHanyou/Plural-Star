@@ -107,7 +107,9 @@
     "deleteEntryMsg": "Dette fjerner oppføringen permanent.",
     "entryCount": "{{count}} oppføringer",
     "entryCountOne": "1 oppføring",
-    "searchPlaceholder": "Søk i historikk..."
+    "searchPlaceholder": "Søk i historikk...",
+    "showMore": "Vis mer",
+    "showLess": "Vis mindre"
   },
   "journal": {
     "title": "Dagbok",
@@ -284,7 +286,6 @@
     "statistics": "Statistikk",
     "systemChat": "Systemchat",
     "discord": "Discord",
-    "supportPS": "Støtt PS",
     "dashboard": "← Dashbord",
     "credits": "Bidragsytere",
     "creditLogo": "Plural Star-logo",

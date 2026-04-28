@@ -45,6 +45,15 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
   );
   const [memberSearch, setMemberSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+
+  const toggleEntryExpanded = (key: string) => {
+    setExpandedEntries(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
 
   const startDelete = (entryIndex: number) => {
     Alert.alert(t('history.deleteEntry'), t('history.deleteConfirm1'), [
@@ -123,14 +132,17 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
   };
 
   // ── Tier badge in history cards ──────────────────────────────────────────
-  const TierRow = ({label, ids, color}: {label: string; ids: string[] | undefined; color: string}) => {
-    const names = tierNames(ids);
-    if (!names) return null;
+  const TierRow = ({label, ids, color, expanded, cap}: {label: string; ids: string[] | undefined; color: string; expanded?: boolean; cap?: number}) => {
+    const allMembers = (ids || []).map(getMember).filter(Boolean) as Member[];
+    if (allMembers.length === 0) return null;
+    const visible = (expanded || cap === undefined) ? allMembers : allMembers.slice(0, Math.max(0, cap));
+    const hidden = allMembers.length - visible.length;
+    const namesText = visible.map(m => m.name).join(', ') + (hidden > 0 ? `, +${hidden}` : '');
     return (
-      <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2}}>
-        <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: color}} />
-        <Text style={{fontSize: fs(10), color, fontWeight: '600', letterSpacing: 0.5}}>{label}</Text>
-        <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{names}</Text>
+      <View style={{flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 2}}>
+        <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: color, marginTop: 5}} />
+        <Text style={{fontSize: fs(10), color, fontWeight: '600', letterSpacing: 0.5, marginTop: 1}}>{label}</Text>
+        <Text style={{flex: 1, fontSize: fs(11), color: T.dim}} numberOfLines={expanded ? undefined : 1}>{namesText}</Text>
       </View>
     );
   };
@@ -179,6 +191,22 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
                   const isOpen = entry.endTime === null;
                   const hasCoFront = (entry.coFrontIds || []).length > 0;
                   const hasCoConscious = (entry.coConsciousIds || []).length > 0;
+                  const entryKey = `${entry.startTime}-${i}`;
+                  const isExpanded = expandedEntries.has(entryKey);
+                  const NAME_CAP = 6;
+                  const coFrontCount = entry.coFrontIds?.length || 0;
+                  const coConCount = entry.coConsciousIds?.length || 0;
+                  const totalMembers = primaryFronters.length + coFrontCount + coConCount;
+                  const showToggle = totalMembers > NAME_CAP;
+                  const primaryBudget = isExpanded ? primaryFronters.length : Math.min(primaryFronters.length, NAME_CAP);
+                  const remainAfterPrimary = Math.max(0, NAME_CAP - primaryBudget);
+                  const coFrontBudget = isExpanded ? coFrontCount : Math.min(coFrontCount, remainAfterPrimary);
+                  const remainAfterCoFront = Math.max(0, remainAfterPrimary - coFrontBudget);
+                  const coConBudget = isExpanded ? coConCount : Math.min(coConCount, remainAfterCoFront);
+                  const visiblePrimary = primaryFronters.slice(0, primaryBudget);
+                  const hiddenPrimary = primaryFronters.length - visiblePrimary.length;
+                  const primaryDisplay = visiblePrimary.map(m => m.name).join(', ')
+                    + (hiddenPrimary > 0 ? `, +${hiddenPrimary}` : '');
                   return (
                     <View key={i} style={{flexDirection: 'row', gap: 10}}>
                       <View style={{alignItems: 'center', width: 16}}>
@@ -187,7 +215,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
                         {i < entries.length - 1 &&
                           <View style={{flex: 1, width: 1, backgroundColor: T.border, marginTop: 2}} />}
                       </View>
-                      <View style={[s.card, {backgroundColor: T.card,
+                      <View style={[s.card, {flex: 1, backgroundColor: T.card,
                         borderColor: isOpen ? `${T.accent}40` : T.border, marginBottom: 8}]}>
                         {/* Primary fronters */}
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4}}>
@@ -198,8 +226,8 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
                               </View>
                             ))}
                           </View>
-                          <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={1}>
-                            {primaryFronters.map(m => m.name).join(', ') || t('common.unknown')}
+                          <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={isExpanded ? undefined : 1}>
+                            {primaryDisplay || t('common.unknown')}
                           </Text>
                           <AccentText T={T} style={{fontSize: fs(12), color: T.accent, fontWeight: '500'}}>
                             {fmtDur(entry.startTime, entry.endTime)}
@@ -209,8 +237,8 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
                         {/* Co-Front / Co-Conscious rows */}
                         {(hasCoFront || hasCoConscious) && (
                           <View style={{marginBottom: 4}}>
-                            <TierRow label={t('tier.coFrontShort')} ids={entry.coFrontIds} color={T.info} />
-                            <TierRow label={t('tier.coConShort')} ids={entry.coConsciousIds} color={T.success} />
+                            <TierRow label={t('tier.coFrontShort')} ids={entry.coFrontIds} color={T.info} expanded={isExpanded} cap={coFrontBudget} />
+                            <TierRow label={t('tier.coConShort')} ids={entry.coConsciousIds} color={T.success} expanded={isExpanded} cap={coConBudget} />
                           </View>
                         )}
 
@@ -239,10 +267,20 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
                             <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18}}>{entry.note}</Text>
                           </View>
                         ) : null}
-                        <TouchableOpacity onPress={() => startDelete(history.indexOf(entry))} activeOpacity={0.7}
-                          style={{alignSelf: 'flex-end', paddingVertical: 2, paddingHorizontal: 6, marginTop: 4}}>
-                          <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
-                        </TouchableOpacity>
+                        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4}}>
+                          {showToggle ? (
+                            <TouchableOpacity onPress={() => toggleEntryExpanded(entryKey)} activeOpacity={0.7}
+                              style={{paddingVertical: 2, paddingHorizontal: 6}}>
+                              <Text style={{fontSize: fs(10), color: T.accent, fontWeight: '500'}}>
+                                {isExpanded ? t('history.showLess', {defaultValue: 'Show less'}) : t('history.showMore', {defaultValue: 'Show more'})}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : <View />}
+                          <TouchableOpacity onPress={() => startDelete(history.indexOf(entry))} activeOpacity={0.7}
+                            style={{paddingVertical: 2, paddingHorizontal: 6}}>
+                            <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     </View>
                   );

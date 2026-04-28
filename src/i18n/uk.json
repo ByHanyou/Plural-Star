@@ -107,7 +107,9 @@
     "searchPlaceholder": "Пошук в історії...",
     "allMembers": "Усі учасники",
     "entryCount": "{{count}} записів",
-    "entryCountOne": "1 запис"
+    "entryCountOne": "1 запис",
+    "showMore": "Показати більше",
+    "showLess": "Показати менше"
   },
   "journal": {
     "title": "Щоденник",
@@ -284,7 +286,6 @@
     "statistics": "Статистика",
     "systemChat": "Чат системи",
     "discord": "Discord",
-    "supportPS": "Підтримати PS",
     "dashboard": "← Панель",
     "credits": "Подяки",
     "creditLogo": "Логотип Plural Star",
