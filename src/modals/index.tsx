@@ -50,7 +50,6 @@ const SectionDivider = ({label, color, T}: {label: string; color: string; T: any
   </View>
 );
 
-// ── Searchable Chip Picker (used per-tier in SetFrontModal) ───────────────
 
 const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allAssigned, T, t}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
@@ -144,14 +143,8 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   );
 };
 
-// ── Mood Picker (standalone to prevent re-mount on keystroke) ──────────────
 
 const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom, setShowCustom, allMoods, T, t}: any) => {
-  // Multi-select: tapping a chip toggles it on/off in the comma-joined `mood` string.
-  // Custom mood (showCustom + customMood) is a separate addendum, appended at save time
-  // by the caller's resolveMood helper. Selection state per chip is membership in
-  // parseMoodList(mood) — which gracefully degrades to a one-element list for legacy
-  // single-mood data.
   const selected = parseMoodList(mood);
   const isSel = (m: string) => selected.includes(m);
   return (
@@ -176,7 +169,6 @@ const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom, setSh
   );
 };
 
-// ── Set Front Modal (three-tier, searchable chip picker) ──────────────────
 
 export const SetFrontModal = ({visible, theme: T, members, groups, current, settings, lastKnownLocation, onSave, onClose}: any) => {
   const {t} = useTranslation();
@@ -205,7 +197,6 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
   const allMoods = [...DEFAULT_MOODS, ...(settings?.customMoods || [])];
   const allLocations = settings?.locations || [];
 
-  // Build assignment map for exclusivity display
   const allAssigned = useMemo(() => {
     const map: Record<string, FrontTierKey> = {};
     primaryIds.forEach(id => { map[id] = 'primary'; });
@@ -214,13 +205,10 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     return map;
   }, [primaryIds, coFrontIds, coConsciousIds]);
 
-  // Exclusive setter: remove from other tiers when adding to one
   const makeExclusiveSetter = (tier: FrontTierKey, setter: (s: Set<string>) => void) => (newSet: Set<string>) => {
     const setters: Record<FrontTierKey, (s: Set<string>) => void> = {primary: setPrimaryIds, coFront: setCoFrontIds, coConscious: setCoConsciousIds};
     const sets: Record<FrontTierKey, Set<string>> = {primary: primaryIds, coFront: coFrontIds, coConscious: coConsciousIds};
-    // Find newly added ids
     const added = [...newSet].filter(id => !sets[tier].has(id));
-    // Remove added ids from other tiers
     for (const [key, otherSetter] of Object.entries(setters)) {
       if (key !== tier) {
         const otherSet = sets[key as FrontTierKey];
@@ -233,8 +221,6 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     setter(newSet);
   };
 
-  // Multi-mood resolve: combine chip selections (mood — already comma-joined) with the
-  // optional custom mood from the text input. Empty/whitespace strings drop out.
   const resolveMood = (mood: string, customMood: string, showCustom: boolean) => {
     const moods = parseMoodList(mood);
     if (showCustom && customMood.trim()) moods.push(customMood.trim());
@@ -315,7 +301,6 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
   );
 };
 
-// ── Edit Front Detail Modal (tier-aware, unchanged) ───────────────────────
 
 export const EditFrontDetailModal = ({visible, theme: T, front, tier, settings, lastKnownLocation, onSave, onClose}: any) => {
   const {t} = useTranslation();
@@ -330,7 +315,6 @@ export const EditFrontDetailModal = ({visible, theme: T, front, tier, settings, 
   return (
     <Sheet visible={visible} title={t('tier.editTier', {tier: tierLabel})} theme={T} onClose={onClose}
       footer={<Btn T={T} onPress={() => {
-        // Multi-mood resolve: chip-toggled list (mood) + optional custom mood appended.
         const moods = parseMoodList(mood);
         if (showCustomMood && customMood.trim()) moods.push(customMood.trim());
         const resolved = serializeMoodList(moods) || undefined;
@@ -357,7 +341,6 @@ export const EditFrontDetailModal = ({visible, theme: T, front, tier, settings, 
   );
 };
 
-// ── Member Modal (with tags + group selection) ────────────────────────────
 
 export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly = false}: any) => {
   const {t} = useTranslation();
@@ -428,11 +411,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     {text: t('common.delete'), style: 'destructive', onPress: () => saveNotes(allNotes.filter(n => n.id !== id))},
   ]);
 
-  // Mark this member's noteboard as "read" up to now. Called when the member
-  // (whose noteboard is being viewed) taps any note. Updates the per-member
-  // lastSeen timestamp in storage so App.tsx's front-change effect won't
-  // re-notify for the notes they've now seen. No-op if not a real member
-  // (e.g. the "new member" form).
   const markNoteboardRead = async () => {
     if (!f.id || isNew) return;
     try {
@@ -535,8 +513,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         {readOnly && <View style={{marginBottom: 14}} />}
 
         {(groups || []).length > 0 && (() => {
-          // In readOnly we render only the groups this member belongs to (and skip the section entirely
-          // if there are none). In edit mode we render all groups as toggleable chips.
           const visibleGroups = readOnly
             ? (groups || []).filter((g: MemberGroup) => (f.groupIds || []).includes(g.id))
             : (groups || []);
@@ -620,10 +596,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             const cfv = (f.customFields || []).find(v => v.fieldId === fd.id);
             const val = cfv?.value ?? '';
 
-            // ── Date-family types ────────────────────────────────────────
-            // All store the value as a JS timestamp (ms since epoch). The
-            // DateTimeEditor's mode controls which sub-fields render. For
-            // a brand-new value with no stored data, default to "today".
             const dateTypes: Record<string, true> = {
               date: true, timestamp: true, monthYear: true,
               month: true, year: true, monthDay: true,
@@ -633,9 +605,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 date: 'date', timestamp: 'datetime', monthYear: 'monthYear',
                 month: 'month', year: 'year', monthDay: 'monthDay',
               };
-              // Legacy values: older Plural Star releases let users type free-form
-              // text into these fields (no specialized editor existed). Recover
-              // anything Date.parse() understands; otherwise default to today.
               let dateVal: Date;
               if (typeof val === 'number' && Number.isFinite(val)) {
                 dateVal = new Date(val);
@@ -669,9 +638,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
               );
             }
 
-            // ── dateRange ────────────────────────────────────────────────
-            // Stored as a stringified {start, end} pair. Falls back gracefully
-            // if either bound is missing or unparseable.
             if (fd.type === 'dateRange') {
               let range: {start: number; end: number} = {start: Date.now(), end: Date.now()};
               if (typeof val === 'string' && val) {
@@ -724,12 +690,16 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                         style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, fontFamily: 'monospace'}} />
                     </View>
                   </View>
-                ) : (fd.type === 'markdown' || (fd.type === 'text' && fd.markdown)) ? (
+                ) : (fd.type === 'markdown' || fd.type === 'text') ? (
                   <View style={{marginBottom: 0}}>
                     <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{fd.name}</Text>
                     <TouchableOpacity onPress={readOnly ? undefined : () => setMarkdownEditFieldId(fd.id)} activeOpacity={readOnly ? 1 : 0.7}
                       style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 72}}>
-                      {val ? <RichDescription text={String(val)} T={T} /> : <Text style={{fontSize: 13, color: T.muted}}>{fd.name}…</Text>}
+                      {val
+                        ? ((fd.type === 'markdown' || fd.markdown)
+                          ? <RichDescription text={String(val)} T={T} />
+                          : <Text style={{fontSize: 14, color: T.text, lineHeight: 20}}>{String(val)}</Text>)
+                        : <Text style={{fontSize: 13, color: T.muted}}>{fd.name}…</Text>}
                     </TouchableOpacity>
                     {!readOnly && <RichTextEditor
                       visible={markdownEditFieldId === fd.id}
@@ -741,8 +711,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                     />}
                   </View>
                 ) : fd.type === 'number' ? (
-                  // Numeric input — hint the keyboard, accept '-' and '.' for negatives/decimals,
-                  // commit `null` when empty so the field round-trips through JSON cleanly.
                   <View>
                     <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{fd.name}</Text>
                     <TextInput
@@ -761,7 +729,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                     />
                   </View>
                 ) : (
-                  // Plain text (the only remaining fallthrough — `text` without markdown).
                   <Field label={fd.name} value={String(val || '')} onChange={(v: string) => setFieldVal(fd.id, v)}
                     placeholder={fd.name} readOnly={readOnly} T={T} />
                 )}
@@ -841,7 +808,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   );
 };
 
-// ── Journal Modal (rich text + author search) ─────────────────────────────
 
 export const JournalModal = ({visible, theme: T, entry, members, onSave, onClose}: any) => {
   const {t} = useTranslation();
@@ -917,7 +883,6 @@ export const JournalModal = ({visible, theme: T, entry, members, onSave, onClose
   );
 };
 
-// ── System Modal (with palette editor, language picker, toggles) ─────────────
 
 export const SystemModal = ({visible, theme: T, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onClose}: any) => {
   const {t} = useTranslation();
@@ -928,6 +893,8 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [notifEnabled, setNotifEnabled] = useState<boolean>(settings?.notificationsEnabled ?? true);
   const [frontCheckInterval, setFrontCheckInterval] = useState<number>(settings?.frontCheckInterval || 0);
   const [noteboardNotifs, setNoteboardNotifs] = useState<boolean>(settings?.noteboardNotifications ?? false);
+  const [appLockPw, setAppLockPw] = useState<string>(settings?.appLockPassword || '');
+  const [showAppLockPw, setShowAppLockPw] = useState<boolean>(!!settings?.appLockPassword);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
   const [textScale, setTextScale] = useState<TextScale>(settings?.textScale ?? 1.0);
   const [showLangPicker, setShowLangPicker] = useState(false);
@@ -937,7 +904,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [palBg, setPalBg] = useState(''); const [palAccent, setPalAccent] = useState('');
   const [palText, setPalText] = useState(''); const [palMid, setPalMid] = useState('');
 
-  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setTextScale(settings?.textScale ?? 1.0); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNoteboardNotifs(settings?.noteboardNotifications ?? false); } }, [visible, system, settings]);
+  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setTextScale(settings?.textScale ?? 1.0); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible, system, settings]);
 
   const addLoc = () => {if (newLocation.trim() && !locs.includes(newLocation.trim())) {setLocs([...locs, newLocation.trim()]); setNewLocation('');}};
   const addMood = () => {if (newMood.trim() && !moods.includes(newMood.trim())) {setMoods([...moods, newMood.trim()]); setNewMood('');}};
@@ -973,7 +940,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn T={T} onPress={() => {
       onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
-      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, frontCheckInterval, noteboardNotifications: noteboardNotifs});
+      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, frontCheckInterval, noteboardNotifications: noteboardNotifs, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
       <Field label={t('modal.systemName')} value={f.name} onChange={(v: string) => setF((x: any) => ({...x, name: v}))} placeholder={t('modal.systemNamePlaceholder')} T={T} />
@@ -1085,6 +1052,19 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.globalJournalPassword')}</Text><TouchableOpacity onPress={() => {setShowJournalPw(!showJournalPw); if (showJournalPw) setF((x: any) => ({...x, journalPassword: undefined}));}}><Text style={{fontSize: 12, color: T.accent, fontWeight: '600'}}>{showJournalPw ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
         {showJournalPw && <TextInput value={f.journalPassword || ''} onChangeText={(v: string) => setF((x: any) => ({...x, journalPassword: v || undefined}))} placeholder={t('modal.lockJournal')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14}} />}
+      </View>
+      <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+          <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.appLockPassword', {defaultValue: 'App Lock Password'})}</Text>
+          <TouchableOpacity onPress={() => { setShowAppLockPw(!showAppLockPw); if (showAppLockPw) setAppLockPw(''); }}>
+            <Text style={{fontSize: 12, color: T.accent, fontWeight: '600'}}>{showAppLockPw ? t('common.remove') : t('common.add')}</Text>
+          </TouchableOpacity>
+        </View>
+        {showAppLockPw && (
+          <TextInput value={appLockPw} onChangeText={setAppLockPw} placeholder={t('modal.appLockPasswordPlaceholder', {defaultValue: 'Password to unlock the app'})} placeholderTextColor={T.muted} secureTextEntry
+            style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14}} />
+        )}
+        <Text style={{fontSize: 11, color: T.muted, lineHeight: 15, marginTop: 6}}>{t('modal.appLockPasswordDesc', {defaultValue: 'Tap the lock icon at the top of the app to lock. You\'ll be prompted for this password to unlock.'})}</Text>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: 11, color: T.muted, lineHeight: 15}}>{t('modal.gpsDesc')}</Text></View>

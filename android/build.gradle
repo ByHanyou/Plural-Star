@@ -1,14 +1,9 @@
 buildscript {
     ext {
         minSdkVersion = 24
-        // compileSdk / targetSdk pinned to 36 to satisfy androidx.core:core:1.17.0's
-        // AAR metadata requirement. RN 0.85's main-branch template tracks 36 too.
         compileSdkVersion = 36
         targetSdkVersion = 36
         ndkVersion = "27.1.12297006"
-        // async-storage 3.x requires Kotlin >= 2.1.0, and RN 0.85's New Arch
-        // codegen is already running on kotlin-2.1.20, so we align the root pin
-        // with that to avoid the KSP version-mismatch chain.
         kotlinVersion = "2.1.20"
     }
     repositories {
@@ -27,16 +22,9 @@ plugins {
 
 allprojects {
     repositories {
-        // async-storage 3.x ships its native artifact (org.asyncstorage.shared_storage:storage-android:1.0.0)
-        // in a local maven repo INSIDE the package — it is NOT published to Maven Central.
-        // Per the official 3.0 install docs, this maven{} entry is mandatory or the
-        // gradle dep will fail to resolve.
         maven {
             url("$rootDir/../node_modules/@react-native-async-storage/async-storage/android/local_repo")
         }
-        // jsc-android: kept for now in case anything still resolves through it. RN 0.79+ moved
-        // JSC out to a community-maintained standalone package; if Hermes is the only engine
-        // in use (hermesEnabled=true / hermesV1Enabled=true), this can be removed later.
         maven {
             url("$rootDir/../node_modules/jsc-android/dist")
         }
@@ -48,9 +36,6 @@ allprojects {
 
     subprojects {
         plugins.withId("com.android.library") {
-            // Force every library sub-module up to buildTools 36.0.0 so they
-            // don't inherit stale buildToolsVersion values (some node_modules
-            // libs still declare "28.0.3") that the current AGP rejects.
             android { buildToolsVersion "36.0.0" }
         }
     }

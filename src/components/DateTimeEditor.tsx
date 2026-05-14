@@ -1,19 +1,14 @@
-// src/components/DateTimeEditor.tsx
-// Cross-platform date/time editor with stepper buttons + direct typing.
-// Used by RetroHistoryScreen (full datetime) and the Custom Fields editors
-// (date-only, month, year, monthYear, monthDay, etc.). No native date-picker
-// dependency — keeps PluralStar's minimal-deps philosophy intact.
 import React, {useState, useEffect, useRef} from 'react';
 import {View, Text, TextInput, TouchableOpacity} from 'react-native';
 
 export type DateTimeEditorMode =
-  | 'datetime'   // full date + time (default — matches the existing RetroHistoryScreen usage)
-  | 'date'       // date only: month, day, year
-  | 'time'       // time only: hour, minute, am/pm
-  | 'monthYear'  // month + year (no day)
-  | 'month'      // month only
-  | 'year'       // year only
-  | 'monthDay';  // month + day (no year — for recurring annual things like birthdays)
+  | 'datetime'
+  | 'date'
+  | 'time'
+  | 'monthYear'
+  | 'month'
+  | 'year'
+  | 'monthDay';
 
 interface Props {
   date: Date;
@@ -21,7 +16,6 @@ interface Props {
   label?: string;
   T: any;
   mode?: DateTimeEditorMode;
-  /** Optional: collapse the editor by default. When false, editor is always visible. */
   collapsible?: boolean;
 }
 
@@ -31,12 +25,6 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 const lastDayOfMonth = (year: number, monthZeroIndexed: number) =>
   new Date(year, monthZeroIndexed + 1, 0).getDate();
 
-/**
- * Editable numeric cell with ▲/▼ stepper buttons. The TextInput holds a
- * local string while the user is typing, then commits on blur or submit.
- * Invalid input reverts to the last good value. The clamp range is enforced
- * at commit time so users can transiently type "0" while reaching for "10".
- */
 const EditableCell = ({
   value, pad, min, max, onCommit, onStep, width, T,
 }: {
@@ -54,9 +42,6 @@ const EditableCell = ({
   const [text, setText] = useState(display);
   const editing = useRef(false);
 
-  // Sync external value -> local text whenever the date moves and we aren't
-  // mid-keystroke. Without the editing guard the user's typing would get
-  // stomped every render.
   useEffect(() => {
     if (!editing.current) setText(display);
   }, [display]);
@@ -122,12 +107,10 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
   };
 
   const commitMonth = (m1: number) => {
-    // m1 is 1-12, JS Date wants 0-11. Clamp the day too so e.g. switching
-    // March 31 → Feb doesn't roll over to March 3.
     const d = new Date(date);
     const newMonth = clamp(m1, 1, 12) - 1;
     const cappedDay = Math.min(day, lastDayOfMonth(year, newMonth));
-    d.setDate(1); // park on day 1 so setMonth never overflows
+    d.setDate(1);
     d.setMonth(newMonth);
     d.setDate(cappedDay);
     onChange(d);
@@ -146,7 +129,6 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
     onChange(d);
   };
   const commitHour12 = (h12: number) => {
-    // h12 is 1-12 display hour. Preserve AM/PM, convert to 24h.
     const d = new Date(date);
     const h24 = (h12 % 12) + (isPM ? 12 : 0);
     d.setHours(h24);
@@ -171,7 +153,6 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
     if (mode === 'monthYear') return date.toLocaleDateString(undefined, {month: 'short', year: 'numeric'});
     if (mode === 'monthDay') return date.toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
     if (mode === 'date') return date.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
-    // datetime
     const datePart = date.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
     const timePart = date.toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
     return `${datePart}  ${timePart}`;
@@ -236,7 +217,6 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
               </>
             )}
           </View>
-          {/* Format hint */}
           {(showMonth && showDay && showYear) && (
             <Text style={{fontSize: fs(9), color: T.muted, marginTop: 8, textAlign: 'center', letterSpacing: 0.5}}>MM &nbsp;&nbsp; DD &nbsp;&nbsp; YYYY{showTime ? '   ·   HH : MM' : ''}</Text>
           )}

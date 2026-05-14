@@ -27,9 +27,6 @@ interface Props {
   renderCustomFieldsScreen: () => React.ReactNode;
   renderPollsScreen: () => React.ReactNode;
   resetKey?: number;
-  // When set, the retroHistory tile opens directly in edit-mode for this
-  // history index. App.tsx sets this in response to the Edit button on a
-  // history row, then clears it when the user navigates away.
   editHistoryIndex?: number | null;
   onClearEditHistory?: () => void;
 }
@@ -103,10 +100,6 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
 const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFront, onBack, editIndex, editEntry}: {
   T: any; members: Member[]; history: HistoryEntry[]; front: FrontState | null;
   onSaveHistory: (h: HistoryEntry[]) => void; onSetFront: (f: FrontState | null) => void; onBack: () => void;
-  // When editIndex/editEntry are provided, the screen acts as an editor: form
-  // is prefilled, "save" replaces the entry in place instead of prepending,
-  // and overlap detection excludes the entry being edited (so it doesn't
-  // overlap itself). Add-mode = both undefined.
   editIndex?: number;
   editEntry?: HistoryEntry;
 }) => {
@@ -114,11 +107,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const isEditing = editIndex !== undefined && editIndex >= 0 && !!editEntry;
 
-  // Detect whether the entry being edited mirrors the current active front.
-  // If so, edits to mood/location/members/start need to update the front state
-  // alongside history. Front and the open history entry share startTime as
-  // their identity; checking both startTime AND endTime === null avoids false
-  // positives when a different closed entry happens to share a timestamp.
   const editingActiveFront = !!(
     isEditing && editEntry && front
     && editEntry.endTime === null
@@ -142,7 +130,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     const effectiveEnd = end ?? Date.now();
     return history.filter((e, i) => {
       if (!e.startTime) return false;
-      // Exclude the entry being edited — it always overlaps itself.
       if (isEditing && i === editIndex) return false;
       const eEnd = e.endTime ?? Date.now();
       return e.startTime < effectiveEnd && start < eEnd;
@@ -165,8 +152,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     changeType: 'front',
   });
 
-  // Common helpers — in edit mode, "applying" the new entry is a swap at
-  // editIndex; in add mode it's a prepend. Both paths re-sort and cap.
   const replaceEntries = (deleteOverlapKeys?: Set<string>): HistoryEntry[] => {
     const newEntry = buildEntry();
     let base = history;
@@ -174,12 +159,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       base = base.filter(e => !deleteOverlapKeys.has(`${e.startTime}-${(e.memberIds || []).join(',')}`));
     }
     if (isEditing) {
-      // editIndex may have shifted if deleteOverlapKeys removed earlier entries.
-      // Find the original entry pointer instead of trusting index.
       const updated = base.filter((_, i) => !(history === base && i === editIndex)).concat();
-      // The filter above only works when base hasn't been narrowed. For the
-      // deleteOverlapKeys case, build by mapping the new entry over editEntry's
-      // identity (startTime + memberIds), then strip the original tombstone.
       if (deleteOverlapKeys) {
         const editKey = `${editEntry!.startTime}-${(editEntry!.memberIds || []).join(',')}`;
         const stripped = base.filter(e => `${e.startTime}-${(e.memberIds || []).join(',')}` !== editKey);
@@ -203,8 +183,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     const newEntry = buildEntry();
     const overlaps = findOverlaps(newEntry.startTime, newEntry.endTime);
 
-    // Editing the entry that mirrors the active front: also update front state
-    // so mood/members/location stay in sync. No overwrite prompt needed.
     if (editingActiveFront) {
       if (isCurrent) {
         const newFront: FrontState = {
@@ -215,7 +193,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
         };
         onSetFront(newFront);
       } else {
-        // User closed out the open front by setting an end time.
         onSetFront(null);
       }
       onSaveHistory(replaceEntries());
@@ -223,8 +200,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       return;
     }
 
-    // Marking a *different* entry as current when a front already exists —
-    // ask the user how to reconcile. Same flow as the original add path.
     if (isCurrent && front && !editingActiveFront) {
       Alert.alert(
         t('hub.activeFrontExists'),
@@ -233,7 +208,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
           {text: t('common.cancel'), style: 'cancel'},
           {text: t('hub.overwrite'), style: 'destructive', onPress: () => {
             const now = Date.now();
-            // Close out the existing open front entry.
             const closed = history.map(e =>
               e.endTime === null && e.startTime === front.startTime && (!e.changeType || e.changeType === 'front')
                 ? {...e, endTime: now} : e
@@ -245,7 +219,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
               startTime: startDate.getTime(),
             };
             onSetFront(newFront);
-            // Insert/replace the new entry against the closed-out history.
             if (isEditing) {
               const updated = closed.map((e, i) => i === editIndex ? newEntry : e);
               onSaveHistory(updated.sort((a, b) => b.startTime - a.startTime).slice(0, 1000));
@@ -364,9 +337,6 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
 
   useEffect(() => { setActiveTile(null); }, [resetKey]);
 
-  // Externally-driven edit-mode: when App.tsx asks us to edit a specific
-  // history entry (via editHistoryIndex), jump straight into the retroHistory
-  // tile. Clearing happens when the user navigates away.
   useEffect(() => {
     if (editHistoryIndex !== null && editHistoryIndex !== undefined) {
       setActiveTile('retroHistory');
@@ -465,7 +435,6 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
   }
 
   if (activeTile === 'credits') {
-    // Community Credits — full-width tile per contributor, tap opens their link.
     const credits: {name: string; role: string; url: string}[] = [
       {name: 'The Loud House System', role: t('hub.creditLogo', {defaultValue: 'Plural Star Logo'}), url: 'https://x.com/theloudhousesys?s=21'},
       {name: 'realcatdev', role: t('hub.creditIos', {defaultValue: 'Plural Star iOS Port'}), url: 'https://github.com/realcatdev'},

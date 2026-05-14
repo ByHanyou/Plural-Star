@@ -7,15 +7,6 @@ export const getPickedFilePath = (result: any): string => {
   return uri.startsWith('file://') ? uri.replace('file://', '') : uri;
 };
 
-/**
- * Resolves the best readable URI for a picked file result.
- *
- * On Android (especially Samsung devices with OneUI), the picker returns
- * content:// URIs that are wrapped by Samsung's file provider and may not
- * be directly readable by the filesystem layer. The picker library copies the file to the
- * app cache and exposes `fileCopyUri` (a plain file:// path) for exactly
- * this case. We prefer it on Android whenever it is available.
- */
 const resolveUri = (result: any): any => {
   if (Platform.OS === 'android' && result.fileCopyUri) {
     return {...result, uri: result.fileCopyUri};

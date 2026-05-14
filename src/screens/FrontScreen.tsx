@@ -1,4 +1,3 @@
-// src/screens/FrontScreen.tsx
 import React, {useState, useEffect} from 'react';
 import {
   View,
@@ -33,9 +32,6 @@ const Avatar = ({
   T: any;
 }) => {
   if (member?.avatar) {
-    // `elevation` is a View-only style in current RN typings, so the pulse-glow
-    // wrapping moved from the Image onto an outer View. Image keeps the
-    // size/shape; the wrapper provides the shadow + Android elevation.
     return (
       <View
         style={{

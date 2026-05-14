@@ -23,10 +23,6 @@ const ensureDir = async (dir: string) => {
 export const saveAvatar = async (memberId: string, base64: string): Promise<string> => {
   await ensureDir(AVATAR_DIR);
   const raw = base64.includes(',') ? base64.split(',')[1] : base64;
-  // Detect actual format from the first bytes of the base64 data rather than
-  // trusting the declared MIME type — picked images are often mislabelled as JPEG
-  // when they're actually PNG, leading to files saved with the wrong extension.
-  // Base64 magic byte prefixes: PNG=iVBOR, GIF=R0lGO, WEBP=/9j is JPEG, PNG/WEBP differ
   let ext = 'jpg';
   if (raw.startsWith('iVBOR')) ext = 'png';
   else if (raw.startsWith('R0lGO')) ext = 'gif';
@@ -36,10 +32,6 @@ export const saveAvatar = async (memberId: string, base64: string): Promise<stri
   return `file://${path}?t=${Date.now()}`;
 };
 
-// Save a base64-encoded banner image (used during restore). Mirrors saveAvatar — no
-// crop/resize is applied here; the banner is written as-is under its original format.
-// The exporter already ran saveBannerImage which cropped to 900x300, so the base64
-// payload in the export is already banner-sized. On import we just rehydrate it.
 export const saveBannerFromBase64 = async (memberId: string, base64: string): Promise<string> => {
   await ensureDir(BIO_IMAGE_DIR);
   const raw = base64.includes(',') ? base64.split(',')[1] : base64;
@@ -59,8 +51,6 @@ export const saveAvatarFromUrl = async (memberId: string, url: string): Promise<
     const urlExt = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
     const ext = ['png', 'gif', 'webp'].includes(urlExt) ? urlExt : 'jpg';
     const path = `${AVATAR_DIR}/${memberId}.${ext}`;
-    // blob-util's download = config({path}).fetch('GET', url). Status lives on
-    // result.info().status rather than the RNFS-style .statusCode.
     const result = await ReactNativeBlobUtil.config({path, fileCache: false}).fetch('GET', url);
     if (result.info().status === 200) return `file://${path}?t=${Date.now()}`;
     return undefined;
@@ -101,9 +91,6 @@ export const saveChatMedia = async (messageId: string, base64: string, ext: stri
   return `file://${path}?t=${Date.now()}`;
 };
 
-// Extract a display filename from a stored chat-media URI (strips file:// prefix,
-// directory path, and any cache-buster query string). Imported by ChatScreen for
-// the "file" message-type rendering. Returns "Attachment" if the URI is malformed.
 export const getChatMediaFileName = (uri: string): string => {
   if (!uri) return 'Attachment';
   const noProto = uri.replace(/^file:\/\//, '');
@@ -230,9 +217,6 @@ export const clearAllMedia = async (): Promise<void> => {
     if (chatExists) await ReactNativeBlobUtil.fs.unlink(CHAT_MEDIA_DIR);
     const bioExists = await ReactNativeBlobUtil.fs.exists(BIO_IMAGE_DIR);
     if (bioExists) await ReactNativeBlobUtil.fs.unlink(BIO_IMAGE_DIR);
-    // Also wipe ps_banners. saveBannerFromUrl writes here when a member's banner
-    // comes in via PluralKit/SP import, and prior to this fix Delete Account
-    // left those banner files on disk — a privacy regression vs the user's intent.
     const bannerExists = await ReactNativeBlobUtil.fs.exists(BANNER_DIR);
     if (bannerExists) await ReactNativeBlobUtil.fs.unlink(BANNER_DIR);
   } catch {}

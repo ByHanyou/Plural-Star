@@ -17,6 +17,7 @@ import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia} from './src
 import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, showNoteboardNotification, clearNoteboardNotification} from './src/services/NotificationService';
 
 import {SetupScreen} from './src/screens/SetupScreen';
+import {LockScreen} from './src/screens/LockScreen';
 import {FrontScreen} from './src/screens/FrontScreen';
 import {MembersScreen} from './src/screens/MembersScreen';
 import {HistoryScreen} from './src/screens/HistoryScreen';
@@ -48,13 +49,13 @@ const getGPSLocation = (): Promise<string | null> =>
         );
         if (granted !== PermissionsAndroid.RESULTS.GRANTED) {resolve(null); return;}
       }
-      (navigator as any).geolocation?.getCurrentPosition(
+      ((globalThis as any).navigator)?.geolocation?.getCurrentPosition(
         async (pos: any) => {
           try {
             const {latitude, longitude} = pos.coords;
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
-              {headers: {'User-Agent': 'PluralStar/1.7.0'}},
+              {headers: {'User-Agent': 'PluralStar/1.7.1'}},
             );
             const data = await res.json();
             const a = data.address || {};
@@ -73,11 +74,9 @@ function MainAppContent() {
 
   const [loaded, setLoaded] = useState(false);
   const [firstRun, setFirstRun] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [tab, setTab] = useState<Tab>('front');
   const [hubResetKey, setHubResetKey] = useState(0);
-  // When the user taps Edit on a front-history row in the History tab, we jump
-  // to Hub > Retroactive in edit-mode for that index. Cleared on back-out or
-  // tab change so we don't snap back into the edit screen unexpectedly.
   const [editHistoryIndex, setEditHistoryIndex] = useState<number | null>(null);
   const [system, setSystem] = useState<SystemInfo>({name: '', description: ''});
   const [members, setMembers] = useState<Member[]>([]);
@@ -97,9 +96,6 @@ function MainAppContent() {
   const [editTier, setEditTier] = useState<FrontTierKey>('primary');
   const [showMember, setShowMember] = useState(false);
   const [editMember, setEditMember] = useState<Member | null>(null);
-  // viewOnlyMember: when true, the MemberModal opens in read-only mode (tapping
-  // a member card). When false (default), it opens in editable mode (tapping
-  // the pencil ✎ on a card, or pressing "Add Member").
   const [viewOnlyMember, setViewOnlyMember] = useState(false);
   const [showJournal, setShowJournal] = useState(false);
   const [editJournal, setEditJournal] = useState<JournalEntry | null>(null);
@@ -219,9 +215,6 @@ function MainAppContent() {
       await notifee.requestPermission();
     } catch (e) { console.error('[PS] notification permission error:', e); }
     if (Platform.OS !== 'android') return;
-    // Android 13+ (API 33) introduced runtime POST_NOTIFICATIONS permission.
-    // notifee.requestPermission() does not reliably trigger this dialog, so we
-    // also request it explicitly via PermissionsAndroid.
     try {
       if (Platform.Version >= 33) {
         const result = await PermissionsAndroid.request(
@@ -284,10 +277,6 @@ function MainAppContent() {
     return () => clearInterval(interval);
   }, [front, members, appSettings.notificationsEnabled, system.name]);
 
-  // Schedule or cancel the recurring front-check reminder whenever the interval
-  // setting or master notification toggle changes. Setting interval to 0 (or
-  // turning off notifications) cancels the reminder. Valid hour values are
-  // 1, 2, 4, 8, 12, 24 per the System Settings picker.
   useEffect(() => {
     const interval = appSettings.frontCheckInterval || 0;
     if (!appSettings.notificationsEnabled || interval <= 0) {
@@ -297,13 +286,6 @@ function MainAppContent() {
     }
   }, [appSettings.frontCheckInterval, appSettings.notificationsEnabled]);
 
-  // Noteboard unread-notes notification. Fires when a member takes front at any
-  // tier (Primary / Co-Front / Co-Conscious) AND they have noteboard entries
-  // newer than the last time they viewed their own noteboard. The "read" marker
-  // is per-member and is updated when the member taps or scrolls a note (see
-  // modals/index.tsx). We track the previous fronting-member set in a ref so we
-  // only trigger on the transition into fronting, not on every front update
-  // (mood/location changes etc. should not re-notify).
   const prevFrontIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!appSettings.notificationsEnabled || !appSettings.noteboardNotifications) {
@@ -323,12 +305,10 @@ function MainAppContent() {
       return ids;
     };
     const currentIds = collectFrontIds(front);
-    // Members who just started fronting this cycle
     const newlyFronting: string[] = [];
     currentIds.forEach(id => { if (!prevFrontIdsRef.current.has(id)) newlyFronting.push(id); });
     prevFrontIdsRef.current = currentIds;
     if (currentIds.size === 0) {
-      // No one's fronting — clear any lingering notification.
       clearNoteboardNotification().catch(() => {});
       return;
     }
@@ -420,9 +400,6 @@ function MainAppContent() {
       newHistory = newHistory.map(e =>
         e.endTime === null && e.startTime === front.startTime && e.changeType === 'front' ? {...e, endTime: now} : e);
     }
-    // Bug 7B: a tier with zero memberIds must clear its mood/note/location/energyLevel.
-    // Without this, "remove last fronter from primary" preserves stale mood values that
-    // re-appear as selected chips next time the user opens the EditPrimaryFront modal.
     const cleanTier = (tier: FrontTier): FrontTier =>
       tier.memberIds.length === 0
         ? {memberIds: [], mood: undefined, note: '', location: undefined, energyLevel: undefined}
@@ -507,6 +484,14 @@ function MainAppContent() {
     await saveMembers(u);
   };
   const deleteMember = async (id: string) => saveMembers(members.filter(m => m.id !== id));
+  const bulkSetArchived = async (ids: string[], archived: boolean) => {
+    const idSet = new Set(ids);
+    await saveMembers(members.map(m => idSet.has(m.id) ? {...m, archived} : m));
+  };
+  const bulkDeleteMembers = async (ids: string[]) => {
+    const idSet = new Set(ids);
+    await saveMembers(members.filter(m => !idSet.has(m.id)));
+  };
   const saveEntry = async (e: JournalEntry) => {
     const u = journal.find(x => x.id === e.id) ? journal.map(x => (x.id === e.id ? e : x)) : [e, ...journal];
     await saveJournal(u);
@@ -544,6 +529,15 @@ function MainAppContent() {
       <>
         <StatusBar barStyle="light-content" backgroundColor={C.bg} translucent={false} />
         <SetupScreen theme={C} onSave={async s => {await saveSystem(s); setFirstRun(false); setTimeout(requestPermissions, 500);}} />
+      </>
+    );
+  }
+
+  if (locked && appSettings.appLockPassword) {
+    return (
+      <>
+        <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor={C.bg} translucent={false} />
+        <LockScreen theme={C} password={appSettings.appLockPassword} systemName={system.name} onUnlock={() => setLocked(false)} />
       </>
     );
   }
@@ -592,7 +586,11 @@ function MainAppContent() {
           [ordered[idx], ordered[swapWith]] = [ordered[swapWith], ordered[idx]];
           const reindexed = ordered.map((m, i) => ({...m, sortOrder: i}));
           await saveMembers([...reindexed, ...archived]);
-        }} />;
+        }}
+          onBulkArchive={(ids: string[]) => bulkSetArchived(ids, true)}
+          onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
+          onBulkDelete={bulkDeleteMembers}
+        />;
       case 'hub':
         return <HubScreen theme={C} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderPollsScreen={renderPollsScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
       case 'journal':
@@ -609,6 +607,13 @@ function MainAppContent() {
         <View style={[styles.header, {borderBottomColor: C.border, backgroundColor: C.bg}]}>
           <AccentText T={C} style={[styles.headerTitle, {color: C.accent}]}>{system.name}</AccentText>
           <View style={styles.headerRight}>
+            <TouchableOpacity
+              onPress={() => { if (appSettings.appLockPassword) setLocked(true); }}
+              disabled={!appSettings.appLockPassword}
+              activeOpacity={appSettings.appLockPassword ? 0.7 : 1}
+              style={styles.settingsBtn}>
+              <Text style={[styles.settingsIcon, {color: appSettings.appLockPassword ? C.dim : C.muted, opacity: appSettings.appLockPassword ? 1 : 0.35}]}>🔒</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowSystem(true)} activeOpacity={0.7} style={styles.settingsBtn}>
               <Text style={[styles.settingsIcon, {color: C.dim}]}>⚙</Text>
             </TouchableOpacity>
@@ -655,11 +660,6 @@ function MainAppContent() {
 }
 
 export default function App() {
-  // No GestureHandlerRootView / BottomSheetModalProvider wrappers are needed
-  // anymore — those existed only to feed @gorhom/bottom-sheet, which has been
-  // replaced by @lodev09/react-native-true-sheet (a native sheet that doesn't
-  // touch react-native-gesture-handler or reanimated for its presentation).
-  // SafeAreaProvider stays so useSafeAreaInsets() still works app-wide.
   return (
     <SafeAreaProvider>
       <MainAppContent />

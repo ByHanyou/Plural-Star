@@ -4,15 +4,8 @@ apply plugin: "com.facebook.react"
 
 react {
     autolinkLibrariesWithApp()
-    // Default behavior: `debug` is a debuggable variant, so Gradle skips
-    // JS bundling and the app connects to Metro at runtime. Don't set
-    // `debuggableVariants = []` here — that forces compile-time bundling
-    // and disables Metro live reload.
 }
 
-// Release-signing passwords live in android/keystore.properties (gitignored).
-// The file is optional: debug builds work without it. Release builds will get
-// empty passwords and gradle will surface a clearer signing error if missing.
 def keystoreProps = new Properties()
 def keystorePropsFile = rootProject.file("keystore.properties")
 if (keystorePropsFile.exists()) {
@@ -21,10 +14,6 @@ if (keystorePropsFile.exists()) {
 
 android {
     namespace "com.pluralspace.app"
-    // compileSdk 36 is required because androidx.core:core:1.17.0 (pulled in
-    // transitively by the AndroidX ecosystem at this RN/AndroidX combo) refuses
-    // to compile against anything lower. RN 0.85's main-branch template moved
-    // to 36 for the same reason.
     compileSdkVersion 36
 
     buildFeatures {
@@ -34,12 +23,9 @@ android {
     defaultConfig {
         applicationId "com.pluralspace.app"
         minSdkVersion 24
-        // targetSdk follows compileSdk to 36 so we run against the same runtime
-        // behavior we're compiling for. minSdk stays at 24 — that controls who
-        // can install, and we still want broad device coverage.
         targetSdkVersion 36
-        versionCode 40
-        versionName "1.7.0"
+        versionCode 41
+        versionName "1.7.1"
     }
 
     signingConfigs {
@@ -51,10 +37,6 @@ android {
         }
         release {
             storeFile file('../../plural-space.keystore')
-            // Read passwords from the gitignored keystore.properties first; fall
-            // back to project properties (e.g. -PPLURALSPACE_STORE_PASSWORD=...
-            // on the gradle command line, or environment overrides) so CI can
-            // inject them without committing anything.
             storePassword keystoreProps['PLURALSPACE_STORE_PASSWORD'] ?: (project.findProperty('PLURALSPACE_STORE_PASSWORD') ?: '')
             keyAlias 'pluralspace'
             keyPassword keystoreProps['PLURALSPACE_KEY_PASSWORD'] ?: (project.findProperty('PLURALSPACE_KEY_PASSWORD') ?: '')

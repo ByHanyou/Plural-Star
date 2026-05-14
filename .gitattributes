@@ -1,14 +1,9 @@
-# Default: treat everything as text, normalize to LF on commit.
-# Working-tree line endings stay native (CRLF on Windows, LF on macOS/Linux),
-# but the repository always stores LF — keeps diffs clean across contributors.
 * text=auto eol=lf
 
-# Windows shell scripts must stay CRLF in the working tree or cmd.exe chokes.
 *.bat   text eol=crlf
 *.cmd   text eol=crlf
 *.ps1   text eol=crlf
 
-# Source — explicit LF (defensive; matched by * above but kept obvious).
 *.ts    text eol=lf
 *.tsx   text eol=lf
 *.js    text eol=lf
@@ -35,7 +30,6 @@ Gemfile.lock text eol=lf
 Podfile text eol=lf
 Podfile.lock text eol=lf
 
-# Binary — never line-end munge, never try to diff as text.
 *.png   binary
 *.jpg   binary
 *.jpeg  binary
@@ -58,7 +52,6 @@ Podfile.lock text eol=lf
 *.jar   binary
 *.so    binary
 
-# Lockfiles: keep as text but suppress in PR diffs (still merge-able).
 package-lock.json -diff
 Podfile.lock -diff
 Gemfile.lock -diff

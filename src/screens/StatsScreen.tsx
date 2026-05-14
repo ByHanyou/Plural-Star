@@ -33,8 +33,6 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
     if (range === '7d') return Date.now() - 7 * 86400000;
     if (range === '30d') return Date.now() - 30 * 86400000;
     if (range === 'custom') {
-      // Normalize to start-of-day so picking "May 1" includes everything from
-      // 00:00 May 1 forward, not just events after the moment the user tapped.
       const d = new Date(customStart);
       d.setHours(0, 0, 0, 0);
       return d.getTime();
@@ -44,8 +42,6 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
 
   const rangeEnd = useMemo(() => {
     if (range === 'custom') {
-      // End-of-day for the end date — picking "May 5" should include all of
-      // May 5 events, not stop at midnight at the start of May 5.
       const d = new Date(customEnd);
       d.setHours(23, 59, 59, 999);
       return d.getTime();
@@ -219,8 +215,6 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
           <DateTimeEditor
             date={new Date(customStart)}
             onChange={d => {
-              // Guard against the user picking a start after the current end.
-              // Bump the end forward to keep the range non-empty.
               const t0 = d.getTime();
               setCustomStart(t0);
               if (t0 > customEnd) setCustomEnd(t0);
@@ -250,7 +244,6 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.last30')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => {
-              // "This month" — first of the current month to today.
               const now = new Date();
               const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
               setCustomStart(start);
@@ -260,7 +253,6 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisMonth', {defaultValue: 'This month'})}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => {
-              // "This year" — Jan 1 of the current year to today.
               const start = new Date(new Date().getFullYear(), 0, 1).getTime();
               setCustomStart(start);
               setCustomEnd(Date.now());

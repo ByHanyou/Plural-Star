@@ -1,4 +1,3 @@
-// src/screens/HistoryScreen.tsx
 import React, {useState, useMemo} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, TextInput, Image, StyleSheet, Alert} from 'react-native';
 import {useTranslation} from 'react-i18next';
@@ -20,7 +19,6 @@ const Avatar = ({member, size = 26, T}: {member?: Member | null; size?: number; 
   );
 };
 
-// Check if a member appears in any tier of a history entry
 const memberInEntry = (memberId: string, entry: HistoryEntry): boolean =>
   (entry.memberIds || []).includes(memberId) ||
   (entry.coFrontIds || []).includes(memberId) ||
@@ -35,8 +33,6 @@ interface Props {
   getMember: (id: string) => Member | undefined;
   members: Member[];
   onSaveHistory: (h: HistoryEntry[]) => void;
-  // Tapping Edit on a front-history row jumps to Hub > Retroactive in
-  // edit-mode for the given history index. App.tsx owns the navigation.
   onEditEntry?: (originalIndex: number) => void;
 }
 
@@ -44,12 +40,10 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [subTab, setSubTab] = useState<SubTab>('front');
-  // Bug #4: Member History search starts blank.
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
   const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
 
-  // Bug #6: Map<id, Member> for O(1) lookup.
   const memberMap = useMemo(() => {
     const map = new Map<string, Member>();
     for (const m of members) map.set(m.id, m);
@@ -86,7 +80,6 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
 
   const selectedMember = selectedMemberId ? memberMap.get(selectedMemberId) : undefined;
 
-  // ── Front History ──────────────────────────────────────────────────────────
   const frontHistory = history.filter(e => !e.changeType || e.changeType === 'front');
 
   const frontGroups: Record<string, HistoryEntry[]> = {};
@@ -96,10 +89,6 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
     frontGroups[k].push(e);
   });
 
-  // Bug #6 part 2: flatten the date-grouped front history into a single FlashList-friendly
-  // row array. Each row is either a date header or an entry. originalIndex is baked in so
-  // the delete handler doesn't have to history.indexOf(entry) on every render — that was
-  // O(N²) for systems with thousands of entries.
   type FrontHistoryRow =
     | {kind: 'header'; key: string; date: string}
     | {kind: 'entry'; key: string; entry: HistoryEntry; isLastInGroup: boolean; originalIndex: number};
@@ -123,11 +112,9 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
     return rows;
   }, [history]);
 
-  // ── Tier names helper ───────────────────────────────────────────────────
   const tierNames = (ids: string[] | undefined) =>
     (ids || []).map(id => memberMap.get(id)).filter(Boolean).map(m => m!.name).join(', ');
 
-  // ── Member History ─────────────────────────────────────────────────────────
   const memberHistoryEvents = selectedMemberId
     ? history
         .filter(e => memberInEntry(selectedMemberId, e))
@@ -167,7 +154,6 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
     return t('history.frontSwitch');
   };
 
-  // ── Tier badge in history cards ──────────────────────────────────────────
   const TierRow = ({label, ids, color, expanded, cap}: {label: string; ids: string[] | undefined; color: string; expanded?: boolean; cap?: number}) => {
     const allMembers = (ids || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
     if (allMembers.length === 0) return null;

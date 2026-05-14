@@ -15,8 +15,6 @@ export interface MemberGroup {
   color?: string;
 }
 
-// ── Custom Fields ──────────────────────────────────────────────────────────
-
 export type CustomFieldType = 'text' | 'markdown' | 'date' | 'dateRange' | 'number' | 'toggle' | 'color' | 'month' | 'year' | 'monthYear' | 'timestamp' | 'monthDay';
 
 export interface CustomFieldDef {
@@ -32,8 +30,6 @@ export interface CustomFieldValue {
   value: string | number | boolean | null;
 }
 
-// ── Noteboard ─────────────────────────────────────────────────────────────
-
 export interface NoteboardEntry {
   id: string;
   memberId: string;
@@ -42,8 +38,6 @@ export interface NoteboardEntry {
   timestamp: number;
   pinned?: boolean;
 }
-
-// ── Polls ──────────────────────────────────────────────────────────────────
 
 export interface PollOption {
   id: string;
@@ -62,11 +56,7 @@ export interface MemberPoll {
   hideVoterNames?: boolean;
 }
 
-// ── Member Sorting ────────────────────────────────────────────────────────
-
 export type MemberSortMode = 'alphabetical' | 'reverse-alphabetical' | 'age' | 'color' | 'role' | 'manual';
-
-// ── Member ────────────────────────────────────────────────────────────────
 
 export interface Member {
   id: string;
@@ -83,7 +73,6 @@ export interface Member {
   customFields?: CustomFieldValue[];
   sortOrder?: number;
   createdAt?: number;
-  // Stable cross-system identifier from the original source (SP _id, PK uuid, etc.).
   sourceId?: string;
 }
 
@@ -157,6 +146,7 @@ export interface AppSettings {
   memberSortMode?: MemberSortMode;
   frontCheckInterval?: number;
   noteboardNotifications?: boolean;
+  appLockPassword?: string;
 }
 
 export interface ExportPayload {
@@ -211,9 +201,6 @@ export const DEFAULT_MOODS = [
   'Dissociated', 'Grounded', 'Irritable', 'Sad', 'Focused',
 ];
 
-// translateMood handles both single-mood strings and comma-joined multi-mood strings
-// (e.g. "Calm, Anxious"). Each part is translated independently and rejoined with the
-// same separator. Custom (non-default) moods pass through unchanged.
 export const translateMood = (mood: string, t: (k: string) => string): string => {
   if (!mood) return '';
   const parts = mood.split(',').map(s => s.trim()).filter(Boolean);
@@ -228,9 +215,6 @@ export const translateMood = (mood: string, t: (k: string) => string): string =>
   return parts.map(translateOne).join(', ');
 };
 
-// Helpers for the multi-select mood picker. Moods are stored as a comma-joined string
-// in the existing FrontTier.mood / HistoryEntry.mood field — no schema migration —
-// so existing single-mood entries (e.g. "Calm") parse cleanly to a one-element list.
 export const MOOD_DELIMITER = ', ';
 export const parseMoodList = (mood: string | undefined): string[] =>
   (mood || '').split(',').map(s => s.trim()).filter(Boolean);

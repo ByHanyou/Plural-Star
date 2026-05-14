@@ -48,10 +48,6 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
   const [editChannelName, setEditChannelName] = useState('');
   const [showFormatBar, setShowFormatBar] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  // Bug 9: track whether the user is "at the bottom" of the chat. Only auto-scroll
-  // to the latest message when they are — otherwise scrolling up to read older
-  // messages snaps back to the bottom every time an image loads or a layout shifts
-  // (which is what Refugee Andros reported: "brings the chat logs back to one place").
   const isAtBottomRef = useRef(true);
 
   const activeChannel = channels.find(c => c.id === activeChannelId);
@@ -166,23 +162,27 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
   };
 
   const exportChannelSnapshot = async (filename: string, channel: ChatChannel, msgs: ChatMessage[]) => {
-    // blob-util's `dirs.CacheDir` always exists on both platforms, replacing the
-    // RNFS pattern of `TemporaryDirectoryPath || DocumentDirectoryPath` (the
-    // former was iOS-only, hence the fallback chain).
-    const basePath = Platform.OS === 'android'
-      ? ReactNativeBlobUtil.fs.dirs.DownloadDir
-      : ReactNativeBlobUtil.fs.dirs.CacheDir;
-    const path = `${basePath}/${filename}`;
-    await ReactNativeBlobUtil.fs.writeFile(path, JSON.stringify({channel, messages: msgs}, null, 2), 'utf8');
-    if (Platform.OS === 'ios') {
-      await Share.open({
-        url: `file://${path}`,
-        type: 'application/json',
-        filename,
-        failOnCancel: false,
-        saveToFiles: true,
-      });
+    const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
+    await ReactNativeBlobUtil.fs.writeFile(tempPath, JSON.stringify({channel, messages: msgs}, null, 2), 'utf8');
+    if (Platform.OS === 'android') {
+      try {
+        await ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
+          {name: filename, parentFolder: '', mimeType: 'application/json'},
+          'Download',
+          tempPath,
+        );
+      } finally {
+        try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
+      }
+      return;
     }
+    await Share.open({
+      url: `file://${tempPath}`,
+      type: 'application/json',
+      filename,
+      failOnCancel: false,
+      saveToFiles: true,
+    });
   };
 
   const deleteChannel = (id: string) => {
@@ -203,7 +203,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
     Alert.alert(t('chat.archiveChannel'), t('chat.archiveChannelMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('chat.archiveClose'), onPress: async () => {
-        const msgs = await store.get<ChatMessage[]>(chatMsgKey(id), []);
+        const msgs = await store.get<ChatMessage[]>(chatMsgKey(id), []) ?? [];
         const filename = `${ch.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
         await exportChannelSnapshot(filename, ch, msgs);
         await store.remove(chatMsgKey(id));
@@ -212,7 +212,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
         Alert.alert(t('chat.archived'), t('chat.archivedMsg', {filename}));
       }},
       {text: t('chat.archiveFresh'), onPress: async () => {
-        const msgs = await store.get<ChatMessage[]>(chatMsgKey(id), []);
+        const msgs = await store.get<ChatMessage[]>(chatMsgKey(id), []) ?? [];
         const filename = `${ch.name.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().slice(0, 10)}.json`;
         await exportChannelSnapshot(filename, ch, msgs);
         await store.set(chatMsgKey(id), []);
@@ -390,16 +390,12 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels}: Props)
         style={{flex: 1}}
         contentContainerStyle={{paddingVertical: 8}}
         onScroll={e => {
-          // Distance from the bottom of the visible viewport to the bottom of the content.
-          // Within 64px = "at bottom" — covers the keyboard-ease/format-bar overshoot.
           const {contentOffset, contentSize, layoutMeasurement} = e.nativeEvent;
           const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
           isAtBottomRef.current = distanceFromBottom < 64;
         }}
         scrollEventThrottle={32}
         onContentSizeChange={() => {
-          // Only auto-snap to the newest message if the user is actively reading the latest.
-          // If they've scrolled up, leave their position alone.
           if (isAtBottomRef.current) flatListRef.current?.scrollToEnd({animated: false});
         }}
         ListEmptyComponent={

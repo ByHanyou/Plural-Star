@@ -1,4 +1,3 @@
-// src/screens/SetupScreen.tsx
 import React, {useState} from 'react';
 import {View, Text, Image, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity, TextInput} from 'react-native';
 import {useTranslation} from 'react-i18next';

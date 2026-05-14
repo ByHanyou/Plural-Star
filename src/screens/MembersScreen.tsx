@@ -1,4 +1,3 @@
-// src/screens/MembersScreen.tsx
 import React, {useState} from 'react';
 import {View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, Alert} from 'react-native';
 import {FlashList} from '@shopify/flash-list';
@@ -8,8 +7,6 @@ import {Member, MemberGroup, FrontState, FrontTierKey, MemberSortMode, getInitia
 
 const Avatar = ({member, size = 40, pulse = false, T}: {member?: Member | null; size?: number; pulse?: boolean; T: any}) => {
   if (member?.avatar) {
-    // `elevation` lives on ViewStyle, not ImageStyle, in current RN typings.
-    // Wrap the Image so the pulse glow keeps working without a type error.
     return (
       <View style={{width: size, height: size, borderRadius: size / 2,
         shadowColor: pulse ? member.color : 'transparent', shadowOpacity: pulse ? 0.5 : 0, shadowRadius: pulse ? 8 : 0, elevation: pulse ? 4 : 0}}>
@@ -44,19 +41,16 @@ interface Props {
   initialSortMode?: MemberSortMode;
   onAdd: () => void;
   onEdit: (member: Member) => void;
-  /**
-   * Called when the user taps a member card (not the pencil). Should open a
-   * read-only view of that member. Implemented in App.tsx by opening the
-   * MemberModal with readOnly=true. Falls back to onEdit if not provided so
-   * the screen stays usable.
-   */
   onView?: (member: Member) => void;
   onSaveGroups: (groups: MemberGroup[]) => void;
   onSaveSortMode?: (mode: MemberSortMode) => void;
   onReorderMember?: (id: string, direction: 'up' | 'down') => void;
+  onBulkArchive?: (ids: string[]) => void | Promise<void>;
+  onBulkRestore?: (ids: string[]) => void | Promise<void>;
+  onBulkDelete?: (ids: string[]) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, members, front, groups, initialSortMode, onAdd, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember}: Props) => {
+export const MembersScreen = ({theme: T, members, front, groups, initialSortMode, onAdd, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete}: Props) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [memberTab, setMemberTab] = useState<'active' | 'archived'>('active');
@@ -69,8 +63,67 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const [newGroupColor, setNewGroupColor] = useState(PALETTE[0]);
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState('');
-  // (Custom field defs are now loaded by MemberModal directly when it opens.
-  // We don't need to mirror them here anymore.)
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const enterSelection = (id?: string) => {
+    setSelectionMode(true);
+    setSelectedIds(id ? new Set([id]) : new Set());
+  };
+  const exitSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+  const toggleSelected = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const switchTab = (tab: 'active' | 'archived') => {
+    setMemberTab(tab);
+    setQuery(''); setActiveGroup(null); setActiveTag(null);
+    exitSelection();
+  };
+
+  const confirmBulkArchive = () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !onBulkArchive) return;
+    Alert.alert(
+      t('members.bulkArchive', {defaultValue: 'Archive members'}),
+      t('members.bulkArchiveMsg', {count: ids.length, defaultValue: `Archive ${ids.length} member${ids.length === 1 ? '' : 's'}? They can be restored later.`}),
+      [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: t('members.archive', {defaultValue: 'Archive'}), onPress: async () => { await onBulkArchive(ids); exitSelection(); }},
+      ],
+    );
+  };
+  const confirmBulkRestore = () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !onBulkRestore) return;
+    Alert.alert(
+      t('members.bulkRestore', {defaultValue: 'Restore members'}),
+      t('members.bulkRestoreMsg', {count: ids.length, defaultValue: `Restore ${ids.length} member${ids.length === 1 ? '' : 's'} to active?`}),
+      [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: t('members.restore', {defaultValue: 'Restore'}), onPress: async () => { await onBulkRestore(ids); exitSelection(); }},
+      ],
+    );
+  };
+  const confirmBulkDelete = () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !onBulkDelete) return;
+    Alert.alert(
+      t('members.bulkDelete', {defaultValue: 'Delete members'}),
+      t('members.bulkDeleteMsg', {count: ids.length, defaultValue: `Permanently delete ${ids.length} member${ids.length === 1 ? '' : 's'}? This cannot be undone.`}),
+      [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: t('common.delete'), style: 'destructive', onPress: async () => { await onBulkDelete(ids); exitSelection(); }},
+      ],
+    );
+  };
 
   const tabMembers = members.filter(m => memberTab === 'archived' ? m.archived : !m.archived);
   const allFrontIds = new Set(allFrontMemberIds(front));
@@ -115,11 +168,24 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
     const memberGroups = groups.filter(g => (m.groupIds || []).includes(g.id));
     const isFirst = index === 0;
     const isLast = index === filtered.length - 1;
+    const isSelected = selectedIds.has(m.id);
+    const cardBorder = selectionMode
+      ? (isSelected ? T.accent : T.border)
+      : (isFronting ? `${m.color}60` : T.border);
     return (
-      <TouchableOpacity activeOpacity={0.75} style={[s.card, {backgroundColor: T.card, borderColor: isFronting ? `${m.color}60` : T.border, marginBottom: 8}]}
-        onPress={() => (onView || onEdit)(m)}>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        style={[s.card, {backgroundColor: T.card, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8}]}
+        onPress={selectionMode ? () => toggleSelected(m.id) : () => (onView || onEdit)(m)}
+        onLongPress={() => enterSelection(m.id)}
+        delayLongPress={350}>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
-          {showReorder && (
+          {selectionMode && (
+            <View style={{width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? T.accent : T.border, backgroundColor: isSelected ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
+              {isSelected && <Text style={{fontSize: 12, fontWeight: '700', color: T.bg}}>✓</Text>}
+            </View>
+          )}
+          {!selectionMode && showReorder && (
             <View style={{justifyContent: 'center', gap: 2, marginRight: -6}}>
               <TouchableOpacity onPress={() => !isFirst && onReorderMember && onReorderMember(m.id, 'up')} hitSlop={{top: 6, bottom: 2, left: 8, right: 8}} disabled={isFirst}>
                 <Text style={{fontSize: fs(14), color: isFirst ? T.muted : T.dim, opacity: isFirst ? 0.3 : 1}}>▲</Text>
@@ -143,30 +209,85 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
             )}
             {m.description ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 3}} numberOfLines={1}>{m.description}</Text> : null}
           </View>
-          <TouchableOpacity onPress={() => onEdit(m)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}><Text style={{fontSize: fs(14), color: T.muted}}>✎</Text></TouchableOpacity>
+          {!selectionMode && (
+            <TouchableOpacity onPress={() => onEdit(m)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}><Text style={{fontSize: fs(14), color: T.muted}}>✎</Text></TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );
   };
 
+  const allVisibleIds = filtered.map(m => m.id);
+  const allSelectedInView = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
+  const toggleSelectAll = () => {
+    if (allSelectedInView) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allVisibleIds));
+    }
+  };
+
   const ListHeader = (
     <View>
-      <View style={s.headerRow}>
-        <Text style={[s.heading, {color: T.text}]}>{t('members.title')}</Text>
-        <View style={{flexDirection: 'row', gap: 6}}>
-          <TouchableOpacity onPress={() => setShowManageGroups(!showManageGroups)} activeOpacity={0.7}
-            style={[s.addBtn, {backgroundColor: showManageGroups ? `${T.info}18` : T.surface, borderColor: showManageGroups ? `${T.info}50` : T.border}]}>
-            <Text style={{fontSize: fs(12), fontWeight: '500', color: showManageGroups ? T.info : T.dim}}>{t('memberGroups.manage')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={onAdd} activeOpacity={0.7} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
-            <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.add')}</Text>
+      {selectionMode ? (
+        <View style={s.headerRow}>
+          <Text style={[s.heading, {color: T.text, fontSize: 22}]} numberOfLines={1}>
+            {t('members.selectedCount', {count: selectedIds.size, defaultValue: `${selectedIds.size} selected`})}
+          </Text>
+          <View style={{flexDirection: 'row', gap: 6}}>
+            <TouchableOpacity onPress={toggleSelectAll} activeOpacity={0.7}
+              style={[s.addBtn, {backgroundColor: T.surface, borderColor: T.border}]}>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}}>{allSelectedInView ? t('members.selectNone', {defaultValue: 'None'}) : t('members.selectAll', {defaultValue: 'All'})}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={exitSelection} activeOpacity={0.7}
+              style={[s.addBtn, {backgroundColor: T.surface, borderColor: T.border}]}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={s.headerRow}>
+          <Text style={[s.heading, {color: T.text}]}>{t('members.title')}</Text>
+          <View style={{flexDirection: 'row', gap: 6}}>
+            <TouchableOpacity onPress={() => enterSelection()} activeOpacity={0.7}
+              style={[s.addBtn, {backgroundColor: T.surface, borderColor: T.border}]}>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}}>{t('members.select', {defaultValue: 'Select'})}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowManageGroups(!showManageGroups)} activeOpacity={0.7}
+              style={[s.addBtn, {backgroundColor: showManageGroups ? `${T.info}18` : T.surface, borderColor: showManageGroups ? `${T.info}50` : T.border}]}>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: showManageGroups ? T.info : T.dim}}>{t('memberGroups.manage')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onAdd} activeOpacity={0.7} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.add')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {selectionMode && selectedIds.size > 0 && (
+        <View style={{flexDirection: 'row', gap: 8, marginBottom: 14}}>
+          {memberTab === 'active' && (
+            <TouchableOpacity onPress={confirmBulkArchive} activeOpacity={0.7}
+              style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}}>{t('members.archive', {defaultValue: 'Archive'})}</Text>
+            </TouchableOpacity>
+          )}
+          {memberTab === 'archived' && (
+            <TouchableOpacity onPress={confirmBulkRestore} activeOpacity={0.7}
+              style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}}>{t('members.restore', {defaultValue: 'Restore'})}</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={confirmBulkDelete} activeOpacity={0.7}
+            style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: `${T.danger}15`, borderColor: `${T.danger}50`}}>
+            <Text style={{fontSize: fs(13), fontWeight: '600', color: T.danger}}>{t('common.delete')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      )}
 
       <View style={{flexDirection: 'row', gap: 0, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
         {(['active', 'archived'] as const).map(tab => (
-          <TouchableOpacity key={tab} onPress={() => {setMemberTab(tab); setQuery(''); setActiveGroup(null); setActiveTag(null);}} activeOpacity={0.7}
+          <TouchableOpacity key={tab} onPress={() => switchTab(tab)} activeOpacity={0.7}
             style={{paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
             <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}}>
               {tab === 'active' ? t('members.active') : `${t('members.archived')}${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
@@ -278,7 +399,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       data={filtered}
       renderItem={renderMember}
       keyExtractor={(m: Member) => m.id}
-      extraData={{T, front, groups, showReorder, filteredLength: filtered.length}}
+      extraData={{T, front, groups, showReorder, filteredLength: filtered.length, selectionMode, selectedCount: selectedIds.size}}
       contentContainerStyle={{padding: 16, paddingBottom: 32, backgroundColor: T.bg}}
       keyboardShouldPersistTaps="handled"
       ListHeaderComponent={ListHeader}

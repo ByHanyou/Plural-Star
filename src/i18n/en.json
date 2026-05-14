@@ -73,7 +73,19 @@
     "searchHint": "Type a name or select a tag to find members",
     "active": "Active",
     "archived": "Archived",
-    "noArchived": "No archived members."
+    "noArchived": "No archived members.",
+    "select": "Select",
+    "selectAll": "All",
+    "selectNone": "None",
+    "selectedCount": "{{count}} selected",
+    "archive": "Archive",
+    "restore": "Restore",
+    "bulkArchive": "Archive members",
+    "bulkArchiveMsg": "Archive {{count}} member(s)? They can be restored later.",
+    "bulkRestore": "Restore members",
+    "bulkRestoreMsg": "Restore {{count}} member(s) to active?",
+    "bulkDelete": "Delete members",
+    "bulkDeleteMsg": "Permanently delete {{count}} member(s)? This cannot be undone."
   },
   "history": {
     "title": "History",

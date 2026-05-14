@@ -1,4 +1,3 @@
-// src/services/NotificationService.ts
 import notifee, {
   AndroidImportance,
   AndroidVisibility,
@@ -15,8 +14,6 @@ import i18n from '../i18n/i18n';
 export const NOTIF_CHANNEL_ID = 'plural-space-front';
 export const NOTIF_ID = 'ps-front-status';
 
-// Separate channel and ID for reminder-style notifications. Default importance so they
-// actually ping (front status is LOW importance for the persistent card).
 export const REMINDER_CHANNEL_ID = 'plural-space-reminders';
 export const FRONT_CHECK_NOTIF_ID = 'ps-front-check';
 export const NOTEBOARD_NOTIF_ID = 'ps-noteboard-unread';
@@ -43,13 +40,10 @@ export const setupReminderChannel = async () => {
 const resolveNames = (ids: string[], members: Member[]): string =>
   ids.map(id => members.find(m => m.id === id)?.name || '?').join(', ');
 
-// Safety: extract memberIds from a tier, handling both new and old format
 const getTierIds = (front: any, tier: string): string[] => {
-  // New tiered format: front.primary.memberIds, front.coFront.memberIds, etc.
   if (front?.[tier]?.memberIds && Array.isArray(front[tier].memberIds)) {
     return front[tier].memberIds;
   }
-  // Old flat format fallback: front.memberIds (only applies to primary)
   if (tier === 'primary' && Array.isArray(front?.memberIds)) {
     return front.memberIds;
   }
@@ -57,9 +51,7 @@ const getTierIds = (front: any, tier: string): string[] => {
 };
 
 const getTierField = (front: any, tier: string, field: string): string | undefined => {
-  // New format
   if (front?.[tier]?.[field] !== undefined) return front[tier][field];
-  // Old format fallback (primary only)
   if (tier === 'primary' && front?.[field] !== undefined) return front[field];
   return undefined;
 };
@@ -80,7 +72,6 @@ export const showFrontNotification = async (
       return;
     }
 
-    // Check emptiness safely (handles both old and new format)
     const primaryIds = getTierIds(front, 'primary');
     const coFrontIds = getTierIds(front, 'coFront');
     const coConsciousIds = getTierIds(front, 'coConscious');
@@ -100,7 +91,6 @@ export const showFrontNotification = async (
     const titleNames = primaryNames || coFrontNames || coConsciousNames || 'Unknown';
     const title = `◈ ${titleNames}  ·  ${duration}`;
 
-    // Body lines for bigText expansion
     const lines: string[] = [];
     if (primaryIds.length > 0) lines.push(`Primary: ${primaryNames}`);
     if (coFrontIds.length > 0) lines.push(`Co-Front: ${coFrontNames}`);
@@ -115,7 +105,6 @@ export const showFrontNotification = async (
     if (primaryNote) lines.push(`Note: ${primaryNote}`);
     lines.push(`Since ${fmtTime(front.startTime)}`);
 
-    // Collapsed summary
     const summaryParts: string[] = [];
     if (coFrontIds.length > 0) summaryParts.push(`CF: ${coFrontNames}`);
     if (coConsciousIds.length > 0) summaryParts.push(`CC: ${coConsciousNames}`);
@@ -155,23 +144,17 @@ export const clearFrontNotification = async () => {
       return;
     }
     await notifee.cancelNotification(NOTIF_ID);
-    // Defensive: stop any legacy foreground service that prior versions may have started.
     try { await notifee.stopForegroundService(); } catch {}
   } catch (e) {
     console.error('[PluralSpace] Clear notification error:', e);
   }
 };
 
-// ── Front-check reminder ──────────────────────────────────────────────────
-// Schedules a recurring local notification at a user-chosen hour interval.
-// Valid intervals: 1, 2, 4, 8, 12, 24 hours. Any value <= 0 cancels the reminder.
-// Uses IntervalTrigger because repeatFrequency on TimestampTrigger is limited to
-// HOURLY/DAILY/WEEKLY constants and can't express 2/4/8/12 hour spacings.
 export const scheduleFrontCheckReminder = async (intervalHours: number) => {
   try {
     await cancelFrontCheckReminder();
     if (!intervalHours || intervalHours <= 0) return;
-    if (Platform.OS !== 'android') return; // iOS handled via Live Activity / foreground notifs elsewhere
+    if (Platform.OS !== 'android') return;
     await setupReminderChannel();
     const trigger: IntervalTrigger = {
       type: TriggerType.INTERVAL,
@@ -207,14 +190,6 @@ export const cancelFrontCheckReminder = async () => {
   }
 };
 
-// ── Noteboard unread-notes notification ───────────────────────────────────
-// Fires when fronting members have unread noteboard entries waiting for them.
-// The "read" marker is per-member and is only updated when that member scrolls
-// or taps a note in their own noteboard (see modals/index.tsx).
-//
-// `entries` shape: array of {memberName, unreadCount} — one row per fronting
-// member who has unread notes. A single combined notification is displayed
-// regardless of how many members qualify.
 export const showNoteboardNotification = async (
   entries: {memberName: string; unreadCount: number}[],
 ) => {
@@ -227,9 +202,7 @@ export const showNoteboardNotification = async (
       count: totalNotes,
       defaultValue: totalNotes === 1 ? '◇ 1 unread note' : `◇ ${totalNotes} unread notes`,
     });
-    // Summary line (collapsed view): "Alex (3), Jordan (1)"
     const summary = entries.map(e => `${e.memberName} (${e.unreadCount})`).join(', ');
-    // BIGTEXT expanded view: one line per member
     const bigLines = entries.map(e => {
       const label = i18n.t('notification.noteboardUnreadLine', {
         name: e.memberName,

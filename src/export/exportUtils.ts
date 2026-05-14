@@ -1,4 +1,3 @@
-// src/export/exportUtils.ts
 import {Alert, Linking, Platform} from 'react-native';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import Share from 'react-native-share';
@@ -18,8 +17,6 @@ import {
   fmtDur,
 } from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
-
-// ── Payload builders ──────────────────────────────────────────────────────────
 
 export interface ExportCategories {
   system?: boolean;
@@ -52,7 +49,6 @@ export const buildExportPayload = async (
   categories: ExportCategories = ALL_CATEGORIES,
 ): Promise<ExportPayload> => {
   const cat = { ...ALL_CATEGORIES, ...categories };
-  // Load supplementary data from storage
   const [groups, channels, settings, front, palettes, customFieldDefs, noteboards, polls] = await Promise.all([
     store.get<MemberGroup[]>(KEYS.groups),
     store.get<ChatChannel[]>(KEYS.chatChannels),
@@ -64,7 +60,6 @@ export const buildExportPayload = async (
     store.get<any[]>(KEYS.polls),
   ]);
 
-  // Gather chat messages per channel (only if chat category selected)
   const chatMessages: Record<string, ChatMessage[]> = {};
   if (cat.chat && channels && channels.length > 0) {
     for (const ch of channels) {
@@ -73,7 +68,6 @@ export const buildExportPayload = async (
     }
   }
 
-  // Extract avatars (only if avatars category selected)
   const avatars: Record<string, string> = {};
   if (cat.avatars) {
     for (const m of members) {
@@ -93,7 +87,6 @@ export const buildExportPayload = async (
       }
     }
   }
-  // Extract banners (only if banners category selected) — same pattern as avatars
   const banners: Record<string, string> = {};
   if (cat.banners) {
     for (const m of members) {
@@ -113,9 +106,6 @@ export const buildExportPayload = async (
       }
     }
   }
-  // Strip avatar AND banner file paths from exported member records — they are device-local
-  // file:// URIs that do not resolve on other devices. The image data travels in the
-  // `avatars` and `banners` dicts (when selected), and restore rebuilds the file path.
   const membersForExport = members.map(({avatar: _a, banner: _b, ...rest}) => rest as Member);
 
   return {
@@ -240,33 +230,52 @@ export const buildEmailBody = (
   return `SYSTEM EXPORT — ${system.name}\nExported: ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ MEMBERS (${members.length}) ━━\n${mList || 'None recorded.'}\n\n━━ JOURNAL (${journal.length} entries${journal.length > 10 ? ' — showing 10 most recent' : ''}) ━━\n${jList || 'No entries.'}\n\n━━ FRONT HISTORY (${history.length} records${history.length > 20 ? ' — showing 20 most recent' : ''}) ━━\n${hList || 'No history.'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\nFull data available by exporting JSON from Plural Star.`;
 };
 
-// ── Download helpers ──────────────────────────────────────────────────────────
 
 const dateSlug = () => new Date().toISOString().slice(0, 10);
 
+const mimeFor = (filename: string): string => {
+  const lower = filename.toLowerCase();
+  if (lower.endsWith('.json')) return 'application/json';
+  if (lower.endsWith('.html')) return 'text/html';
+  if (lower.endsWith('.md')) return 'text/markdown';
+  return 'text/plain';
+};
+
 const saveToDownloads = async (content: string, filename: string): Promise<void> => {
   const isAndroid = Platform.OS === 'android';
-  // blob-util's `dirs.CacheDir` is the cross-platform analogue of RNFS's
-  // TemporaryDirectoryPath (which was iOS-only and undefined on Android).
-  // Since CacheDir always exists, the `|| DocumentDir` fallback is no longer needed.
-  const basePath = isAndroid
-    ? ReactNativeBlobUtil.fs.dirs.DownloadDir
-    : ReactNativeBlobUtil.fs.dirs.CacheDir;
-  const path = `${basePath}/${filename}`;
-  await ReactNativeBlobUtil.fs.writeFile(path, content, 'utf8');
+
   if (isAndroid) {
-    Alert.alert(
-      i18n.t('share.savedToDownloads'),
-      i18n.t('share.savedToDownloadsMsg', {filename}),
-      [{text: i18n.t('common.ok')}],
-    );
+    const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
+    await ReactNativeBlobUtil.fs.writeFile(tempPath, content, 'utf8');
+    try {
+      await ReactNativeBlobUtil.MediaCollection.copyToMediaStore(
+        {name: filename, parentFolder: '', mimeType: mimeFor(filename)},
+        'Download',
+        tempPath,
+      );
+      Alert.alert(
+        i18n.t('share.savedToDownloads'),
+        i18n.t('share.savedToDownloadsMsg', {filename}),
+        [{text: i18n.t('common.ok')}],
+      );
+    } catch (e: any) {
+      Alert.alert(
+        i18n.t('share.exportReady', {defaultValue: 'Export failed'}),
+        String(e?.message || e || 'Unknown error'),
+        [{text: i18n.t('common.ok')}],
+      );
+    } finally {
+      try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
+    }
     return;
   }
 
+  const path = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
+  await ReactNativeBlobUtil.fs.writeFile(path, content, 'utf8');
   try {
     await Share.open({
       url: `file://${path}`,
-      type: 'text/plain',
+      type: mimeFor(filename),
       filename,
       failOnCancel: false,
       saveToFiles: true,
@@ -280,7 +289,6 @@ const saveToDownloads = async (content: string, filename: string): Promise<void>
   }
 };
 
-// ── Full system export ────────────────────────────────────────────────────────
 
 export const exportJSON = async (
   system: SystemInfo,
@@ -324,7 +332,6 @@ export const exportEmail = (
   Linking.openURL(`mailto:${recipient}?subject=${subject}&body=${body}`);
 };
 
-// ── Journal-only export ───────────────────────────────────────────────────────
 
 const buildJournalTxt = (journal: JournalEntry[], members: Member[]): string => {
   return journal.map(e => {
@@ -384,7 +391,6 @@ export const exportAllJournalMd = async (
   );
 };
 
-// ── Per-entry export ──────────────────────────────────────────────────────────
 
 export const exportEntryTxt = async (
   entry: JournalEntry,

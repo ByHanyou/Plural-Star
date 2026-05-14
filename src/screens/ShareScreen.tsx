@@ -29,10 +29,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const [restoreSel, setRestoreSel] = useState({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true});
   const [restoreError, setRestoreError] = useState('');
   const [restoreDone, setRestoreDone] = useState(false);
-  // Recover Data flow: scans the on-disk backup directory and lets the
-  // user pick which orphaned backups to restore. Used when AsyncStorage was
-  // wiped (Samsung SQLite cap, force-stop on low storage, etc.) but the
-  // on-disk backups survived.
   const [recoverEntries, setRecoverEntries] = useState<RecoverableEntry[] | null>(null);
   const [recoverScanning, setRecoverScanning] = useState(false);
   const [recoverSel, setRecoverSel] = useState<Record<string, boolean>>({});
@@ -93,25 +89,14 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const handlePickBackup = async () => {
     setRestoreError(''); setRestorePreview(false); setRestorePath(null); setRestoreFile(null); setRestoreDone(false);
     try {
-      // Accept application/json and text/plain — many Android file managers tag
-      // .json files as text/plain, which would hide the file from a strict filter.
       const [res] = await safePick({type: ['application/json', 'text/plain']});
-      // Read the file immediately while the document picker's temp copy is still
-      // valid. On some Android devices (Motorola in particular) fileCopyUri can
-      // be null, leaving getPickedFilePath returning a raw content:// URI that
-      // the filesystem layer may not be able to read later from handleRestore. Reading eagerly
-      // avoids that race and also avoids a stale-temp-file crash on those devices.
       const pickedPath = getPickedFilePath(res);
       let content: string;
       try {
         content = await ReactNativeBlobUtil.fs.readFile(pickedPath, 'utf8');
       } catch {
-        // Last-resort: try the original uri in case getPickedFilePath lost something.
         content = await ReactNativeBlobUtil.fs.readFile(res.uri || res.fileCopyUri || pickedPath, 'utf8');
       }
-      // Quick sanity check — confirm it's a native Plural Star / Plural Space backup, OR
-      // a Simply Plural raw-Mongo export (no _meta, has members[] with _id and a top-level
-      // customFields array). handleRestore routes each shape to the correct import path.
       let parsed: any;
       try { parsed = JSON.parse(content); } catch {
         setRestoreError('File is not valid JSON. Please pick a Plural Star or Simply Plural backup (.json) file.');
@@ -124,8 +109,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         setRestoreError('This does not look like a Plural Star or Simply Plural backup. Pick a .json file exported from either app.');
         return;
       }
-      // Copy into a reliable app-internal temp path so handleRestore can always
-      // read it regardless of what the OS does with the document picker's copy.
       const safeTempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_restore_pending.json`;
       await ReactNativeBlobUtil.fs.writeFile(safeTempPath, content, 'utf8');
       setRestorePath(safeTempPath);
@@ -141,16 +124,9 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       {text: t('share.restore'), style: 'destructive', onPress: async () => {
         setRestoring(true);
         try {
-          // Re-read from disk now — the full payload is only in memory during processing
-          // and is never stored in React state. This avoids holding 6MB+ in the component
-          // tree the entire time the user is viewing the restore UI.
           const content = await ReactNativeBlobUtil.fs.readFile(restorePath, 'utf8');
           const rawData: any = JSON.parse(content);
 
-          // Detect Simply Plural JSON export shape and route through SP pipeline if so.
-          // SP exports are raw Mongo dumps: top-level keys are collection names, member
-          // docs have `_id` and `info`, and there is a `customFields` collection array.
-          // Plural Star / Plural Space exports have `_meta.app === 'Plural Star'` or `'Plural Space'` and use `customFieldDefs`.
           const looksLikeSP = !rawData._meta && Array.isArray(rawData.members) && rawData.members.length > 0
             && rawData.members[0]._id !== undefined && Array.isArray(rawData.customFields);
           if (looksLikeSP) {
@@ -171,7 +147,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             const existingMembers = await store.get<Member[]>(KEYS.members, []) || [];
             const byNameLower: Record<string, Member> = {};
             existingMembers.forEach(lm => { const n = (lm.name || '').trim().toLowerCase(); if (n) byNameLower[n] = lm; });
-            // Build local members list from SP members, reusing ids for name matches so CF values land on the right records.
             const newMembers: Member[] = rawData.members.map((sp: any) => {
               const spName = String(sp.name || '').trim();
               const nameLower = spName.toLowerCase();
@@ -192,10 +167,8 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               } as Member;
             });
             if (restoreSel.members) await store.set(KEYS.members, newMembers);
-            // Build idMap SP_id -> local id
             const idMap: Record<string, string> = {};
             rawData.members.forEach((sp: any, i: number) => { const sid = normId(sp._id); if (sid) idMap[sid] = newMembers[i].id; });
-            // Merge custom field defs
             if (restoreSel.customFields && rawData.customFields.length > 0) {
               const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
               const fieldIdMap: Record<string, string> = {};
@@ -213,7 +186,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 candidates.forEach(k => { fieldIdMap[k] = localId; });
               });
               if (newDefs.length > 0) await store.set(KEYS.customFieldDefs, [...existingDefs, ...newDefs]);
-              // Write per-member CF values
               const membersForUpdate = await store.get<Member[]>(KEYS.members, []) || [];
               const updatedMembers = membersForUpdate.map(lm => {
                 const spMember = rawData.members.find((sp: any) => idMap[normId(sp._id)] === lm.id);
@@ -241,7 +213,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               });
               await store.set(KEYS.members, updatedMembers);
             }
-            // Front history
             if (restoreSel.frontHistory && Array.isArray(rawData.frontHistory) && rawData.frontHistory.length > 0) {
               const sp_switches = rawData.frontHistory.map((s: any) => ({id: normId(s._id), content: s}));
               const newH = convertSPSwitches(sp_switches, idMap);
@@ -255,11 +226,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             setRestoreDone(true); setRestoring(false);
             return;
           }
-          // Plural Star native JSON export path below (also handles legacy Plural Space backups — same shape).
           const data: ExportPayload = rawData;
-          // Normalize inline avatars (pre-1.2 format) into the avatars dict.
-          // Use data.avatars directly throughout — never spread/copy it.
-          // A 13MB backup has ~12MB in that dict; copying it doubles peak memory usage.
           if (!data.avatars) data.avatars = {};
           if (data.members) {
             data.members = data.members.map((m: any) => {
@@ -269,12 +236,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           }
           if (restoreSel.system && data.system) await store.set(KEYS.system, data.system);
           if (restoreSel.members && data.members) {
-            // Step 1: store members immediately without avatars
             await store.set(KEYS.members, data.members);
-            // Step 2: save avatars to disk sequentially.
-            // Delete each entry from data.avatars after processing to free that memory
-            // before moving to the next — otherwise all base64 strings stay in the heap
-            // for the entire duration of the loop.
             if (restoreSel.avatars && data.avatars && Object.keys(data.avatars).length > 0) {
               const withAvatars: any[] = [...data.members];
               let changed = false;
@@ -282,12 +244,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 const memberId = withAvatars[i].id;
                 const raw = data.avatars[memberId];
                 if (!raw) continue;
-                delete data.avatars[memberId]; // free this entry immediately
+                delete data.avatars[memberId];
                 try {
                   const b64 = raw.startsWith('data:') ? raw.split(',')[1] : raw;
                   const fileUri = await saveAvatar(memberId, b64).catch(() => null);
                   if (fileUri) { withAvatars[i] = {...withAvatars[i], avatar: fileUri}; changed = true; }
-                } catch { /* skip — member already saved without avatar */ }
+                } catch {}
               }
               if (changed) await store.set(KEYS.members, withAvatars);
             }
@@ -308,10 +270,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               await store.set(KEYS.members, updated);
             }
           }
-          // Banner restore: same pattern as avatars. Banners were stripped from member records
-          // on export and shipped in data.banners as base64. Rehydrate each one onto a local
-          // banner- path and patch the member record's banner field. If banners is missing or
-          // unselected, member records simply have no banner field (no stale broken file:// URIs).
           if (restoreSel.banners && data.banners && Object.keys(data.banners).length > 0) {
             const currentMembers = await store.get<Member[]>(KEYS.members) || [];
             const withBanners: Member[] = [...currentMembers];
@@ -337,10 +295,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           if (restoreSel.chat) {
             if (data.chatChannels) await store.set(KEYS.chatChannels, data.chatChannels);
             if (data.chatMessages) {
-              // Migrate inline base64 chat images to disk BEFORE writing to AsyncStorage.
-              // Chat images embedded in JSON imports can blow past the 20MB AsyncStorage cap
-              // and cause native crashes on Android. Migrating each channel's messages through
-              // saveChatMedia replaces the inline base64 strings with small file:// URIs.
               const channelIds = Object.keys(data.chatMessages);
               for (const chId of channelIds) {
                 try {
@@ -351,14 +305,10 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                   }
                   const {messages: migrated} = await migrateInlineChatMedia(msgs);
                   await store.set(chatMsgKey(chId), migrated);
-                  // Drop our reference once written so the GC can reclaim the channel's
-                  // memory before processing the next one. Important when total chat
-                  // payload is tens of MB.
                   delete data.chatMessages[chId];
                 } catch (chErr) {
                   console.error(`[RESTORE] failed channel ${chId}:`, chErr);
                   delete data.chatMessages[chId];
-                  // Don't bail the whole import for one bad channel; continue.
                 }
               }
             }
@@ -385,7 +335,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           setRestoreError(e.message || 'Restore failed');
         } finally {
           setRestoring(false);
-          // Clean up our internal temp copy regardless of outcome.
           try {
             const safeTempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_restore_pending.json`;
             const exists = await ReactNativeBlobUtil.fs.exists(safeTempPath);
@@ -512,7 +461,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           const desc = isPK ? (extPreview.system.description || system.description) : (extPreview.system.content?.desc || extPreview.system.content?.description || extPreview.system.description || system.description);
           await store.set(KEYS.system, {...system, name: name || system.name, description: desc});
         }
-        // Bug #1: idMap routes external IDs (SP _id / PK uuid + numeric id) → local Member.id.
         const idMap: Record<string, string> = {};
         if (extSel.members && extPreview.members.length > 0) {
           const merged: Member[] = [...members];
@@ -637,10 +585,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             };
             const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
             const fieldIdMap: Record<string, string> = {};
-            // NAME-based fallback. We've seen SP responses where per-member
-            // `info` is keyed by something other than the customField's id
-            // (numeric order, alternative uuid, even names). Lowercased name
-            // → localFieldId is checked when the id lookup misses.
             const fieldNameMap: Record<string, string> = {};
             const newDefs: CustomFieldDef[] = [];
             const cfIdDiag: string[] = [];
@@ -648,8 +592,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               const candidates = [
                 cf.id, cf.uuid, cf._id,
                 cf.content?._id, cf.content?.id, cf.content?.uuid,
-                // Also try `order` and the array index — SP has been observed
-                // using these as the per-member info keys in some token shapes.
                 cf.content?.order, cf.order,
                 String(i),
               ];
@@ -685,9 +627,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               });
               if (!spMember) return lm;
               membersMatched++;
-              // SP per-member CF data has historically lived at content.info,
-              // but older / alternative shapes use content.fields, top-level
-              // info, or top-level customFields. Try them all.
               const info =
                 spMember.content?.info ||
                 spMember.info ||
@@ -710,7 +649,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               }
               entries.forEach(([spFieldId, rawValue]) => {
                 const norm = normId(spFieldId);
-                // 1) normalized id lookup, 2) raw key lookup, 3) name fallback.
                 const localFieldId =
                   fieldIdMap[norm] ||
                   fieldIdMap[spFieldId] ||
@@ -737,9 +675,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             console.log(`[CF-IMPORT] matched=${membersMatched}/${currentMembers.length} withInfo=${membersWithInfo} totalKeys=${totalInfoKeys} written=${matchedKeys} unmatchedSamples=[${[...unmatchedKeySamples].join(',')}]`);
             await store.set(KEYS.members, updatedMembers);
 
-            // Surface a summary so the user can diagnose without logcat access.
-            // Pops only when the import looks suspicious: either no per-member
-            // info data at all, or info present but no keys resolved.
             const suspicious = (membersWithInfo > 0 && matchedKeys === 0) ||
                                (membersMatched > 0 && membersWithInfo === 0);
             if (suspicious) {
@@ -755,10 +690,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               Alert.alert('Custom Fields — partial import', lines.join('\n\n'));
             }
           }
-          // Member groups import.
-          // SP shape: [{id, content: {name, color, desc, members: [memberIds]}}, ...]
-          // PK shape: [{id, uuid, name, display_name, color, members: [memberUUIDs], ...}]
-          // For both we map external group → local MemberGroup and patch each member's groupIds.
           if (extSel.groups && extPreview.groups && extPreview.groups.length > 0) {
             const existingGroups = await store.get<MemberGroup[]>(KEYS.groups, []) || [];
             const newGroups: MemberGroup[] = [];
@@ -779,7 +710,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               groupMemberMap[localId] = externalMembers;
             });
             if (newGroups.length > 0) await store.set(KEYS.groups, [...existingGroups, ...newGroups]);
-            // Patch members' groupIds. For each group, find local members whose external id maps to one of the group's external members, and add the local groupId.
             if (Object.keys(groupMemberMap).length > 0) {
               const currentMembers = await store.get<Member[]>(KEYS.members, []) || [];
               const memberLocalIdsByGroup: Record<string, Set<string>> = {};
@@ -880,7 +810,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           const desc = sysData.desc || sysData.description || system.description;
           await store.set(KEYS.system, {...system, name: name || system.name, description: desc});
         }
-        // Bug #1: idMap routes SP _id → local Member.id, never via name lookup.
         const idMap: Record<string, string> = {};
         if (extSel.members && spMembers.length > 0) {
           const merged: Member[] = [...members];
@@ -950,7 +879,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             }
             await store.set(KEYS.members, withAvatars);
           }
-          // Bug #2: customFields block — was missing on file-import path.
           if (extSel.customFields && extPreview.customFields && extPreview.customFields.length > 0) {
             const SP_TYPE_MAP: Record<string, CustomFieldType> = {'0': 'text', '1': 'number', '2': 'toggle', '3': 'date', '4': 'monthYear', '5': 'month', '6': 'year', 'text': 'text', 'number': 'number', 'checkbox': 'toggle', 'toggle': 'toggle', 'date': 'date', 'markdown': 'markdown'};
             const normId = (raw: any): string => {
@@ -1020,7 +948,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               if (importedOpenFront) await store.set(KEYS.front, importedOpenFront);
             }
           }
-          // Member groups from SP file MongoDB export.
           if (extSel.groups && extPreview.groups && extPreview.groups.length > 0) {
             const existingGroups = await store.get<MemberGroup[]>(KEYS.groups, []) || [];
             const newGroups: MemberGroup[] = [];
@@ -1063,18 +990,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     ]);
   };
 
-  // Scan the on-disk backup directory and present what's recoverable.
-  // The Recover Data flow is the last-line-of-defense for users whose
-  // AsyncStorage was wiped (Samsung SQLite cap, system-level data clear, etc).
-  // On-disk backups survive AsyncStorage failures because they're separate file-system
-  // writes — the backup directory at DocumentDirectoryPath/ps_backup is independent.
   const handleScanRecovery = async () => {
     setRecoverScanning(true);
     setRecoverDone(false);
     try {
       const entries = await listRecoverableBackups();
       setRecoverEntries(entries);
-      // Default-select all entries so the user sees pre-checked options
       const sel: Record<string, boolean> = {};
       entries.forEach(e => { sel[e.key] = true; });
       setRecoverSel(sel);

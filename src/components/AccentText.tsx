@@ -1,6 +1,3 @@
-// src/components/AccentText.tsx
-// Only applies outline treatment to text >= 14px in light mode.
-// Below that threshold it renders plain — outline looks bad at small sizes.
 import React from 'react';
 import {Text, View, StyleSheet} from 'react-native';
 
