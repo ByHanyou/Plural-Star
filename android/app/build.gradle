@@ -24,8 +24,8 @@ android {
         applicationId "com.pluralspace.app"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 41
-        versionName "1.7.1"
+        versionCode 42
+        versionName "1.7.2"
     }
 
     signingConfigs {
@@ -75,4 +75,5 @@ dependencies {
     implementation("com.facebook.react:react-android")
     implementation("com.facebook.react:hermes-android")
     implementation("com.facebook.fresco:animated-gif:3.6.0")
+    implementation("androidx.activity:activity:1.9.+")
 }

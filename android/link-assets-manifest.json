@@ -1,0 +1,25 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "src/assets/fonts/OpenDyslexic-Bold.otf",
+      "sha1": "243ede6de49c6f040897e2fd60ee3c1602a34576"
+    },
+    {
+      "path": "src/assets/fonts/OpenDyslexic-BoldItalic.otf",
+      "sha1": "aa8294a47b81cb3bdc13e8700d111d7e42208ad9"
+    },
+    {
+      "path": "src/assets/fonts/OpenDyslexic-Italic.otf",
+      "sha1": "f50ef633b9751912a1b3d05b9415d80591868d31"
+    },
+    {
+      "path": "src/assets/fonts/OpenDyslexic-Regular.otf",
+      "sha1": "213eefc90ff957f17e1d95269bb5b442cc85ec9a"
+    },
+    {
+      "path": "src/assets/fonts/README.md",
+      "sha1": "26bf69c89711ddb419231cb57333a8e065767e79"
+    }
+  ]
+}
