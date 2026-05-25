@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, StyleSheet, ActivityIndicator} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, StyleSheet, ActivityIndicator} from 'react-native';
+import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
@@ -384,7 +385,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     if (!extToken.trim()) {Alert.alert(t('share.tokenRequired'), t('share.pkTokenRequiredMsg')); return;}
     setExtLoading(true); setExtPreview(null);
     try {
-      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.0'};
+      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.7.3'};
       const [sRes, mRes, swRes, gRes] = await Promise.all([
         fetch('https://api.pluralkit.me/v2/systems/@me', {headers}),
         fetch('https://api.pluralkit.me/v2/systems/@me/members', {headers}),
@@ -1374,7 +1375,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           </View>
           <Divider label={t('share.preview')} />
           <View style={{backgroundColor: T.surface, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
-            <Text style={{fontFamily: 'Georgia', fontSize: fs(20), color: T.accent, marginBottom: 4, fontStyle: 'italic'}}>{system.name}</Text>
+            <Text style={{fontFamily: 'OpenDyslexic', fontSize: fs(20), color: T.accent, marginBottom: 4, fontStyle: 'italic'}}>{system.name}</Text>
             {system.description ? <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18, marginBottom: 12}}>{system.description}</Text> : null}
             {shareSettings.showFront && (
               <View>
@@ -1405,7 +1406,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
 const s = StyleSheet.create({
   content: {padding: 16, paddingBottom: 40},
-  heading: {fontFamily: 'Georgia', fontSize: 26, fontWeight: '600', fontStyle: 'italic', marginBottom: 16},
+  heading: {fontFamily: 'OpenDyslexic', fontSize: 26, fontWeight: '600', fontStyle: 'italic', marginBottom: 16},
   para: {fontSize: 13, lineHeight: 19, marginBottom: 14},
   hint: {fontSize: 11, marginBottom: 4, lineHeight: 16},
 });

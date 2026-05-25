@@ -1,5 +1,6 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, TouchableOpacity, TextInput, StyleSheet, Platform, KeyboardAvoidingView, Modal, ScrollView} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, Modal, ScrollView} from 'react-native';
+import {Text, TextInput} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts} from '../theme';
 import type {ThemeColors} from '../theme';

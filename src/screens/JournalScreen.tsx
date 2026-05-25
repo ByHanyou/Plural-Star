@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Modal, Alert, Image, StyleSheet} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Modal, Alert, Image, StyleSheet} from 'react-native';
+import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {JournalEntry, JournalTemplate, Member, fmtTime} from '../utils';
@@ -131,7 +132,13 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
   return (
     <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
       <View style={s.headerRow}>
-        <Text style={[s.heading, {color: T.text}]}>{t('journal.title')}</Text>
+        <Text
+          style={[s.heading, {color: T.text, flex: 1, marginRight: 8}]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.5}>
+          {t('journal.title')}
+        </Text>
         <TouchableOpacity
           onPress={() => subTab === 'entries' ? onAdd() : setEditingTemplate('new')}
           activeOpacity={0.7}

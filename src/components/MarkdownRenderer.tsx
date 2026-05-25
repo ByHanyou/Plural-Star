@@ -1,5 +1,6 @@
 import React from 'react';
-import {View, Text, Image, Linking} from 'react-native';
+import {View, Image, Linking} from 'react-native';
+import {Text} from './AppText';
 import type {Member} from '../utils';
 
 const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\S*)?/gi;
@@ -7,6 +8,13 @@ const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/;
 const MENTION_RE = /@\[([^\]]+)\]\(member:([a-zA-Z0-9_-]+)\)/g;
 
 const fs = (s: number, T: any): number => Math.round(s * (T?.textScale || 1));
+
+const isValidImageUri = (u: unknown): u is string => {
+  if (typeof u !== 'string') return false;
+  const s = u.trim();
+  if (!s) return false;
+  return /^https?:\/\//i.test(s) || /^file:\/\//i.test(s) || /^content:\/\//i.test(s) || s.startsWith('data:image/');
+};
 
 const renderTextWithMentions = (
   text: string,
@@ -214,7 +222,11 @@ const renderInline = (text: string, T: any, members?: Member[], onMentionPress?:
     [/\*(.+?)\*/, m => <Text key={key++} style={{fontStyle: 'italic'}}>{m[1]}</Text>],
     [/~~(.+?)~~/, m => <Text key={key++} style={{textDecorationLine: 'line-through'}}>{m[1]}</Text>],
     [/`(.+?)`/, m => <Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, paddingHorizontal: 4, borderRadius: 3, fontSize: fs(12, T)}}>{m[1]}</Text>],
-    [/!\[([^\]]*)\]\(([^)]+)\)/, m => <Image key={key++} source={{uri: m[2].replace(/[)]+$/, '')}} style={{width: 200, height: 200, borderRadius: 8}} resizeMode="contain" />],
+    [/!\[([^\]]*)\]\(([^)]+)\)/, m => {
+      const url = m[2].replace(/[)]+$/, '').trim();
+      if (!isValidImageUri(url)) return <Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image]</Text>;
+      return <Image key={key++} source={{uri: url}} style={{width: 200, height: 200, borderRadius: 8}} resizeMode="contain" />;
+    }],
     [/\[(.+?)\]\((.+?)\)/, m => <Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => Linking.openURL(m[2])}>{m[1]}</Text>],
   ];
   while (remaining.length > 0) {
@@ -263,14 +275,18 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
     if (mdImgMatch && mdImgMatch.index !== undefined) {
       const before = line.slice(0, mdImgMatch.index).trim();
       const after = line.slice(mdImgMatch.index + mdImgMatch[0].length).trim();
-      const url = mdImgMatch[2].replace(/[)]+$/, '').replace(/#\d+x\d+$/, '');
+      const url = mdImgMatch[2].replace(/[)]+$/, '').replace(/#\d+x\d+$/, '').trim();
       if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
-      elements.push(<Image key={i * 3 + 1} source={{uri: url}} style={{width: '100%', height: 200, borderRadius: 8}} resizeMode="contain" />);
+      if (isValidImageUri(url)) {
+        elements.push(<Image key={i * 3 + 1} source={{uri: url}} style={{width: '100%', height: 200, borderRadius: 8}} resizeMode="contain" />);
+      } else {
+        elements.push(<Text key={i * 3 + 1} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image]</Text>);
+      }
       if (after) elements.push(renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress));
       return;
     }
     const imgMatch = line.match(IMAGE_URL_RE);
-    if (imgMatch) {
+    if (imgMatch && isValidImageUri(imgMatch[0])) {
       const before = line.slice(0, line.indexOf(imgMatch[0])).trim();
       const after = line.slice(line.indexOf(imgMatch[0]) + imgMatch[0].length).trim();
       if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));

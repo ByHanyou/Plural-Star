@@ -1,5 +1,6 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Image, StyleSheet, Alert} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Image, StyleSheet, Alert} from 'react-native';
+import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {AccentText} from '../components/AccentText';
@@ -172,7 +173,13 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: 16}}>
-        <Text style={[s.heading, {color: T.text}]}>{t('history.title')}</Text>
+        <Text
+          style={[s.heading, {color: T.text}]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.5}>
+          {t('history.title')}
+        </Text>
         <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border, marginTop: 4}}>
           {(['front', 'member'] as SubTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}

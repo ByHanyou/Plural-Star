@@ -1,5 +1,6 @@
-import React, {useState, useMemo, useDeferredValue} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Image, Alert} from 'react-native';
+import React, {useState, useMemo, useDeferredValue, useRef} from 'react';
+import {View, ScrollView, TouchableOpacity, StyleSheet, Image, Alert} from 'react-native';
+import {Text, TextInput} from '../components/AppText';
 import {FlashList} from '@shopify/flash-list';
 import {useTranslation} from 'react-i18next';
 import {Fonts, PALETTE} from '../theme';
@@ -65,6 +66,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const [editGroupName, setEditGroupName] = useState('');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const searchRef = useRef<TextInput>(null);
 
   const enterSelection = (id?: string) => {
     setSelectionMode(true);
@@ -85,6 +87,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const switchTab = (tab: 'active' | 'archived') => {
     setMemberTab(tab);
     setQuery(''); setActiveGroup(null); setActiveTag(null);
+    searchRef.current?.clear();
     exitSelection();
   };
 
@@ -212,7 +215,10 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
             {m.description ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 3}} numberOfLines={1}>{m.description}</Text> : null}
           </View>
           {!selectionMode && (
-            <TouchableOpacity onPress={() => onEdit(m)} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}><Text style={{fontSize: fs(14), color: T.muted}}>✎</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => onEdit(m)} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>{t('common.edit', {defaultValue: 'Edit'})}</Text>
+            </TouchableOpacity>
           )}
         </View>
       </TouchableOpacity>
@@ -238,7 +244,11 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
     <View>
       {selectionMode ? (
         <View style={s.headerRow}>
-          <Text style={[s.heading, {color: T.text, fontSize: fs(22)}]} numberOfLines={1}>
+          <Text
+            style={[s.heading, {color: T.text, fontSize: fs(22), flex: 1, marginRight: 8}]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}>
             {t('members.selectedCount', {count: selectedIds.size, defaultValue: `${selectedIds.size} selected`})}
           </Text>
           <View style={{flexDirection: 'row', gap: 6}}>
@@ -255,7 +265,13 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       ) : (
         <View style={s.headerRow}>
           <View style={{flex: 1}}>
-            <Text style={[s.heading, {color: T.text}]}>{t('members.title')}</Text>
+            <Text
+              style={[s.heading, {color: T.text}]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}>
+              {t('members.title')}
+            </Text>
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>
               {(query || activeGroup || activeTag)
                 ? t('members.countFiltered', {filtered: filtered.length, total: tabMembers.length, defaultValue: `${filtered.length} of ${tabMembers.length} members`})
@@ -397,7 +413,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       )}
 
       {tabMembers.length > 3 && (
-        <TextInput value={query} onChangeText={setQuery} placeholder={t('members.search')} placeholderTextColor={T.muted}
+        <TextInput ref={searchRef} defaultValue="" onChangeText={setQuery} placeholder={t('members.search')} placeholderTextColor={T.muted}
           autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
           style={[s.search, {backgroundColor: T.surface, color: T.text, borderColor: T.border}]} />
       )}

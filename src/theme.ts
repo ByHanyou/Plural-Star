@@ -149,7 +149,7 @@ export const PALETTE = [
 export const DYSLEXIC_FONT = 'OpenDyslexic';
 
 export const Fonts = {
-  display: 'Georgia',
+  display: 'OpenDyslexic',
   body: 'System',
   mono: 'monospace',
 };

@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, Text, TextInput, TouchableOpacity} from 'react-native';
+import {View, TouchableOpacity} from 'react-native';
+import {Text, TextInput} from './AppText';
 
 export type DateTimeEditorMode =
   | 'datetime'

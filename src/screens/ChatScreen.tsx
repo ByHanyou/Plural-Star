@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
-import {View, Text, ScrollView, TouchableOpacity, TextInput, Alert, FlatList, Image, Linking, Platform} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, FlatList, Image, Linking, Platform} from 'react-native';
+import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import Share from 'react-native-share';
@@ -249,7 +250,11 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
               <Text style={{fontSize: fs(10), color: T.muted}}>{fmtTime(msg.timestamp)}</Text>
             </View>
             {msg.type === 'image' ? (
-              <Image source={{uri: msg.content}} style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
+              (typeof msg.content === 'string' && msg.content.trim().length > 0) ? (
+                <Image source={{uri: msg.content.trim()}} style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
+              ) : (
+                <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginTop: 4}}>[image unavailable]</Text>
+              )
             ) : msg.type === 'file' ? (
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, marginTop: 4}}>
                 <Text style={{fontSize: fs(18)}}>📄</Text>

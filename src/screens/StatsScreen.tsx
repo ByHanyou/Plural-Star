@@ -1,5 +1,6 @@
 import React, {useState, useMemo} from 'react';
-import {View, Text, ScrollView, TouchableOpacity} from 'react-native';
+import {View, ScrollView, TouchableOpacity} from 'react-native';
+import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {Member, HistoryEntry, ChatMessage, fmtDur, translateMood} from '../utils';

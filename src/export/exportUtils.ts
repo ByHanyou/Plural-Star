@@ -184,7 +184,7 @@ export const buildHtmlExport = (
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>${system.name} — Plural Star Export</title>
   <style>
-    body{font-family:Georgia,serif;max-width:860px;margin:40px auto;padding:0 24px;color:#222;line-height:1.6}
+    body{font-family:OpenDyslexic,serif;max-width:860px;margin:40px auto;padding:0 24px;color:#222;line-height:1.6}
     h1{font-size:32px;margin-bottom:4px}
     h2{font-size:22px;margin:40px 0 16px;border-bottom:2px solid #c9a96e;padding-bottom:8px;color:#7a5c2e}
     table{width:100%;border-collapse:collapse}

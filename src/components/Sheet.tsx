@@ -1,5 +1,6 @@
 import React, {ReactNode, useEffect, useRef, useState} from 'react';
-import {View, Text, TouchableOpacity, ScrollView, StyleSheet, LayoutChangeEvent, Platform, Keyboard} from 'react-native';
+import {View, TouchableOpacity, ScrollView, StyleSheet, LayoutChangeEvent, Platform, Keyboard} from 'react-native';
+import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrueSheet} from '@lodev09/react-native-true-sheet';
 import {Fonts} from '../theme';

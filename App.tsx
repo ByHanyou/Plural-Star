@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import {View, Text, TextInput, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert} from 'react-native';
+import {View, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert} from 'react-native';
+import {Text, TextInput, setAppTextDyslexicEnabled} from './src/components/AppText';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import notifee from '@notifee/react-native';
@@ -8,7 +9,7 @@ import './src/i18n/i18n';
 import i18n, {changeLanguage} from './src/i18n/i18n';
 import type {SupportedLanguage} from './src/i18n/i18n';
 
-import {T, BUILTIN_PALETTES, deriveTheme, DYSLEXIC_FONT} from './src/theme';
+import {T, BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {AccentText} from './src/components/AccentText';
 import {store, KEYS} from './src/storage';
@@ -39,14 +40,9 @@ const TAB_ICONS: Record<Tab, string> = {
 
 const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: true};
 
-const applyDyslexicDefault = (on: boolean) => {
-  const family = on ? DYSLEXIC_FONT : undefined;
-  (Text as any).defaultProps = (Text as any).defaultProps || {};
-  (Text as any).defaultProps.style = family ? {fontFamily: family} : undefined;
-  (TextInput as any).defaultProps = (TextInput as any).defaultProps || {};
-  (TextInput as any).defaultProps.style = family ? {fontFamily: family} : undefined;
+const setDyslexicEnabled = (on: boolean) => {
+  setAppTextDyslexicEnabled(on);
 };
-applyDyslexicDefault(true);
 
 const getGPSLocation = (): Promise<string | null> =>
   new Promise(async resolve => {
@@ -64,7 +60,7 @@ const getGPSLocation = (): Promise<string | null> =>
             const {latitude, longitude} = pos.coords;
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
-              {headers: {'User-Agent': 'PluralStar/1.7.1'}},
+              {headers: {'User-Agent': 'PluralStar/1.7.3'}},
             );
             const data = await res.json();
             const a = data.address || {};
@@ -289,7 +285,7 @@ function MainAppContent() {
   useEffect(() => { if (loaded && !firstRun) requestPermissions(); }, [loaded, firstRun]);
 
   useEffect(() => {
-    applyDyslexicDefault(appSettings.useDyslexicFont !== false);
+    setDyslexicEnabled(appSettings.useDyslexicFont !== false);
     setDyslexicTick(t => t + 1);
   }, [appSettings.useDyslexicFont]);
 
@@ -692,10 +688,48 @@ function MainAppContent() {
   );
 }
 
+class AppErrorBoundary extends React.Component<{children: React.ReactNode}, {error: Error | null}> {
+  state = {error: null as Error | null};
+  static getDerivedStateFromError(error: Error) {
+    return {error};
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    if (typeof console !== 'undefined' && console.error) {
+      console.error('AppErrorBoundary caught:', error, info?.componentStack);
+    }
+  }
+  reset = () => this.setState({error: null});
+  render() {
+    if (!this.state.error) return this.props.children;
+    const err = this.state.error as Error;
+    const msg = err?.message || String(err);
+    return (
+      <View style={{flex: 1, backgroundColor: '#0a0a0a', padding: 24, justifyContent: 'center', alignItems: 'center'}}>
+        <Text style={{color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center'}}>
+          {i18n.t('errorBoundary.title', {defaultValue: 'Something went wrong'})}
+        </Text>
+        <Text style={{color: '#bbb', fontSize: 13, marginBottom: 24, textAlign: 'center'}}>
+          {i18n.t('errorBoundary.body', {defaultValue: 'The app hit an unexpected error. Try again, or restart the app if it persists.'})}
+        </Text>
+        <Text style={{color: '#666', fontSize: 11, marginBottom: 24, textAlign: 'center'}} numberOfLines={4}>
+          {msg}
+        </Text>
+        <TouchableOpacity onPress={this.reset} style={{paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, backgroundColor: '#3a7bd5'}}>
+          <Text style={{color: '#fff', fontSize: 14, fontWeight: '600'}}>
+            {i18n.t('errorBoundary.retry', {defaultValue: 'Try again'})}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <MainAppContent />
+      <AppErrorBoundary>
+        <MainAppContent />
+      </AppErrorBoundary>
     </SafeAreaProvider>
   );
 }
@@ -704,9 +738,9 @@ const styles = StyleSheet.create({
   root: {flex: 1},
   loading: {flex: 1, alignItems: 'center', justifyContent: 'center'},
   splashLogo: {width: 200, height: 200},
-  splashName: {fontFamily: 'Georgia', fontSize: 22, fontStyle: 'italic', letterSpacing: 2, marginTop: 16},
+  splashName: {fontFamily: 'OpenDyslexic', fontSize: 22, fontStyle: 'italic', letterSpacing: 2, marginTop: 16},
   header: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1},
-  headerTitle: {fontFamily: 'Georgia', fontSize: 20, fontWeight: '600', fontStyle: 'italic', letterSpacing: 0.3},
+  headerTitle: {fontFamily: 'OpenDyslexic', fontSize: 20, fontWeight: '600', fontStyle: 'italic', letterSpacing: 0.3},
   headerRight: {flexDirection: 'row', alignItems: 'center'},
   settingsBtn: {padding: 4, marginLeft: 8},
   settingsIcon: {fontSize: 18},

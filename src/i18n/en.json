@@ -1,6 +1,7 @@
 {
   "common": {
     "save": "Save",
+    "edit": "Edit",
     "cancel": "Cancel",
     "delete": "Delete",
     "add": "Add",
@@ -338,6 +339,7 @@
     "note": "Note",
     "addMember": "Add Member",
     "editMember": "Edit Member",
+    "member": "Member",
     "name": "Name *",
     "headmateName": "Headmate name",
     "pronouns": "Pronouns",

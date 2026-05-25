@@ -1,12 +1,12 @@
 import React, {useState, useEffect} from 'react';
 import {
   View,
-  Text,
   ScrollView,
   TouchableOpacity,
   Image,
   StyleSheet,
 } from 'react-native';
+import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts} from '../theme';
 import {
@@ -227,7 +227,11 @@ export const FrontScreen = ({
         }}>
 
         <View style={s.headerRow}>
-          <Text style={[s.heading, {color: T.text}]}>
+          <Text
+            style={[s.heading, {color: T.text, flex: 1, marginRight: 8}]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}>
             {t('front.currentlyFronting')}
           </Text>
 
@@ -237,7 +241,9 @@ export const FrontScreen = ({
               s.btn,
               {backgroundColor: T.accentBg, borderColor: `${T.accent}40`},
             ]}>
-            <Text style={[s.btnText, {color: T.accent}]}>
+            <Text
+              style={[s.btnText, {color: T.accent}]}
+              numberOfLines={1}>
               {t('front.update')}
             </Text>
           </TouchableOpacity>
@@ -288,6 +294,7 @@ export const FrontScreen = ({
 const s = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
   },

@@ -1,5 +1,6 @@
 import React, {useState, useMemo, useEffect} from 'react';
-import {View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Image, Keyboard, Alert, Modal} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, ScrollView, Image, Keyboard, Alert, Modal} from 'react-native';
+import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {pickImageFromGallery} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
@@ -13,7 +14,7 @@ import type {SupportedLanguage} from '../i18n/i18n';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {DateTimeEditor} from '../components/DateTimeEditor';
-import {saveAvatar, deleteAvatar, saveBioImage, saveBannerImage} from '../utils/mediaUtils';
+import {deleteAvatar, saveBannerImage, saveAvatarFromUri, saveBioImageFromUri} from '../utils/mediaUtils';
 
 const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: any}) => (
   <View style={{flex: 1}}>
@@ -366,9 +367,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
   const pickAvatar = async () => {
     try {
-      const img = await pickImageFromGallery({includeBase64: true});
-      if (!img || !img.base64) return;
-      const uri = await saveAvatar(f.id, img.base64);
+      const img = await pickImageFromGallery();
+      if (!img) return;
+      const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
+        ? img.uri
+        : `file://${img.uri}`;
+      const uri = await saveAvatarFromUri(f.id, sourceFileUri);
       set('avatar', uri);
     } catch (e: any) {
       Alert.alert(t('modal.pfpFailed'), e.message || '');
@@ -425,7 +429,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const activeMembers = (members || []).filter((m: Member) => !m.archived);
 
   return (
-    <Sheet visible={visible} title={readOnly ? f.name || t('modal.editMember') : (isNew ? t('modal.addMember') : t('modal.editMember'))} theme={T} onClose={onClose} footer={readOnly ? (
+    <Sheet visible={visible} title={readOnly ? (f.name || t('modal.member', {defaultValue: 'Member'})) : (isNew ? t('modal.addMember') : t('modal.editMember'))} theme={T} onClose={onClose} footer={readOnly ? (
       <Btn variant="ghost" T={T} onPress={onClose}>{t('common.close', {defaultValue: 'Close'})}</Btn>
     ) : (<>
       {!isNew && !confirmDel && <Btn variant="danger" T={T} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
@@ -1110,9 +1114,12 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       <View style={{flexDirection: 'row', gap: 12, marginBottom: 14, alignItems: 'flex-start'}}>
         <TouchableOpacity onPress={async () => {
           try {
-            const img = await pickImageFromGallery({includeBase64: true});
-            if (!img || !img.base64) return;
-            const uri = await saveBioImage('system-avatar', img.base64, 'png');
+            const img = await pickImageFromGallery();
+            if (!img) return;
+            const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
+              ? img.uri
+              : `file://${img.uri}`;
+            const uri = await saveBioImageFromUri('system-avatar', sourceFileUri);
             setF((x: any) => ({...x, avatar: uri}));
           } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
         }} activeOpacity={0.7}>

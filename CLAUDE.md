@@ -1,0 +1,1 @@
+Always find 2 relevant sources online for all fixes relant to todays date, never add comments or notes to the code, & never use scripts to rewrite files.
