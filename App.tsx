@@ -60,7 +60,7 @@ const getGPSLocation = (): Promise<string | null> =>
             const {latitude, longitude} = pos.coords;
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
-              {headers: {'User-Agent': 'PluralStar/1.7.4'}},
+              {headers: {'User-Agent': 'PluralStar/1.7.5'}},
             );
             const data = await res.json();
             const a = data.address || {};

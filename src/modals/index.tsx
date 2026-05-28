@@ -417,6 +417,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     } catch (e) {}
   };
 
+  React.useEffect(() => {
+    if (visible && memberTab === 'noteboard' && f.id && !isNew) {
+      markNoteboardRead();
+    }
+  }, [visible, memberTab, f.id, isNew]);
+
   const togglePin = (id: string) => saveNotes(allNotes.map(n => n.id === id ? {...n, pinned: !n.pinned} : n));
 
   const setFieldVal = (fieldId: string, newVal: string | number | boolean | null) => {

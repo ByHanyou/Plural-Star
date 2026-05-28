@@ -443,7 +443,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     if (!extToken.trim()) {Alert.alert(t('share.tokenRequired'), t('share.pkTokenRequiredMsg')); return;}
     setExtLoading(true); setExtPreview(null);
     try {
-      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.7.4'};
+      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.7.5'};
       const [sRes, mRes, swRes, gRes] = await Promise.all([
         fetch('https://api.pluralkit.me/v2/systems/@me', {headers}),
         fetch('https://api.pluralkit.me/v2/systems/@me/members', {headers}),
