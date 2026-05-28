@@ -174,19 +174,18 @@ export const FrontScreen = ({
           paddingBottom: 140,
         }}>
 
-        <View style={s.headerRow}>
+        <View style={{marginBottom: 16}}>
           <Text
-            style={[s.heading, {color: T.text, flex: 1, marginRight: 8}]}
+            style={[s.heading, {color: T.text, marginBottom: 10}]}
             numberOfLines={1}
             maxFontSizeMultiplier={1.2}>
             {t('front.currentlyFronting')}
           </Text>
-
           <TouchableOpacity
             onPress={onSetFront}
             style={[
               s.btn,
-              {backgroundColor: T.accentBg, borderColor: `${T.accent}40`, flexShrink: 1, maxWidth: '45%'},
+              {backgroundColor: T.accentBg, borderColor: `${T.accent}40`, alignSelf: 'flex-start'},
             ]}>
             <Text
               style={[s.btnText, {color: T.accent}]}
@@ -248,7 +247,7 @@ const s = StyleSheet.create({
   },
   heading: {
     fontFamily: Fonts.display,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '600',
     fontStyle: 'italic',
   },

@@ -227,50 +227,48 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const ListHeader = (
     <View>
       {selectionMode ? (
-        <View style={s.headerRow}>
+        <View style={{marginBottom: 14}}>
           <Text
-            style={[s.heading, {color: T.text, fontSize: fs(22), flex: 1, marginRight: 8}]}
+            style={[s.heading, {color: T.text, fontSize: fs(22), marginBottom: 10}]}
             numberOfLines={1}
             maxFontSizeMultiplier={1.2}>
             {t('members.selectedCount', {count: selectedIds.size, defaultValue: `${selectedIds.size} selected`})}
           </Text>
-          <View style={{flexDirection: 'row', gap: 6}}>
+          <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
             <TouchableOpacity onPress={toggleSelectAll} activeOpacity={0.7}
               style={[s.addBtn, {backgroundColor: T.surface, borderColor: T.border}]}>
-              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}}>{allSelectedInView ? t('members.selectNone', {defaultValue: 'None'}) : t('members.selectAll', {defaultValue: 'All'})}</Text>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{allSelectedInView ? t('members.selectNone', {defaultValue: 'None'}) : t('members.selectAll', {defaultValue: 'All'})}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={exitSelection} activeOpacity={0.7}
               style={[s.addBtn, {backgroundColor: T.surface, borderColor: T.border}]}>
-              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       ) : (
-        <View style={s.headerRow}>
-          <View style={{flexShrink: 1, marginRight: 8}}>
-            <Text
-              style={[s.heading, {color: T.text}]}
-              numberOfLines={1}
-              maxFontSizeMultiplier={1.2}>
-              {t('members.title')}
-            </Text>
-            <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-              {(query || activeGroup || activeTag)
-                ? t('members.countFiltered', {filtered: filtered.length, total: tabMembers.length, defaultValue: `${filtered.length} of ${tabMembers.length} members`})
-                : t('members.count', {count: tabMembers.length, defaultValue: `${tabMembers.length} member${tabMembers.length === 1 ? '' : 's'}`})}
-            </Text>
-          </View>
-          <View style={{flexDirection: 'row', gap: 6, flexShrink: 0}}>
+        <View style={{marginBottom: 14}}>
+          <Text
+            style={[s.heading, {color: T.text}]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.2}>
+            {t('members.title')}
+          </Text>
+          <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2, marginBottom: 10}} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+            {(query || activeGroup || activeTag)
+              ? t('members.countFiltered', {filtered: filtered.length, total: tabMembers.length, defaultValue: `${filtered.length} of ${tabMembers.length} members`})
+              : t('members.count', {count: tabMembers.length, defaultValue: `${tabMembers.length} member${tabMembers.length === 1 ? '' : 's'}`})}
+          </Text>
+          <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
             <TouchableOpacity onPress={() => enterSelection()} activeOpacity={0.7}
               style={[s.addBtn, {backgroundColor: T.surface, borderColor: T.border}]}>
-              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1.2}>{t('members.select', {defaultValue: 'Select'})}</Text>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('members.select', {defaultValue: 'Select'})}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowManageGroups(!showManageGroups)} activeOpacity={0.7}
               style={[s.addBtn, {backgroundColor: showManageGroups ? `${T.info}18` : T.surface, borderColor: showManageGroups ? `${T.info}50` : T.border}]}>
-              <Text style={{fontSize: fs(12), fontWeight: '500', color: showManageGroups ? T.info : T.dim}} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1.2}>{t('memberGroups.manage')}</Text>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: showManageGroups ? T.info : T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('memberGroups.manage')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onAdd} activeOpacity={0.7} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
-              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} maxFontSizeMultiplier={1.2}>{t('members.add')}</Text>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('members.add')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -428,7 +426,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
 
 const s = StyleSheet.create({
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14},
-  heading: {fontFamily: Fonts.display, fontSize: 26, fontWeight: '600', fontStyle: 'italic'},
+  heading: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic'},
   addBtn: {paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1},
   search: {borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, fontSize: 13, marginBottom: 14},
   empty: {alignItems: 'center', paddingVertical: 48, paddingHorizontal: 24},

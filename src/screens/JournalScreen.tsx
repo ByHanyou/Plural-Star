@@ -404,7 +404,7 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
 const s = StyleSheet.create({
   content: {padding: 16, paddingBottom: 32},
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14},
-  heading: {fontFamily: Fonts.display, fontSize: 26, fontWeight: '600', fontStyle: 'italic'},
+  heading: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic'},
   input: {borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15},
   card: {borderRadius: 12, borderWidth: 1, padding: 14},
   tagChip: {paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1},

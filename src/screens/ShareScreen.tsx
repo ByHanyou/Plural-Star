@@ -1465,7 +1465,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
 const s = StyleSheet.create({
   content: {padding: 16, paddingBottom: 40},
-  heading: {fontFamily: 'OpenDyslexic', fontSize: 26, fontWeight: '600', fontStyle: 'italic', marginBottom: 16},
+  heading: {fontFamily: 'OpenDyslexic', fontSize: 22, fontWeight: '600', fontStyle: 'italic', marginBottom: 16},
   para: {fontSize: 13, lineHeight: 19, marginBottom: 14},
   hint: {fontSize: 11, marginBottom: 4, lineHeight: 16},
 });

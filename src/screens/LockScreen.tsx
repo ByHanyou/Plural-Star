@@ -59,7 +59,7 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
 const s = StyleSheet.create({
   container: {flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 48},
   logo: {width: 180, height: 180, marginBottom: 24},
-  heading: {fontFamily: Fonts.display, fontSize: 30, fontWeight: '600', fontStyle: 'italic', marginBottom: 8, textAlign: 'center'},
+  heading: {fontFamily: Fonts.display, fontSize: 24, fontWeight: '600', fontStyle: 'italic', marginBottom: 8, textAlign: 'center'},
   sub: {fontSize: 14, marginBottom: 40, textAlign: 'center'},
   form: {width: '100%'},
   label: {fontSize: 10, letterSpacing: 1, fontWeight: '600', marginBottom: 5},

@@ -484,7 +484,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
   return (
     <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
       <Text
-        style={{fontFamily: Fonts.display, fontSize: fs(26), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 20}}
+        style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 20}}
         numberOfLines={1}
         maxFontSizeMultiplier={1.2}>
         {t('hub.title')}

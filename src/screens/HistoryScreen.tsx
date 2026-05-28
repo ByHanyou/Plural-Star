@@ -500,7 +500,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
 };
 
 const s = StyleSheet.create({
-  heading: {fontFamily: Fonts.display, fontSize: 24, fontWeight: '600', fontStyle: 'italic', marginBottom: 0},
+  heading: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', marginBottom: 0},
   subtab: {paddingHorizontal: 16, paddingVertical: 10, marginBottom: -1},
   card: {borderRadius: 12, borderWidth: 1, padding: 12},
   badge: {flexDirection: 'row', alignItems: 'center', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3},
