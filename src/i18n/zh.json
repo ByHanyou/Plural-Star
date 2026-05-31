@@ -153,6 +153,13 @@
     "templateBody": "条目正文（预设）"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Ampersand 导入",
+    "ampersandHint": "选择从 Ampersand 应用导出的存档（.ampar）。成员、自定义字段和前台历史记录将添加到你的系统中。",
+    "pickAmparFile": "选择 .ampar 文件",
+    "amparEmpty": "此存档中未找到成员或前台历史记录。",
+    "importComplete": "导入完成。",
+    "importFormatsNote": "自动识别 Plural Star、Simply Plural、Octocon、Ourcana 和 HiveMind（.json）。Ampersand（.ampar）请使用 Ampersand 标签页。",
     "title": "分享与导出",
     "export": "导出",
     "import": "导入",
@@ -446,6 +453,9 @@
     "deleteGroupMsg": "移除此组？成员不会被删除。"
   },
   "stats": {
+    "showMore": "显示更多",
+    "showMoreN": "显示更多 — 共 {{total}} 项，已显示 {{shown}} 项",
+    "energyByHour": "各时段能量",
     "allTime": "全部时间",
     "last7": "7 天",
     "last30": "30 天",
@@ -505,6 +515,8 @@
     "fieldName": "字段名称",
     "fieldType": "类型",
     "typeText": "文本",
+    "typeImage": "图片",
+    "addImage": "添加图片",
     "typeMarkdown": "富文本",
     "typeDate": "日期",
     "typeDateRange": "日期范围",
@@ -545,6 +557,7 @@
     "hasNotes": "{{names}} 的留言板上有留言"
   },
   "polls": {
+    "removeOption": "删除选项",
     "title": "投票",
     "createPoll": "+ 创建投票",
     "question": "问题",

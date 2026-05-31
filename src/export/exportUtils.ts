@@ -143,6 +143,7 @@ export const buildHtmlExport = (
   journal: JournalEntry[],
 ): string => {
   const memberRows = members
+    .filter(m => !m.isCustomFront)
     .map(
       m => `<tr>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:600">${m.name}</td>
@@ -197,9 +198,9 @@ export const buildHtmlExport = (
   <body>
   <h1>${system.name}</h1>
   ${system.description ? `<p style="font-size:16px;color:#555;margin-top:0">${system.description}</p>` : ''}
-  <div class="meta">Exported ${new Date().toLocaleString('en-US', {dateStyle: 'long', timeStyle: 'short'})} via Plural Star · ${members.length} members · ${journal.length} journal entries · ${history.length} front history records</div>
+  <div class="meta">Exported ${new Date().toLocaleString('en-US', {dateStyle: 'long', timeStyle: 'short'})} via Plural Star · ${members.filter(m => !m.isCustomFront).length} members · ${journal.length} journal entries · ${history.length} front history records</div>
   <h2>Members</h2>
-  ${members.length ? `<table><thead><tr><th>Name</th><th>Pronouns</th><th>Role</th><th>Description</th></tr></thead><tbody>${memberRows}</tbody></table>` : '<p style="color:#888">No members recorded.</p>'}
+  ${members.filter(m => !m.isCustomFront).length ? `<table><thead><tr><th>Name</th><th>Pronouns</th><th>Role</th><th>Description</th></tr></thead><tbody>${memberRows}</tbody></table>` : '<p style="color:#888">No members recorded.</p>'}
   <h2>System Journal</h2>
   ${journal.length ? journalHtml : '<p style="color:#888">No journal entries.</p>'}
   <h2>Front History</h2>

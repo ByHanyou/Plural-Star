@@ -153,6 +153,13 @@
     "templateBody": "エントリー本文（プリセット）"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Ampersand インポート",
+    "ampersandHint": "Ampersand アプリからエクスポートしたアーカイブ（.ampar）を選択してください。メンバー、カスタムフィールド、フロント履歴がシステムに追加されます。",
+    "pickAmparFile": ".ampar ファイルを選択",
+    "amparEmpty": "このアーカイブにはメンバーやフロント履歴が見つかりませんでした。",
+    "importComplete": "インポートが完了しました。",
+    "importFormatsNote": "Plural Star、Simply Plural、Octocon、Ourcana、HiveMind（.json）を自動判別します。Ampersand（.ampar）は Ampersand タブを使用してください。",
     "title": "共有とエクスポート",
     "export": "エクスポート",
     "import": "インポート",
@@ -446,6 +453,9 @@
     "deleteGroupMsg": "このグループを削除しますか？メンバーは削除されません。"
   },
   "stats": {
+    "showMore": "もっと見る",
+    "showMoreN": "もっと見る — {{total}}件中{{shown}}件",
+    "energyByHour": "時間帯別エネルギー",
     "allTime": "全期間",
     "last7": "7日間",
     "last30": "30日間",
@@ -505,6 +515,8 @@
     "fieldName": "フィールド名",
     "fieldType": "タイプ",
     "typeText": "テキスト",
+    "typeImage": "画像",
+    "addImage": "画像を追加",
     "typeMarkdown": "リッチテキスト",
     "typeDate": "日付",
     "typeDateRange": "日付範囲",
@@ -545,6 +557,7 @@
     "hasNotes": "{{names}} のノートボードにノートがあります"
   },
   "polls": {
+    "removeOption": "選択肢を削除",
     "title": "投票",
     "createPoll": "+ 投票を作成",
     "question": "質問",

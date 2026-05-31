@@ -4,6 +4,7 @@ import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrueSheet} from '@lodev09/react-native-true-sheet';
 import {Fonts} from '../theme';
+import {useTranslation} from 'react-i18next';
 
 interface SheetProps {
   visible: boolean;
@@ -19,6 +20,7 @@ const isIPad = Platform.OS === 'ios' && Platform.isPad;
 const ANDROID_NAV_BAR_FLOOR = 24;
 
 export const Sheet = ({visible, title, theme: T, onClose, children, footer}: SheetProps) => {
+  const {t} = useTranslation();
   const sheetRef = useRef<TrueSheet>(null);
   const scrollRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
@@ -55,7 +57,6 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
   return (
     <TrueSheet
       ref={sheetRef}
-      scrollRef={scrollRef as any}
       detents={[0.92]}
       cornerRadius={20}
       backgroundColor={T.card}
@@ -64,8 +65,8 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
       header={
         <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.card}]}>
           <Text style={[s.title, {color: T.text}]}>{title}</Text>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={s.closeBtn}>
-            <Text style={[s.closeX, {color: T.dim}]}>✕</Text>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close', {defaultValue: 'Close'})} style={s.closeBtn}>
+            <Text style={[s.closeX, {color: T.dim}]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
           </TouchableOpacity>
         </View>
       }

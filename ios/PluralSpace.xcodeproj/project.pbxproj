@@ -12,21 +12,61 @@
 		0C80B921A6F3F58F76C31292 /* libPods-PluralSpace.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-PluralSpace.a */; };
 		0EE4CC9E3485DAC9917CE413 /* PluralSpaceLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99AB2AED1AB4AFCD278085D4 /* PluralSpaceLiveActivity.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		410C7C47B99C4EDF90ECBF2E /* OpenDyslexic-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 1425362FF55B4861996BE398 /* OpenDyslexic-Bold.otf */; };
 		436604BAD66B5A568792EB70 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 171CF3BC2C212C0118685EAA /* Foundation.framework */; };
-		59FB4ECFE2474D47BFF72B97 /* OpenDyslexic-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 519A49CABD0647BBB1B91BFA /* OpenDyslexic-Regular.otf */; };
-		6789400968D34288A322CD70 /* OpenDyslexic-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 99BA947CE48C40F4A86885BA /* OpenDyslexic-Italic.otf */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
-		81C5124F077942DE9B04B44E /* OpenDyslexic-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 519A49CABD0647BBB1B91BFA /* OpenDyslexic-Regular.otf */; };
 		9732CC66F77F86B3F12184DD /* PluralSpaceActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC37ADB4B861E32C7E6AD19 /* PluralSpaceActivityAttributes.swift */; };
 		991FB1EF631FFEBE784C4D31 /* PluralSpace/PluralSpaceLiveActivityModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A46517188F14DF726053A65 /* PluralSpace/PluralSpaceLiveActivityModule.swift */; };
 		A908F9F267CC0EF24F960549 /* PluralSpace/PluralSpaceLiveActivityModuleBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D023936EF11A1DA15547DB5 /* PluralSpace/PluralSpaceLiveActivityModuleBridge.m */; };
 		AF92152339CD7860F1606A29 /* PluralSpaceLiveActivity.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = EAEAB9CA942AA204BFC89C78 /* PluralSpaceLiveActivity.appex */; };
-		B4A69E344E174188A2B4A3C2 /* OpenDyslexic-BoldItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 4A9DFD6AF7934E86BEA78676 /* OpenDyslexic-BoldItalic.otf */; };
 		B6CFE064AA03C39FF3704286 /* PluralSpaceActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC37ADB4B861E32C7E6AD19 /* PluralSpaceActivityAttributes.swift */; };
-		D37E399E24C3446B9930E64A /* OpenDyslexic-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = 1425362FF55B4861996BE398 /* OpenDyslexic-Bold.otf */; };
-		EB65657E7FCB42D6B5A64CAA /* OpenDyslexic-BoldItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 4A9DFD6AF7934E86BEA78676 /* OpenDyslexic-BoldItalic.otf */; };
-		F380F97DCDFB40DF9B6DAED7 /* OpenDyslexic-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = 99BA947CE48C40F4A86885BA /* OpenDyslexic-Italic.otf */; };
+		4042B0C9A0524DA4BE43D454 /* OpenDyslexic-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = E09551C0D34C41D0BB99D396 /* OpenDyslexic-Bold.otf */; };
+		1FC6F41220C140CB90D910D5 /* OpenDyslexic-Bold.otf in Resources */ = {isa = PBXBuildFile; fileRef = E09551C0D34C41D0BB99D396 /* OpenDyslexic-Bold.otf */; };
+		056028A5A7B4412BB5E3045E /* OpenDyslexic-BoldItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = A227CA61F3C14D04BA763C23 /* OpenDyslexic-BoldItalic.otf */; };
+		F9B775274EE0486799563A20 /* OpenDyslexic-BoldItalic.otf in Resources */ = {isa = PBXBuildFile; fileRef = A227CA61F3C14D04BA763C23 /* OpenDyslexic-BoldItalic.otf */; };
+		B64C9045B9EB43298A2166CC /* OpenDyslexic-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = B4D1C63B0F88405A90E504A4 /* OpenDyslexic-Italic.otf */; };
+		BB10626AF3324D628B4A5661 /* OpenDyslexic-Italic.otf in Resources */ = {isa = PBXBuildFile; fileRef = B4D1C63B0F88405A90E504A4 /* OpenDyslexic-Italic.otf */; };
+		50114BA6F6D842769AC0A216 /* OpenDyslexic-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 9FEF50231CC24203882CB356 /* OpenDyslexic-Regular.otf */; };
+		A79044EC743541EEB693FC75 /* OpenDyslexic-Regular.otf in Resources */ = {isa = PBXBuildFile; fileRef = 9FEF50231CC24203882CB356 /* OpenDyslexic-Regular.otf */; };
+		AD2E8B993F0740069B3855B8 /* Anton_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E819BCF398EA453FB2F45637 /* Anton_400Regular.ttf */; };
+		0FA321251DFD45B3A2667D20 /* Anton_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E819BCF398EA453FB2F45637 /* Anton_400Regular.ttf */; };
+		9962228AA35D40C4B7E8E801 /* AtkinsonHyperlegible_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F7E7569BEDC440AD8BD752AF /* AtkinsonHyperlegible_400Regular.ttf */; };
+		E401128B92D8434F9531E2B6 /* AtkinsonHyperlegible_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F7E7569BEDC440AD8BD752AF /* AtkinsonHyperlegible_400Regular.ttf */; };
+		36F9340EADFF41CA9F902B1D /* AtkinsonHyperlegible_400Regular_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 031BC308F0854534AF236A3C /* AtkinsonHyperlegible_400Regular_Italic.ttf */; };
+		0FA2E5DC2E774891B1E95BA7 /* AtkinsonHyperlegible_400Regular_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 031BC308F0854534AF236A3C /* AtkinsonHyperlegible_400Regular_Italic.ttf */; };
+		124CA1342C8947D59AFB971E /* AtkinsonHyperlegible_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B243CA7D3F8E41BA961E8DB6 /* AtkinsonHyperlegible_700Bold.ttf */; };
+		A670B6F9D9EB448B83033112 /* AtkinsonHyperlegible_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B243CA7D3F8E41BA961E8DB6 /* AtkinsonHyperlegible_700Bold.ttf */; };
+		3D65336D33E445868519F6B5 /* AtkinsonHyperlegible_700Bold_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3DCD5C7F8A3D4D46A81E0532 /* AtkinsonHyperlegible_700Bold_Italic.ttf */; };
+		BC59DC376C3740EABE928CCA /* AtkinsonHyperlegible_700Bold_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3DCD5C7F8A3D4D46A81E0532 /* AtkinsonHyperlegible_700Bold_Italic.ttf */; };
+		5CAFE8FA024245F695C123AF /* Cause_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 71710086E4F2445D8D21D4FF /* Cause_400Regular.ttf */; };
+		AA6C18114B78407F9A2413CD /* Cause_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 71710086E4F2445D8D21D4FF /* Cause_400Regular.ttf */; };
+		925B05BD3F044F88838BBAB1 /* Cause_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 78A48CEDA6554E97986778D2 /* Cause_700Bold.ttf */; };
+		1E9443815D2942FBBB6AA16B /* Cause_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 78A48CEDA6554E97986778D2 /* Cause_700Bold.ttf */; };
+		1325C930A37C48B9913AED68 /* ComicNeue_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F8AF75B04F6F45D097C79416 /* ComicNeue_400Regular.ttf */; };
+		C1345847AAAD4DEC8B05C75E /* ComicNeue_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F8AF75B04F6F45D097C79416 /* ComicNeue_400Regular.ttf */; };
+		D4BD3F861A4741EA8A6EAFF2 /* ComicNeue_400Regular_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E964520B528E4D9F85AA3914 /* ComicNeue_400Regular_Italic.ttf */; };
+		5B9AC4AA9C6A4D89A708263B /* ComicNeue_400Regular_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E964520B528E4D9F85AA3914 /* ComicNeue_400Regular_Italic.ttf */; };
+		D877C28531034064B680A3E8 /* ComicNeue_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 919C8A6DD3DE437F87B7423B /* ComicNeue_700Bold.ttf */; };
+		142A2269135D4E908BD84C8E /* ComicNeue_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 919C8A6DD3DE437F87B7423B /* ComicNeue_700Bold.ttf */; };
+		4BFB2D398917462C8C3708F8 /* ComicNeue_700Bold_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 23AE195E453A42DF80AB6954 /* ComicNeue_700Bold_Italic.ttf */; };
+		65FDB53047E64D3BB4A42998 /* ComicNeue_700Bold_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 23AE195E453A42DF80AB6954 /* ComicNeue_700Bold_Italic.ttf */; };
+		DB5412B95B8B4A1ABA9D988E /* Gelasio_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4BF016BFDC154F269B3333E2 /* Gelasio_400Regular.ttf */; };
+		10EC3EFF8676455C86C870EA /* Gelasio_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4BF016BFDC154F269B3333E2 /* Gelasio_400Regular.ttf */; };
+		0978B2376E754D0B97AE80DB /* Gelasio_400Regular_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3F69D9175E474AAF81DC79CC /* Gelasio_400Regular_Italic.ttf */; };
+		E73E89A7D70442D2B928C62F /* Gelasio_400Regular_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 3F69D9175E474AAF81DC79CC /* Gelasio_400Regular_Italic.ttf */; };
+		50C9C13A525A478ABFE86FBE /* Gelasio_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4A79EF2ED1704E7B94116A8F /* Gelasio_700Bold.ttf */; };
+		2F1EDDCC2F3D4E5BA241E84D /* Gelasio_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 4A79EF2ED1704E7B94116A8F /* Gelasio_700Bold.ttf */; };
+		9DACBE484268444EADA3F6F7 /* Gelasio_700Bold_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B6AEC1720E7148D39FD23521 /* Gelasio_700Bold_Italic.ttf */; };
+		42B71C86B81B4160A1F0D806 /* Gelasio_700Bold_Italic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = B6AEC1720E7148D39FD23521 /* Gelasio_700Bold_Italic.ttf */; };
+		48F2AA0BCF19416885A5DC30 /* Lexend_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CF491EB4C55D4428B4E68E3F /* Lexend_400Regular.ttf */; };
+		9D0AAC3151124332BE8F67E1 /* Lexend_400Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CF491EB4C55D4428B4E68E3F /* Lexend_400Regular.ttf */; };
+		D03869A4BDCA490FB75356B2 /* Lexend_500Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 630AA8DAC0AF4CEC84C72C3B /* Lexend_500Medium.ttf */; };
+		DC1DC711CE2143D1A5B444F5 /* Lexend_500Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 630AA8DAC0AF4CEC84C72C3B /* Lexend_500Medium.ttf */; };
+		AAF6C1E5C0174EEDB4737398 /* Lexend_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 245209B552544899BDB0071C /* Lexend_600SemiBold.ttf */; };
+		41D0EACF28174F90A868ABFB /* Lexend_600SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 245209B552544899BDB0071C /* Lexend_600SemiBold.ttf */; };
+		B535D0230C9543E981D760C8 /* Lexend_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2081FD0C693461F85D0D245 /* Lexend_700Bold.ttf */; };
+		E2B63146611A4CEDA0ABAB14 /* Lexend_700Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C2081FD0C693461F85D0D245 /* Lexend_700Bold.ttf */; };
+		63BE732294414DDBB9875868 /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 47DE890732B74E2095A3BE0A /* LICENSE.txt */; };
+		6700192B47744DCA8C502A8A /* LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 47DE890732B74E2095A3BE0A /* LICENSE.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,13 +96,10 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = PluralSpace/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PluralSpace/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = PluralSpace/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		1425362FF55B4861996BE398 /* OpenDyslexic-Bold.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "OpenDyslexic-Bold.otf"; path = "../src/assets/fonts/OpenDyslexic-Bold.otf"; sourceTree = "<group>"; };
 		171CF3BC2C212C0118685EAA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		3B4392A12AC88292D35C810B /* Pods-PluralSpace.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PluralSpace.debug.xcconfig"; path = "Pods/Target Support Files/Pods-PluralSpace/Pods-PluralSpace.debug.xcconfig"; sourceTree = SOURCE_ROOT; };
 		4605282D958AB70F61A5B68C /* PluralSpaceLiveActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PluralSpaceLiveActivityBundle.swift; sourceTree = "<group>"; };
-		4A9DFD6AF7934E86BEA78676 /* OpenDyslexic-BoldItalic.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "OpenDyslexic-BoldItalic.otf"; path = "../src/assets/fonts/OpenDyslexic-BoldItalic.otf"; sourceTree = "<group>"; };
 		4D023936EF11A1DA15547DB5 /* PluralSpace/PluralSpaceLiveActivityModuleBridge.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = PluralSpace/PluralSpaceLiveActivityModuleBridge.m; sourceTree = "<group>"; };
-		519A49CABD0647BBB1B91BFA /* OpenDyslexic-Regular.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "OpenDyslexic-Regular.otf"; path = "../src/assets/fonts/OpenDyslexic-Regular.otf"; sourceTree = "<group>"; };
 		56D7C2A857A6220210390CB7 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-PluralSpace.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PluralSpace.release.xcconfig"; path = "Pods/Target Support Files/Pods-PluralSpace/Pods-PluralSpace.release.xcconfig"; sourceTree = SOURCE_ROOT; };
 		5BC37ADB4B861E32C7E6AD19 /* PluralSpaceActivityAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PluralSpaceActivityAttributes.swift; sourceTree = "<group>"; };
@@ -70,9 +107,32 @@
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = PluralSpace/AppDelegate.swift; sourceTree = "<group>"; };
 		7A46517188F14DF726053A65 /* PluralSpace/PluralSpaceLiveActivityModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PluralSpace/PluralSpaceLiveActivityModule.swift; sourceTree = "<group>"; };
 		99AB2AED1AB4AFCD278085D4 /* PluralSpaceLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PluralSpaceLiveActivity.swift; sourceTree = "<group>"; };
-		99BA947CE48C40F4A86885BA /* OpenDyslexic-Italic.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "OpenDyslexic-Italic.otf"; path = "../src/assets/fonts/OpenDyslexic-Italic.otf"; sourceTree = "<group>"; };
 		EAEAB9CA942AA204BFC89C78 /* PluralSpaceLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PluralSpaceLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		E09551C0D34C41D0BB99D396 /* OpenDyslexic-Bold.otf */ = {isa = PBXFileReference; name = "OpenDyslexic-Bold.otf"; path = "../src/assets/fonts/OpenDyslexic-Bold.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		A227CA61F3C14D04BA763C23 /* OpenDyslexic-BoldItalic.otf */ = {isa = PBXFileReference; name = "OpenDyslexic-BoldItalic.otf"; path = "../src/assets/fonts/OpenDyslexic-BoldItalic.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		B4D1C63B0F88405A90E504A4 /* OpenDyslexic-Italic.otf */ = {isa = PBXFileReference; name = "OpenDyslexic-Italic.otf"; path = "../src/assets/fonts/OpenDyslexic-Italic.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		9FEF50231CC24203882CB356 /* OpenDyslexic-Regular.otf */ = {isa = PBXFileReference; name = "OpenDyslexic-Regular.otf"; path = "../src/assets/fonts/OpenDyslexic-Regular.otf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		E819BCF398EA453FB2F45637 /* Anton_400Regular.ttf */ = {isa = PBXFileReference; name = "Anton_400Regular.ttf"; path = "../src/assets/fonts/Anton_400Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		F7E7569BEDC440AD8BD752AF /* AtkinsonHyperlegible_400Regular.ttf */ = {isa = PBXFileReference; name = "AtkinsonHyperlegible_400Regular.ttf"; path = "../src/assets/fonts/AtkinsonHyperlegible_400Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		031BC308F0854534AF236A3C /* AtkinsonHyperlegible_400Regular_Italic.ttf */ = {isa = PBXFileReference; name = "AtkinsonHyperlegible_400Regular_Italic.ttf"; path = "../src/assets/fonts/AtkinsonHyperlegible_400Regular_Italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		B243CA7D3F8E41BA961E8DB6 /* AtkinsonHyperlegible_700Bold.ttf */ = {isa = PBXFileReference; name = "AtkinsonHyperlegible_700Bold.ttf"; path = "../src/assets/fonts/AtkinsonHyperlegible_700Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		3DCD5C7F8A3D4D46A81E0532 /* AtkinsonHyperlegible_700Bold_Italic.ttf */ = {isa = PBXFileReference; name = "AtkinsonHyperlegible_700Bold_Italic.ttf"; path = "../src/assets/fonts/AtkinsonHyperlegible_700Bold_Italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		71710086E4F2445D8D21D4FF /* Cause_400Regular.ttf */ = {isa = PBXFileReference; name = "Cause_400Regular.ttf"; path = "../src/assets/fonts/Cause_400Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		78A48CEDA6554E97986778D2 /* Cause_700Bold.ttf */ = {isa = PBXFileReference; name = "Cause_700Bold.ttf"; path = "../src/assets/fonts/Cause_700Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		F8AF75B04F6F45D097C79416 /* ComicNeue_400Regular.ttf */ = {isa = PBXFileReference; name = "ComicNeue_400Regular.ttf"; path = "../src/assets/fonts/ComicNeue_400Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		E964520B528E4D9F85AA3914 /* ComicNeue_400Regular_Italic.ttf */ = {isa = PBXFileReference; name = "ComicNeue_400Regular_Italic.ttf"; path = "../src/assets/fonts/ComicNeue_400Regular_Italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		919C8A6DD3DE437F87B7423B /* ComicNeue_700Bold.ttf */ = {isa = PBXFileReference; name = "ComicNeue_700Bold.ttf"; path = "../src/assets/fonts/ComicNeue_700Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		23AE195E453A42DF80AB6954 /* ComicNeue_700Bold_Italic.ttf */ = {isa = PBXFileReference; name = "ComicNeue_700Bold_Italic.ttf"; path = "../src/assets/fonts/ComicNeue_700Bold_Italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		4BF016BFDC154F269B3333E2 /* Gelasio_400Regular.ttf */ = {isa = PBXFileReference; name = "Gelasio_400Regular.ttf"; path = "../src/assets/fonts/Gelasio_400Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		3F69D9175E474AAF81DC79CC /* Gelasio_400Regular_Italic.ttf */ = {isa = PBXFileReference; name = "Gelasio_400Regular_Italic.ttf"; path = "../src/assets/fonts/Gelasio_400Regular_Italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		4A79EF2ED1704E7B94116A8F /* Gelasio_700Bold.ttf */ = {isa = PBXFileReference; name = "Gelasio_700Bold.ttf"; path = "../src/assets/fonts/Gelasio_700Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		B6AEC1720E7148D39FD23521 /* Gelasio_700Bold_Italic.ttf */ = {isa = PBXFileReference; name = "Gelasio_700Bold_Italic.ttf"; path = "../src/assets/fonts/Gelasio_700Bold_Italic.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		CF491EB4C55D4428B4E68E3F /* Lexend_400Regular.ttf */ = {isa = PBXFileReference; name = "Lexend_400Regular.ttf"; path = "../src/assets/fonts/Lexend_400Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		630AA8DAC0AF4CEC84C72C3B /* Lexend_500Medium.ttf */ = {isa = PBXFileReference; name = "Lexend_500Medium.ttf"; path = "../src/assets/fonts/Lexend_500Medium.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		245209B552544899BDB0071C /* Lexend_600SemiBold.ttf */ = {isa = PBXFileReference; name = "Lexend_600SemiBold.ttf"; path = "../src/assets/fonts/Lexend_600SemiBold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		C2081FD0C693461F85D0D245 /* Lexend_700Bold.ttf */ = {isa = PBXFileReference; name = "Lexend_700Bold.ttf"; path = "../src/assets/fonts/Lexend_700Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		47DE890732B74E2095A3BE0A /* LICENSE.txt */ = {isa = PBXFileReference; name = "LICENSE.txt"; path = "../src/assets/fonts/LICENSE.txt"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -107,10 +167,30 @@
 		2018849F7DC34773B8713840 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				1425362FF55B4861996BE398 /* OpenDyslexic-Bold.otf */,
-				4A9DFD6AF7934E86BEA78676 /* OpenDyslexic-BoldItalic.otf */,
-				99BA947CE48C40F4A86885BA /* OpenDyslexic-Italic.otf */,
-				519A49CABD0647BBB1B91BFA /* OpenDyslexic-Regular.otf */,
+				E09551C0D34C41D0BB99D396 /* OpenDyslexic-Bold.otf */,
+				A227CA61F3C14D04BA763C23 /* OpenDyslexic-BoldItalic.otf */,
+				B4D1C63B0F88405A90E504A4 /* OpenDyslexic-Italic.otf */,
+				9FEF50231CC24203882CB356 /* OpenDyslexic-Regular.otf */,
+				E819BCF398EA453FB2F45637 /* Anton_400Regular.ttf */,
+				F7E7569BEDC440AD8BD752AF /* AtkinsonHyperlegible_400Regular.ttf */,
+				031BC308F0854534AF236A3C /* AtkinsonHyperlegible_400Regular_Italic.ttf */,
+				B243CA7D3F8E41BA961E8DB6 /* AtkinsonHyperlegible_700Bold.ttf */,
+				3DCD5C7F8A3D4D46A81E0532 /* AtkinsonHyperlegible_700Bold_Italic.ttf */,
+				71710086E4F2445D8D21D4FF /* Cause_400Regular.ttf */,
+				78A48CEDA6554E97986778D2 /* Cause_700Bold.ttf */,
+				F8AF75B04F6F45D097C79416 /* ComicNeue_400Regular.ttf */,
+				E964520B528E4D9F85AA3914 /* ComicNeue_400Regular_Italic.ttf */,
+				919C8A6DD3DE437F87B7423B /* ComicNeue_700Bold.ttf */,
+				23AE195E453A42DF80AB6954 /* ComicNeue_700Bold_Italic.ttf */,
+				4BF016BFDC154F269B3333E2 /* Gelasio_400Regular.ttf */,
+				3F69D9175E474AAF81DC79CC /* Gelasio_400Regular_Italic.ttf */,
+				4A79EF2ED1704E7B94116A8F /* Gelasio_700Bold.ttf */,
+				B6AEC1720E7148D39FD23521 /* Gelasio_700Bold_Italic.ttf */,
+				CF491EB4C55D4428B4E68E3F /* Lexend_400Regular.ttf */,
+				630AA8DAC0AF4CEC84C72C3B /* Lexend_500Medium.ttf */,
+				245209B552544899BDB0071C /* Lexend_600SemiBold.ttf */,
+				C2081FD0C693461F85D0D245 /* Lexend_700Bold.ttf */,
+				47DE890732B74E2095A3BE0A /* LICENSE.txt */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -272,10 +352,30 @@
 			files = (
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				09CDA2242BEA26CFB97DE3C0 /* PrivacyInfo.xcprivacy in Resources */,
-				D37E399E24C3446B9930E64A /* OpenDyslexic-Bold.otf in Resources */,
-				B4A69E344E174188A2B4A3C2 /* OpenDyslexic-BoldItalic.otf in Resources */,
-				F380F97DCDFB40DF9B6DAED7 /* OpenDyslexic-Italic.otf in Resources */,
-				59FB4ECFE2474D47BFF72B97 /* OpenDyslexic-Regular.otf in Resources */,
+				4042B0C9A0524DA4BE43D454 /* OpenDyslexic-Bold.otf in Resources */,
+				056028A5A7B4412BB5E3045E /* OpenDyslexic-BoldItalic.otf in Resources */,
+				B64C9045B9EB43298A2166CC /* OpenDyslexic-Italic.otf in Resources */,
+				50114BA6F6D842769AC0A216 /* OpenDyslexic-Regular.otf in Resources */,
+				AD2E8B993F0740069B3855B8 /* Anton_400Regular.ttf in Resources */,
+				9962228AA35D40C4B7E8E801 /* AtkinsonHyperlegible_400Regular.ttf in Resources */,
+				36F9340EADFF41CA9F902B1D /* AtkinsonHyperlegible_400Regular_Italic.ttf in Resources */,
+				124CA1342C8947D59AFB971E /* AtkinsonHyperlegible_700Bold.ttf in Resources */,
+				3D65336D33E445868519F6B5 /* AtkinsonHyperlegible_700Bold_Italic.ttf in Resources */,
+				5CAFE8FA024245F695C123AF /* Cause_400Regular.ttf in Resources */,
+				925B05BD3F044F88838BBAB1 /* Cause_700Bold.ttf in Resources */,
+				1325C930A37C48B9913AED68 /* ComicNeue_400Regular.ttf in Resources */,
+				D4BD3F861A4741EA8A6EAFF2 /* ComicNeue_400Regular_Italic.ttf in Resources */,
+				D877C28531034064B680A3E8 /* ComicNeue_700Bold.ttf in Resources */,
+				4BFB2D398917462C8C3708F8 /* ComicNeue_700Bold_Italic.ttf in Resources */,
+				DB5412B95B8B4A1ABA9D988E /* Gelasio_400Regular.ttf in Resources */,
+				0978B2376E754D0B97AE80DB /* Gelasio_400Regular_Italic.ttf in Resources */,
+				50C9C13A525A478ABFE86FBE /* Gelasio_700Bold.ttf in Resources */,
+				9DACBE484268444EADA3F6F7 /* Gelasio_700Bold_Italic.ttf in Resources */,
+				48F2AA0BCF19416885A5DC30 /* Lexend_400Regular.ttf in Resources */,
+				D03869A4BDCA490FB75356B2 /* Lexend_500Medium.ttf in Resources */,
+				AAF6C1E5C0174EEDB4737398 /* Lexend_600SemiBold.ttf in Resources */,
+				B535D0230C9543E981D760C8 /* Lexend_700Bold.ttf in Resources */,
+				63BE732294414DDBB9875868 /* LICENSE.txt in Resources */,
 			);
 		};
 		F7168C55AE6EED91A72A0354 /* Resources */ = {
@@ -285,6 +385,30 @@
 				EB65657E7FCB42D6B5A64CAA /* OpenDyslexic-BoldItalic.otf in Resources */,
 				6789400968D34288A322CD70 /* OpenDyslexic-Italic.otf in Resources */,
 				81C5124F077942DE9B04B44E /* OpenDyslexic-Regular.otf in Resources */,
+				1FC6F41220C140CB90D910D5 /* OpenDyslexic-Bold.otf in Resources */,
+				F9B775274EE0486799563A20 /* OpenDyslexic-BoldItalic.otf in Resources */,
+				BB10626AF3324D628B4A5661 /* OpenDyslexic-Italic.otf in Resources */,
+				A79044EC743541EEB693FC75 /* OpenDyslexic-Regular.otf in Resources */,
+				0FA321251DFD45B3A2667D20 /* Anton_400Regular.ttf in Resources */,
+				E401128B92D8434F9531E2B6 /* AtkinsonHyperlegible_400Regular.ttf in Resources */,
+				0FA2E5DC2E774891B1E95BA7 /* AtkinsonHyperlegible_400Regular_Italic.ttf in Resources */,
+				A670B6F9D9EB448B83033112 /* AtkinsonHyperlegible_700Bold.ttf in Resources */,
+				BC59DC376C3740EABE928CCA /* AtkinsonHyperlegible_700Bold_Italic.ttf in Resources */,
+				AA6C18114B78407F9A2413CD /* Cause_400Regular.ttf in Resources */,
+				1E9443815D2942FBBB6AA16B /* Cause_700Bold.ttf in Resources */,
+				C1345847AAAD4DEC8B05C75E /* ComicNeue_400Regular.ttf in Resources */,
+				5B9AC4AA9C6A4D89A708263B /* ComicNeue_400Regular_Italic.ttf in Resources */,
+				142A2269135D4E908BD84C8E /* ComicNeue_700Bold.ttf in Resources */,
+				65FDB53047E64D3BB4A42998 /* ComicNeue_700Bold_Italic.ttf in Resources */,
+				10EC3EFF8676455C86C870EA /* Gelasio_400Regular.ttf in Resources */,
+				E73E89A7D70442D2B928C62F /* Gelasio_400Regular_Italic.ttf in Resources */,
+				2F1EDDCC2F3D4E5BA241E84D /* Gelasio_700Bold.ttf in Resources */,
+				42B71C86B81B4160A1F0D806 /* Gelasio_700Bold_Italic.ttf in Resources */,
+				9D0AAC3151124332BE8F67E1 /* Lexend_400Regular.ttf in Resources */,
+				DC1DC711CE2143D1A5B444F5 /* Lexend_500Medium.ttf in Resources */,
+				41D0EACF28174F90A868ABFB /* Lexend_600SemiBold.ttf in Resources */,
+				E2B63146611A4CEDA0ABAB14 /* Lexend_700Bold.ttf in Resources */,
+				6700192B47744DCA8C502A8A /* LICENSE.txt in Resources */,
 			);
 		};
 /* End PBXResourcesBuildPhase section */
@@ -416,7 +540,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7.5;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -453,7 +577,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.7.5;
+				MARKETING_VERSION = 1.8.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -645,7 +769,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7.5;
+				MARKETING_VERSION = 1.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pluralstar.app.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -676,7 +800,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.7.5;
+				MARKETING_VERSION = 1.8.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.pluralstar.app.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";

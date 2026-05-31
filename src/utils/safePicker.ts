@@ -1,7 +1,8 @@
 import {Keyboard, Platform, InteractionManager} from 'react-native';
-import {pick as pickDocument, isCancel as isPickerCancel, keepLocalCopy} from '@react-native-documents/picker';
+import {pick as pickDocument, isErrorWithCode, errorCodes, keepLocalCopy} from '@react-native-documents/picker';
 
-export {isPickerCancel};
+export const isPickerCancel = (err: any): boolean =>
+  isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED;
 export const getPickedFilePath = (result: any): string => {
   const uri = result?.fileCopyUri || result?.uri || '';
   return uri.startsWith('file://') ? uri.replace('file://', '') : uri;

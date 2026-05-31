@@ -1,6 +1,7 @@
 import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {View, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert} from 'react-native';
-import {Text, TextInput, setAppTextDyslexicEnabled} from './src/components/AppText';
+import {Text, TextInput, setAppTextDyslexicEnabled, setAppTextFont} from './src/components/AppText';
+import {fontFamilyForChoice} from './src/theme';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import notifee from '@notifee/react-native';
@@ -13,7 +14,7 @@ import {T, BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {AccentText} from './src/components/AccentText';
 import {store, KEYS} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, frontToHistoryEntry, uid} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, frontToHistoryEntry, uid, makeDefaultCustomFronts} from './src/utils';
 import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia, migrateStaleMediaPaths, rebaseChatMessageMedia} from './src/utils/mediaUtils';
 import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, showNoteboardNotification, clearNoteboardNotification} from './src/services/NotificationService';
 
@@ -60,7 +61,7 @@ const getGPSLocation = (): Promise<string | null> =>
             const {latitude, longitude} = pos.coords;
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
-              {headers: {'User-Agent': 'PluralStar/1.7.5'}},
+              {headers: {'User-Agent': 'PluralStar/1.8.0'}},
             );
             const data = await res.json();
             const a = data.address || {};
@@ -103,6 +104,7 @@ function MainAppContent() {
   const [showMember, setShowMember] = useState(false);
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [viewOnlyMember, setViewOnlyMember] = useState(false);
+  const [addCustomFront, setAddCustomFront] = useState(false);
   const [showJournal, setShowJournal] = useState(false);
   const [editJournal, setEditJournal] = useState<JournalEntry | null>(null);
   const [showSystem, setShowSystem] = useState(false);
@@ -186,6 +188,13 @@ function MainAppContent() {
       } catch (e) {
         console.error('[PS] media path rebase error:', e);
       }
+      let loadedSettingsObj: AppSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
+      if (!loadedSettingsObj.customFrontsSeeded) {
+        loadedMembers = [...loadedMembers, ...makeDefaultCustomFronts()];
+        loadedSettingsObj = {...loadedSettingsObj, customFrontsSeeded: true};
+        await store.set(KEYS.members, loadedMembers);
+        await store.set(KEYS.settings, loadedSettingsObj);
+      }
       if (!loadedSystem) {
         console.warn('[STARTUP] No system info loaded — entering first-run state. If this is unexpected, check for AsyncStorage failures above.');
         setFirstRun(true);
@@ -202,7 +211,7 @@ function MainAppContent() {
       setJournal(jour || []);
       setJournalTemplates(jourTemplates || []);
       setShareSettings(share || {showFront: true, showMembers: true, showDescriptions: false});
-      const mergedSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
+      const mergedSettings = loadedSettingsObj;
       setAppSettings(mergedSettings);
       setGroups(grps || []);
       setPalettes(savedPalettes || []);
@@ -300,9 +309,10 @@ function MainAppContent() {
   useEffect(() => { if (loaded && !firstRun) requestPermissions(); }, [loaded, firstRun]);
 
   useEffect(() => {
-    setDyslexicEnabled(appSettings.useDyslexicFont !== false);
+    const choice = appSettings.fontChoice ?? (appSettings.useDyslexicFont === true ? 'opendyslexic' : 'default');
+    setAppTextFont(fontFamilyForChoice(choice));
     setDyslexicTick(t => t + 1);
-  }, [appSettings.useDyslexicFont]);
+  }, [appSettings.fontChoice, appSettings.useDyslexicFont]);
 
   useEffect(() => {
     if (appSettings.notificationsEnabled) { showFrontNotification(front, members, system.name).catch(e => console.error('[PS] notif error:', e)); }
@@ -612,7 +622,8 @@ function MainAppContent() {
         return <FrontScreen theme={C} front={front} getMember={getMember} onSetFront={() => setShowSetFront(true)} onEditDetails={handleEditDetails} />;
       case 'members':
         return <MembersScreen theme={C} members={members} front={front} groups={groups} initialSortMode={appSettings.memberSortMode}
-          onAdd={() => {setEditMember(null); setViewOnlyMember(false); setShowMember(true);}}
+          onAdd={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setShowMember(true);}}
+          onAddCustomFront={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(true); setShowMember(true);}}
           onEdit={m => {setEditMember(m); setViewOnlyMember(false); setShowMember(true);}}
           onView={m => {setEditMember(m); setViewOnlyMember(true); setShowMember(true);}}
           onSaveGroups={saveGroups} onSaveSortMode={async (mode) => {const next = {...appSettings, memberSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);}} onReorderMember={async (id, direction) => {
@@ -669,7 +680,7 @@ function MainAppContent() {
       <View style={styles.content}>{renderScreen()}</View>
       <View style={[styles.tabBar, {backgroundColor: C.surface, borderTopColor: C.border}]}>
         {TAB_IDS.map(id => (
-          <TouchableOpacity key={id} onPress={() => { if (id === 'hub' && tab === 'hub') setHubResetKey(k => k + 1); setTab(id); }} activeOpacity={0.7} style={[styles.tabBtn, {paddingBottom: 8 + (insets.bottom || 0)}]}>
+          <TouchableOpacity key={id} onPress={() => { if (id === 'hub' && tab === 'hub') setHubResetKey(k => k + 1); setTab(id); }} activeOpacity={0.7} accessibilityRole="tab" accessibilityState={{selected: tab === id}} accessibilityLabel={t(`tabs.${id}`)} style={[styles.tabBtn, {paddingBottom: 8 + (insets.bottom || 0)}]}>
             <AccentText T={C} style={[styles.tabIcon, {color: tab === id ? C.accent : C.dim, fontSize: fs(18)}]} maxFontSizeMultiplier={1.2}>{TAB_ICONS[id]}</AccentText>
             <AccentText T={C} style={[styles.tabLabel, {color: tab === id ? C.accent : C.dim, fontSize: fs(9)}]} numberOfLines={1} allowFontScaling={false}>{t(`tabs.${id}`)}</AccentText>
           </TouchableOpacity>
@@ -689,7 +700,7 @@ function MainAppContent() {
       <MemberModal key={`${editMember?.id || 'new-member'}-${viewOnlyMember ? 'view' : 'edit'}`} visible={showMember} theme={C} member={editMember} members={members} groups={groups} settings={appSettings}
         readOnly={viewOnlyMember}
         onMentionPress={openMemberById}
-        onSave={async (m: Member) => {await saveMember(m); setShowMember(false); setEditMember(null); setViewOnlyMember(false);}}
+        onSave={async (m: Member) => {await saveMember(addCustomFront && !editMember ? {...m, isCustomFront: true} : m); setShowMember(false); setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false);}}
         onDelete={async (id: string) => {await deleteMember(id); setShowMember(false); setEditMember(null); setViewOnlyMember(false);}}
         onClose={() => {setShowMember(false); setEditMember(null); setViewOnlyMember(false);}} />
       <JournalModal visible={showJournal} theme={C} entry={editJournal} members={members} templates={journalTemplates}

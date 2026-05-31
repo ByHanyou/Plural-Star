@@ -9,6 +9,10 @@ import {Avatar} from '../components/Avatar';
 
 type TimeRange = 'all' | '7d' | '30d' | 'custom';
 
+const MAX_BOARD = 25;
+// Show More steps: 5 -> 10 -> 25
+const nextBoardLimit = (cur: number) => (cur < 10 ? 10 : MAX_BOARD);
+
 interface Props {
   theme: any;
   history: HistoryEntry[];
@@ -23,6 +27,9 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
   const [customStart, setCustomStart] = useState<number>(Date.now() - 30 * 86400000);
   const [customEnd, setCustomEnd] = useState<number>(Date.now());
   const [selectedStatMember, setSelectedStatMember] = useState<string | null>(null);
+  const [boardLimits, setBoardLimits] = useState<Record<string, number>>({});
+  const limitFor = (k: string) => boardLimits[k] ?? 5;
+  const expandBoard = (k: string) => setBoardLimits(p => ({...p, [k]: nextBoardLimit(p[k] ?? 5)}));
 
   const rangeStart = useMemo(() => {
     if (range === '7d') return Date.now() - 7 * 86400000;
@@ -57,6 +64,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
   [chatMessages, rangeStart, rangeEnd]);
 
   const stats = useMemo(() => {
+    const customFrontIds = new Set(members.filter(m => m.isCustomFront).map(m => m.id));
     const totalMs = filteredHistory.reduce((sum, e) => sum + ((e.endTime ?? Date.now()) - e.startTime), 0);
 
     const frontCounts: Record<string, {time: number; sessions: number}> = {};
@@ -83,53 +91,63 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
 
     const energyMap: Record<string, {sum: number; count: number}> = {};
     const peakHoursArr = new Array(24).fill(0);
+    const energyHourSum = new Array(24).fill(0);
+    const energyHourCount = new Array(24).fill(0);
     filteredHistory.forEach(e => {
-      peakHoursArr[new Date(e.startTime).getHours()]++;
+      const hour = new Date(e.startTime).getHours();
+      peakHoursArr[hour]++;
       if (e.energyLevel) {
+        energyHourSum[hour] += e.energyLevel; energyHourCount[hour]++;
         (e.memberIds || []).forEach(id => {
           if (!energyMap[id]) energyMap[id] = {sum: 0, count: 0};
           energyMap[id].sum += e.energyLevel!; energyMap[id].count++;
         });
       }
       if (e.coFrontEnergy) {
+        energyHourSum[hour] += e.coFrontEnergy; energyHourCount[hour]++;
         (e.coFrontIds || []).forEach(id => {
           if (!energyMap[id]) energyMap[id] = {sum: 0, count: 0};
           energyMap[id].sum += e.coFrontEnergy!; energyMap[id].count++;
         });
       }
     });
+    const energyByHour = energyHourSum.map((s, h) => energyHourCount[h] > 0 ? Math.round((s / energyHourCount[h]) * 10) / 10 : 0);
 
     const energyAvgs = Object.entries(energyMap)
+      .filter(([id]) => !customFrontIds.has(id))
       .map(([id, {sum, count}]) => ({id, avg: Math.round((sum / count) * 10) / 10}))
       .sort((a, b) => b.avg - a.avg);
 
     const topN = (obj: Record<string, number>, n: number) =>
-      Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n);
+      Object.entries(obj).filter(([id]) => !customFrontIds.has(id)).sort((a, b) => b[1] - a[1]).slice(0, n);
 
     const topFronters = Object.entries(frontCounts)
+      .filter(([id]) => !customFrontIds.has(id))
       .sort((a, b) => b[1].time - a[1].time)
-      .slice(0, 5)
+      .slice(0, MAX_BOARD)
       .map(([id, data]) => ({id, ...data}));
 
     return {
       totalMs,
       totalSessions: filteredHistory.length,
       topFronters,
-      topCoFronters: topN(coFrontCounts, 5),
-      topCoCon: topN(coConCounts, 5),
-      topMoods: topN(moodCounts, 5),
-      topLocations: topN(locCounts, 5),
-      topChatters: topN(chatCounts, 5),
+      topCoFronters: topN(coFrontCounts, MAX_BOARD),
+      topCoCon: topN(coConCounts, MAX_BOARD),
+      topMoods: topN(moodCounts, MAX_BOARD),
+      topLocations: topN(locCounts, MAX_BOARD),
+      topChatters: topN(chatCounts, MAX_BOARD),
       totalMessages: filteredChat.length,
       energyAvgs,
       peakHours: peakHoursArr,
+      energyByHour,
     };
-  }, [filteredHistory, filteredChat]);
+  }, [filteredHistory, filteredChat, members]);
 
   const getMember = (id: string) => members.find(m => m.id === id);
 
   const RangeBtn = ({id, label}: {id: TimeRange; label: string}) => (
     <TouchableOpacity onPress={() => setRange(id)} activeOpacity={0.7}
+      accessibilityRole="button" accessibilityState={{selected: range === id}}
       style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
         backgroundColor: range === id ? `${T.accent}20` : T.surface, borderColor: range === id ? `${T.accent}60` : T.border}}>
       <Text style={{fontSize: fs(12), color: range === id ? T.accent : T.dim, fontWeight: range === id ? '600' : '400'}}>{label}</Text>
@@ -143,27 +161,54 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
     </View>
   );
 
-  const Leaderboard = ({title, entries, renderValue, formatKey}: {title: string; entries: [string, number][]; renderValue: (v: number) => string; formatKey?: (k: string) => string}) => {
+  const rankColor = (i: number) => i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : T.dim;
+
+  const ShowMoreRow = ({boardKey, total, limit}: {boardKey: string; total: number; limit: number}) => {
+    if (total <= limit || limit >= MAX_BOARD) return null;
+    const next = nextBoardLimit(limit);
+    return (
+      <TouchableOpacity onPress={() => expandBoard(boardKey)} activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('stats.showMoreN', {shown: limit, total, defaultValue: `Show more — showing ${limit} of ${total}`})}
+        style={{paddingVertical: 9, alignItems: 'center', borderTopWidth: 1, borderTopColor: T.border}}>
+        <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>
+          {t('stats.showMore', {count: Math.min(next, total) - limit, defaultValue: 'Show more'})} ({Math.min(limit, total)}/{total})
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const Leaderboard = ({title, boardKey, entries, renderValue, formatKey}: {title: string; boardKey: string; entries: [string, number][]; renderValue: (v: number) => string; formatKey?: (k: string) => string}) => {
     if (entries.length === 0) return null;
+    const limit = limitFor(boardKey);
+    const shown = entries.slice(0, limit);
+    const max = Math.max(...shown.map(([, v]) => v), 1);
     return (
       <View style={{marginBottom: 18}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{title}</Text>
         <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
-          {entries.map(([key, value], i) => {
+          {shown.map(([key, value], i) => {
             const member = getMember(key);
-            const isLast = i === entries.length - 1;
+            const isLast = i === shown.length - 1;
+            const pct = Math.max(4, Math.round((value / max) * 100));
+            const barColor = member?.color || T.accent;
             return (
-              <View key={key} style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10,
-                borderBottomWidth: isLast ? 0 : 1, borderBottomColor: T.border}}>
-                <Text style={{fontSize: fs(12), fontWeight: '700', color: T.dim, width: 20, textAlign: 'center'}}>{i + 1}</Text>
-                {member ? <Avatar member={member} size={24} T={T} /> : null}
-                <Text style={{flex: 1, fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>
-                  {member ? member.name : (formatKey ? formatKey(key) : key)}
-                </Text>
-                <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{renderValue(value)}</Text>
+              <View key={key} style={{padding: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: T.border}}>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
+                  <Text style={{fontSize: fs(13), fontWeight: '700', color: rankColor(i), width: 22, textAlign: 'center'}}>{i + 1}</Text>
+                  {member ? <Avatar member={member} size={24} T={T} /> : null}
+                  <Text style={{flex: 1, fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>
+                    {member ? member.name : (formatKey ? formatKey(key) : key)}
+                  </Text>
+                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{renderValue(value)}</Text>
+                </View>
+                <View style={{height: 6, borderRadius: 3, backgroundColor: T.surface, overflow: 'hidden'}}>
+                  <View style={{height: 6, width: `${pct}%`, borderRadius: 3, backgroundColor: barColor}} />
+                </View>
               </View>
             );
           })}
+          <ShowMoreRow boardKey={boardKey} total={entries.length} limit={limit} />
         </View>
       </View>
     );
@@ -171,26 +216,36 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
 
   const FrontLeaderboard = () => {
     if (stats.topFronters.length === 0) return null;
+    const limit = limitFor('fronters');
+    const shown = stats.topFronters.slice(0, limit);
+    const maxT = Math.max(...shown.map(e => e.time), 1);
     return (
       <View style={{marginBottom: 18}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.topFronters')}</Text>
         <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
-          {stats.topFronters.map((entry, i) => {
+          {shown.map((entry, i) => {
             const member = getMember(entry.id);
-            const isLast = i === stats.topFronters.length - 1;
+            const isLast = i === shown.length - 1;
+            const pct = Math.max(4, Math.round((entry.time / maxT) * 100));
+            const barColor = member?.color || T.accent;
             return (
-              <View key={entry.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10,
-                borderBottomWidth: isLast ? 0 : 1, borderBottomColor: T.border}}>
-                <Text style={{fontSize: fs(12), fontWeight: '700', color: T.dim, width: 20, textAlign: 'center'}}>{i + 1}</Text>
-                {member ? <Avatar member={member} size={24} T={T} /> : null}
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>{member ? member.name : entry.id}</Text>
-                  <Text style={{fontSize: fs(10), color: T.muted}}>{entry.sessions} {t('stats.sessions').toLowerCase()}</Text>
+              <View key={entry.id} style={{padding: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: T.border}}>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
+                  <Text style={{fontSize: fs(13), fontWeight: '700', color: rankColor(i), width: 22, textAlign: 'center'}}>{i + 1}</Text>
+                  {member ? <Avatar member={member} size={24} T={T} /> : null}
+                  <View style={{flex: 1}}>
+                    <Text style={{fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>{member ? member.name : entry.id}</Text>
+                    <Text style={{fontSize: fs(10), color: T.muted}}>{entry.sessions} {t('stats.sessions').toLowerCase()}</Text>
+                  </View>
+                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{fmtDur(0, entry.time)}</Text>
                 </View>
-                <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{fmtDur(0, entry.time)}</Text>
+                <View style={{height: 6, borderRadius: 3, backgroundColor: T.surface, overflow: 'hidden'}}>
+                  <View style={{height: 6, width: `${pct}%`, borderRadius: 3, backgroundColor: barColor}} />
+                </View>
               </View>
             );
           })}
+          <ShowMoreRow boardKey="fronters" total={stats.topFronters.length} limit={limit} />
         </View>
       </View>
     );
@@ -234,7 +289,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               const now = Date.now();
               setCustomStart(now - 30 * 86400000);
               setCustomEnd(now);
-            }} activeOpacity={0.7}
+            }} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.last30')}</Text>
             </TouchableOpacity>
@@ -243,7 +298,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
               setCustomStart(start);
               setCustomEnd(Date.now());
-            }} activeOpacity={0.7}
+            }} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisMonth', {defaultValue: 'This month'})}</Text>
             </TouchableOpacity>
@@ -251,7 +306,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               const start = new Date(new Date().getFullYear(), 0, 1).getTime();
               setCustomStart(start);
               setCustomEnd(Date.now());
-            }} activeOpacity={0.7}
+            }} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisYear', {defaultValue: 'This year'})}</Text>
             </TouchableOpacity>
@@ -266,11 +321,11 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
       </View>
 
       <FrontLeaderboard />
-      <Leaderboard title={t('stats.topCoFronters')} entries={stats.topCoFronters} renderValue={v => `${v}x`} />
-      <Leaderboard title={t('stats.topCoCon')} entries={stats.topCoCon} renderValue={v => `${v}x`} />
-      <Leaderboard title={t('stats.topChatters')} entries={stats.topChatters} renderValue={v => `${v} ${t('stats.msgsSuffix')}`} />
-      <Leaderboard title={t('stats.topMoods')} entries={stats.topMoods} renderValue={v => `${v}x`} formatKey={m => translateMood(m, t)} />
-      <Leaderboard title={t('stats.topLocations')} entries={stats.topLocations} renderValue={v => `${v}x`} />
+      <Leaderboard title={t('stats.topCoFronters')} boardKey="cofronters" entries={stats.topCoFronters} renderValue={v => `${v}x`} />
+      <Leaderboard title={t('stats.topCoCon')} boardKey="cocon" entries={stats.topCoCon} renderValue={v => `${v}x`} />
+      <Leaderboard title={t('stats.topChatters')} boardKey="chatters" entries={stats.topChatters} renderValue={v => `${v} ${t('stats.msgsSuffix')}`} />
+      <Leaderboard title={t('stats.topMoods')} boardKey="moods" entries={stats.topMoods} renderValue={v => `${v}x`} formatKey={m => translateMood(m, t)} />
+      <Leaderboard title={t('stats.topLocations')} boardKey="locations" entries={stats.topLocations} renderValue={v => `${v}x`} />
 
       {stats.energyAvgs.length > 0 && (
         <View style={{marginBottom: 16}}>
@@ -314,12 +369,36 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
         </View>
       )}
 
+      {stats.energyByHour.some((v: number) => v > 0) && (
+        <View style={{marginBottom: 16}}>
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8}}>
+            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('stats.energyByHour', {defaultValue: 'Energy by Hour'})}</Text>
+            <Text style={{fontSize: fs(9), color: T.muted}}>{t('energy.outOf10')}</Text>
+          </View>
+          <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
+            {stats.energyByHour.map((avg: number, h: number) => (
+              <View key={h} style={{flex: 1, justifyContent: 'flex-end', height: '100%'}}>
+                <View style={{width: '100%', height: avg > 0 ? Math.max((avg / 10) * 45, 2) : 1, backgroundColor: avg > 0 ? T.accent : `${T.dim}40`, borderRadius: 1}} />
+              </View>
+            ))}
+          </View>
+          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}}>
+            {stats.energyByHour.map((_: number, h: number) => (
+              <View key={h} style={{flex: 1, alignItems: 'center'}}>
+                <Text style={{fontSize: fs(7), color: T.muted}}>{h % 6 === 0 ? h : ''}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       <View style={{marginBottom: 16}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.topCoMembers')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
           <View style={{flexDirection: 'row', gap: 6}}>
             {members.filter((m: Member) => !m.archived).map((m: Member) => (
               <TouchableOpacity key={m.id} onPress={() => setSelectedStatMember(selectedStatMember === m.id ? null : m.id)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: selectedStatMember === m.id}}
                 style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                   backgroundColor: selectedStatMember === m.id ? `${m.color}20` : T.surface,
                   borderColor: selectedStatMember === m.id ? `${m.color}50` : T.border}}>

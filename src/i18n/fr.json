@@ -153,6 +153,13 @@
     "templateBody": "Contenu de l'Entrée (prédéfini)"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Import Ampersand",
+    "ampersandHint": "Choisis une archive Ampersand (.ampar) exportée depuis l'application Ampersand. Les membres, les champs personnalisés et l'historique de front seront ajoutés à ton système.",
+    "pickAmparFile": "Choisir un fichier .ampar",
+    "amparEmpty": "Aucun membre ni historique de front trouvé dans cette archive.",
+    "importComplete": "Importation terminée.",
+    "importFormatsNote": "Détecte automatiquement Plural Star, Simply Plural, Octocon, Ourcana et HiveMind (.json). Pour Ampersand (.ampar), utilise l'onglet Ampersand.",
     "title": "Partager et Exporter",
     "export": "Exporter",
     "import": "Importer",
@@ -446,6 +453,9 @@
     "supportPS": "Soutenir PS"
   },
   "stats": {
+    "showMore": "Afficher plus",
+    "showMoreN": "Afficher plus — {{shown}} sur {{total}}",
+    "energyByHour": "Énergie par heure",
     "allTime": "Tout",
     "last7": "7 Jours",
     "last30": "30 Jours",
@@ -525,6 +535,8 @@
     "markdownLabel": "Markdown",
     "fieldCount": "{{count}} définis",
     "typeText": "Texte",
+    "typeImage": "Image",
+    "addImage": "Ajouter une image",
     "typeMarkdown": "Texte enrichi",
     "typeColor": "Couleur",
     "typeDate": "Date",
@@ -545,6 +557,7 @@
     "startDate": "Début"
   },
   "polls": {
+    "removeOption": "Supprimer l'option",
     "title": "Sondages",
     "createPoll": "Créer un sondage",
     "noPolls": "Aucun sondage.",

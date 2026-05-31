@@ -168,6 +168,13 @@
     "templateBody": "Entry Body (preset)"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Ampersand Import",
+    "ampersandHint": "Pick an Ampersand archive (.ampar) exported from the Ampersand app. Members, custom fields, and fronting history will be added to your system.",
+    "pickAmparFile": "Pick .ampar file",
+    "amparEmpty": "No members or fronting history found in this archive.",
+    "importComplete": "Import complete.",
+    "importFormatsNote": "Auto-detects Plural Star, Simply Plural, Octocon, Ourcana, and HiveMind (.json). For Ampersand (.ampar) use the Ampersand tab.",
     "title": "Share & Export",
     "export": "Export",
     "import": "Import",
@@ -477,6 +484,9 @@
     "deleteGroupMsg": "Remove this group? Members won't be deleted."
   },
   "stats": {
+    "showMore": "Show more",
+    "showMoreN": "Show more — showing {{shown}} of {{total}}",
+    "energyByHour": "Energy by Hour",
     "allTime": "All Time",
     "last7": "7 Days",
     "last30": "30 Days",
@@ -548,6 +558,8 @@
     "fieldName": "Field Name",
     "fieldType": "Type",
     "typeText": "Text",
+    "typeImage": "Image",
+    "addImage": "Add image",
     "typeMarkdown": "Rich Text",
     "typeDate": "Date",
     "typeDateRange": "Date Range",
@@ -588,6 +600,7 @@
     "hasNotes": "{{names}} have notes on their noteboard"
   },
   "polls": {
+    "removeOption": "Remove option",
     "title": "Polls",
     "createPoll": "+ Create Poll",
     "question": "Question",

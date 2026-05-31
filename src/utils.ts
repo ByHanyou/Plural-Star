@@ -15,7 +15,7 @@ export interface MemberGroup {
   color?: string;
 }
 
-export type CustomFieldType = 'text' | 'markdown' | 'date' | 'dateRange' | 'number' | 'toggle' | 'color' | 'month' | 'year' | 'monthYear' | 'timestamp' | 'monthDay';
+export type CustomFieldType = 'text' | 'markdown' | 'date' | 'dateRange' | 'number' | 'toggle' | 'color' | 'month' | 'year' | 'monthYear' | 'timestamp' | 'monthDay' | 'image';
 
 export interface CustomFieldDef {
   id: string;
@@ -74,7 +74,25 @@ export interface Member {
   sortOrder?: number;
   createdAt?: number;
   sourceId?: string;
+  isCustomFront?: boolean;
 }
+
+export const DEFAULT_CUSTOM_FRONT_NAMES = ['Chatty', 'Non-Verbal', 'IWC', 'DNI', 'Blurry', 'Blendy', 'Rapid Switching', 'Foggy', 'Grounded', 'Dissociated', 'Anxious', 'Depressed', 'Cheerful', 'Happy', 'Sad', 'Crisis', 'Melancholy', 'Stimming', 'Stressed', 'Working', 'Traveling', 'Sleeping', 'Hyperfocus'];
+
+const CUSTOM_FRONT_COLORS = ['#DAA520', '#7B9FE8', '#E87BA8', '#7BE8C4', '#A87BE8', '#E8A87B', '#6EC9A9', '#E87B7B', '#85B4E8', '#C97BE8', '#B4E885', '#E8C97B'];
+
+export const makeDefaultCustomFronts = (): Member[] =>
+  DEFAULT_CUSTOM_FRONT_NAMES.map((name, i) => ({
+    id: uid(),
+    name,
+    pronouns: '',
+    role: '',
+    color: CUSTOM_FRONT_COLORS[i % CUSTOM_FRONT_COLORS.length],
+    description: '',
+    isCustomFront: true,
+    tags: [],
+    groupIds: [],
+  }));
 
 export type HistoryChangeType = 'front' | 'mood' | 'location' | 'note';
 export type FrontTierKey = 'primary' | 'coFront' | 'coConscious';
@@ -157,6 +175,8 @@ export interface AppSettings {
   noteboardNotifications?: boolean;
   appLockPassword?: string;
   useDyslexicFont?: boolean;
+  fontChoice?: import('./theme').FontChoice;
+  customFrontsSeeded?: boolean;
 }
 
 export interface ExportPayload {
@@ -217,9 +237,12 @@ export const translateMood = (mood: string, t: (k: string) => string): string =>
   const parts = mood.split(',').map(s => s.trim()).filter(Boolean);
   if (parts.length === 0) return '';
   const translateOne = (one: string): string => {
-    if (DEFAULT_MOODS.includes(one)) {
-      const translated = t(`mood.${one}`);
-      return translated && translated !== `mood.${one}` ? translated : one;
+    // Match defaults case-insensitively so imported/older entries whose casing
+    // differs (e.g. "anxious") still resolve to the translatable key.
+    const canon = DEFAULT_MOODS.find(d => d.toLowerCase() === one.toLowerCase());
+    if (canon) {
+      const translated = t(`mood.${canon}`);
+      return translated && translated !== `mood.${canon}` ? translated : canon;
     }
     return one;
   };

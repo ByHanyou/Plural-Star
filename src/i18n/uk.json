@@ -153,6 +153,13 @@
     "templateBody": "Текст Запису (попередньо встановлений)"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Імпорт з Ampersand",
+    "ampersandHint": "Виберіть архів Ampersand (.ampar), експортований із застосунку Ampersand. Учасників, користувацькі поля та історію фронту буде додано до вашої системи.",
+    "pickAmparFile": "Вибрати файл .ampar",
+    "amparEmpty": "У цьому архіві не знайдено учасників або історії фронту.",
+    "importComplete": "Імпорт завершено.",
+    "importFormatsNote": "Автоматично розпізнає Plural Star, Simply Plural, Octocon, Ourcana та HiveMind (.json). Для Ampersand (.ampar) використовуйте вкладку Ampersand.",
     "title": "Поділитися та експорт",
     "export": "Експорт",
     "import": "Імпорт",
@@ -446,6 +453,9 @@
     "deleteGroupMsg": "Видалити цю групу? Учасники залишаться."
   },
   "stats": {
+    "showMore": "Показати більше",
+    "showMoreN": "Показати більше — {{shown}} з {{total}}",
+    "energyByHour": "Енергія за годинами",
     "allTime": "Увесь час",
     "last7": "7 днів",
     "last30": "30 днів",
@@ -505,6 +515,8 @@
     "fieldName": "Назва поля",
     "fieldType": "Тип",
     "typeText": "Текст",
+    "typeImage": "Зображення",
+    "addImage": "Додати зображення",
     "typeMarkdown": "Рич-текст",
     "typeDate": "Дата",
     "typeDateRange": "Діапазон дат",
@@ -545,6 +557,7 @@
     "hasNotes": "У {{names}} є нотатки на дошці"
   },
   "polls": {
+    "removeOption": "Видалити варіант",
     "title": "Опитування",
     "createPoll": "+ Створити опитування",
     "question": "Питання",

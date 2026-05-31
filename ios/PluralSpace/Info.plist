@@ -47,6 +47,25 @@
 		<string>OpenDyslexic-BoldItalic.otf</string>
 		<string>OpenDyslexic-Italic.otf</string>
 		<string>OpenDyslexic-Regular.otf</string>
+		<string>Anton_400Regular.ttf</string>
+		<string>AtkinsonHyperlegible_400Regular.ttf</string>
+		<string>AtkinsonHyperlegible_400Regular_Italic.ttf</string>
+		<string>AtkinsonHyperlegible_700Bold.ttf</string>
+		<string>AtkinsonHyperlegible_700Bold_Italic.ttf</string>
+		<string>Cause_400Regular.ttf</string>
+		<string>Cause_700Bold.ttf</string>
+		<string>ComicNeue_400Regular.ttf</string>
+		<string>ComicNeue_400Regular_Italic.ttf</string>
+		<string>ComicNeue_700Bold.ttf</string>
+		<string>ComicNeue_700Bold_Italic.ttf</string>
+		<string>Gelasio_400Regular.ttf</string>
+		<string>Gelasio_400Regular_Italic.ttf</string>
+		<string>Gelasio_700Bold.ttf</string>
+		<string>Gelasio_700Bold_Italic.ttf</string>
+		<string>Lexend_400Regular.ttf</string>
+		<string>Lexend_500Medium.ttf</string>
+		<string>Lexend_600SemiBold.ttf</string>
+		<string>Lexend_700Bold.ttf</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict/>

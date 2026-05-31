@@ -2,6 +2,86 @@
   "migIndex": 1,
   "data": [
     {
+      "path": "src/assets/fonts/Anton_400Regular.ttf",
+      "sha1": "726b5b90799781efcdbea11b90722cea38c9d8c7"
+    },
+    {
+      "path": "src/assets/fonts/AtkinsonHyperlegible_400Regular_Italic.ttf",
+      "sha1": "24def1ccf6f8b0c9a3f2abf15c96b29600462e20"
+    },
+    {
+      "path": "src/assets/fonts/AtkinsonHyperlegible_400Regular.ttf",
+      "sha1": "7d87c7f4ac5f18a3e39250a1eb6e6ab2b121320b"
+    },
+    {
+      "path": "src/assets/fonts/AtkinsonHyperlegible_700Bold_Italic.ttf",
+      "sha1": "4a297fea1dfd56f5a98bccc0ddc6606a6eaa8092"
+    },
+    {
+      "path": "src/assets/fonts/AtkinsonHyperlegible_700Bold.ttf",
+      "sha1": "7a74a7b96bfb5e4ade2b0a7dd3043554c5a437e9"
+    },
+    {
+      "path": "src/assets/fonts/Cause_400Regular.ttf",
+      "sha1": "96596d68d0433fe71a54070587efa97c72a68b28"
+    },
+    {
+      "path": "src/assets/fonts/Cause_700Bold.ttf",
+      "sha1": "18c219c342399d5e73bcd5515902c5d575ce86f3"
+    },
+    {
+      "path": "src/assets/fonts/ComicNeue_400Regular_Italic.ttf",
+      "sha1": "8623c8429cb9dcaab274473cb107cab0ddede40f"
+    },
+    {
+      "path": "src/assets/fonts/ComicNeue_400Regular.ttf",
+      "sha1": "c8dcfa90cb75c3fa7887923ab8c900eca5a14b90"
+    },
+    {
+      "path": "src/assets/fonts/ComicNeue_700Bold_Italic.ttf",
+      "sha1": "97b5d094f3f561b4f11e6670f5f3574f29f976b0"
+    },
+    {
+      "path": "src/assets/fonts/ComicNeue_700Bold.ttf",
+      "sha1": "5999c78d070d61c859d405ff1e5cf490f5ac4d20"
+    },
+    {
+      "path": "src/assets/fonts/Gelasio_400Regular_Italic.ttf",
+      "sha1": "015009adc36c54c0f95af9c03ed60d0ef0967c56"
+    },
+    {
+      "path": "src/assets/fonts/Gelasio_400Regular.ttf",
+      "sha1": "1c72228318a02147dbb164de6233356f1980009a"
+    },
+    {
+      "path": "src/assets/fonts/Gelasio_700Bold_Italic.ttf",
+      "sha1": "66af56fd30cbb6febb4f983d062592cadce200a0"
+    },
+    {
+      "path": "src/assets/fonts/Gelasio_700Bold.ttf",
+      "sha1": "5d60d897c14ea957c87538480d879370cd75e553"
+    },
+    {
+      "path": "src/assets/fonts/Lexend_400Regular.ttf",
+      "sha1": "6b1a67df80ac5b837be9112bf27e6c718ed36c08"
+    },
+    {
+      "path": "src/assets/fonts/Lexend_500Medium.ttf",
+      "sha1": "ecb541adfb5e827e3de237308772e103a553544d"
+    },
+    {
+      "path": "src/assets/fonts/Lexend_600SemiBold.ttf",
+      "sha1": "6a67f0e2d1549f7a69c8caa2bbc04abe61e15bc9"
+    },
+    {
+      "path": "src/assets/fonts/Lexend_700Bold.ttf",
+      "sha1": "c3006fdc382624dd82e1fdec223e432d1c5efed2"
+    },
+    {
+      "path": "src/assets/fonts/LICENSE.txt",
+      "sha1": "921f88670caf053113b485eeceedecefbae5882c"
+    },
+    {
       "path": "src/assets/fonts/OpenDyslexic-Bold.otf",
       "sha1": "243ede6de49c6f040897e2fd60ee3c1602a34576"
     },
@@ -16,10 +96,6 @@
     {
       "path": "src/assets/fonts/OpenDyslexic-Regular.otf",
       "sha1": "213eefc90ff957f17e1d95269bb5b442cc85ec9a"
-    },
-    {
-      "path": "src/assets/fonts/README.md",
-      "sha1": "26bf69c89711ddb419231cb57333a8e065767e79"
     }
   ]
 }

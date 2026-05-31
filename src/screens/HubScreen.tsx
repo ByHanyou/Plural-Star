@@ -269,7 +269,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   return (
     <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled">
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
-        <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
         </TouchableOpacity>
         <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{isEditing ? t('hub.editEntry', {defaultValue: 'Edit Entry'}) : t('hub.retroHistory')}</Text>
@@ -353,7 +353,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.importExport')}</Text>
@@ -377,7 +377,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.statistics')}</Text>
@@ -391,7 +391,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.systemChat')}</Text>
@@ -405,7 +405,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('customFields.title')}</Text>
@@ -419,7 +419,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('polls.title')}</Text>
@@ -437,14 +437,14 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.credits', {defaultValue: 'Credits'})}</Text>
         </View>
         <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
           {credits.map((c, i) => (
-            <TouchableOpacity key={i} onPress={() => Linking.openURL(c.url)} activeOpacity={0.7}
+            <TouchableOpacity key={i} onPress={() => Linking.openURL(c.url)} activeOpacity={0.7} accessibilityRole="link"
               style={{flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, padding: 14, marginBottom: 10}}>
               <Text style={{fontSize: fs(22), color: T.accent, marginRight: 14}}>✦</Text>
               <View style={{flex: 1}}>
@@ -491,7 +491,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
       </Text>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 10}}>
         {tiles.map(tile => (
-          <TouchableOpacity key={tile.id} onPress={() => handleTilePress(tile)} activeOpacity={0.7}
+          <TouchableOpacity key={tile.id} onPress={() => handleTilePress(tile)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={tile.label}
             style={{width: '31%', aspectRatio: 1, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, alignItems: 'center', justifyContent: 'center', padding: 10}}>
             <Text style={{fontSize: fs(28), color: T.accent, marginBottom: 8}}>{tile.icon}</Text>
             <Text style={{fontSize: fs(11), fontWeight: '600', color: T.text, textAlign: 'center'}} numberOfLines={2}>{tile.label}</Text>

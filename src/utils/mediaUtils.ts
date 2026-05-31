@@ -1,19 +1,8 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {Image} from 'react-native';
-
-let ImageEditor: any = null;
-try {
-  ImageEditor = require('@react-native-community/image-editor').default || require('@react-native-community/image-editor');
-} catch {
-  ImageEditor = null;
-}
 
 const AVATAR_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars`;
 const CHAT_MEDIA_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_chat_media`;
 const BIO_IMAGE_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_bio_images`;
-
-const BANNER_WIDTH = 900;
-const BANNER_HEIGHT = 300;
 
 const ensureDir = async (dir: string) => {
   const exists = await ReactNativeBlobUtil.fs.exists(dir);
@@ -46,7 +35,7 @@ export const saveBannerFromBase64 = async (memberId: string, base64: string): Pr
 
 const BANNER_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_banners`;
 
-const DOWNLOAD_TIMEOUT_MS = 20000;
+const DOWNLOAD_TIMEOUT_MS = 7000;
 
 const downloadImageWithExtSniff = async (
   baseDir: string,
@@ -64,7 +53,7 @@ const downloadImageWithExtSniff = async (
       followRedirect: true,
     }).fetch('GET', url, {
       Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5',
-      'User-Agent': 'PluralStar/1.7.5 (avatar-import)',
+      'User-Agent': 'PluralStar/1.8.0 (avatar-import)',
     });
     const result = await new Promise<any>((resolve, reject) => {
       let settled = false;
@@ -166,10 +155,20 @@ export const saveBioImage = async (
   return `file://${path}?t=${Date.now()}`;
 };
 
-const getImageSize = (uri: string): Promise<{width: number; height: number}> =>
-  new Promise((resolve, reject) => {
-    Image.getSize(uri, (width: number, height: number) => resolve({width, height}), reject);
-  });
+// Persist the picked image as-is — no manual crop. The avatar (circular) and
+// banner (3:1) frames crop visually via resizeMode="cover", which the native
+// Image component computes correctly for both device pixel-scale and EXIF
+// orientation. The old ImageEditor.cropImage path computed crop offsets from
+// Image.getSize, which mis-cropped to a tiny region on some devices/photos
+// (logical-vs-pixel scale mismatch + Android EXIF orientation swap), so a user
+// would only see a small part of their picture. Downscaling now happens at pick
+// time via the picker's maxWidth/maxHeight (also EXIF-correct).
+const persistImage = async (sourceUri: string, destPath: string): Promise<string> => {
+  const readPath = sourceUri.replace('file://', '');
+  const raw = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
+  await ReactNativeBlobUtil.fs.writeFile(destPath, raw, 'base64');
+  return `file://${destPath}?t=${Date.now()}`;
+};
 
 export const saveBannerImage = async (
   imageId: string,
@@ -178,69 +177,7 @@ export const saveBannerImage = async (
   await ensureDir(BIO_IMAGE_DIR);
   const destPath = `${BIO_IMAGE_DIR}/${imageId}.png`;
   try { await ReactNativeBlobUtil.fs.unlink(destPath); } catch {}
-  try {
-    if (!ImageEditor || !ImageEditor.cropImage) throw new Error('ImageEditor unavailable');
-    const {width: srcW, height: srcH} = await getImageSize(sourceUri);
-    const targetAspect = BANNER_WIDTH / BANNER_HEIGHT;
-    const srcAspect = srcW / srcH;
-    let cropW: number, cropH: number, offsetX: number, offsetY: number;
-    if (srcAspect > targetAspect) {
-      cropH = srcH;
-      cropW = Math.round(srcH * targetAspect);
-      offsetX = Math.round((srcW - cropW) / 2);
-      offsetY = 0;
-    } else {
-      cropW = srcW;
-      cropH = Math.round(srcW / targetAspect);
-      offsetX = 0;
-      offsetY = Math.round((srcH - cropH) / 2);
-    }
-    const cropped = await ImageEditor.cropImage(sourceUri, {
-      offset: {x: offsetX, y: offsetY},
-      size: {width: cropW, height: cropH},
-      displaySize: {width: BANNER_WIDTH, height: BANNER_HEIGHT},
-      resizeMode: 'cover',
-      format: 'png',
-      quality: 0.9,
-    });
-    const croppedPath = (cropped as any).uri ? (cropped as any).uri.replace('file://', '') : String(cropped).replace('file://', '');
-    await ReactNativeBlobUtil.fs.cp(croppedPath, destPath);
-    try { await ReactNativeBlobUtil.fs.unlink(croppedPath); } catch {}
-    return `file://${destPath}?t=${Date.now()}`;
-  } catch {
-    const readPath = sourceUri.replace('file://', '');
-    const raw = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
-    await ReactNativeBlobUtil.fs.writeFile(destPath, raw, 'base64');
-    return `file://${destPath}?t=${Date.now()}`;
-  }
-};
-
-const AVATAR_SIDE = 256;
-const cropToSquarePng = async (sourceUri: string, destPath: string): Promise<string> => {
-  try {
-    if (!ImageEditor || !ImageEditor.cropImage) throw new Error('ImageEditor unavailable');
-    const {width: srcW, height: srcH} = await getImageSize(sourceUri);
-    const side = Math.min(srcW, srcH);
-    const offsetX = Math.round((srcW - side) / 2);
-    const offsetY = Math.round((srcH - side) / 2);
-    const cropped = await ImageEditor.cropImage(sourceUri, {
-      offset: {x: offsetX, y: offsetY},
-      size: {width: side, height: side},
-      displaySize: {width: AVATAR_SIDE, height: AVATAR_SIDE},
-      resizeMode: 'cover',
-      format: 'png',
-      quality: 0.9,
-    });
-    const croppedPath = (cropped as any).uri ? (cropped as any).uri.replace('file://', '') : String(cropped).replace('file://', '');
-    await ReactNativeBlobUtil.fs.cp(croppedPath, destPath);
-    try { await ReactNativeBlobUtil.fs.unlink(croppedPath); } catch {}
-    return `file://${destPath}?t=${Date.now()}`;
-  } catch {
-    const readPath = sourceUri.replace('file://', '');
-    const raw = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
-    await ReactNativeBlobUtil.fs.writeFile(destPath, raw, 'base64');
-    return `file://${destPath}?t=${Date.now()}`;
-  }
+  return persistImage(sourceUri, destPath);
 };
 
 export const saveAvatarFromUri = async (memberId: string, sourceUri: string): Promise<string> => {
@@ -249,14 +186,14 @@ export const saveAvatarFromUri = async (memberId: string, sourceUri: string): Pr
     const p = `${AVATAR_DIR}/${memberId}.${ext}`;
     try { if (await ReactNativeBlobUtil.fs.exists(p)) await ReactNativeBlobUtil.fs.unlink(p); } catch {}
   }
-  return cropToSquarePng(sourceUri, `${AVATAR_DIR}/${memberId}.png`);
+  return persistImage(sourceUri, `${AVATAR_DIR}/${memberId}.png`);
 };
 
 export const saveBioImageFromUri = async (imageId: string, sourceUri: string): Promise<string> => {
   await ensureDir(BIO_IMAGE_DIR);
   const destPath = `${BIO_IMAGE_DIR}/${imageId}.png`;
   try { await ReactNativeBlobUtil.fs.unlink(destPath); } catch {}
-  return cropToSquarePng(sourceUri, destPath);
+  return persistImage(sourceUri, destPath);
 };
 
 export const rebaseDocumentUri = (uri?: string | null): string | undefined => {

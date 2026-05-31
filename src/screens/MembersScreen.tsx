@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useDeferredValue, useRef} from 'react';
+import React, {useState, useMemo, useCallback, useDeferredValue, useRef} from 'react';
 import {View, ScrollView, TouchableOpacity, StyleSheet, Alert} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
@@ -21,10 +21,102 @@ const TIER_BADGE_KEY: Record<FrontTierKey, {i18nKey: string; colorKey: string}> 
   coConscious: {i18nKey: 'tier.coConBadge', colorKey: 'success'},
 };
 
+interface MemberCardProps {
+  m: Member;
+  index: number;
+  isLast: boolean;
+  selectionMode: boolean;
+  isSelected: boolean;
+  showReorder: boolean;
+  front: FrontState | null;
+  allFrontIds: Set<string>;
+  groups: MemberGroup[];
+  T: any;
+  fs: (n: number) => number;
+  t: (key: string, opts?: any) => string;
+  onActivate: (m: Member) => void;
+  onToggleSelect: (id: string) => void;
+  onEnterSelection: (id: string) => void;
+  onReorder?: (id: string, direction: 'up' | 'down') => void;
+  onEditMember: (m: Member) => void;
+}
+
+const MemberCard = React.memo(function MemberCard({
+  m, index, isLast, selectionMode, isSelected, showReorder,
+  front, allFrontIds, groups, T, fs, t,
+  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember,
+}: MemberCardProps) {
+  const tier = getMemberTier(m.id, front);
+  const isFronting = allFrontIds.has(m.id);
+  const badgeCfg = tier ? TIER_BADGE_KEY[tier] : null;
+  const badgeColor = badgeCfg ? (T as any)[badgeCfg.colorKey] || T.accent : T.accent;
+  const memberGroups = useMemo(
+    () => groups.filter(g => (m.groupIds || []).includes(g.id)),
+    [groups, m.groupIds],
+  );
+  const isFirst = index === 0;
+  const cardBorder = selectionMode
+    ? (isSelected ? T.accent : T.border)
+    : (isFronting ? `${m.color}60` : T.border);
+  return (
+    <TouchableOpacity
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={[m.name, badgeCfg ? t(badgeCfg.i18nKey) : null, m.pronouns].filter(Boolean).join(', ')}
+      accessibilityState={selectionMode ? {selected: isSelected} : undefined}
+      style={[s.card, {backgroundColor: T.card, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8}]}
+      onPress={selectionMode ? () => onToggleSelect(m.id) : () => onActivate(m)}
+      onLongPress={() => onEnterSelection(m.id)}
+      delayLongPress={350}
+      accessibilityActions={[{name: 'longpress', label: t('members.selectAction', {defaultValue: 'Select'})}]}
+      onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'longpress') onEnterSelection(m.id); }}>
+      <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
+        {selectionMode && (
+          <View style={{width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? T.accent : T.border, backgroundColor: isSelected ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
+            {isSelected && <Text style={{fontSize: fs(12), fontWeight: '700', color: T.bg}}>✓</Text>}
+          </View>
+        )}
+        {!selectionMode && showReorder && (
+          <View style={{justifyContent: 'center', gap: 2, marginRight: -6}}>
+            <TouchableOpacity onPress={() => !isFirst && onReorder && onReorder(m.id, 'up')} hitSlop={{top: 6, bottom: 2, left: 8, right: 8}} disabled={isFirst} accessibilityRole="button" accessibilityLabel={t('members.moveUp', {defaultValue: 'Move up'})}>
+              <Text style={{fontSize: fs(14), color: isFirst ? T.muted : T.dim, opacity: isFirst ? 0.3 : 1}}>▲</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => !isLast && onReorder && onReorder(m.id, 'down')} hitSlop={{top: 2, bottom: 6, left: 8, right: 8}} disabled={isLast} accessibilityRole="button" accessibilityLabel={t('members.moveDown', {defaultValue: 'Move down'})}>
+              <Text style={{fontSize: fs(14), color: isLast ? T.muted : T.dim, opacity: isLast ? 0.3 : 1}}>▼</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <Avatar member={m} size={44} pulse={isFronting} T={T} />
+        <View style={{flex: 1, overflow: 'hidden'}}>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2}}>
+            <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text, flexShrink: 1}} numberOfLines={1} maxFontSizeMultiplier={1.4}>{m.name}</Text>
+            {badgeCfg && (<View style={{paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: `${badgeColor}18`, borderWidth: 1, borderColor: `${badgeColor}35`, flexShrink: 0}}><Text style={{fontSize: fs(10), color: badgeColor, fontWeight: '500'}} numberOfLines={1} maxFontSizeMultiplier={1.3}>{t(badgeCfg.i18nKey)}</Text></View>)}
+          </View>
+          <Text style={{fontSize: fs(12), color: T.dim}}>{[m.pronouns, m.role].filter(Boolean).join(' · ') || t('members.noDetails')}</Text>
+          {memberGroups.length > 0 && (
+            <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4}}>
+              {memberGroups.map(g => (<View key={g.id} style={{flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: `${g.color || T.accent}15`}}><View style={{width: 5, height: 5, borderRadius: 2.5, backgroundColor: g.color || T.accent}} /><Text style={{fontSize: fs(10), color: g.color || T.accent}}>{g.name}</Text></View>))}
+            </View>
+          )}
+          {m.description ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 3}} numberOfLines={1}>{m.description}</Text> : null}
+        </View>
+        {!selectionMode && (
+          <TouchableOpacity onPress={() => onEditMember(m)} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+            accessibilityRole="button" accessibilityLabel={`${t('common.edit', {defaultValue: 'Edit'})}, ${m.name}`}
+            style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+            <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>{t('common.edit', {defaultValue: 'Edit'})}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 interface Props {
   theme: any; members: Member[]; front: FrontState | null; groups: MemberGroup[];
   initialSortMode?: MemberSortMode;
   onAdd: () => void;
+  onAddCustomFront?: () => void;
   onEdit: (member: Member) => void;
   onView?: (member: Member) => void;
   onSaveGroups: (groups: MemberGroup[]) => void;
@@ -35,10 +127,10 @@ interface Props {
   onBulkDelete?: (ids: string[]) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, members, front, groups, initialSortMode, onAdd, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete}: Props) => {
+export const MembersScreen = ({theme: T, members, front, groups, initialSortMode, onAdd, onAddCustomFront, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete}: Props) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
-  const [memberTab, setMemberTab] = useState<'active' | 'archived'>('active');
+  const fs = useCallback((s: number) => Math.round(s * (T.textScale || 1)), [T.textScale]);
+  const [memberTab, setMemberTab] = useState<'active' | 'archived' | 'customFronts'>('active');
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -48,27 +140,28 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const [newGroupColor, setNewGroupColor] = useState(PALETTE[0]);
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupColor, setEditGroupColor] = useState<string>(PALETTE[0]);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const searchRef = useRef<TextInput>(null);
+  const searchRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
-  const enterSelection = (id?: string) => {
+  const enterSelection = useCallback((id?: string) => {
     setSelectionMode(true);
     setSelectedIds(id ? new Set([id]) : new Set());
-  };
+  }, []);
   const exitSelection = () => {
     setSelectionMode(false);
     setSelectedIds(new Set());
   };
-  const toggleSelected = (id: string) => {
+  const toggleSelected = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
-  const switchTab = (tab: 'active' | 'archived') => {
+  }, []);
+  const switchTab = (tab: 'active' | 'archived' | 'customFronts') => {
     setMemberTab(tab);
     setQuery(''); setActiveGroup(null); setActiveTag(null);
     searchRef.current?.clear();
@@ -114,10 +207,15 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
 
   const deferredQuery = useDeferredValue(query);
 
-  const tabMembers = members.filter(m => memberTab === 'archived' ? m.archived : !m.archived);
-  const allFrontIds = new Set(allFrontMemberIds(front));
+  const tabMembers = members.filter(m => {
+    if (m.isCustomFront) return memberTab === 'customFronts';
+    if (memberTab === 'customFronts') return false;
+    return memberTab === 'archived' ? m.archived : !m.archived;
+  });
+  const allFrontIds = useMemo(() => new Set(allFrontMemberIds(front)), [front]);
   const allTags = [...new Set(tabMembers.flatMap(m => m.tags || []))].sort();
-  const archivedCount = members.filter(m => m.archived).length;
+  const archivedCount = members.filter(m => m.archived && !m.isCustomFront).length;
+  const customFrontCount = members.filter(m => m.isCustomFront).length;
 
   const filtered = useMemo(() => sortMembers(tabMembers.filter(m => {
     const nameMatch = !deferredQuery || m.name.toLowerCase().includes(deferredQuery.toLowerCase()) || m.role?.toLowerCase().includes(deferredQuery.toLowerCase());
@@ -143,71 +241,35 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const renameGroup = (id: string) => {
     const name = editGroupName.trim();
     if (!name) return;
-    onSaveGroups(groups.map(g => g.id === id ? {...g, name} : g));
+    onSaveGroups(groups.map(g => g.id === id ? {...g, name, color: editGroupColor} : g));
     setEditGroupId(null); setEditGroupName('');
   };
 
   const showReorder = sortMode === 'manual' && memberTab === 'active' && !query && !activeGroup && !activeTag;
 
-  const renderMember = ({item: m, index}: {item: Member; index: number}) => {
-    const tier = getMemberTier(m.id, front);
-    const isFronting = allFrontIds.has(m.id);
-    const badgeCfg = tier ? TIER_BADGE_KEY[tier] : null;
-    const badgeColor = badgeCfg ? (T as any)[badgeCfg.colorKey] || T.accent : T.accent;
-    const memberGroups = groups.filter(g => (m.groupIds || []).includes(g.id));
-    const isFirst = index === 0;
-    const isLast = index === filtered.length - 1;
-    const isSelected = selectedIds.has(m.id);
-    const cardBorder = selectionMode
-      ? (isSelected ? T.accent : T.border)
-      : (isFronting ? `${m.color}60` : T.border);
-    return (
-      <TouchableOpacity
-        activeOpacity={0.75}
-        style={[s.card, {backgroundColor: T.card, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8}]}
-        onPress={selectionMode ? () => toggleSelected(m.id) : () => (onView || onEdit)(m)}
-        onLongPress={() => enterSelection(m.id)}
-        delayLongPress={350}>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
-          {selectionMode && (
-            <View style={{width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? T.accent : T.border, backgroundColor: isSelected ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
-              {isSelected && <Text style={{fontSize: fs(12), fontWeight: '700', color: T.bg}}>✓</Text>}
-            </View>
-          )}
-          {!selectionMode && showReorder && (
-            <View style={{justifyContent: 'center', gap: 2, marginRight: -6}}>
-              <TouchableOpacity onPress={() => !isFirst && onReorderMember && onReorderMember(m.id, 'up')} hitSlop={{top: 6, bottom: 2, left: 8, right: 8}} disabled={isFirst}>
-                <Text style={{fontSize: fs(14), color: isFirst ? T.muted : T.dim, opacity: isFirst ? 0.3 : 1}}>▲</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => !isLast && onReorderMember && onReorderMember(m.id, 'down')} hitSlop={{top: 2, bottom: 6, left: 8, right: 8}} disabled={isLast}>
-                <Text style={{fontSize: fs(14), color: isLast ? T.muted : T.dim, opacity: isLast ? 0.3 : 1}}>▼</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          <Avatar member={m} size={44} pulse={isFronting} T={T} />
-          <View style={{flex: 1, overflow: 'hidden'}}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2}}>
-              <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text, flexShrink: 1}} numberOfLines={1} maxFontSizeMultiplier={1.4}>{m.name}</Text>
-              {badgeCfg && (<View style={{paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: `${badgeColor}18`, borderWidth: 1, borderColor: `${badgeColor}35`, flexShrink: 0}}><Text style={{fontSize: fs(10), color: badgeColor, fontWeight: '500'}} numberOfLines={1} maxFontSizeMultiplier={1.3}>{t(badgeCfg.i18nKey)}</Text></View>)}
-            </View>
-            <Text style={{fontSize: fs(12), color: T.dim}}>{[m.pronouns, m.role].filter(Boolean).join(' · ') || t('members.noDetails')}</Text>
-            {memberGroups.length > 0 && (
-              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4}}>
-                {memberGroups.map(g => (<View key={g.id} style={{flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: `${g.color || T.accent}15`}}><View style={{width: 5, height: 5, borderRadius: 2.5, backgroundColor: g.color || T.accent}} /><Text style={{fontSize: fs(10), color: g.color || T.accent}}>{g.name}</Text></View>))}
-              </View>
-            )}
-            {m.description ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 3}} numberOfLines={1}>{m.description}</Text> : null}
-          </View>
-          {!selectionMode && (
-            <TouchableOpacity onPress={() => onEdit(m)} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>{t('common.edit', {defaultValue: 'Edit'})}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const handleActivate = useCallback((mm: Member) => (onView || onEdit)(mm), [onView, onEdit]);
+
+  const renderMember = useCallback(({item: m, index}: {item: Member; index: number}) => (
+    <MemberCard
+      m={m}
+      index={index}
+      isLast={index === filtered.length - 1}
+      selectionMode={selectionMode}
+      isSelected={selectedIds.has(m.id)}
+      showReorder={showReorder}
+      front={front}
+      allFrontIds={allFrontIds}
+      groups={groups}
+      T={T}
+      fs={fs}
+      t={t}
+      onActivate={handleActivate}
+      onToggleSelect={toggleSelected}
+      onEnterSelection={enterSelection}
+      onReorder={onReorderMember}
+      onEditMember={onEdit}
+    />
+  ), [filtered.length, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, onReorderMember, onEdit]);
 
   const allVisibleIds = filtered.map(m => m.id);
   const allSelectedInView = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
@@ -267,7 +329,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
               style={[s.addBtn, {backgroundColor: showManageGroups ? `${T.info}18` : T.surface, borderColor: showManageGroups ? `${T.info}50` : T.border}]}>
               <Text style={{fontSize: fs(12), fontWeight: '500', color: showManageGroups ? T.info : T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('memberGroups.manage')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={onAdd} activeOpacity={0.7} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+            <TouchableOpacity onPress={memberTab === 'customFronts' ? (onAddCustomFront || onAdd) : onAdd} activeOpacity={0.7} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('members.add')}</Text>
             </TouchableOpacity>
           </View>
@@ -296,11 +358,14 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       )}
 
       <View style={{flexDirection: 'row', gap: 0, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
-        {(['active', 'archived'] as const).map(tab => (
+        {(['active', 'archived', 'customFronts'] as const).map(tab => (
           <TouchableOpacity key={tab} onPress={() => switchTab(tab)} activeOpacity={0.7}
+            accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
             style={{paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
             <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}}>
-              {tab === 'active' ? t('members.active') : `${t('members.archived')}${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
+              {tab === 'active' ? t('members.active')
+                : tab === 'customFronts' ? `${t('members.customFronts', {defaultValue: 'Custom Fronts'})}${customFrontCount > 0 ? ` (${customFrontCount})` : ''}`
+                : `${t('members.archived')}${archivedCount > 0 ? ` (${archivedCount})` : ''}`}
             </Text>
           </TouchableOpacity>
         ))}
@@ -326,19 +391,24 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('memberGroups.title')}</Text>
           {groups.map(g => (
             <View key={g.id} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8}}>
-              <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: g.color || T.accent}} />
+              {editGroupId === g.id ? (
+                <TouchableOpacity onPress={() => { const idx = PALETTE.indexOf(editGroupColor); setEditGroupColor(PALETTE[(idx + 1) % PALETTE.length]); }} accessibilityRole="button" accessibilityLabel={t('memberGroups.changeColor', {defaultValue: 'Change color'})}
+                  style={{width: 18, height: 18, borderRadius: 9, backgroundColor: editGroupColor, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}} />
+              ) : (
+                <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: g.color || T.accent}} />
+              )}
               {editGroupId === g.id ? (
                 <View style={{flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center'}}>
                   <TextInput value={editGroupName} onChangeText={setEditGroupName} autoFocus style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, fontSize: fs(13)}} onSubmitEditing={() => renameGroup(g.id)} returnKeyType="done" />
-                  <TouchableOpacity onPress={() => renameGroup(g.id)}><Text style={{color: T.success, fontSize: fs(14)}}>✓</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => setEditGroupId(null)}><Text style={{color: T.dim, fontSize: fs(12)}}>✕</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => renameGroup(g.id)} accessibilityRole="button" accessibilityLabel={t('common.save', {defaultValue: 'Save'})}><Text style={{color: T.success, fontSize: fs(14)}}>✓</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => setEditGroupId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel', {defaultValue: 'Cancel'})}><Text style={{color: T.dim, fontSize: fs(12)}}>✕</Text></TouchableOpacity>
                 </View>
               ) : (
                 <>
                   <Text style={{flex: 1, fontSize: fs(14), color: T.text, fontWeight: '500'}}>{g.name}</Text>
                   <Text style={{fontSize: fs(11), color: T.muted}}>{members.filter(m => (m.groupIds || []).includes(g.id)).length}</Text>
-                  <TouchableOpacity onPress={() => {setEditGroupId(g.id); setEditGroupName(g.name);}} activeOpacity={0.7} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit', {defaultValue: 'Edit'})}</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => deleteGroup(g.id)} style={{padding: 4}}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => {setEditGroupId(g.id); setEditGroupName(g.name); setEditGroupColor(g.color || PALETTE[0]);}} activeOpacity={0.7} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit', {defaultValue: 'Edit'})}</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteGroup(g.id)} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${g.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
                 </>
               )}
             </View>
@@ -412,10 +482,15 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       ListEmptyComponent={tabMembers.length === 0 ? (
         <View style={s.empty}>
           <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◇</Text>
-          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{memberTab === 'archived' ? t('members.noArchived') : t('members.noMembers')}</Text>
+          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{memberTab === 'archived' ? t('members.noArchived') : memberTab === 'customFronts' ? t('members.noCustomFronts', {defaultValue: 'No custom fronts yet.'}) : t('members.noMembers')}</Text>
           {memberTab === 'active' && (
             <TouchableOpacity onPress={onAdd} activeOpacity={0.7} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addMember')}</Text>
+            </TouchableOpacity>
+          )}
+          {memberTab === 'customFronts' && (
+            <TouchableOpacity onPress={onAddCustomFront || onAdd} activeOpacity={0.7} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addCustomFront', {defaultValue: 'Add Custom Front'})}</Text>
             </TouchableOpacity>
           )}
         </View>

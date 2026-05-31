@@ -4,8 +4,8 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {pickImageFromGallery} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
-import {PALETTE, BUILTIN_PALETTES, deriveTheme} from '../theme';
-import type {CustomPalette} from '../theme';
+import {PALETTE, BUILTIN_PALETTES, deriveTheme, FONT_OPTIONS} from '../theme';
+import type {CustomPalette, FontChoice} from '../theme';
 import {Member, MemberGroup, JournalEntry, JournalTemplate, FrontState, FrontTier, FrontTierKey, SystemInfo, AppSettings, TextScale, TEXT_SCALE_OPTIONS, CustomFieldDef, CustomFieldValue, NoteboardEntry, uid, isValidHex, normalizeHex, DEFAULT_MOODS, EMPTY_TIER, TIER_LABELS, fmtTime, getInitials, translateMood, parseMoodList, toggleMoodInList, serializeMoodList, sortMembersBySearch} from '../utils';
 import {store, KEYS} from '../storage';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
@@ -30,7 +30,7 @@ const HexField = ({label, value, onChange, T}: {label: string; value: string; on
 const Btn = ({children, onPress, variant = 'primary', disabled = false, style = {}, T}: any) => {
   const variants: any = {primary: {bg: T.accentBg, color: T.accent, border: `${T.accent}40`}, ghost: {bg: 'transparent', color: T.dim, border: T.border}, danger: {bg: T.dangerBg, color: T.danger, border: `${T.danger}40`}, solid: {bg: T.accent, color: '#0a0508', border: T.accent}, info: {bg: T.infoBg, color: T.info, border: `${T.info}40`}};
   const v = variants[variant] || variants.primary;
-  return (<TouchableOpacity onPress={onPress} disabled={disabled} activeOpacity={0.7} style={[{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1}, style]}><Text style={{fontSize: 14, fontWeight: '500', color: v.color}}>{children}</Text></TouchableOpacity>);
+  return (<TouchableOpacity onPress={onPress} disabled={disabled} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{disabled}} style={[{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1}, style]}><Text style={{fontSize: 14, fontWeight: '500', color: v.color}}>{children}</Text></TouchableOpacity>);
 };
 
 const Field = ({label, value, onChange, placeholder, multiline = false, numberOfLines = 4, readOnly = false, T}: any) => (
@@ -85,6 +85,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
         <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
           {selectedMembers.map(m => (
             <TouchableOpacity key={m.id} onPress={() => toggle(m.id)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel={`${m.name}, ${t('common.remove', {defaultValue: 'Remove'})}`}
               style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
               <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: m.color}} />
               <Text style={{fontSize: 12, fontWeight: '500', color: m.color}}>{m.name}</Text>
@@ -121,6 +122,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
               const otherLabel = otherTier ? (assignedTo === 'primary' ? t('tier.primaryShort') : assignedTo === 'coFront' ? t('tier.coFrontShort') : t('tier.coConShort')) : '';
               return (
                 <TouchableOpacity key={m.id} onPress={() => toggle(m.id)} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityLabel={m.name}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherTier ? 0.45 : 1}}>
                   <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
                   <Text style={{flex: 1, fontSize: 13, color: T.text}} numberOfLines={1}>{m.name}</Text>
@@ -350,6 +352,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
   const [fieldDefs, setFieldDefs] = useState<CustomFieldDef[]>([]);
   const [allNotes, setAllNotes] = useState<NoteboardEntry[]>([]);
+  const [noteboardLastSeen, setNoteboardLastSeen] = useState(0);
   const [noteText, setNoteText] = useState('');
   const [noteAuthorId, setNoteAuthorId] = useState<string>('');
   const [markdownEditFieldId, setMarkdownEditFieldId] = useState<string | null>(null);
@@ -412,6 +415,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     if (!f.id || isNew) return;
     try {
       const lastSeen = (await store.get<Record<string, number>>(KEYS.lastNoteboardSeen, {})) || {};
+      setNoteboardLastSeen(lastSeen[f.id] || 0);
       lastSeen[f.id] = Date.now();
       await store.set(KEYS.lastNoteboardSeen, lastSeen);
     } catch (e) {}
@@ -433,6 +437,16 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     set('customFields' as any, updated);
   };
 
+  const pickCfImage = async (fieldId: string) => {
+    try {
+      const img = await pickImageFromGallery();
+      if (!img) return;
+      const src = img.uri.startsWith('file://') || img.uri.startsWith('content://') ? img.uri : `file://${img.uri}`;
+      const uri = await saveBioImageFromUri(`cf-${f.id}-${fieldId}`, src);
+      setFieldVal(fieldId, uri);
+    } catch (e: any) { Alert.alert(t('modal.pfpFailed'), e?.message || ''); }
+  };
+
   const activeMembers = (members || []).filter((m: Member) => !m.archived);
 
   return (
@@ -448,6 +462,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border, marginBottom: 14}}>
           {(['main', 'fields', 'noteboard'] as MemberTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setMemberTab(tab)} activeOpacity={0.7}
+              accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
               style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
               <Text style={{fontSize: fs(12), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}}>
                 {tab === 'main' ? t('modal.editMember') : tab === 'fields' ? t('customFields.title') : t('noteboard.title')}
@@ -459,9 +474,9 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
       {(memberTab === 'main' || isNew) && (<>
         <View style={{alignItems: 'center', marginBottom: 16}}>
-          <TouchableOpacity onPress={readOnly ? undefined : pickAvatar} activeOpacity={readOnly ? 1 : 0.7}>
+          <TouchableOpacity onPress={readOnly ? undefined : pickAvatar} activeOpacity={readOnly ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp', {defaultValue: 'Change profile picture'})}>
             {f.avatar ? (
-              <Image source={{uri: f.avatar}} style={{width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: f.color}} />
+              <Image source={{uri: f.avatar}} style={{width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
             ) : (
               <View style={{width: 80, height: 80, borderRadius: 40, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
                 <Text style={{fontSize: fs(28), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(f.name || '?')}</Text>
@@ -491,7 +506,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
               const uri = await saveBannerImage(`banner-${f.id}`, sourceFileUri);
               set('banner', uri);
             } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
-          }} activeOpacity={readOnly ? 1 : 0.7} style={{marginBottom: 10}}>
+          }} activeOpacity={readOnly ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={t('memberProfile.changeBanner', {defaultValue: 'Change banner'})} style={{marginBottom: 10}}>
             <View style={{width: '100%', aspectRatio: 3, borderRadius: 8, borderWidth: readOnly ? 0 : 1, borderStyle: 'dashed', borderColor: T.border, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
               {f.banner ? <Image source={{uri: f.banner}} style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('memberProfile.changeBanner')}</Text>}
             </View>
@@ -511,7 +526,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: hexError ? T.danger : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), fontFamily: 'monospace'}} />
         </View>
         {hexError && !readOnly && <Text style={{fontSize: fs(11), color: T.danger, marginBottom: 8}}>{t('modal.invalidHex')}</Text>}
-        {!readOnly && <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14}}>{PALETTE.map((c: string) => (<TouchableOpacity key={c} onPress={() => {set('color', c); setHexInput(c); setHexError(false);}} activeOpacity={0.8} style={{width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 2, borderColor: f.color === c ? '#fff' : 'transparent'}} />))}</View>}
+        {!readOnly && <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14}}>{PALETTE.map((c: string) => (<TouchableOpacity key={c} onPress={() => {set('color', c); setHexInput(c); setHexError(false);}} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{selected: f.color === c}} accessibilityLabel={`${t('memberProfile.color', {defaultValue: 'Color'})} ${c}`} style={{width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 2, borderColor: f.color === c ? '#fff' : 'transparent'}} />))}</View>}
         {readOnly && <View style={{marginBottom: 14}} />}
 
         {(groups || []).length > 0 && (() => {
@@ -582,6 +597,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.archiveDesc')}</Text>
               </View>
               <TouchableOpacity onPress={() => set('archived', !f.archived)} activeOpacity={0.8}
+                accessibilityRole="switch" accessibilityState={{checked: !!f.archived}} accessibilityLabel={t('modal.archiveMember')}
                 style={{width: 40, height: 22, borderRadius: 11, backgroundColor: f.archived ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}>
                 <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: f.archived ? 20 : 3}} />
               </TouchableOpacity>
@@ -592,7 +608,11 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
       {memberTab === 'fields' && !isNew && (
         <View>
-          {fieldDefs.length > 0 ? fieldDefs.map(fd => {
+          {(() => {
+          const visibleDefs = readOnly
+            ? fieldDefs.filter(vfd => { const vv = (f.customFields || []).find(c => c.fieldId === vfd.id)?.value; return !(vv === undefined || vv === null || vv === ''); })
+            : fieldDefs;
+          return visibleDefs.length > 0 ? visibleDefs.map((fd, fdIndex) => {
             const cfv = (f.customFields || []).find(v => v.fieldId === fd.id);
             const val = cfv?.value ?? '';
 
@@ -620,7 +640,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 dateVal = new Date();
               }
               return (
-                <View key={fd.id} style={{marginBottom: 14}}>
+                <View key={fd.id} style={{marginBottom: 14, borderTopWidth: fdIndex > 0 ? 1 : 0, borderTopColor: T.border, paddingTop: fdIndex > 0 ? 14 : 0}}>
                   <DateTimeEditor
                     date={dateVal}
                     onChange={readOnly ? () => {} : d => setFieldVal(fd.id, d.getTime())}
@@ -650,7 +670,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 setFieldVal(fd.id, JSON.stringify(merged));
               };
               return (
-                <View key={fd.id} style={{marginBottom: 14}}>
+                <View key={fd.id} style={{marginBottom: 14, borderTopWidth: fdIndex > 0 ? 1 : 0, borderTopColor: T.border, paddingTop: fdIndex > 0 ? 14 : 0}}>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
                   <DateTimeEditor
                     date={startD}
@@ -671,11 +691,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             }
 
             return (
-              <View key={fd.id} style={{marginBottom: 14}}>
+              <View key={fd.id} style={{marginBottom: 14, borderTopWidth: fdIndex > 0 ? 1 : 0, borderTopColor: T.border, paddingTop: fdIndex > 0 ? 14 : 0}}>
                 {fd.type === 'toggle' ? (
                   <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                     <Text style={{fontSize: fs(13), color: T.text, fontWeight: '500'}}>{fd.name}</Text>
                     <TouchableOpacity onPress={readOnly ? undefined : () => setFieldVal(fd.id, !val)} activeOpacity={readOnly ? 1 : 0.8}
+                      accessibilityRole="switch" accessibilityState={{checked: !!val}} accessibilityLabel={fd.name}
                       style={{width: 40, height: 22, borderRadius: 11, backgroundColor: val ? T.accent : T.toggleOff, justifyContent: 'center'}}>
                       <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: val ? 20 : 3}} />
                     </TouchableOpacity>
@@ -689,6 +710,27 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                         editable={!readOnly}
                         style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), fontFamily: 'monospace'}} />
                     </View>
+                  </View>
+                ) : fd.type === 'image' ? (
+                  <View>
+                    <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
+                    {val ? (
+                      <View>
+                        <Image source={{uri: String(val)}} style={{width: '100%', height: 180, borderRadius: 8, backgroundColor: T.surface}} resizeMode="cover" />
+                        {!readOnly && (
+                          <View style={{flexDirection: 'row', gap: 16, marginTop: 6}}>
+                            <TouchableOpacity onPress={() => pickCfImage(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.change', {defaultValue: 'Change'})}><Text style={{fontSize: fs(12), color: T.accent}}>{t('common.change', {defaultValue: 'Change'})}</Text></TouchableOpacity>
+                            <TouchableOpacity onPress={() => setFieldVal(fd.id, null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.clear', {defaultValue: 'Clear'})}><Text style={{fontSize: fs(12), color: T.danger}}>{t('common.clear', {defaultValue: 'Clear'})}</Text></TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    ) : !readOnly ? (
+                      <TouchableOpacity onPress={() => pickCfImage(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('customFields.addImage', {defaultValue: 'Add image'})}
+                        style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: T.border, borderRadius: 10, paddingVertical: 22, alignItems: 'center', backgroundColor: T.surface}}>
+                        <Text style={{fontSize: fs(20), color: T.dim}}>＋</Text>
+                        <Text style={{fontSize: fs(12), color: T.dim, marginTop: 4}}>{t('customFields.addImage', {defaultValue: 'Add image'})}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
                 ) : (fd.type === 'markdown' || (fd.type === 'text' && fd.markdown)) ? (
                   <View style={{marginBottom: 0}}>
@@ -756,7 +798,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             <View style={{alignItems: 'center', paddingVertical: 40}}>
               <Text style={{fontSize: fs(13), color: T.muted}}>{t('customFields.noFieldsInfo')}</Text>
             </View>
-          )}
+          );
+          })()}
         </View>
       )}
 
@@ -764,14 +807,18 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         <View>
           {memberNotes.length > 0 ? memberNotes.map(note => {
             const author = (members || []).find((m: Member) => m.id === note.authorId);
+            const unread = note.timestamp > noteboardLastSeen;
             return (
               <TouchableOpacity key={note.id} onPress={markNoteboardRead} activeOpacity={0.85}
-                style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: 1, borderColor: note.pinned ? T.accent : T.border, padding: 12, marginBottom: 8}}>
+                accessibilityRole="button"
+                accessibilityLabel={`${unread ? t('noteboard.unread', {defaultValue: 'Unread'}) + '. ' : ''}${author?.name || '?'}: ${note.content}`}
+                style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: unread ? 2 : 1, borderColor: (unread || note.pinned) ? T.accent : T.border, padding: 12, marginBottom: 8}}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
                   <View style={{width: 22, height: 22, borderRadius: 11, backgroundColor: author?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
                     <Text style={{fontSize: fs(9), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(author?.name || '?')}</Text>
                   </View>
                   <Text style={{fontSize: fs(12), color: author?.color || T.dim, fontWeight: '500'}}>{author?.name || '?'}</Text>
+                  {unread && <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{width: 8, height: 8, borderRadius: 4, backgroundColor: T.accent, marginLeft: 4}} />}
                   <Text style={{fontSize: fs(10), color: T.muted, marginLeft: 'auto'}}>{fmtTime(note.timestamp)}</Text>
                 </View>
                 <Text style={{fontSize: fs(13), color: T.text, lineHeight: 20}}>{note.content}</Text>
@@ -895,7 +942,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
         {authorSearch.length > 0 && (
           <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 160, overflow: 'hidden', marginBottom: 8}}>
             <ScrollView nestedScrollEnabled>
-              {sortMembersBySearch(members.filter((m: Member) => !m.archived && m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch).map((m: Member) => {
+              {sortMembersBySearch<Member>(members.filter((m: Member) => !m.archived && m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch).map((m: Member) => {
                 const active = (f.authorIds || []).includes(m.id);
                 return (
                   <TouchableOpacity key={m.id} onPress={() => {togAuthor(m.id); setAuthorSearch('');}} activeOpacity={0.7}
@@ -1067,7 +1114,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [showAppLockPw, setShowAppLockPw] = useState<boolean>(!!settings?.appLockPassword);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
   const [textScale, setTextScale] = useState<TextScale>(settings?.textScale ?? 1.0);
-  const [useDyslexicFont, setUseDyslexicFont] = useState<boolean>(!!settings?.useDyslexicFont);
+  const [fontChoice, setFontChoice] = useState<FontChoice>(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default'));
   const [showLangPicker, setShowLangPicker] = useState(false);
   const [showFrontCheckPicker, setShowFrontCheckPicker] = useState(false);
   const [editPalette, setEditPalette] = useState<CustomPalette | null>(null);
@@ -1075,7 +1122,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [palBg, setPalBg] = useState(''); const [palAccent, setPalAccent] = useState('');
   const [palText, setPalText] = useState(''); const [palMid, setPalMid] = useState('');
 
-  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setTextScale(settings?.textScale ?? 1.0); setUseDyslexicFont(!!settings?.useDyslexicFont); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible, system, settings]);
+  React.useEffect(() => { if (visible) { setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible, system, settings]);
 
   const addLoc = () => {if (newLocation.trim() && !locs.includes(newLocation.trim())) {setLocs([...locs, newLocation.trim()]); setNewLocation('');}};
   const addMood = () => {if (newMood.trim() && !moods.includes(newMood.trim())) {setMoods([...moods, newMood.trim()]); setNewMood('');}};
@@ -1111,7 +1158,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn T={T} onPress={() => {
       onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
-      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, useDyslexicFont, frontCheckInterval, noteboardNotifications: noteboardNotifs, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
+      onSaveSettings({...settings, locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, noteboardNotifications: noteboardNotifs, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
       <Field label={t('modal.systemName')} value={f.name} onChange={(v: string) => setF((x: any) => ({...x, name: v}))} placeholder={t('modal.systemNamePlaceholder')} T={T} />
@@ -1131,7 +1178,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
         }} activeOpacity={0.7}>
           <View style={{width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: T.accent, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
-            {f.avatar ? <Image source={{uri: f.avatar}} style={{width: 64, height: 64, borderRadius: 32}} /> : <Text style={{fontSize: fs(22), color: T.dim}}>📷</Text>}
+            {f.avatar ? <Image source={{uri: f.avatar}} style={{width: 64, height: 64, borderRadius: 32}} resizeMode="cover" /> : <Text style={{fontSize: fs(22), color: T.dim}}>📷</Text>}
           </View>
         </TouchableOpacity>
         <View style={{flex: 1}}>
@@ -1243,15 +1290,15 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.gpsDesc')}</Text></View>
-          <TouchableOpacity onPress={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, useDyslexicFont, frontCheckInterval, noteboardNotifications: noteboardNotifs});}} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: settings?.gpsEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: settings?.gpsEnabled ? 20 : 3}} /></TouchableOpacity></View>
+          <TouchableOpacity onPress={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, noteboardNotifications: noteboardNotifs});}} activeOpacity={0.8} accessibilityRole="switch" accessibilityState={{checked: !!settings?.gpsEnabled}} accessibilityLabel={t('modal.gpsLocation')} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: settings?.gpsEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: settings?.gpsEnabled ? 20 : 3}} /></TouchableOpacity></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.fileAccess')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.fileAccessDesc')}</Text></View>
-          <TouchableOpacity onPress={() => setFilesEnabled(!filesEnabled)} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: filesEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: filesEnabled ? 20 : 3}} /></TouchableOpacity></View>
+          <TouchableOpacity onPress={() => setFilesEnabled(!filesEnabled)} activeOpacity={0.8} accessibilityRole="switch" accessibilityState={{checked: filesEnabled}} accessibilityLabel={t('modal.fileAccess')} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: filesEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: filesEnabled ? 20 : 3}} /></TouchableOpacity></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.notifications')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.notificationsDesc')}</Text></View>
-          <TouchableOpacity onPress={() => setNotifEnabled(!notifEnabled)} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: notifEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: notifEnabled ? 20 : 3}} /></TouchableOpacity></View>
+          <TouchableOpacity onPress={() => setNotifEnabled(!notifEnabled)} activeOpacity={0.8} accessibilityRole="switch" accessibilityState={{checked: notifEnabled}} accessibilityLabel={t('modal.notifications')} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: notifEnabled ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: notifEnabled ? 20 : 3}} /></TouchableOpacity></View>
 
         <View style={{marginTop: 12}}>
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.frontCheck')}</Text>
@@ -1281,7 +1328,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.noteboard', {defaultValue: 'Noteboard Notifications'})}</Text>
             <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('notification.noteboardDesc', {defaultValue: 'Notify me when a new note is added to a member noteboard.'})}</Text>
           </View>
-          <TouchableOpacity onPress={() => setNoteboardNotifs(!noteboardNotifs)} activeOpacity={0.8} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: noteboardNotifs ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: noteboardNotifs ? 20 : 3}} /></TouchableOpacity>
+          <TouchableOpacity onPress={() => setNoteboardNotifs(!noteboardNotifs)} activeOpacity={0.8} accessibilityRole="switch" accessibilityState={{checked: noteboardNotifs}} accessibilityLabel={t('notification.noteboard', {defaultValue: 'Noteboard Notifications'})} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: noteboardNotifs ? T.accent : T.toggleOff, justifyContent: 'center', marginLeft: 12}}><View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: noteboardNotifs ? 20 : 3}} /></TouchableOpacity>
         </View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
@@ -1313,19 +1360,25 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           </TouchableOpacity>
         ))}</View>
       </View>
-      <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12}}>
-        <View style={{flex: 1}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>
-            {t('modal.dyslexicFont', {defaultValue: 'Dyslexia-Friendly Font'})}
-          </Text>
-          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>
-            {t('modal.dyslexicFontDesc', {defaultValue: 'Renders all text in OpenDyslexic. On by default.'})}
-          </Text>
+      <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
+        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>
+          {t('modal.appFont', {defaultValue: 'App Font'})}
+        </Text>
+        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 8}}>
+          {t('modal.appFontDesc', {defaultValue: 'Font used for text throughout the app.'})}
+        </Text>
+        <View style={{borderWidth: 1, borderColor: T.border, borderRadius: 10, overflow: 'hidden'}}>
+          {FONT_OPTIONS.map((opt, i) => {
+            const sel = fontChoice === opt.value;
+            return (
+              <TouchableOpacity key={opt.value} onPress={() => setFontChoice(opt.value)} activeOpacity={0.7}
+                style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 11, backgroundColor: sel ? `${T.accent}18` : T.surface, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: T.border}}>
+                <Text style={{fontSize: fs(14), color: sel ? T.accent : T.text, fontFamily: opt.family || undefined, fontWeight: sel ? '600' : '400'}}>{opt.label}</Text>
+                {sel ? <Text style={{fontSize: fs(14), color: T.accent}}>✓</Text> : null}
+              </TouchableOpacity>
+            );
+          })}
         </View>
-        <TouchableOpacity onPress={() => setUseDyslexicFont(v => !v)} activeOpacity={0.7}
-          style={{width: 44, height: 26, borderRadius: 13, padding: 2, justifyContent: 'center', backgroundColor: useDyslexicFont ? T.accent : T.surface, borderWidth: 1, borderColor: useDyslexicFont ? T.accent : T.border}}>
-          <View style={{width: 20, height: 20, borderRadius: 10, backgroundColor: useDyslexicFont ? T.bg : T.dim, marginLeft: useDyslexicFont ? 18 : 0}} />
-        </TouchableOpacity>
       </View>
       {[[t('modal.locations'), locs, setLocs, newLocation, setNewLocation, addLoc, t('modal.addLocationPlaceholder')], [t('modal.customMoods'), moods, setMoods, newMood, setNewMood, addMood, t('modal.addMoodPlaceholder')]].map(([label, items, setItems, val, setVal, add, placeholder]: any) => (
         <View key={label} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>

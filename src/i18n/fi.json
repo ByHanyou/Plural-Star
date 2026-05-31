@@ -153,6 +153,13 @@
     "templateBody": "Merkinnän Sisältö (oletus)"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Ampersand-tuonti",
+    "ampersandHint": "Valitse Ampersand-arkisto (.ampar), joka on viety Ampersand-sovelluksesta. Jäsenet, mukautetut kentät ja edustushistoria lisätään järjestelmääsi.",
+    "pickAmparFile": "Valitse .ampar-tiedosto",
+    "amparEmpty": "Tästä arkistosta ei löytynyt jäseniä eikä edustushistoriaa.",
+    "importComplete": "Tuonti valmis.",
+    "importFormatsNote": "Tunnistaa automaattisesti Plural Star-, Simply Plural-, Octocon-, Ourcana- ja HiveMind-tiedostot (.json). Ampersand (.ampar): käytä Ampersand-välilehteä.",
     "title": "Jaa & Vie",
     "export": "Vie",
     "import": "Tuo",
@@ -446,6 +453,9 @@
     "deleteGroupMsg": "Poista tämä ryhmä? Jäseniä ei poisteta."
   },
   "stats": {
+    "showMore": "Näytä lisää",
+    "showMoreN": "Näytä lisää – {{shown}}/{{total}}",
+    "energyByHour": "Energia tunneittain",
     "allTime": "Kaikki",
     "last7": "7 päivää",
     "last30": "30 päivää",
@@ -525,6 +535,8 @@
     "markdownLabel": "Markdown",
     "fieldCount": "{{count}} määritelty",
     "typeText": "Teksti",
+    "typeImage": "Kuva",
+    "addImage": "Lisää kuva",
     "typeMarkdown": "Rikas teksti",
     "typeColor": "Väri",
     "typeDate": "Päivämäärä",
@@ -545,6 +557,7 @@
     "startDate": "Alku"
   },
   "polls": {
+    "removeOption": "Poista vaihtoehto",
     "title": "Kyselyt",
     "createPoll": "Luo kysely",
     "noPolls": "Ei kyselyjä.",

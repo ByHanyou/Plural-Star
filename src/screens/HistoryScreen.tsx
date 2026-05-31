@@ -1,4 +1,4 @@
-import React, {useState, useMemo} from 'react';
+import React, {useState, useMemo, useCallback, useDeferredValue} from 'react';
 import {View, ScrollView, TouchableOpacity, StyleSheet, Alert} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
@@ -26,9 +26,148 @@ interface Props {
   onEditEntry?: (originalIndex: number) => void;
 }
 
+const TierRow = React.memo(function TierRow({label, ids, color, expanded, cap, memberMap, fs, T}: {
+  label: string; ids: string[] | undefined; color: string; expanded?: boolean; cap?: number;
+  memberMap: Map<string, Member>; fs: (n: number) => number; T: any;
+}) {
+  const allMembers = (ids || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
+  if (allMembers.length === 0) return null;
+  const visible = (expanded || cap === undefined) ? allMembers : allMembers.slice(0, Math.max(0, cap));
+  const hidden = allMembers.length - visible.length;
+  const namesText = visible.map(m => m.name).join(', ') + (hidden > 0 ? `, +${hidden}` : '');
+  return (
+    <View style={{flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 2}}>
+      <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: color, marginTop: 5}} />
+      <Text style={{fontSize: fs(10), color, fontWeight: '600', letterSpacing: 0.5, marginTop: 1}}>{label}</Text>
+      <Text style={{flex: 1, fontSize: fs(11), color: T.dim}} numberOfLines={expanded ? undefined : 1}>{namesText}</Text>
+    </View>
+  );
+});
+
+interface FrontHistoryEntryRowProps {
+  entry: HistoryEntry;
+  isLastInGroup: boolean;
+  originalIndex: number;
+  entryKey: string;
+  isExpanded: boolean;
+  memberMap: Map<string, Member>;
+  T: any;
+  fs: (n: number) => number;
+  t: (key: string, opts?: any) => string;
+  onToggleExpand: (key: string) => void;
+  onEditEntry?: (originalIndex: number) => void;
+  onDelete: (originalIndex: number) => void;
+}
+
+const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
+  entry, isLastInGroup, originalIndex, entryKey, isExpanded, memberMap, T, fs, t, onToggleExpand, onEditEntry, onDelete,
+}: FrontHistoryEntryRowProps) {
+  const primaryFronters = (entry.memberIds || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
+  const isOpen = entry.endTime === null;
+  const hasCoFront = (entry.coFrontIds || []).length > 0;
+  const hasCoConscious = (entry.coConsciousIds || []).length > 0;
+  const NAME_CAP = 6;
+  const coFrontCount = entry.coFrontIds?.length || 0;
+  const coConCount = entry.coConsciousIds?.length || 0;
+  const totalMembers = primaryFronters.length + coFrontCount + coConCount;
+  const PRIMARY_TRUNC_THRESHOLD = 32;
+  const primaryBudget = isExpanded ? primaryFronters.length : Math.min(primaryFronters.length, NAME_CAP);
+  const remainAfterPrimary = Math.max(0, NAME_CAP - primaryBudget);
+  const coFrontBudget = isExpanded ? coFrontCount : Math.min(coFrontCount, remainAfterPrimary);
+  const remainAfterCoFront = Math.max(0, remainAfterPrimary - coFrontBudget);
+  const coConBudget = isExpanded ? coConCount : Math.min(coConCount, remainAfterCoFront);
+  const visiblePrimary = primaryFronters.slice(0, primaryBudget);
+  const hiddenPrimary = primaryFronters.length - visiblePrimary.length;
+  const primaryDisplay = visiblePrimary.map(m => m.name).join(', ')
+    + (hiddenPrimary > 0 ? `, +${hiddenPrimary}` : '');
+  const showToggle =
+    totalMembers > NAME_CAP || primaryDisplay.length > PRIMARY_TRUNC_THRESHOLD;
+  return (
+    <View style={{flexDirection: 'row', gap: 10}}>
+      <View style={{alignItems: 'center', width: 16}}>
+        <View style={{width: 8, height: 8, borderRadius: 4,
+          backgroundColor: isOpen ? T.accent : T.dim, marginTop: 16}} />
+        {!isLastInGroup &&
+          <View style={{flex: 1, width: 1, backgroundColor: T.border, marginTop: 2}} />}
+      </View>
+      <View style={[s.card, {flex: 1, backgroundColor: T.card,
+        borderColor: isOpen ? `${T.accent}40` : T.border, marginBottom: 8}]}>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4}}>
+          <View style={{flexDirection: 'row'}}>
+            {primaryFronters.slice(0, 3).map((m, j) => (
+              <View key={m.id} style={{marginLeft: j ? -8 : 0, zIndex: 10 - j}}>
+                <Avatar member={m} size={26} T={T} />
+              </View>
+            ))}
+          </View>
+          <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={isExpanded ? undefined : 1}>
+            {primaryDisplay || t('common.unknown')}
+          </Text>
+          <AccentText T={T} style={{fontSize: fs(12), color: T.accent, fontWeight: '500'}}>
+            {fmtDur(entry.startTime, entry.endTime)}
+          </AccentText>
+        </View>
+        {(hasCoFront || hasCoConscious) && (
+          <View style={{marginBottom: 4}}>
+            <TierRow label={t('tier.coFrontShort')} ids={entry.coFrontIds} color={T.info} expanded={isExpanded} cap={coFrontBudget} memberMap={memberMap} fs={fs} T={T} />
+            <TierRow label={t('tier.coConShort')} ids={entry.coConsciousIds} color={T.success} expanded={isExpanded} cap={coConBudget} memberMap={memberMap} fs={fs} T={T} />
+          </View>
+        )}
+        <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 4}}>
+          {fmtTime(entry.startTime)}
+          {isOpen ? ` → ${t('history.now')}` : entry.endTime ? ` → ${fmtTime(entry.endTime)}` : ''}
+        </Text>
+        {(entry.mood || entry.location) && (
+          <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
+            {entry.mood && (
+              <View style={[s.badge, {backgroundColor: T.surface}]}>
+                <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
+                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(entry.mood, t)}</Text>
+              </View>
+            )}
+            {entry.location && (
+              <View style={[s.badge, {backgroundColor: T.surface}]}>
+                <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
+                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.location}</Text>
+              </View>
+            )}
+          </View>
+        )}
+        {entry.note ? (
+          <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 8}}>
+            <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18}}>{entry.note}</Text>
+          </View>
+        ) : null}
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4}}>
+          {showToggle ? (
+            <TouchableOpacity onPress={() => onToggleExpand(entryKey)} activeOpacity={0.7}
+              style={{paddingVertical: 2, paddingHorizontal: 6}}>
+              <Text style={{fontSize: fs(10), color: T.accent, fontWeight: '500'}}>
+                {isExpanded ? t('history.showLess', {defaultValue: 'Show less'}) : t('history.showMore', {defaultValue: 'Show more'})}
+              </Text>
+            </TouchableOpacity>
+          ) : <View />}
+          <View style={{flexDirection: 'row', gap: 12}}>
+            {onEditEntry && (
+              <TouchableOpacity onPress={() => onEditEntry(originalIndex)} activeOpacity={0.7}
+                style={{paddingVertical: 2, paddingHorizontal: 6}}>
+                <Text style={{fontSize: fs(10), color: T.accent, opacity: 0.8}}>{t('history.editEntry', {defaultValue: 'Edit'})}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => onDelete(originalIndex)} activeOpacity={0.7}
+              style={{paddingVertical: 2, paddingHorizontal: 6}}>
+              <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+});
+
 export const HistoryScreen = ({theme: T, history, journal, getMember, members, onSaveHistory, onEditEntry}: Props) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = useCallback((s: number) => Math.round(s * (T.textScale || 1)), [T.textScale]);
   const [subTab, setSubTab] = useState<SubTab>('front');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -40,15 +179,15 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
     return map;
   }, [members]);
 
-  const toggleEntryExpanded = (key: string) => {
+  const toggleEntryExpanded = useCallback((key: string) => {
     setExpandedEntries(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
-  };
+  }, []);
 
-  const startDelete = (entryIndex: number) => {
+  const startDelete = useCallback((entryIndex: number) => {
     Alert.alert(t('history.deleteEntry'), t('history.deleteConfirm1'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.confirm'), style: 'destructive', onPress: () => {
@@ -66,24 +205,22 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
         ]);
       }},
     ]);
-  };
+  }, [history, onSaveHistory, t]);
 
   const selectedMember = selectedMemberId ? memberMap.get(selectedMemberId) : undefined;
-
-  const frontHistory = history.filter(e => !e.changeType || e.changeType === 'front');
-
-  const frontGroups: Record<string, HistoryEntry[]> = {};
-  frontHistory.forEach(e => {
-    const k = fmtDate(e.startTime);
-    if (!frontGroups[k]) frontGroups[k] = [];
-    frontGroups[k].push(e);
-  });
 
   type FrontHistoryRow =
     | {kind: 'header'; key: string; date: string}
     | {kind: 'entry'; key: string; entry: HistoryEntry; isLastInGroup: boolean; originalIndex: number};
   const frontHistoryRows = useMemo<FrontHistoryRow[]>(() => {
+    const frontHistory = history.filter(e => !e.changeType || e.changeType === 'front');
     if (frontHistory.length === 0) return [];
+    const frontGroups: Record<string, HistoryEntry[]> = {};
+    for (const e of frontHistory) {
+      const k = fmtDate(e.startTime);
+      if (!frontGroups[k]) frontGroups[k] = [];
+      frontGroups[k].push(e);
+    }
     const indexMap = new Map<HistoryEntry, number>();
     history.forEach((e, i) => { indexMap.set(e, i); });
     const rows: FrontHistoryRow[] = [];
@@ -101,6 +238,33 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
     }
     return rows;
   }, [history]);
+
+  const deferredRows = useDeferredValue(frontHistoryRows);
+
+  const renderFrontRow = useCallback(({item}: {item: FrontHistoryRow}) => {
+    if (item.kind === 'header') {
+      return (
+        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase',
+          color: T.dim, marginBottom: 8, marginTop: 16, fontWeight: '600'}}>{item.date}</Text>
+      );
+    }
+    return (
+      <FrontHistoryEntryRow
+        entry={item.entry}
+        isLastInGroup={item.isLastInGroup}
+        originalIndex={item.originalIndex}
+        entryKey={item.key}
+        isExpanded={expandedEntries.has(item.key)}
+        memberMap={memberMap}
+        T={T}
+        fs={fs}
+        t={t}
+        onToggleExpand={toggleEntryExpanded}
+        onEditEntry={onEditEntry}
+        onDelete={startDelete}
+      />
+    );
+  }, [expandedEntries, memberMap, T, fs, t, toggleEntryExpanded, onEditEntry, startDelete]);
 
   const tierNames = (ids: string[] | undefined) =>
     (ids || []).map(id => memberMap.get(id)).filter(Boolean).map(m => m!.name).join(', ');
@@ -144,21 +308,6 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
     return t('history.frontSwitch');
   };
 
-  const TierRow = ({label, ids, color, expanded, cap}: {label: string; ids: string[] | undefined; color: string; expanded?: boolean; cap?: number}) => {
-    const allMembers = (ids || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
-    if (allMembers.length === 0) return null;
-    const visible = (expanded || cap === undefined) ? allMembers : allMembers.slice(0, Math.max(0, cap));
-    const hidden = allMembers.length - visible.length;
-    const namesText = visible.map(m => m.name).join(', ') + (hidden > 0 ? `, +${hidden}` : '');
-    return (
-      <View style={{flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 2}}>
-        <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: color, marginTop: 5}} />
-        <Text style={{fontSize: fs(10), color, fontWeight: '600', letterSpacing: 0.5, marginTop: 1}}>{label}</Text>
-        <Text style={{flex: 1, fontSize: fs(11), color: T.dim}} numberOfLines={expanded ? undefined : 1}>{namesText}</Text>
-      </View>
-    );
-  };
-
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: 16}}>
@@ -171,6 +320,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
         <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border, marginTop: 4}}>
           {(['front', 'member'] as SubTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
+              accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
               style={[s.subtab, {
                 borderBottomWidth: 2,
                 borderBottomColor: subTab === tab ? T.accent : 'transparent',
@@ -189,7 +339,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
 
       {subTab === 'front' && (
         <FlashList
-          data={frontHistoryRows}
+          data={deferredRows}
           keyExtractor={(item) => item.key}
           getItemType={(item) => item.kind}
           contentContainerStyle={{padding: 16, paddingBottom: 32}}
@@ -201,118 +351,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
               </Text>
             </View>
           }
-          renderItem={({item}) => {
-            if (item.kind === 'header') {
-              return (
-                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase',
-                  color: T.dim, marginBottom: 8, marginTop: 16, fontWeight: '600'}}>{item.date}</Text>
-              );
-            }
-            const {entry, isLastInGroup, originalIndex} = item;
-            const primaryFronters = (entry.memberIds || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
-            const isOpen = entry.endTime === null;
-            const hasCoFront = (entry.coFrontIds || []).length > 0;
-            const hasCoConscious = (entry.coConsciousIds || []).length > 0;
-            const entryKey = item.key;
-            const isExpanded = expandedEntries.has(entryKey);
-            const NAME_CAP = 6;
-            const coFrontCount = entry.coFrontIds?.length || 0;
-            const coConCount = entry.coConsciousIds?.length || 0;
-            const totalMembers = primaryFronters.length + coFrontCount + coConCount;
-            const PRIMARY_TRUNC_THRESHOLD = 32;
-            const primaryBudget = isExpanded ? primaryFronters.length : Math.min(primaryFronters.length, NAME_CAP);
-            const remainAfterPrimary = Math.max(0, NAME_CAP - primaryBudget);
-            const coFrontBudget = isExpanded ? coFrontCount : Math.min(coFrontCount, remainAfterPrimary);
-            const remainAfterCoFront = Math.max(0, remainAfterPrimary - coFrontBudget);
-            const coConBudget = isExpanded ? coConCount : Math.min(coConCount, remainAfterCoFront);
-            const visiblePrimary = primaryFronters.slice(0, primaryBudget);
-            const hiddenPrimary = primaryFronters.length - visiblePrimary.length;
-            const primaryDisplay = visiblePrimary.map(m => m.name).join(', ')
-              + (hiddenPrimary > 0 ? `, +${hiddenPrimary}` : '');
-            const showToggle =
-              totalMembers > NAME_CAP || primaryDisplay.length > PRIMARY_TRUNC_THRESHOLD;
-            return (
-              <View style={{flexDirection: 'row', gap: 10}}>
-                <View style={{alignItems: 'center', width: 16}}>
-                  <View style={{width: 8, height: 8, borderRadius: 4,
-                    backgroundColor: isOpen ? T.accent : T.dim, marginTop: 16}} />
-                  {!isLastInGroup &&
-                    <View style={{flex: 1, width: 1, backgroundColor: T.border, marginTop: 2}} />}
-                </View>
-                <View style={[s.card, {flex: 1, backgroundColor: T.card,
-                  borderColor: isOpen ? `${T.accent}40` : T.border, marginBottom: 8}]}>
-                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4}}>
-                    <View style={{flexDirection: 'row'}}>
-                      {primaryFronters.slice(0, 3).map((m, j) => (
-                        <View key={m.id} style={{marginLeft: j ? -8 : 0, zIndex: 10 - j}}>
-                          <Avatar member={m} size={26} T={T} />
-                        </View>
-                      ))}
-                    </View>
-                    <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={isExpanded ? undefined : 1}>
-                      {primaryDisplay || t('common.unknown')}
-                    </Text>
-                    <AccentText T={T} style={{fontSize: fs(12), color: T.accent, fontWeight: '500'}}>
-                      {fmtDur(entry.startTime, entry.endTime)}
-                    </AccentText>
-                  </View>
-                  {(hasCoFront || hasCoConscious) && (
-                    <View style={{marginBottom: 4}}>
-                      <TierRow label={t('tier.coFrontShort')} ids={entry.coFrontIds} color={T.info} expanded={isExpanded} cap={coFrontBudget} />
-                      <TierRow label={t('tier.coConShort')} ids={entry.coConsciousIds} color={T.success} expanded={isExpanded} cap={coConBudget} />
-                    </View>
-                  )}
-                  <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 4}}>
-                    {fmtTime(entry.startTime)}
-                    {isOpen ? ` → ${t('history.now')}` : entry.endTime ? ` → ${fmtTime(entry.endTime)}` : ''}
-                  </Text>
-                  {(entry.mood || entry.location) && (
-                    <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
-                      {entry.mood && (
-                        <View style={[s.badge, {backgroundColor: T.surface}]}>
-                          <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
-                          <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(entry.mood, t)}</Text>
-                        </View>
-                      )}
-                      {entry.location && (
-                        <View style={[s.badge, {backgroundColor: T.surface}]}>
-                          <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                          <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.location}</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-                  {entry.note ? (
-                    <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 8}}>
-                      <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18}}>{entry.note}</Text>
-                    </View>
-                  ) : null}
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4}}>
-                    {showToggle ? (
-                      <TouchableOpacity onPress={() => toggleEntryExpanded(entryKey)} activeOpacity={0.7}
-                        style={{paddingVertical: 2, paddingHorizontal: 6}}>
-                        <Text style={{fontSize: fs(10), color: T.accent, fontWeight: '500'}}>
-                          {isExpanded ? t('history.showLess', {defaultValue: 'Show less'}) : t('history.showMore', {defaultValue: 'Show more'})}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : <View />}
-                    <View style={{flexDirection: 'row', gap: 12}}>
-                      {onEditEntry && (
-                        <TouchableOpacity onPress={() => onEditEntry(originalIndex)} activeOpacity={0.7}
-                          style={{paddingVertical: 2, paddingHorizontal: 6}}>
-                          <Text style={{fontSize: fs(10), color: T.accent, opacity: 0.8}}>{t('history.editEntry', {defaultValue: 'Edit'})}</Text>
-                        </TouchableOpacity>
-                      )}
-                      <TouchableOpacity onPress={() => startDelete(originalIndex)} activeOpacity={0.7}
-                        style={{paddingVertical: 2, paddingHorizontal: 6}}>
-                        <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              </View>
-            );
-          }}
+          renderItem={renderFrontRow}
         />
       )}
 

@@ -153,6 +153,13 @@
     "templateBody": "Текст Записи (предустановка)"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Импорт из Ampersand",
+    "ampersandHint": "Выберите архив Ampersand (.ampar), экспортированный из приложения Ampersand. Участники, пользовательские поля и история фронта будут добавлены в вашу систему.",
+    "pickAmparFile": "Выбрать файл .ampar",
+    "amparEmpty": "В этом архиве не найдено участников или истории фронта.",
+    "importComplete": "Импорт завершён.",
+    "importFormatsNote": "Автоматически распознаёт Plural Star, Simply Plural, Octocon, Ourcana и HiveMind (.json). Для Ampersand (.ampar) используйте вкладку Ampersand.",
     "title": "Поделиться и экспорт",
     "export": "Экспорт",
     "import": "Импорт",
@@ -446,6 +453,9 @@
     "deleteGroupMsg": "Удалить эту группу? Участники останутся."
   },
   "stats": {
+    "showMore": "Показать больше",
+    "showMoreN": "Показать больше — {{shown}} из {{total}}",
+    "energyByHour": "Энергия по часам",
     "allTime": "Всё время",
     "last7": "7 дней",
     "last30": "30 дней",
@@ -505,6 +515,8 @@
     "fieldName": "Имя поля",
     "fieldType": "Тип",
     "typeText": "Текст",
+    "typeImage": "Изображение",
+    "addImage": "Добавить изображение",
     "typeMarkdown": "Рич-текст",
     "typeDate": "Дата",
     "typeDateRange": "Диапазон дат",
@@ -545,6 +557,7 @@
     "hasNotes": "У {{names}} есть заметки на доске"
   },
   "polls": {
+    "removeOption": "Удалить вариант",
     "title": "Опросы",
     "createPoll": "+ Создать опрос",
     "question": "Вопрос",

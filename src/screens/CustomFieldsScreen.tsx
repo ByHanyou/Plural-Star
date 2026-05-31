@@ -10,6 +10,7 @@ import {store, KEYS} from '../storage';
 const FIELD_TYPES: {type: CustomFieldType; label: string; icon: string}[] = [
   {type: 'text', label: 'Text', icon: 'Tt'},
   {type: 'markdown', label: 'Rich Text', icon: '¶'},
+  {type: 'image', label: 'Image', icon: '🖼'},
   {type: 'color', label: 'Color', icon: '🎨'},
   {type: 'date', label: 'Date', icon: '📅'},
   {type: 'month', label: 'Month', icon: '📅'},

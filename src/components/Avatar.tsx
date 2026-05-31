@@ -42,6 +42,7 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
         <Image
           source={{uri: member.avatar}}
           style={{width: size, height: size}}
+          resizeMode="cover"
           onError={() => setImgError(true)}
         />
       </View>

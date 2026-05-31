@@ -153,6 +153,13 @@
     "templateBody": "Oppføringsinnhold (forhåndsdefinert)"
   },
   "share": {
+    "ampersand": "Ampersand",
+    "ampersandImport": "Ampersand-import",
+    "ampersandHint": "Velg et Ampersand-arkiv (.ampar) eksportert fra Ampersand-appen. Medlemmer, egendefinerte felt og fronthistorikk legges til i systemet ditt.",
+    "pickAmparFile": "Velg .ampar-fil",
+    "amparEmpty": "Fant ingen medlemmer eller fronthistorikk i dette arkivet.",
+    "importComplete": "Import fullført.",
+    "importFormatsNote": "Gjenkjenner automatisk Plural Star, Simply Plural, Octocon, Ourcana og HiveMind (.json). For Ampersand (.ampar), bruk Ampersand-fanen.",
     "title": "Del & Eksporter",
     "export": "Eksporter",
     "import": "Importer",
@@ -446,6 +453,9 @@
     "deleteGroupMsg": "Fjerne denne gruppen? Medlemmer slettes ikke."
   },
   "stats": {
+    "showMore": "Vis mer",
+    "showMoreN": "Vis mer – {{shown}} av {{total}}",
+    "energyByHour": "Energi per time",
     "allTime": "Alle",
     "last7": "7 dager",
     "last30": "30 dager",
@@ -525,6 +535,8 @@
     "markdownLabel": "Markdown",
     "fieldCount": "{{count}} definert",
     "typeText": "Tekst",
+    "typeImage": "Bilde",
+    "addImage": "Legg til bilde",
     "typeMarkdown": "Rik tekst",
     "typeColor": "Farge",
     "typeDate": "Dato",
@@ -545,6 +557,7 @@
     "startDate": "Start"
   },
   "polls": {
+    "removeOption": "Fjern alternativ",
     "title": "Avstemninger",
     "createPoll": "Opprett avstemning",
     "noPolls": "Ingen avstemninger.",

@@ -47,7 +47,7 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
             style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: error ? T.danger : T.border}]}
           />
           {error ? <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, marginTop: -8}}>{error}</Text> : null}
-          <TouchableOpacity onPress={submit} activeOpacity={0.8} style={[s.btn, {backgroundColor: T.accent}]}>
+          <TouchableOpacity onPress={submit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('lock.unlock', {defaultValue: 'Unlock'})} style={[s.btn, {backgroundColor: T.accent}]}>
             <Text style={s.btnText}>{t('lock.unlock', {defaultValue: 'Unlock'})}</Text>
           </TouchableOpacity>
         </View>
