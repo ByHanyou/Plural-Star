@@ -136,6 +136,10 @@ npm install --legacy-peer-deps
 cd android && gradlew.bat assembleRelease
 ```
 
+## Wiki
+
+Repo wiki pages live in [`wiki/`](wiki/Home.md).
+
 ---
 
 ## License
