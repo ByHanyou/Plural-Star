@@ -1,5 +1,43 @@
 {
+  "a11y": {
+    "settings": "設定",
+    "lockApp": "アプリをロック",
+    "toolbar": "ツールバー",
+    "mainNav": "メインナビゲーション",
+    "changeAvatar": "システム画像を変更",
+    "changeBanner": "システムバナーを変更",
+    "selected": "選択中"
+  },
+  "errorBoundary": {
+    "title": "問題が発生しました",
+    "body": "アプリで予期しないエラーが発生しました。もう一度お試しください。問題が続く場合はアプリを再起動してください。",
+    "retry": "再試行"
+  },
+  "customFront": {
+    "add": "カスタムフロントを追加",
+    "edit": "カスタムフロントを編集",
+    "namePlaceholder": "カスタムフロント名"
+  },
+  "lock": {
+    "locked": "ロック中",
+    "password": "パスワード",
+    "passwordPlaceholder": "パスワードを入力",
+    "subtitle": "続行するにはパスワードを入力してください。",
+    "unlock": "ロック解除",
+    "wrongPassword": "パスワードが正しくありません。"
+  },
+  "mention": {
+    "noMembers": "一致するメンバーがいません",
+    "pickMember": "メンバーをメンション"
+  },
+  "systemManager": {
+    "desc": "グループとサブシステムの作成、編集、並べ替え、削除ができます。項目の ⇄ をタップしてから移動先をタップすると入れ子にできます。",
+    "title": "システムマネージャー"
+  },
   "common": {
+    "back": "戻る",
+    "change": "変更",
+    "export": "エクスポート",
     "save": "保存",
     "edit": "編集",
     "cancel": "キャンセル",
@@ -62,6 +100,18 @@
     "clearFrontMsg": "すべての階層がクリアされ、現在のセッションの終了が記録されます。続行しますか？"
   },
   "members": {
+    "frontingLockTitle": "現在フロント中",
+    "frontingLockMsg": "フロント中のメンバーはアーカイブまたは削除できません。先にフロントから外してください。",
+    "addCustomFront": "カスタムフロントを追加",
+    "addToGroups": "グループに追加",
+    "assignGroup": "グループ",
+    "backToTop": "トップに戻る",
+    "customFront": "カスタムフロント",
+    "customFronts": "カスタムフロント",
+    "moveDown": "下へ移動",
+    "moveUp": "上へ移動",
+    "noCustomFronts": "カスタムフロントはまだありません。",
+    "selectAction": "選択",
     "title": "メンバー",
     "add": "+ 追加",
     "search": "検索…",
@@ -153,6 +203,8 @@
     "templateBody": "エントリー本文（プリセット）"
   },
   "share": {
+    "banners": "バナー",
+    "groups": "グループ",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand インポート",
     "ampersandHint": "Ampersand アプリからエクスポートしたアーカイブ（.ampar）を選択してください。メンバー、カスタムフィールド、フロント履歴がシステムに追加されます。",
@@ -284,6 +336,7 @@
     "exportCategories": "エクスポートカテゴリ"
   },
   "hub": {
+    "front": "フロント",
     "title": "ハブ",
     "shareExport": "共有とエクスポート",
     "shareExportDesc": "データのエクスポート、他アプリからのインポート、システムプロフィールの共有。",
@@ -316,6 +369,14 @@
     "supportPS": "PSを応援"
   },
   "modal": {
+    "linkPfp": "画像をリンク",
+    "appFont": "アプリのフォント",
+    "appFontDesc": "アプリ全体のテキストに使用されるフォント。",
+    "appLockPassword": "アプリロックのパスワード",
+    "appLockPasswordDesc": "アプリ上部のロックアイコンをタップするとロックされます。ロック解除時にこのパスワードの入力を求められます。",
+    "appLockPasswordPlaceholder": "アプリのロックを解除するパスワード",
+    "changePfp": "プロフィール画像を変更",
+    "profile": "プロフィール",
     "updateFront": "フロントを更新",
     "addMembersFirst": "先にメンバーを追加してください。",
     "mood": "気分",
@@ -445,6 +506,17 @@
     "uk": "Українська"
   },
   "memberGroups": {
+    "changeColor": "色を変更",
+    "deleteSubtree": "すべて削除",
+    "group": "グループ",
+    "move": "移動",
+    "moveHere": "ここに移動",
+    "movePrompt": "移動先をタップ、または:",
+    "moving": "移動中…",
+    "none": "グループやサブシステムはまだありません。",
+    "promoteChildren": "子項目を残す",
+    "subsystem": "サブシステム",
+    "toRoot": "最上位",
     "title": "グループ",
     "manage": "グループ",
     "allGroups": "すべてのグループ",
@@ -487,6 +559,12 @@
     "sessionsSuffix": "セッション"
   },
   "chat": {
+    "addReaction": "リアクションを追加",
+    "attachFile": "ファイルを添付",
+    "formatting": "書式",
+    "messageActions": "メッセージの操作",
+    "reply": "返信",
+    "send": "送信",
     "channels": "チャンネル",
     "newChannel": "新しいチャンネル",
     "channelName": "チャンネル名…",
@@ -543,6 +621,7 @@
     "fieldCount": "{{count}} 件定義済み"
   },
   "noteboard": {
+    "unread": "未読",
     "title": "ノートボード",
     "addNote": "+ ノートを追加",
     "noNotes": "まだノートがありません。このメンバーにノートを残しましょう。",
@@ -607,6 +686,7 @@
     "manual": "手動並べ替え"
   },
   "memberProfile": {
+    "color": "色",
     "banner": "バナー",
     "changeBanner": "バナーを変更",
     "removeBanner": "バナーを削除"

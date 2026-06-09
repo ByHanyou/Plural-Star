@@ -1,13 +1,3 @@
-// Minimal, self-contained MessagePack decoder + Ampersand (.ampar) archive parser.
-//
-// An .ampar file is the Ampersand app's backup format: the ASCII magic "AMPAR",
-// a short header, then a MessagePack *stream* of {table, data} records (one row
-// per record). We decode the stream and group rows by table name. No external
-// dependency is used so this works under Hermes without polyfills.
-//
-// We only need a decoder (import side); encoding is not implemented.
-
-// --- base64 -> bytes (Hermes-safe, no atob/Buffer) -------------------------
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const B64_LOOKUP = (() => {
   const t = new Int16Array(256).fill(-1);
@@ -19,14 +9,13 @@ export const base64ToBytes = (b64: string): Uint8Array => {
   let pad = 0;
   if (b64.endsWith('==')) pad = 2;
   else if (b64.endsWith('=')) pad = 1;
-  // Upper bound on output length; we track the real count with `o`.
   const out = new Uint8Array(Math.floor((b64.length * 3) / 4) + 3 - pad);
   let o = 0;
   let buf = 0;
   let bits = 0;
   for (let i = 0; i < b64.length; i++) {
     const v = B64_LOOKUP[b64.charCodeAt(i)];
-    if (v < 0) continue; // skip '=', newlines, whitespace
+    if (v < 0) continue;
     buf = (buf << 6) | v;
     bits += 6;
     if (bits >= 8) {
@@ -37,7 +26,6 @@ export const base64ToBytes = (b64: string): Uint8Array => {
   return out.subarray(0, o);
 };
 
-// --- UTF-8 decode (manual; TextDecoder is not guaranteed on Hermes) ---------
 const utf8Decode = (bytes: Uint8Array, start: number, len: number): string => {
   let out = '';
   let i = start;
@@ -61,7 +49,6 @@ const utf8Decode = (bytes: Uint8Array, start: number, len: number): string => {
   return out;
 };
 
-// --- MessagePack decoder ----------------------------------------------------
 class MsgpackDecoder {
   private bytes: Uint8Array;
   private view: DataView;
@@ -109,7 +96,6 @@ class MsgpackDecoder {
     return {__ext: type, data};
   }
 
-  // Returns epoch milliseconds.
   private readTimestamp(len: number): number {
     if (len === 4) {
       const sec = this.view.getUint32(this.pos);
@@ -138,11 +124,11 @@ class MsgpackDecoder {
 
   decode(): any {
     const b = this.rdU8();
-    if (b <= 0x7f) return b;              // positive fixint
-    if (b >= 0xe0) return b - 0x100;      // negative fixint
-    if (b >= 0x80 && b <= 0x8f) return this.readMap(b & 0x0f);   // fixmap
-    if (b >= 0x90 && b <= 0x9f) return this.readArray(b & 0x0f); // fixarray
-    if (b >= 0xa0 && b <= 0xbf) return this.readStr(b & 0x1f);   // fixstr
+    if (b <= 0x7f) return b;
+    if (b >= 0xe0) return b - 0x100;
+    if (b >= 0x80 && b <= 0x8f) return this.readMap(b & 0x0f);
+    if (b >= 0x90 && b <= 0x9f) return this.readArray(b & 0x0f);
+    if (b >= 0xa0 && b <= 0xbf) return this.readStr(b & 0x1f);
     switch (b) {
       case 0xc0: return null;
       case 0xc2: return false;
@@ -184,16 +170,12 @@ export interface AmparTables {
   [table: string]: any[];
 }
 
-// Parse an .ampar base64 string into { tableName: rows[] }.
 export const parseAmpar = (b64: string): AmparTables => {
   const bytes = base64ToBytes(b64);
   if (bytes.length < 6) throw new Error('File is empty or truncated.');
   const magic = String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4]);
   if (magic !== 'AMPAR') throw new Error('This is not an Ampersand archive (.ampar).');
 
-  // After the magic comes a short header; the MessagePack stream begins at the
-  // first map marker. Each record is a {table, data} map (2 entries -> 0x82),
-  // but tolerate map16/map32 just in case.
   let start = 5;
   while (start < bytes.length) {
     const b = bytes[start];
@@ -208,7 +190,7 @@ export const parseAmpar = (b64: string): AmparTables => {
     try {
       rec = dec.decode();
     } catch {
-      break; // stop at first malformed record rather than throwing the whole import away
+      break;
     }
     if (rec && typeof rec === 'object' && !Array.isArray(rec) && 'table' in rec) {
       const name = String(rec.table);

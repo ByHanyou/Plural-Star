@@ -64,8 +64,8 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer}: She
       scrollable
       header={
         <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.card}]}>
-          <Text style={[s.title, {color: T.text}]}>{title}</Text>
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close', {defaultValue: 'Close'})} style={s.closeBtn}>
+          <Text style={[s.title, {color: T.text}]} accessibilityRole="header">{title}</Text>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={s.closeBtn}>
             <Text style={[s.closeX, {color: T.dim}]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
           </TouchableOpacity>
         </View>

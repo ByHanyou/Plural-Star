@@ -1,5 +1,43 @@
 {
+  "a11y": {
+    "settings": "Innstillinger",
+    "lockApp": "Lås appen",
+    "toolbar": "Verktøylinje",
+    "mainNav": "Hovednavigasjon",
+    "changeAvatar": "Endre systembilde",
+    "changeBanner": "Endre systembanner",
+    "selected": "valgt"
+  },
+  "errorBoundary": {
+    "title": "Noe gikk galt",
+    "body": "Appen støtte på en uventet feil. Prøv igjen, eller start appen på nytt hvis problemet vedvarer.",
+    "retry": "Prøv igjen"
+  },
+  "customFront": {
+    "add": "Legg til egendefinert front",
+    "edit": "Rediger egendefinert front",
+    "namePlaceholder": "Navn på egendefinert front"
+  },
+  "lock": {
+    "locked": "Låst",
+    "password": "Passord",
+    "passwordPlaceholder": "Skriv inn passord",
+    "subtitle": "Skriv inn passordet ditt for å fortsette.",
+    "unlock": "Lås opp",
+    "wrongPassword": "Feil passord."
+  },
+  "mention": {
+    "noMembers": "Ingen medlemmer samsvarer",
+    "pickMember": "Nevn et medlem"
+  },
+  "systemManager": {
+    "desc": "Opprett, rediger, omorganiser og slett grupper og undersystemer. Trykk ⇄ på et element og deretter et mål for å neste det.",
+    "title": "Systembehandler"
+  },
   "common": {
+    "back": "Tilbake",
+    "change": "Endre",
+    "export": "Eksporter",
     "save": "Lagre",
     "edit": "Rediger",
     "cancel": "Avbryt",
@@ -62,6 +100,18 @@
     "clearFrontTitle": "Tømme front?"
   },
   "members": {
+    "frontingLockTitle": "Er front nå",
+    "frontingLockMsg": "Du kan ikke arkivere eller slette et medlem mens det er front. Fjern det fra fronten først.",
+    "addCustomFront": "Legg til egendefinert front",
+    "addToGroups": "Legg til i grupper",
+    "assignGroup": "Gruppe",
+    "backToTop": "Til toppen",
+    "customFront": "Egendefinert front",
+    "customFronts": "Egendefinerte fronter",
+    "moveDown": "Flytt ned",
+    "moveUp": "Flytt opp",
+    "noCustomFronts": "Ingen egendefinerte fronter ennå.",
+    "selectAction": "Velg",
     "title": "Medlemmer",
     "add": "+ Legg til",
     "search": "Søk...",
@@ -153,6 +203,8 @@
     "templateBody": "Oppføringsinnhold (forhåndsdefinert)"
   },
   "share": {
+    "banners": "Bannere",
+    "groups": "Grupper",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand-import",
     "ampersandHint": "Velg et Ampersand-arkiv (.ampar) eksportert fra Ampersand-appen. Medlemmer, egendefinerte felt og fronthistorikk legges til i systemet ditt.",
@@ -284,6 +336,7 @@
     "exportCategories": "Eksportkategorier"
   },
   "hub": {
+    "front": "Front",
     "title": "Hub",
     "shareExport": "Del & Eksporter",
     "shareExportDesc": "Eksporter data, importer fra andre apper, del systemprofil.",
@@ -316,6 +369,14 @@
     "supportPS": "Støtt PS"
   },
   "modal": {
+    "linkPfp": "Koble til bilde",
+    "appFont": "Appskrift",
+    "appFontDesc": "Skrifttype som brukes for tekst i hele appen.",
+    "appLockPassword": "Passord for applås",
+    "appLockPasswordDesc": "Trykk på låsikonet øverst i appen for å låse. Du blir bedt om dette passordet for å låse opp.",
+    "appLockPasswordPlaceholder": "Passord for å låse opp appen",
+    "changePfp": "Endre profilbilde",
+    "profile": "Profil",
     "systemSettings": "Systeminnstillinger",
     "systemName": "Systemnavn",
     "systemNamePlaceholder": "Systemnavn",
@@ -445,6 +506,17 @@
     "uk": "Українська"
   },
   "memberGroups": {
+    "changeColor": "Endre farge",
+    "deleteSubtree": "Slett alle",
+    "group": "Gruppe",
+    "move": "Flytt",
+    "moveHere": "Flytt hit",
+    "movePrompt": "Trykk på et mål, eller:",
+    "moving": "flytter…",
+    "none": "Ingen grupper eller undersystemer ennå.",
+    "promoteChildren": "Behold underelementer",
+    "subsystem": "Undersystem",
+    "toRoot": "Øverste nivå",
     "title": "Grupper",
     "manage": "Grupper",
     "allGroups": "Alle Grupper",
@@ -487,6 +559,12 @@
     "uniqueFronters": "Unike frontere"
   },
   "chat": {
+    "addReaction": "Legg til reaksjon",
+    "attachFile": "Legg ved fil",
+    "formatting": "Formatering",
+    "messageActions": "Meldingshandlinger",
+    "reply": "Svar",
+    "send": "Send",
     "channels": "Kanaler",
     "newChannel": "Ny kanal",
     "channelName": "Kanalnavn…",
@@ -510,6 +588,7 @@
     "imageFailed": "Bilde feilet"
   },
   "noteboard": {
+    "unread": "Ulest",
     "title": "Notattavle",
     "placeholder": "Skriv et notat...",
     "noNotes": "Ingen notater ennå.",
@@ -589,6 +668,7 @@
     "medium": "Middels"
   },
   "memberProfile": {
+    "color": "Farge",
     "banner": "Banner",
     "changeBanner": "Endre banner",
     "removeBanner": "Fjern banner"

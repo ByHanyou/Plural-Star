@@ -14,7 +14,7 @@ import {T, BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {AccentText} from './src/components/AccentText';
 import {store, KEYS} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, frontToHistoryEntry, uid, makeDefaultCustomFronts} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, frontToHistoryEntry, uid, makeDefaultCustomFronts, isFrontEmpty, allFrontMemberIds} from './src/utils';
 import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia, migrateStaleMediaPaths, rebaseChatMessageMedia} from './src/utils/mediaUtils';
 import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, showNoteboardNotification, clearNoteboardNotification} from './src/services/NotificationService';
 
@@ -22,6 +22,7 @@ import {SetupScreen} from './src/screens/SetupScreen';
 import {LockScreen} from './src/screens/LockScreen';
 import {FrontScreen} from './src/screens/FrontScreen';
 import {MembersScreen} from './src/screens/MembersScreen';
+import {SystemManagerScreen} from './src/screens/SystemManagerScreen';
 import {HistoryScreen} from './src/screens/HistoryScreen';
 import {JournalScreen} from './src/screens/JournalScreen';
 import {ShareScreen} from './src/screens/ShareScreen';
@@ -30,7 +31,7 @@ import {StatsScreen} from './src/screens/StatsScreen';
 import {ChatScreen} from './src/screens/ChatScreen';
 import {CustomFieldsScreen} from './src/screens/CustomFieldsScreen';
 import {PollsScreen} from './src/screens/PollsScreen';
-import {SetFrontModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal} from './src/modals';
+import {SetFrontModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal, CustomFrontModal} from './src/modals';
 
 type Tab = 'front' | 'members' | 'hub' | 'journal' | 'history';
 
@@ -61,7 +62,7 @@ const getGPSLocation = (): Promise<string | null> =>
             const {latitude, longitude} = pos.coords;
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
-              {headers: {'User-Agent': 'PluralStar/1.8.0'}},
+              {headers: {'User-Agent': 'PluralStar/1.9.0'}},
             );
             const data = await res.json();
             const a = data.address || {};
@@ -105,6 +106,8 @@ function MainAppContent() {
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [viewOnlyMember, setViewOnlyMember] = useState(false);
   const [addCustomFront, setAddCustomFront] = useState(false);
+  const [showCustomFront, setShowCustomFront] = useState(false);
+  const [editCustomFront, setEditCustomFront] = useState<Member | null>(null);
   const [showJournal, setShowJournal] = useState(false);
   const [editJournal, setEditJournal] = useState<JournalEntry | null>(null);
   const [showSystem, setShowSystem] = useState(false);
@@ -390,6 +393,17 @@ function MainAppContent() {
     }
     setMembers(d);
     await store.set(KEYS.members, d);
+    const archivedIds = new Set(d.filter(m => m.archived).map(m => m.id));
+    if (archivedIds.size > 0 && front) {
+      const pruneTier = (tier: any) => tier ? {...tier, memberIds: (tier.memberIds || []).filter((id: string) => !archivedIds.has(id))} : tier;
+      const next: any = {...front, primary: pruneTier(front.primary), coFront: pruneTier(front.coFront), coConscious: pruneTier(front.coConscious)};
+      const count = (f: any) => (f?.primary?.memberIds?.length || 0) + (f?.coFront?.memberIds?.length || 0) + (f?.coConscious?.memberIds?.length || 0);
+      if (count(next) !== count(front)) {
+        const cleaned = isFrontEmpty(next) ? null : next;
+        setFront(cleaned);
+        await store.set(KEYS.front, cleaned);
+      }
+    }
   };
   const saveHistory = async (d: HistoryEntry[]) => {
     if (!loaded && d.length === 0) return;
@@ -544,6 +558,10 @@ function MainAppContent() {
     const idSet = new Set(ids);
     await saveMembers(members.filter(m => !idSet.has(m.id)));
   };
+  const bulkAddGroups = async (ids: string[], groupIds: string[]) => {
+    const idSet = new Set(ids);
+    await saveMembers(members.map(m => idSet.has(m.id) ? {...m, groupIds: [...new Set([...(m.groupIds || []), ...groupIds])]} : m));
+  };
   const saveEntry = async (e: JournalEntry) => {
     const u = journal.find(x => x.id === e.id) ? journal.map(x => (x.id === e.id ? e : x)) : [e, ...journal];
     await saveJournal(u);
@@ -623,9 +641,9 @@ function MainAppContent() {
       case 'members':
         return <MembersScreen theme={C} members={members} front={front} groups={groups} initialSortMode={appSettings.memberSortMode}
           onAdd={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setShowMember(true);}}
-          onAddCustomFront={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(true); setShowMember(true);}}
-          onEdit={m => {setEditMember(m); setViewOnlyMember(false); setShowMember(true);}}
-          onView={m => {setEditMember(m); setViewOnlyMember(true); setShowMember(true);}}
+          onAddCustomFront={() => {setEditCustomFront(null); setShowCustomFront(true);}}
+          onEdit={m => { if (m.isCustomFront) {setEditCustomFront(m); setShowCustomFront(true);} else {setEditMember(m); setViewOnlyMember(false); setShowMember(true);} }}
+          onView={m => { if (m.isCustomFront) {setEditCustomFront(m); setShowCustomFront(true);} else {setEditMember(m); setViewOnlyMember(true); setShowMember(true);} }}
           onSaveGroups={saveGroups} onSaveSortMode={async (mode) => {const next = {...appSettings, memberSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);}} onReorderMember={async (id, direction) => {
           const active = members.filter(m => !m.archived);
           const archived = members.filter(m => m.archived);
@@ -643,9 +661,10 @@ function MainAppContent() {
           onBulkArchive={(ids: string[]) => bulkSetArchived(ids, true)}
           onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
           onBulkDelete={bulkDeleteMembers}
+          onBulkAddGroups={bulkAddGroups}
         />;
       case 'hub':
-        return <HubScreen theme={C} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderPollsScreen={renderPollsScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
+        return <HubScreen theme={C} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} />} renderPollsScreen={renderPollsScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
       case 'journal':
         return <JournalScreen theme={C} journal={journal} templates={journalTemplates} members={members} systemJournalPassword={system.journalPassword} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} onSaveTemplates={saveJournalTemplates} onMentionPress={openMemberById} />;
       case 'history':
@@ -662,23 +681,27 @@ function MainAppContent() {
             T={C}
             style={[styles.headerTitle, {color: C.accent, flex: 1, marginRight: 8}]}
             numberOfLines={1}
+            accessibilityRole="header"
             maxFontSizeMultiplier={1.2}>{system.name}</AccentText>
-          <View style={styles.headerRight}>
+          <View style={styles.headerRight} accessibilityRole="toolbar" accessibilityLabel={t('a11y.toolbar')}>
             <TouchableOpacity
               onPress={() => { if (appSettings.appLockPassword) setLocked(true); }}
               disabled={!appSettings.appLockPassword}
               activeOpacity={appSettings.appLockPassword ? 0.7 : 1}
+              accessibilityRole="button"
+              accessibilityLabel={t('a11y.lockApp')}
+              accessibilityState={{disabled: !appSettings.appLockPassword}}
               style={styles.settingsBtn}>
-              <Text style={[styles.settingsIcon, {color: appSettings.appLockPassword ? C.dim : C.muted, opacity: appSettings.appLockPassword ? 1 : 0.35}]} maxFontSizeMultiplier={1.2} allowFontScaling={false}>🔒</Text>
+              <Text style={[styles.settingsIcon, {color: appSettings.appLockPassword ? C.dim : C.muted, opacity: appSettings.appLockPassword ? 1 : 0.35}]} maxFontSizeMultiplier={1.2} allowFontScaling={false} importantForAccessibility="no" accessibilityElementsHidden>🔒</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowSystem(true)} activeOpacity={0.7} style={styles.settingsBtn}>
-              <Text style={[styles.settingsIcon, {color: C.dim}]} maxFontSizeMultiplier={1.2} allowFontScaling={false}>⚙</Text>
+            <TouchableOpacity onPress={() => setShowSystem(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.settings')} style={styles.settingsBtn}>
+              <Text style={[styles.settingsIcon, {color: C.dim}]} maxFontSizeMultiplier={1.2} allowFontScaling={false} importantForAccessibility="no" accessibilityElementsHidden>⚙</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
       <View style={styles.content}>{renderScreen()}</View>
-      <View style={[styles.tabBar, {backgroundColor: C.surface, borderTopColor: C.border}]}>
+      <View style={[styles.tabBar, {backgroundColor: C.surface, borderTopColor: C.border}]} accessibilityRole="tablist" accessibilityLabel={t('a11y.mainNav')}>
         {TAB_IDS.map(id => (
           <TouchableOpacity key={id} onPress={() => { if (id === 'hub' && tab === 'hub') setHubResetKey(k => k + 1); setTab(id); }} activeOpacity={0.7} accessibilityRole="tab" accessibilityState={{selected: tab === id}} accessibilityLabel={t(`tabs.${id}`)} style={[styles.tabBtn, {paddingBottom: 8 + (insets.bottom || 0)}]}>
             <AccentText T={C} style={[styles.tabIcon, {color: tab === id ? C.accent : C.dim, fontSize: fs(18)}]} maxFontSizeMultiplier={1.2}>{TAB_ICONS[id]}</AccentText>
@@ -699,10 +722,16 @@ function MainAppContent() {
       )}
       <MemberModal key={`${editMember?.id || 'new-member'}-${viewOnlyMember ? 'view' : 'edit'}`} visible={showMember} theme={C} member={editMember} members={members} groups={groups} settings={appSettings}
         readOnly={viewOnlyMember}
+        isFronting={!!editMember && allFrontMemberIds(front).includes(editMember.id)}
         onMentionPress={openMemberById}
         onSave={async (m: Member) => {await saveMember(addCustomFront && !editMember ? {...m, isCustomFront: true} : m); setShowMember(false); setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false);}}
         onDelete={async (id: string) => {await deleteMember(id); setShowMember(false); setEditMember(null); setViewOnlyMember(false);}}
         onClose={() => {setShowMember(false); setEditMember(null); setViewOnlyMember(false);}} />
+      <CustomFrontModal visible={showCustomFront} theme={C} customFront={editCustomFront}
+        isFronting={!!editCustomFront && allFrontMemberIds(front).includes(editCustomFront.id)}
+        onSave={async (m: Member) => {await saveMember({...m, isCustomFront: true}); setShowCustomFront(false); setEditCustomFront(null);}}
+        onDelete={async (id: string) => {await deleteMember(id); setShowCustomFront(false); setEditCustomFront(null);}}
+        onClose={() => {setShowCustomFront(false); setEditCustomFront(null);}} />
       <JournalModal visible={showJournal} theme={C} entry={editJournal} members={members} templates={journalTemplates}
         onMentionPress={openMemberById}
         onSave={async (e: JournalEntry) => {await saveEntry(e); setShowJournal(false);}}
@@ -736,17 +765,17 @@ class AppErrorBoundary extends React.Component<{children: React.ReactNode}, {err
     return (
       <View style={{flex: 1, backgroundColor: '#0a0a0a', padding: 24, justifyContent: 'center', alignItems: 'center'}}>
         <Text style={{color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center'}}>
-          {i18n.t('errorBoundary.title', {defaultValue: 'Something went wrong'})}
+          {i18n.t('errorBoundary.title')}
         </Text>
         <Text style={{color: '#bbb', fontSize: 13, marginBottom: 24, textAlign: 'center'}}>
-          {i18n.t('errorBoundary.body', {defaultValue: 'The app hit an unexpected error. Try again, or restart the app if it persists.'})}
+          {i18n.t('errorBoundary.body')}
         </Text>
         <Text style={{color: '#666', fontSize: 11, marginBottom: 24, textAlign: 'center'}} numberOfLines={4}>
           {msg}
         </Text>
         <TouchableOpacity onPress={this.reset} style={{paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, backgroundColor: '#3a7bd5'}}>
           <Text style={{color: '#fff', fontSize: 14, fontWeight: '600'}}>
-            {i18n.t('errorBoundary.retry', {defaultValue: 'Try again'})}
+            {i18n.t('errorBoundary.retry')}
           </Text>
         </TouchableOpacity>
       </View>

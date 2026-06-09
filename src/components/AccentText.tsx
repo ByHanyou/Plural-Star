@@ -11,15 +11,16 @@ interface Props {
   minimumFontScale?: number;
   maxFontSizeMultiplier?: number;
   allowFontScaling?: boolean;
+  accessibilityRole?: any;
 }
 
 const OFFSETS = [[-1,-1],[1,-1],[-1,1],[1,1]];
 const OUTLINE_MIN_SIZE = 14;
 
-export const AccentText = ({children, style, T, numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling}: Props) => {
+export const AccentText = ({children, style, T, numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling, accessibilityRole}: Props) => {
   const fontSize = StyleSheet.flatten(style)?.fontSize ?? 12;
   const shouldOutline = T.isLight && fontSize >= OUTLINE_MIN_SIZE;
-  const textProps = {numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling};
+  const textProps = {numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling, accessibilityRole};
 
   if (!shouldOutline) {
     return <Text style={style} {...textProps}>{children}</Text>;

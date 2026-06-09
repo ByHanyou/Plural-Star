@@ -53,7 +53,7 @@ const downloadImageWithExtSniff = async (
       followRedirect: true,
     }).fetch('GET', url, {
       Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5',
-      'User-Agent': 'PluralStar/1.8.0 (avatar-import)',
+      'User-Agent': 'PluralStar/1.9.0 (avatar-import)',
     });
     const result = await new Promise<any>((resolve, reject) => {
       let settled = false;
@@ -155,14 +155,6 @@ export const saveBioImage = async (
   return `file://${path}?t=${Date.now()}`;
 };
 
-// Persist the picked image as-is — no manual crop. The avatar (circular) and
-// banner (3:1) frames crop visually via resizeMode="cover", which the native
-// Image component computes correctly for both device pixel-scale and EXIF
-// orientation. The old ImageEditor.cropImage path computed crop offsets from
-// Image.getSize, which mis-cropped to a tiny region on some devices/photos
-// (logical-vs-pixel scale mismatch + Android EXIF orientation swap), so a user
-// would only see a small part of their picture. Downscaling now happens at pick
-// time via the picker's maxWidth/maxHeight (also EXIF-correct).
 const persistImage = async (sourceUri: string, destPath: string): Promise<string> => {
   const readPath = sourceUri.replace('file://', '');
   const raw = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');

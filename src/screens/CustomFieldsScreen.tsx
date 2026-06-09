@@ -104,6 +104,9 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
                   disabled={i === 0}
                   hitSlop={{top: 10, bottom: 6, left: 12, right: 12}}
                   activeOpacity={0.6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('members.moveUp')}, ${fd.name}`}
+                  accessibilityState={{disabled: i === 0}}
                   style={{padding: 3}}>
                   <Text style={{fontSize: fs(14), color: i === 0 ? T.border : T.muted, lineHeight: 14}}>▲</Text>
                 </TouchableOpacity>
@@ -112,6 +115,9 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
                   disabled={i === fields.length - 1}
                   hitSlop={{top: 6, bottom: 10, left: 12, right: 12}}
                   activeOpacity={0.6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${t('members.moveDown')}, ${fd.name}`}
+                  accessibilityState={{disabled: i === fields.length - 1}}
                   style={{padding: 3}}>
                   <Text style={{fontSize: fs(14), color: i === fields.length - 1 ? T.border : T.muted, lineHeight: 14}}>▼</Text>
                 </TouchableOpacity>
@@ -122,17 +128,17 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
                     <TextInput value={editName} onChangeText={setEditName} autoFocus
                       style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: fs(14)}}
                       onSubmitEditing={() => renameField(fd.id)} />
-                    <TouchableOpacity onPress={() => renameField(fd.id)} activeOpacity={0.7}>
+                    <TouchableOpacity onPress={() => renameField(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}>
                       <Text style={{fontSize: fs(16), color: T.accent}}>✓</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
-                  <TouchableOpacity onPress={() => {setEditId(fd.id); setEditName(fd.name);}} activeOpacity={0.7}>
+                  <TouchableOpacity onPress={() => {setEditId(fd.id); setEditName(fd.name);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${fd.name}, ${t('common.edit')}`}>
                     <Text style={{fontSize: fs(15), color: T.text, fontWeight: '500'}}>{fd.name}</Text>
                   </TouchableOpacity>
                 )}
               </View>
-              <TouchableOpacity onPress={() => deleteField(fd.id)} activeOpacity={0.7}>
+              <TouchableOpacity onPress={() => deleteField(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${fd.name}`}>
                 <Text style={{fontSize: fs(18), color: T.danger}}>🗑</Text>
               </TouchableOpacity>
             </View>
@@ -145,8 +151,8 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
             </View>
 
             {(fd.type === 'text' || fd.type === 'markdown') && (
-              <TouchableOpacity onPress={() => toggleMarkdown(fd.id)} activeOpacity={0.7} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
-                <Text style={{fontSize: fs(16), color: fd.markdown ? T.accent : T.muted}}>{fd.markdown ? '☑' : '☐'}</Text>
+              <TouchableOpacity onPress={() => toggleMarkdown(fd.id)} activeOpacity={0.7} accessibilityRole="checkbox" accessibilityState={{checked: !!fd.markdown}} accessibilityLabel={t('customFields.markdownSupport')} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
+                <Text style={{fontSize: fs(16), color: fd.markdown ? T.accent : T.muted}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{fd.markdown ? '☑' : '☐'}</Text>
                 <Text style={{fontSize: fs(12), color: T.dim}}>{t('customFields.markdownSupport')}</Text>
               </TouchableOpacity>
             )}
@@ -160,10 +166,12 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
             style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
             onSubmitEditing={addField} />
           <TouchableOpacity onPress={() => setShowTypePicker(!showTypePicker)} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityState={{expanded: showTypePicker}} accessibilityLabel={t('customFields.fieldType')} accessibilityValue={{text: typeLabel(newType)}}
             style={{backgroundColor: T.bg, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9}}>
             <Text style={{fontSize: fs(12), color: T.dim}}>{typeLabel(newType)} ▾</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={addField} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityLabel={t('common.add')}
             style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 9}}>
             <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>+</Text>
           </TouchableOpacity>
@@ -173,9 +181,10 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
           <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, marginTop: 8, overflow: 'hidden'}}>
             {FIELD_TYPES.map(ft => (
               <TouchableOpacity key={ft.type} onPress={() => {setNewType(ft.type); setShowTypePicker(false);}} activeOpacity={0.7}
+                accessibilityRole="menuitem" accessibilityState={{selected: newType === ft.type}} accessibilityLabel={typeLabel(ft.type)}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border,
                   backgroundColor: newType === ft.type ? `${T.accent}15` : 'transparent'}}>
-                <Text style={{fontSize: fs(16), width: 24, textAlign: 'center'}}>{ft.icon}</Text>
+                <Text style={{fontSize: fs(16), width: 24, textAlign: 'center'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{ft.icon}</Text>
                 <Text style={{fontSize: fs(13), color: newType === ft.type ? T.accent : T.text, fontWeight: newType === ft.type ? '600' : '400'}}>{typeLabel(ft.type)}</Text>
               </TouchableOpacity>
             ))}

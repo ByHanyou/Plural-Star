@@ -1,5 +1,8 @@
 {
   "common": {
+    "back": "Back",
+    "change": "Change",
+    "export": "Export",
     "save": "Save",
     "edit": "Edit",
     "cancel": "Cancel",
@@ -15,6 +18,20 @@
     "notInExport": "Not in export",
     "ok": "OK",
     "search": "Search…"
+  },
+  "a11y": {
+    "settings": "Settings",
+    "lockApp": "Lock app",
+    "toolbar": "App toolbar",
+    "mainNav": "Main navigation",
+    "changeAvatar": "Change system picture",
+    "changeBanner": "Change system banner",
+    "selected": "selected"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "The app hit an unexpected error. Try again, or restart the app if it persists.",
+    "retry": "Try again"
   },
   "tabs": {
     "front": "Front",
@@ -63,6 +80,18 @@
     "clearFrontTitle": "Clear Front?"
   },
   "members": {
+    "frontingLockTitle": "Currently fronting",
+    "frontingLockMsg": "You can't archive or delete a member while they're fronting. Remove them from the front first.",
+    "addCustomFront": "Add Custom Front",
+    "addToGroups": "Add to groups",
+    "assignGroup": "Group",
+    "backToTop": "Back to top",
+    "customFront": "Custom Front",
+    "customFronts": "Custom Fronts",
+    "moveDown": "Move down",
+    "moveUp": "Move up",
+    "noCustomFronts": "No custom fronts yet.",
+    "selectAction": "Select",
     "title": "Members",
     "count": "{{count}} member",
     "count_other": "{{count}} members",
@@ -168,6 +197,8 @@
     "templateBody": "Entry Body (preset)"
   },
   "share": {
+    "banners": "Banners",
+    "groups": "Groups",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand Import",
     "ampersandHint": "Pick an Ampersand archive (.ampar) exported from the Ampersand app. Members, custom fields, and fronting history will be added to your system.",
@@ -311,6 +342,7 @@
     "spMergeDesc": "Merge Simply Plural backup data into your current system."
   },
   "hub": {
+    "front": "Front",
     "title": "Hub",
     "shareExport": "Share & Export",
     "shareExportDesc": "Export data, import from other apps, share your system profile.",
@@ -344,6 +376,13 @@
     "supportPS": "Support PS"
   },
   "modal": {
+    "linkPfp": "Link image",
+    "appFont": "App Font",
+    "appFontDesc": "Font used for text throughout the app.",
+    "appLockPassword": "App Lock Password",
+    "appLockPasswordDesc": "Tap the lock icon at the top of the app to lock. You'll be prompted for this password to unlock.",
+    "appLockPasswordPlaceholder": "Password to unlock the app",
+    "changePfp": "Change profile picture",
     "updateFront": "Update Front",
     "addMembersFirst": "Add members first.",
     "mood": "Mood",
@@ -357,6 +396,7 @@
     "note": "Note",
     "addMember": "Add Member",
     "editMember": "Edit Member",
+    "profile": "Profile",
     "member": "Member",
     "name": "Name *",
     "headmateName": "Headmate name",
@@ -476,6 +516,17 @@
     "uk": "Українська"
   },
   "memberGroups": {
+    "changeColor": "Change color",
+    "deleteSubtree": "Delete all",
+    "group": "Group",
+    "move": "Move",
+    "moveHere": "Move here",
+    "movePrompt": "Tap a destination, or:",
+    "moving": "moving…",
+    "none": "No groups or sub-systems yet.",
+    "promoteChildren": "Keep children",
+    "subsystem": "Sub-system",
+    "toRoot": "Top level",
     "title": "Groups",
     "manage": "Groups",
     "allGroups": "All Groups",
@@ -522,6 +573,12 @@
     "uniqueFronters": "Unique Fronters"
   },
   "chat": {
+    "addReaction": "Add reaction",
+    "attachFile": "Attach file",
+    "formatting": "Formatting",
+    "messageActions": "Message actions",
+    "reply": "Reply",
+    "send": "Send",
     "channels": "Channels",
     "newChannel": "New Channel",
     "channelName": "Channel name…",
@@ -551,6 +608,27 @@
     "editingHeader": "Editing message",
     "editPlaceholder": "Edit message…",
     "imagePreview": "[image]"
+  },
+  "customFront": {
+    "add": "Add Custom Front",
+    "edit": "Edit Custom Front",
+    "namePlaceholder": "Custom front name"
+  },
+  "lock": {
+    "locked": "Locked",
+    "password": "Password",
+    "passwordPlaceholder": "Enter password",
+    "subtitle": "Enter your password to continue.",
+    "unlock": "Unlock",
+    "wrongPassword": "Incorrect password."
+  },
+  "mention": {
+    "noMembers": "No members match",
+    "pickMember": "Mention a member"
+  },
+  "systemManager": {
+    "desc": "Create, edit, rearrange, and delete groups and sub-systems. Tap ⇄ on an item, then a destination, to nest it.",
+    "title": "System Manager"
   },
   "customFields": {
     "title": "Custom Fields",
@@ -586,6 +664,7 @@
     "fieldCount": "{{count}} defined"
   },
   "noteboard": {
+    "unread": "Unread",
     "title": "Noteboard",
     "addNote": "+ Add Note",
     "noNotes": "No notes yet. Leave a note for this headmate.",
@@ -650,6 +729,7 @@
     "manual": "Manual Order"
   },
   "memberProfile": {
+    "color": "Color",
     "banner": "Banner",
     "changeBanner": "Change Banner",
     "removeBanner": "Remove Banner"

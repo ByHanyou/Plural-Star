@@ -79,6 +79,7 @@ const TierCard = ({
           }}
         />
         <Text
+          accessibilityRole="header"
           style={{
             fontSize: fs(10),
             letterSpacing: 1,
@@ -135,13 +136,13 @@ const TierCard = ({
           </View>
         )}
 
-        <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('front.frontNote')}, ${t('common.edit', {defaultValue: 'Edit'})}`} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
+        <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('front.frontNote')}, ${t('common.edit')}`} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
           <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
             <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim}}>
               {t('front.frontNote')}
             </Text>
             <View style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit', {defaultValue: 'Edit'})}</Text>
+              <Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text>
             </View>
           </View>
           <Text style={{fontSize: fs(12), color: note ? T.text : T.muted, marginTop: 4}}>
@@ -176,6 +177,7 @@ export const FrontScreen = ({
 
         <View style={{marginBottom: 16}}>
           <Text
+            accessibilityRole="header"
             style={[s.heading, {color: T.text, marginBottom: 10}]}
             numberOfLines={1}
             maxFontSizeMultiplier={1.2}>

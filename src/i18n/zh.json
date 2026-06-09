@@ -1,5 +1,43 @@
 {
+  "a11y": {
+    "settings": "设置",
+    "lockApp": "锁定应用",
+    "toolbar": "工具栏",
+    "mainNav": "主导航",
+    "changeAvatar": "更改系统图片",
+    "changeBanner": "更改系统横幅",
+    "selected": "已选择"
+  },
+  "errorBoundary": {
+    "title": "出现错误",
+    "body": "应用遇到意外错误。请重试，如果问题持续，请重启应用。",
+    "retry": "重试"
+  },
+  "customFront": {
+    "add": "添加自定义前台",
+    "edit": "编辑自定义前台",
+    "namePlaceholder": "自定义前台名称"
+  },
+  "lock": {
+    "locked": "已锁定",
+    "password": "密码",
+    "passwordPlaceholder": "输入密码",
+    "subtitle": "输入密码以继续。",
+    "unlock": "解锁",
+    "wrongPassword": "密码错误。"
+  },
+  "mention": {
+    "noMembers": "没有匹配的成员",
+    "pickMember": "提及成员"
+  },
+  "systemManager": {
+    "desc": "创建、编辑、重新排列和删除组与子系统。点按项目上的 ⇄，然后选择目标位置以嵌套。",
+    "title": "系统管理器"
+  },
   "common": {
+    "back": "返回",
+    "change": "更改",
+    "export": "导出",
     "save": "保存",
     "edit": "编辑",
     "cancel": "取消",
@@ -62,6 +100,18 @@
     "clearFrontMsg": "这将清除所有层级并记录当前会话的结束。继续吗？"
   },
   "members": {
+    "frontingLockTitle": "当前在前台",
+    "frontingLockMsg": "成员在前台时无法归档或删除。请先将其从前台移除。",
+    "addCustomFront": "添加自定义前台",
+    "addToGroups": "添加到组",
+    "assignGroup": "组",
+    "backToTop": "返回顶部",
+    "customFront": "自定义前台",
+    "customFronts": "自定义前台",
+    "moveDown": "下移",
+    "moveUp": "上移",
+    "noCustomFronts": "暂无自定义前台。",
+    "selectAction": "选择",
     "title": "成员",
     "add": "+ 添加",
     "search": "搜索…",
@@ -153,6 +203,8 @@
     "templateBody": "条目正文（预设）"
   },
   "share": {
+    "banners": "横幅",
+    "groups": "组",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand 导入",
     "ampersandHint": "选择从 Ampersand 应用导出的存档（.ampar）。成员、自定义字段和前台历史记录将添加到你的系统中。",
@@ -284,6 +336,7 @@
     "exportCategories": "导出类别"
   },
   "hub": {
+    "front": "前台",
     "title": "中心",
     "shareExport": "分享与导出",
     "shareExportDesc": "导出数据，从其他应用导入，分享系统资料。",
@@ -316,6 +369,14 @@
     "supportPS": "支持 PS"
   },
   "modal": {
+    "linkPfp": "链接图片",
+    "appFont": "应用字体",
+    "appFontDesc": "整个应用中文本使用的字体。",
+    "appLockPassword": "应用锁定密码",
+    "appLockPasswordDesc": "点按应用顶部的锁定图标即可锁定。解锁时将要求输入此密码。",
+    "appLockPasswordPlaceholder": "用于解锁应用的密码",
+    "changePfp": "更改头像",
+    "profile": "资料",
     "updateFront": "更新前台",
     "addMembersFirst": "请先添加成员。",
     "mood": "情绪",
@@ -445,6 +506,17 @@
     "uk": "Українська"
   },
   "memberGroups": {
+    "changeColor": "更改颜色",
+    "deleteSubtree": "全部删除",
+    "group": "组",
+    "move": "移动",
+    "moveHere": "移动到此处",
+    "movePrompt": "点按目标位置，或：",
+    "moving": "移动中…",
+    "none": "暂无组或子系统。",
+    "promoteChildren": "保留子项",
+    "subsystem": "子系统",
+    "toRoot": "顶层",
     "title": "组",
     "manage": "组",
     "allGroups": "所有组",
@@ -487,6 +559,12 @@
     "sessionsSuffix": "次会话"
   },
   "chat": {
+    "addReaction": "添加表情回应",
+    "attachFile": "附加文件",
+    "formatting": "格式",
+    "messageActions": "消息操作",
+    "reply": "回复",
+    "send": "发送",
     "channels": "频道",
     "newChannel": "新频道",
     "channelName": "频道名称…",
@@ -543,6 +621,7 @@
     "fieldCount": "{{count}} 个已定义"
   },
   "noteboard": {
+    "unread": "未读",
     "title": "留言板",
     "addNote": "+ 添加留言",
     "noNotes": "还没有留言。给这个伙伴留言。",
@@ -607,6 +686,7 @@
     "manual": "手动排序"
   },
   "memberProfile": {
+    "color": "颜色",
     "banner": "横幅",
     "changeBanner": "更改横幅",
     "removeBanner": "移除横幅"

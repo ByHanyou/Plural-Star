@@ -1,11 +1,15 @@
 import {Keyboard, Platform, InteractionManager} from 'react-native';
-import {pick as pickDocument, isErrorWithCode, errorCodes, keepLocalCopy} from '@react-native-documents/picker';
+import {pick as pickDocument, isErrorWithCode, errorCodes, keepLocalCopy, types} from '@react-native-documents/picker';
 
 export const isPickerCancel = (err: any): boolean =>
   isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED;
 export const getPickedFilePath = (result: any): string => {
   const uri = result?.fileCopyUri || result?.uri || '';
-  return uri.startsWith('file://') ? uri.replace('file://', '') : uri;
+  if (uri.startsWith('file://')) {
+    const stripped = uri.replace('file://', '');
+    try { return decodeURIComponent(stripped); } catch { return stripped; }
+  }
+  return uri;
 };
 
 const fallbackFileName = (result: any, idx: number): string => {
@@ -48,7 +52,7 @@ export const safePick = (options: {type: string[]}): Promise<any[]> => {
     Keyboard.dismiss();
     const launch = () => {
       try {
-        pickDocument(options)
+        pickDocument(Platform.OS === 'ios' ? {type: [types.allFiles]} : options)
           .then(async results => {
             try {
               const localized = await localizeOnAndroid(results);

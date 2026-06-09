@@ -1,5 +1,43 @@
 {
+  "a11y": {
+    "settings": "Einstellungen",
+    "lockApp": "App sperren",
+    "toolbar": "Symbolleiste",
+    "mainNav": "Hauptnavigation",
+    "changeAvatar": "Systembild ändern",
+    "changeBanner": "System-Banner ändern",
+    "selected": "ausgewählt"
+  },
+  "errorBoundary": {
+    "title": "Etwas ist schiefgelaufen",
+    "body": "In der App ist ein unerwarteter Fehler aufgetreten. Versuche es erneut oder starte die App neu, falls das Problem bestehen bleibt.",
+    "retry": "Erneut versuchen"
+  },
+  "customFront": {
+    "add": "Benutzerdefinierte Front hinzufügen",
+    "edit": "Benutzerdefinierte Front bearbeiten",
+    "namePlaceholder": "Name der benutzerdefinierten Front"
+  },
+  "lock": {
+    "locked": "Gesperrt",
+    "password": "Passwort",
+    "passwordPlaceholder": "Passwort eingeben",
+    "subtitle": "Gib dein Passwort ein, um fortzufahren.",
+    "unlock": "Entsperren",
+    "wrongPassword": "Falsches Passwort."
+  },
+  "mention": {
+    "noMembers": "Keine passenden Mitglieder",
+    "pickMember": "Ein Mitglied erwähnen"
+  },
+  "systemManager": {
+    "desc": "Erstelle, bearbeite, ordne und lösche Gruppen und Subsysteme. Tippe auf ⇄ bei einem Element und dann auf ein Ziel, um es zu verschachteln.",
+    "title": "Systemverwaltung"
+  },
   "common": {
+    "back": "Zurück",
+    "change": "Ändern",
+    "export": "Exportieren",
     "save": "Speichern",
     "edit": "Bearbeiten",
     "cancel": "Abbrechen",
@@ -62,6 +100,18 @@
     "clearFrontTitle": "Front leeren?"
   },
   "members": {
+    "frontingLockTitle": "Derzeit im Front",
+    "frontingLockMsg": "Du kannst ein Mitglied nicht archivieren oder löschen, während es im Front ist. Entferne es zuerst aus dem Front.",
+    "addCustomFront": "Benutzerdefinierte Front hinzufügen",
+    "addToGroups": "Zu Gruppen hinzufügen",
+    "assignGroup": "Gruppe",
+    "backToTop": "Zum Anfang",
+    "customFront": "Benutzerdefinierte Front",
+    "customFronts": "Benutzerdefinierte Fronten",
+    "moveDown": "Nach unten",
+    "moveUp": "Nach oben",
+    "noCustomFronts": "Noch keine benutzerdefinierten Fronten.",
+    "selectAction": "Auswählen",
     "title": "Mitglieder",
     "add": "+ Hinzufügen",
     "search": "Suchen...",
@@ -153,6 +203,8 @@
     "templateBody": "Eintragsinhalt (Voreinstellung)"
   },
   "share": {
+    "banners": "Banner",
+    "groups": "Gruppen",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand-Import",
     "ampersandHint": "Wähle ein Ampersand-Archiv (.ampar), das aus der Ampersand-App exportiert wurde. Mitglieder, benutzerdefinierte Felder und der Fronting-Verlauf werden zu deinem System hinzugefügt.",
@@ -284,6 +336,14 @@
     "exportCategories": "Exportkategorien"
   },
   "modal": {
+    "linkPfp": "Bild verknüpfen",
+    "appFont": "App-Schriftart",
+    "appFontDesc": "Schriftart für den Text in der gesamten App.",
+    "appLockPassword": "App-Sperrpasswort",
+    "appLockPasswordDesc": "Tippe oben in der App auf das Schloss-Symbol, um zu sperren. Dieses Passwort wird zum Entsperren abgefragt.",
+    "appLockPasswordPlaceholder": "Passwort zum Entsperren der App",
+    "changePfp": "Profilbild ändern",
+    "profile": "Profil",
     "updateFront": "Front Aktualisieren",
     "addMembersFirst": "Füge zuerst Mitglieder hinzu.",
     "mood": "Stimmung",
@@ -413,6 +473,17 @@
     "uk": "Українська"
   },
   "memberGroups": {
+    "changeColor": "Farbe ändern",
+    "deleteSubtree": "Alle löschen",
+    "group": "Gruppe",
+    "move": "Verschieben",
+    "moveHere": "Hierher verschieben",
+    "movePrompt": "Tippe auf ein Ziel, oder:",
+    "moving": "wird verschoben…",
+    "none": "Noch keine Gruppen oder Subsysteme.",
+    "promoteChildren": "Untergeordnete behalten",
+    "subsystem": "Subsystem",
+    "toRoot": "Oberste Ebene",
     "title": "Gruppen",
     "manage": "Gruppen",
     "allGroups": "Alle Gruppen",
@@ -421,6 +492,7 @@
     "deleteGroupMsg": "Diese Gruppe entfernen? Mitglieder werden nicht gelöscht."
   },
   "hub": {
+    "front": "Front",
     "title": "Zentrum",
     "shareExport": "Teilen und Exportieren",
     "shareExportDesc": "Daten exportieren, aus anderen Apps importieren, Systemprofil teilen.",
@@ -487,6 +559,12 @@
     "uniqueFronters": "Einzigartige Fronter"
   },
   "chat": {
+    "addReaction": "Reaktion hinzufügen",
+    "attachFile": "Datei anhängen",
+    "formatting": "Formatierung",
+    "messageActions": "Nachrichtenaktionen",
+    "reply": "Antworten",
+    "send": "Senden",
     "channels": "Kanäle",
     "newChannel": "Neuer Kanal",
     "channelName": "Kanalname…",
@@ -510,6 +588,7 @@
     "imageFailed": "Bild Fehlgeschlagen"
   },
   "noteboard": {
+    "unread": "Ungelesen",
     "title": "Notiztafel",
     "placeholder": "Notiz schreiben...",
     "noNotes": "Noch keine Notizen.",
@@ -589,6 +668,7 @@
     "medium": "Mittel"
   },
   "memberProfile": {
+    "color": "Farbe",
     "banner": "Banner",
     "changeBanner": "Banner ändern",
     "removeBanner": "Banner entfernen"

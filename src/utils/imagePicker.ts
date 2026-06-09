@@ -13,10 +13,6 @@ export interface PickedImage {
 export const pickImageFromGallery = async (
   opts: {includeBase64?: boolean; quality?: number; maxWidth?: number; maxHeight?: number} = {},
 ): Promise<PickedImage | null> => {
-  // maxWidth/maxHeight make the picker re-encode the image: it bakes in EXIF
-  // orientation and downscales to fit. We no longer crop afterwards (frames use
-  // resizeMode="cover"), so this is where the image gets sized down. 1280 keeps
-  // banners crisp at 3x while staying memory-safe with many members.
   const result = await launchImageLibrary({
     mediaType: 'photo',
     selectionLimit: 1,

@@ -54,7 +54,7 @@ const renderTextWithMentions = (
 
 const isHTML = (text: string): boolean => {
   const t = text.trim();
-  return t.startsWith('<') || /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr)\b/i.test(t);
+  return t.startsWith('<') || /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr|img|br|strong|em|b|i|s|del|code|a)\b/i.test(t);
 };
 
 const decodeEntities = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
@@ -187,8 +187,30 @@ const renderHTMLBlocks = (html: string, T: any, members?: Member[], onMentionPre
           case 'p': default: {
             const content = seg.content.trim();
             if (!content) return <View key={i} style={{height: 4}} />;
-            const hasImage = /<img\s/i.test(content);
-            if (hasImage) {
+            const imgCount = (content.match(/<img\s/gi) || []).length;
+            if (imgCount === 1) {
+              const imgM = content.match(/<img\s[^>]*>/i);
+              if (imgM && imgM.index !== undefined) {
+                const restHtml = (content.slice(0, imgM.index) + ' ' + content.slice(imgM.index + imgM[0].length));
+                const restPlain = restHtml.replace(/<[^>]*>/g, '').trim();
+                const srcMatch = imgM[0].match(/src=["']([^"']+)["']/);
+                const url = srcMatch ? srcMatch[1] : '';
+                const validUrl = /^https?:\/\//i.test(url) || /^file:\/\//i.test(url) || url.startsWith('data:');
+                if (validUrl && restPlain.length > 0) {
+                  const wAttr = imgM[0].match(/width=["']?(\d+)["']?/);
+                  const hAttr = imgM[0].match(/height=["']?(\d+)["']?/);
+                  const sideW = Math.min(wAttr ? Number(wAttr[1]) : 110, 130);
+                  const sideH = (wAttr && hAttr) ? Math.round(sideW * (Number(hAttr[1]) / Number(wAttr[1]))) : Math.round(sideW * 1.4);
+                  return (
+                    <View key={i} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
+                      <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" />
+                      <Text style={{flex: 1, fontSize: fs(13, T), color: T.dim, lineHeight: 20}}>{renderInlineHTML(restHtml, T, members, onMentionPress)}</Text>
+                    </View>
+                  );
+                }
+              }
+            }
+            if (imgCount >= 1) {
               return <View key={i} style={{marginVertical: 2}}>{renderInlineHTML(content, T, members, onMentionPress)}</View>;
             }
             return <Text key={i} style={{fontSize: fs(13, T), color: T.dim, lineHeight: 20}}>{renderInlineHTML(content, T, members, onMentionPress)}</Text>;
@@ -275,7 +297,23 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
     if (mdImgMatch && mdImgMatch.index !== undefined) {
       const before = line.slice(0, mdImgMatch.index).trim();
       const after = line.slice(mdImgMatch.index + mdImgMatch[0].length).trim();
-      const url = mdImgMatch[2].replace(/[)]+$/, '').replace(/#\d+x\d+$/, '').trim();
+      const rawUrl = mdImgMatch[2].trim();
+      const sizeHint = rawUrl.match(/#(\d+)x(\d+)$/);
+      const url = rawUrl.replace(/[)]+$/, '').replace(/#\d+x\d+$/, '').trim();
+      if (isValidImageUri(url) && (before || after)) {
+        const sideW = sizeHint ? Math.min(Number(sizeHint[1]), 130) : 110;
+        const sideH = sizeHint ? Math.round(sideW * (Number(sizeHint[2]) / Number(sizeHint[1]))) : Math.round(sideW * 1.4);
+        elements.push(
+          <View key={i * 3} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
+            <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" />
+            <View style={{flex: 1, gap: 2}}>
+              {before ? renderMarkdownLine(before, T, i * 3 + 1, members, onMentionPress) : null}
+              {after ? renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress) : null}
+            </View>
+          </View>,
+        );
+        return;
+      }
       if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
       if (isValidImageUri(url)) {
         elements.push(<Image key={i * 3 + 1} source={{uri: url}} style={{width: '100%', height: 200, borderRadius: 8}} resizeMode="contain" />);

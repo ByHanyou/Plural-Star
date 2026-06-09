@@ -160,8 +160,8 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
     if (!activeChannelId) return;
     setActionsForMessage(null);
     Alert.alert(
-      t('chat.deleteMsg', {defaultValue: 'Delete message?'}),
-      t('chat.deleteMsgConfirm', {defaultValue: 'This message will be removed permanently.'}),
+      t('chat.deleteMsg'),
+      t('chat.deleteMsgConfirm'),
       [
         {text: t('common.cancel'), style: 'cancel'},
         {text: t('common.delete'), style: 'destructive', onPress: async () => {
@@ -176,17 +176,17 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
   const pingMessage = async (msg: ChatMessage) => {
     if (!activeChannel) return;
     const author = getMember(msg.authorId);
-    const speaker = author?.name || t('common.unknown', {defaultValue: 'Unknown'});
+    const speaker = author?.name || t('common.unknown');
     let preview = '';
-    if (msg.type === 'image') preview = t('chat.imagePreview', {defaultValue: '[image]'});
+    if (msg.type === 'image') preview = t('chat.imagePreview');
     else if (msg.type === 'file') preview = `📄 ${getChatMediaFileName(msg.content)}`;
     else preview = (msg.content || '').replace(/<[^>]+>/g, '').replace(/[#*`~_]/g, '').trim();
     await showChatPingNotification(activeChannel.name, speaker, preview);
     setActionsForMessage(null);
     if (Platform.OS === 'ios') {
       Alert.alert(
-        t('chat.pingSent', {defaultValue: 'Pinged'}),
-        t('chat.pingSentMsg', {defaultValue: 'Background notifications are Android-only right now — but the message is highlighted in your chat.'}),
+        t('chat.pingSent'),
+        t('chat.pingSentMsg'),
       );
     }
   };
@@ -318,6 +318,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4}}>
                 {reactionEntries.map(([emoji, users]) => (
                   <TouchableOpacity key={emoji} onPress={() => addReaction(msg.id, emoji)} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityState={{selected: (users as string[]).includes(activeMemberId || '')}} accessibilityLabel={`${emoji} ${(users as string[]).length}`}
                     style={{flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
                       backgroundColor: (users as string[]).includes(activeMemberId || '') ? `${T.accent}20` : T.surface, borderWidth: 1, borderColor: T.border}}>
                     <Text style={{fontSize: fs(12)}}>{emoji}</Text>
@@ -328,15 +329,15 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
             )}
           </View>
           <View style={{flexDirection: 'row', gap: 4, paddingTop: 2}}>
-            <TouchableOpacity onPress={() => setReplyTo(msg)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.reply', {defaultValue: 'Reply'})}><Text style={{fontSize: fs(12), color: T.dim}}>↩</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowEmojiFor(showEmojiFor === msg.id ? null : msg.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.addReaction', {defaultValue: 'Add reaction'})}><Text style={{fontSize: fs(12), color: T.dim}}>☺</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setActionsForMessage(actionsForMessage === msg.id ? null : msg.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.messageActions', {defaultValue: 'Message actions'})}><Text style={{fontSize: fs(14), color: actionsForMessage === msg.id ? T.accent : T.dim, fontWeight: '700'}}>⋯</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setReplyTo(msg)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.reply')}><Text style={{fontSize: fs(12), color: T.dim}}>↩</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setShowEmojiFor(showEmojiFor === msg.id ? null : msg.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.addReaction')}><Text style={{fontSize: fs(12), color: T.dim}}>☺</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setActionsForMessage(actionsForMessage === msg.id ? null : msg.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.messageActions')}><Text style={{fontSize: fs(14), color: actionsForMessage === msg.id ? T.accent : T.dim, fontWeight: '700'}}>⋯</Text></TouchableOpacity>
           </View>
         </View>
         {showEmojiFor === msg.id && (
           <View style={{flexDirection: 'row', gap: 6, marginLeft: 38, marginTop: 4, padding: 6, backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
             {EMOJI_QUICK.map(e => (
-              <TouchableOpacity key={e} onPress={() => addReaction(msg.id, e)} activeOpacity={0.7}>
+              <TouchableOpacity key={e} onPress={() => addReaction(msg.id, e)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={e}>
                 <Text style={{fontSize: fs(18)}}>{e}</Text>
               </TouchableOpacity>
             ))}
@@ -345,15 +346,15 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
         {actionsForMessage === msg.id && (
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginLeft: 38, marginTop: 4, padding: 6, backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
             {(msg.type === 'text' || msg.type === 'reply') && (
-              <TouchableOpacity onPress={() => startEditMessage(msg)} activeOpacity={0.7} style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-                <Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit', {defaultValue: 'Edit'})}</Text>
+              <TouchableOpacity onPress={() => startEditMessage(msg)} activeOpacity={0.7} accessibilityRole="button" style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                <Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => pingMessage(msg)} activeOpacity={0.7} style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`}}>
-              <Text style={{fontSize: fs(11), fontWeight: '500', color: T.info}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('chat.ping', {defaultValue: 'Ping'})}</Text>
+            <TouchableOpacity onPress={() => pingMessage(msg)} activeOpacity={0.7} accessibilityRole="button" style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`}}>
+              <Text style={{fontSize: fs(11), fontWeight: '500', color: T.info}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('chat.ping')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => deleteMessage(msg)} activeOpacity={0.7} style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
-              <Text style={{fontSize: fs(11), fontWeight: '500', color: T.danger}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.delete', {defaultValue: 'Delete'})}</Text>
+            <TouchableOpacity onPress={() => deleteMessage(msg)} activeOpacity={0.7} accessibilityRole="button" style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+              <Text style={{fontSize: fs(11), fontWeight: '500', color: T.danger}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.delete')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -364,7 +365,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
   if (showChannelList) {
     return (
       <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.channels')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.channels')}</Text>
         {activeChannels.map(ch => (
           <View key={ch.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
             {editChannelId === ch.id ? (
@@ -372,17 +373,18 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
                 <TextInput value={editChannelName} onChangeText={setEditChannelName} autoFocus
                   style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: fs(13)}}
                   onSubmitEditing={() => renameChannel(ch.id)} returnKeyType="done" />
-                <TouchableOpacity onPress={() => renameChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('common.save', {defaultValue: 'Save'})}><Text style={{fontSize: fs(14), color: T.success}}>✓</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => setEditChannelId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel', {defaultValue: 'Cancel'})}><Text style={{fontSize: fs(12), color: T.dim}}>✕</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => renameChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text style={{fontSize: fs(14), color: T.success}}>✓</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => setEditChannelId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.dim}}>✕</Text></TouchableOpacity>
               </View>
             ) : (
               <>
                 <TouchableOpacity onPress={() => {setActiveChannelId(ch.id); setShowChannelList(false);}} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityState={{selected: activeChannelId === ch.id}} accessibilityLabel={ch.name}
                   style={{flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, backgroundColor: T.card, borderColor: activeChannelId === ch.id ? `${T.accent}50` : T.border}}>
                   <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}># {ch.name}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => {setEditChannelId(ch.id); setEditChannelName(ch.name);}} activeOpacity={0.7} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit', {defaultValue: 'Edit'})}</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => archiveChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('chat.archiveChannel', {defaultValue: 'Archive channel'})}><Text style={{fontSize: fs(12), color: T.info}}>▼</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => {setEditChannelId(ch.id); setEditChannelName(ch.name);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${ch.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => archiveChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('chat.archiveChannel')}><Text style={{fontSize: fs(12), color: T.info}}>▼</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => deleteChannel(ch.id)} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${ch.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
               </>
             )}
@@ -394,13 +396,13 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
             <TextInput value={newChannelName} onChangeText={setNewChannelName} placeholder={t('chat.channelName')} placeholderTextColor={T.muted}
               style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}}
               onSubmitEditing={createChannel} returnKeyType="done" autoFocus />
-            <TouchableOpacity onPress={createChannel} activeOpacity={0.7}
+            <TouchableOpacity onPress={createChannel} activeOpacity={0.7} accessibilityRole="button"
               style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`}}>
               <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{t('common.add')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity onPress={() => setShowNewChannel(true)} activeOpacity={0.7}
+          <TouchableOpacity onPress={() => setShowNewChannel(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.newChannel')}
             style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: T.border, marginTop: 8}}>
             <Text style={{fontSize: fs(12), color: T.dim}}>+ {t('chat.newChannel')}</Text>
           </TouchableOpacity>
@@ -408,7 +410,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
 
         {archivedChannels.length > 0 && (
           <View style={{marginTop: 20}}>
-            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.archivedChannels')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.archivedChannels')}</Text>
             {archivedChannels.map(ch => (
               <View key={ch.id} style={{padding: 12, borderRadius: 10, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 6, opacity: 0.6}}>
                 <Text style={{fontSize: fs(14), color: T.text}}>#{ch.name}</Text>
@@ -424,11 +426,12 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
-        <TouchableOpacity onPress={() => setShowChannelList(true)} activeOpacity={0.7} style={{marginRight: 10}}>
+        <TouchableOpacity onPress={() => setShowChannelList(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.channels')} style={{marginRight: 10}}>
           <Text style={{fontSize: fs(16), color: T.dim}}>☰</Text>
         </TouchableOpacity>
-        <Text style={{flex: 1, fontSize: fs(15), fontWeight: '600', color: T.text}}>#{activeChannel?.name || '?'}</Text>
+        <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(15), fontWeight: '600', color: T.text}}>#{activeChannel?.name || '?'}</Text>
         <TouchableOpacity onPress={() => setShowMemberPicker(!showMemberPicker)} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityState={{expanded: showMemberPicker}} accessibilityLabel={t('chat.selectSpeaker')} accessibilityValue={{text: activeMember?.name || ''}}
           style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
             backgroundColor: activeMember ? `${activeMember.color}15` : T.surface, borderColor: activeMember ? `${activeMember.color}40` : T.border}}>
           {activeMember && <Avatar member={activeMember} size={18} T={T} />}
@@ -444,6 +447,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
             <View style={{flexDirection: 'row', gap: 6}}>
               {sortMembersBySearch(members.filter(m => !m.archived && (!memberSearch || m.name.toLowerCase().includes(memberSearch.toLowerCase()))), memberSearch).map(m => (
                 <TouchableOpacity key={m.id} onPress={() => {setActiveMemberId(m.id); setShowMemberPicker(false); setMemberSearch('');}} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityState={{selected: activeMemberId === m.id}} accessibilityLabel={m.name}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                     backgroundColor: activeMemberId === m.id ? `${m.color}20` : T.bg, borderColor: activeMemberId === m.id ? `${m.color}50` : T.border}}>
                   <Avatar member={m} size={18} T={T} />
@@ -481,13 +485,13 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
       {replyTo && !editingMessageId && (
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border}}>
           <Text style={{fontSize: fs(11), color: T.dim, flex: 1}} numberOfLines={1}>↳ {getMember(replyTo.authorId)?.name}: {replyTo.content.slice(0, 40)}</Text>
-          <TouchableOpacity onPress={() => setReplyTo(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel', {defaultValue: 'Cancel'})}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => setReplyTo(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
         </View>
       )}
       {editingMessageId && (
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: `${T.accent}15`, borderTopWidth: 1, borderTopColor: `${T.accent}40`}}>
-          <Text style={{fontSize: fs(11), color: T.accent, flex: 1, fontWeight: '500'}} numberOfLines={1}>✎ {t('chat.editingHeader', {defaultValue: 'Editing message'})}</Text>
-          <TouchableOpacity onPress={cancelEditMessage}><Text style={{fontSize: fs(12), color: T.danger}}>{t('common.cancel')}</Text></TouchableOpacity>
+          <Text style={{fontSize: fs(11), color: T.accent, flex: 1, fontWeight: '500'}} numberOfLines={1}>✎ {t('chat.editingHeader')}</Text>
+          <TouchableOpacity onPress={cancelEditMessage} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.danger}}>{t('common.cancel')}</Text></TouchableOpacity>
         </View>
       )}
 
@@ -508,6 +512,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
             {label: '</>', before: '`', after: '`'},
           ].map(tool => (
             <TouchableOpacity key={tool.label} onPress={() => insertFormat(tool.before, tool.after)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel={tool.label}
               style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: T.border, backgroundColor: T.bg}}>
               <Text style={{fontSize: fs(12), fontWeight: tool.label === 'B' ? '700' : '500', fontStyle: tool.label === 'I' ? 'italic' : 'normal', textDecorationLine: tool.label === 'S' ? 'line-through' : 'none', color: T.dim}}>{tool.label}</Text>
             </TouchableOpacity>
@@ -516,16 +521,17 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
       )}
 
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}>
-        <TouchableOpacity onPress={sendMedia} activeOpacity={0.7} style={{padding: 4}}>
+        <TouchableOpacity onPress={sendMedia} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.attachFile')} style={{padding: 4}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>📎</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setShowFormatBar(!showFormatBar)} activeOpacity={0.7} style={{padding: 4}}>
+        <TouchableOpacity onPress={() => setShowFormatBar(!showFormatBar)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{expanded: showFormatBar}} accessibilityLabel={t('chat.formatting')} style={{padding: 4}}>
           <Text style={{fontSize: fs(14), fontWeight: '700', color: showFormatBar ? T.accent : T.dim}}>Aa</Text>
         </TouchableOpacity>
-        <TextInput value={input} onChangeText={setInput} placeholder={editingMessageId ? t('chat.editPlaceholder', {defaultValue: 'Edit message…'}) : t('chat.typeMessage')} placeholderTextColor={T.muted}
+        <TextInput value={input} onChangeText={setInput} placeholder={editingMessageId ? t('chat.editPlaceholder') : t('chat.typeMessage')} placeholderTextColor={T.muted}
           style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: editingMessageId ? `${T.accent}60` : T.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: fs(14)}}
           onSubmitEditing={editingMessageId ? saveEditedMessage : sendMessage} returnKeyType={editingMessageId ? 'done' : 'send'} />
         <TouchableOpacity onPress={editingMessageId ? saveEditedMessage : sendMessage} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityLabel={editingMessageId ? t('common.save') : t('chat.send')}
           style={{width: 36, height: 36, borderRadius: 18, backgroundColor: input.trim() ? T.accent : T.toggleOff, alignItems: 'center', justifyContent: 'center'}}>
           <Text style={{fontSize: fs(16), color: input.trim() ? T.bg : T.muted}}>{editingMessageId ? '✓' : '↑'}</Text>
         </TouchableOpacity>

@@ -1,5 +1,43 @@
 {
+  "a11y": {
+    "settings": "Asetukset",
+    "lockApp": "Lukitse sovellus",
+    "toolbar": "Työkalupalkki",
+    "mainNav": "Päänavigointi",
+    "changeAvatar": "Vaihda järjestelmän kuva",
+    "changeBanner": "Vaihda järjestelmän banneri",
+    "selected": "valittu"
+  },
+  "errorBoundary": {
+    "title": "Jokin meni pieleen",
+    "body": "Sovelluksessa tapahtui odottamaton virhe. Yritä uudelleen tai käynnistä sovellus uudelleen, jos ongelma jatkuu.",
+    "retry": "Yritä uudelleen"
+  },
+  "customFront": {
+    "add": "Lisää mukautettu frontti",
+    "edit": "Muokkaa mukautettua fronttia",
+    "namePlaceholder": "Mukautetun frontin nimi"
+  },
+  "lock": {
+    "locked": "Lukittu",
+    "password": "Salasana",
+    "passwordPlaceholder": "Syötä salasana",
+    "subtitle": "Syötä salasanasi jatkaaksesi.",
+    "unlock": "Avaa lukitus",
+    "wrongPassword": "Väärä salasana."
+  },
+  "mention": {
+    "noMembers": "Ei vastaavia jäseniä",
+    "pickMember": "Mainitse jäsen"
+  },
+  "systemManager": {
+    "desc": "Luo, muokkaa, järjestä ja poista ryhmiä ja alijärjestelmiä. Napauta ⇄ kohteessa ja sitten kohdetta sisentääksesi sen.",
+    "title": "Järjestelmänhallinta"
+  },
   "common": {
+    "back": "Takaisin",
+    "change": "Vaihda",
+    "export": "Vie",
     "save": "Tallenna",
     "edit": "Muokkaa",
     "cancel": "Peruuta",
@@ -62,6 +100,18 @@
     "clearFrontTitle": "Tyhjennetäänkö front?"
   },
   "members": {
+    "frontingLockTitle": "Tällä hetkellä edessä",
+    "frontingLockMsg": "Et voi arkistoida tai poistaa jäsentä, kun hän on edessä. Poista hänet ensin edestä.",
+    "addCustomFront": "Lisää mukautettu frontti",
+    "addToGroups": "Lisää ryhmiin",
+    "assignGroup": "Ryhmä",
+    "backToTop": "Takaisin ylös",
+    "customFront": "Mukautettu frontti",
+    "customFronts": "Mukautetut frontit",
+    "moveDown": "Siirrä alas",
+    "moveUp": "Siirrä ylös",
+    "noCustomFronts": "Ei vielä mukautettuja fronteja.",
+    "selectAction": "Valitse",
     "title": "Jäsenet",
     "add": "+ Lisää",
     "search": "Hae...",
@@ -153,6 +203,8 @@
     "templateBody": "Merkinnän Sisältö (oletus)"
   },
   "share": {
+    "banners": "Bannerit",
+    "groups": "Ryhmät",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand-tuonti",
     "ampersandHint": "Valitse Ampersand-arkisto (.ampar), joka on viety Ampersand-sovelluksesta. Jäsenet, mukautetut kentät ja edustushistoria lisätään järjestelmääsi.",
@@ -284,6 +336,7 @@
     "exportCategories": "Vientikategoriat"
   },
   "hub": {
+    "front": "Frontti",
     "title": "Hub",
     "shareExport": "Jaa & Vie",
     "shareExportDesc": "Vie tietoja, tuo muista sovelluksista, jaa järjestelmäprofiili.",
@@ -316,6 +369,14 @@
     "supportPS": "Tue PS:ää"
   },
   "modal": {
+    "linkPfp": "Linkitä kuva",
+    "appFont": "Sovelluksen fontti",
+    "appFontDesc": "Fontti, jota käytetään tekstissä koko sovelluksessa.",
+    "appLockPassword": "Sovelluksen lukitussalasana",
+    "appLockPasswordDesc": "Napauta sovelluksen yläreunan lukkokuvaketta lukitaksesi. Tätä salasanaa kysytään lukituksen avaamiseen.",
+    "appLockPasswordPlaceholder": "Salasana sovelluksen lukituksen avaamiseen",
+    "changePfp": "Vaihda profiilikuva",
+    "profile": "Profiili",
     "systemSettings": "Järjestelmäasetukset",
     "systemName": "Järjestelmän Nimi",
     "systemNamePlaceholder": "Järjestelmän nimi",
@@ -445,6 +506,17 @@
     "uk": "Українська"
   },
   "memberGroups": {
+    "changeColor": "Vaihda väri",
+    "deleteSubtree": "Poista kaikki",
+    "group": "Ryhmä",
+    "move": "Siirrä",
+    "moveHere": "Siirrä tähän",
+    "movePrompt": "Napauta kohdetta tai:",
+    "moving": "siirretään…",
+    "none": "Ei vielä ryhmiä tai alijärjestelmiä.",
+    "promoteChildren": "Säilytä alikohteet",
+    "subsystem": "Alijärjestelmä",
+    "toRoot": "Ylin taso",
     "title": "Ryhmät",
     "manage": "Ryhmät",
     "allGroups": "Kaikki Ryhmät",
@@ -487,6 +559,12 @@
     "uniqueFronters": "Uniikit frontaajat"
   },
   "chat": {
+    "addReaction": "Lisää reaktio",
+    "attachFile": "Liitä tiedosto",
+    "formatting": "Muotoilu",
+    "messageActions": "Viestin toiminnot",
+    "reply": "Vastaa",
+    "send": "Lähetä",
     "channels": "Kanavat",
     "newChannel": "Uusi kanava",
     "channelName": "Kanavan nimi…",
@@ -510,6 +588,7 @@
     "imageFailed": "Kuva epäonnistui"
   },
   "noteboard": {
+    "unread": "Lukematon",
     "title": "Muistitaulu",
     "placeholder": "Kirjoita muistiinpano...",
     "noNotes": "Ei muistiinpanoja.",
@@ -589,6 +668,7 @@
     "medium": "Keskitaso"
   },
   "memberProfile": {
+    "color": "Väri",
     "banner": "Banneri",
     "changeBanner": "Vaihda banneri",
     "removeBanner": "Poista banneri"

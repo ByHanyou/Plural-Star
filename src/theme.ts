@@ -158,13 +158,7 @@ export const Fonts = {
 
 export type FontChoice = 'default' | 'opendyslexic' | 'atkinson' | 'lexend' | 'comicneue' | 'cause' | 'gelasio' | 'anton';
 
-// react-native-asset links these TTFs from src/assets/fonts. The fontFamily that
-// resolves at runtime differs by platform: Android uses the file name (no
-// extension), iOS uses the font's PostScript name. OpenDyslexic is the exception
-// — it's also registered as a native Android res/font family, so 'OpenDyslexic'
-// works directly. Using the human display name (e.g. 'Atkinson Hyperlegible')
-// matches neither, which is why those fonts silently fell back to the default.
-const fontFam = (android: string, ios: string): string => (Platform.OS === 'android' ? android : ios);
+const fontFam =(android: string, ios: string): string => (Platform.OS === 'android' ? android : ios);
 
 export const FONT_OPTIONS: {value: FontChoice; label: string; family: string | null}[] = [
   {value: 'default', label: 'Default', family: null},
@@ -180,14 +174,7 @@ export const FONT_OPTIONS: {value: FontChoice; label: string; family: string | n
 export const fontFamilyForChoice = (c?: FontChoice): string | null =>
   FONT_OPTIONS.find(o => o.value === c)?.family ?? null;
 
-// Real bold/italic faces, keyed by the regular family that fontFamilyForChoice
-// returns. Each asset font ships separate files per style, and on Android a face
-// is reached by its own filename family (not by fontWeight/fontStyle on the
-// regular family). Atkinson / Comic Neue / Gelasio ship all four; Lexend & Cause
-// ship bold only (no italic exists); Anton is single-weight (handled by faux
-// styling + the Android italic guard in AppText). OpenDyslexic is excluded — its
-// native res/font family already maps weight/style.
-interface FontVariants { regular: string; bold?: string; italic?: string; boldItalic?: string; }
+interface FontVariants{ regular: string; bold?: string; italic?: string; boldItalic?: string; }
 const FONT_VARIANTS: Record<string, FontVariants> = {
   [fontFam('AtkinsonHyperlegible_400Regular', 'AtkinsonHyperlegible-Regular')]: {
     regular: fontFam('AtkinsonHyperlegible_400Regular', 'AtkinsonHyperlegible-Regular'),
@@ -217,11 +204,7 @@ const FONT_VARIANTS: Record<string, FontVariants> = {
   },
 };
 
-// Resolve the concrete face for a base family + requested bold/italic. The
-// returned hasBold/hasItalic indicate whether the chosen file already bakes in
-// that style (so the caller can drop the corresponding fontWeight/fontStyle and
-// avoid Android double-styling / fallback).
-export const resolveFontVariant = (
+export const resolveFontVariant =(
   family: string,
   opts: {bold?: boolean; italic?: boolean},
 ): {family: string; hasBold: boolean; hasItalic: boolean} => {

@@ -7,7 +7,7 @@ import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFron
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
 
-type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'polls' | 'discord' | 'credits' | 'supportPS';
+type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'polls' | 'discord' | 'credits' | 'supportPS';
 
 interface Props {
   theme: any;
@@ -20,6 +20,7 @@ interface Props {
   renderStatsScreen: () => React.ReactNode;
   renderChatScreen: () => React.ReactNode;
   renderCustomFieldsScreen: () => React.ReactNode;
+  renderSystemManagerScreen: () => React.ReactNode;
   renderPollsScreen: () => React.ReactNode;
   resetKey?: number;
   editHistoryIndex?: number | null;
@@ -43,7 +44,7 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
     <View style={{marginBottom: 16}}>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8}}>
         <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: color}} />
-        <Text style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '700'}}>{label}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '700'}}>{label}</Text>
         <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
       </View>
       {selected.length > 0 && (
@@ -53,10 +54,11 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
             if (!m) return null;
             return (
               <TouchableOpacity key={id} onPress={() => toggle(id)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={`${t('common.remove')} ${m.name}`}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
                 <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
                 <Text style={{fontSize: fs(12), color: m.color}}>{m.name}</Text>
-                <Text style={{fontSize: fs(10), color: T.danger}}>✕</Text>
+                <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
               </TouchableOpacity>
             );
           })}
@@ -72,18 +74,19 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
               const otherLabel = otherTier ? otherTiers[otherTier[0] as FrontTierKey] : null;
               return (
                 <TouchableOpacity key={m.id} onPress={() => {toggle(m.id); setSearch('');}} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityState={{selected: inThis}} accessibilityLabel={[m.name, m.pronouns, otherLabel && !inThis ? otherLabel : null].filter(Boolean).join(', ')}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherLabel && !inThis ? 0.45 : 1}}>
                   <Avatar member={m} size={24} T={T} />
                   <Text style={{fontSize: fs(13), color: inThis ? m.color : T.text, fontWeight: inThis ? '600' : '400'}}>{m.name}</Text>
                   {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
                   {otherLabel && !inThis ? <Text style={{fontSize: fs(10), color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
-                  {inThis && <Text style={{color: m.color, marginLeft: 'auto'}}>✓</Text>}
+                  {inThis && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                 </TouchableOpacity>
               );
             })}
           {filtered.length > 6 && (
             <View style={{padding: 8, alignItems: 'center'}}>
-              <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic'}}>{t('members.refineSearch', {count: filtered.length - 6, defaultValue: `+${filtered.length - 6} more — refine search`})}</Text>
+              <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic'}}>{t('members.refineSearch', {count: filtered.length - 6})}</Text>
             </View>
           )}
         </View>
@@ -269,10 +272,10 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   return (
     <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled">
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
-        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
+        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
         </TouchableOpacity>
-        <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{isEditing ? t('hub.editEntry', {defaultValue: 'Edit Entry'}) : t('hub.retroHistory')}</Text>
+        <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{isEditing ? t('hub.editEntry') : t('hub.retroHistory')}</Text>
       </View>
 
       <DateTimeEditor date={startDate} onChange={setStartDate} label={t('hub.startTime')} T={T} />
@@ -280,6 +283,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('hub.endTime')}</Text>
         <TouchableOpacity onPress={() => setIsCurrent(!isCurrent)} activeOpacity={0.7}
+          accessibilityRole="switch" accessibilityState={{checked: isCurrent}} accessibilityLabel={t('hub.current')}
           style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
           <Text style={{fontSize: fs(12), color: isCurrent ? T.accent : T.dim}}>{t('hub.current')}</Text>
           <View style={{width: 40, height: 22, borderRadius: 11, backgroundColor: isCurrent ? T.accent : T.toggleOff, justifyContent: 'center'}}>
@@ -309,11 +313,11 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), minHeight: 80, textAlignVertical: 'top', marginBottom: 20}} />
 
       <View style={{flexDirection: 'row', gap: 10}}>
-        <TouchableOpacity onPress={onBack} activeOpacity={0.7}
+        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
           style={{flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: 'transparent', borderColor: T.border}}>
           <Text style={{fontSize: fs(14), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleSave} activeOpacity={0.7}
+        <TouchableOpacity onPress={handleSave} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}
           style={{flex: 2, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
           <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('common.save')}</Text>
         </TouchableOpacity>
@@ -325,7 +329,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 const DISCORD_URL = 'https://discord.gg/FFQw33cu8m';
 const BMC_URL = 'https://www.buymeacoffee.com/PluralStar';
 
-export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderPollsScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
+export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderPollsScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
@@ -353,10 +357,10 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
-          <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.importExport')}</Text>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.importExport')}</Text>
         </View>
         {renderShareScreen()}
       </View>
@@ -377,10 +381,10 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
-          <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.statistics')}</Text>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.statistics')}</Text>
         </View>
         {renderStatsScreen()}
       </View>
@@ -391,10 +395,10 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
-          <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.systemChat')}</Text>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.systemChat')}</Text>
         </View>
         {renderChatScreen()}
       </View>
@@ -405,12 +409,26 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
-          <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('customFields.title')}</Text>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('customFields.title')}</Text>
         </View>
         {renderCustomFieldsScreen()}
+      </View>
+    );
+  }
+
+  if (activeTile === 'systemManager') {
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
+            <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
+          </TouchableOpacity>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('systemManager.title')}</Text>
+        </View>
+        {renderSystemManagerScreen()}
       </View>
     );
   }
@@ -419,10 +437,10 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
-          <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('polls.title')}</Text>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('polls.title')}</Text>
         </View>
         {renderPollsScreen()}
       </View>
@@ -431,16 +449,16 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
 
   if (activeTile === 'credits') {
     const credits: {name: string; role: string; url: string}[] = [
-      {name: 'The Loud House System', role: t('hub.creditLogo', {defaultValue: 'Plural Star Logo'}), url: 'https://x.com/theloudhousesys?s=21'},
-      {name: 'sparklecatdev', role: t('hub.creditIos', {defaultValue: 'Plural Star iOS Port'}), url: 'https://github.com/sparklecatdev'},
+      {name: 'The Loud House System', role: t('hub.creditLogo'), url: 'https://x.com/theloudhousesys?s=21'},
+      {name: 'sparklecatdev', role: t('hub.creditIos'), url: 'https://github.com/sparklecatdev'},
     ];
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back', {defaultValue: 'Back'})} style={{padding: 4, marginRight: 12}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
-          <Text style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.credits', {defaultValue: 'Credits'})}</Text>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('hub.credits')}</Text>
         </View>
         <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
           {credits.map((c, i) => (
@@ -465,10 +483,11 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
     {id: 'statistics', icon: '⊞', label: t('hub.statistics')},
     {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
     {id: 'customFields', icon: '☰', label: t('customFields.title')},
+    {id: 'systemManager', icon: '🗂', label: t('systemManager.title')},
     {id: 'polls', icon: '📊', label: t('polls.title')},
-    {id: 'credits', icon: '✦', label: t('hub.credits', {defaultValue: 'Credits'})},
+    {id: 'credits', icon: '✦', label: t('hub.credits')},
     {id: 'discord', icon: '💬', label: t('hub.discord'), external: true},
-    {id: 'supportPS', icon: '☕', label: t('hub.supportPS', {defaultValue: 'Support Plural Star'}), external: true},
+    {id: 'supportPS', icon: '☕', label: t('hub.supportPS'), external: true},
   ];
 
   const handleTilePress = (tile: typeof tiles[0]) => {
@@ -484,6 +503,7 @@ export const HubScreen = ({theme: T, members, history, front, onSaveHistory, onS
   return (
     <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
       <Text
+        accessibilityRole="header"
         style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 20}}
         numberOfLines={1}
         maxFontSizeMultiplier={1.2}>

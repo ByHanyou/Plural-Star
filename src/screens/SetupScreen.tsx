@@ -22,8 +22,8 @@ export const SetupScreen = ({theme: T, onSave}: Props) => {
       style={{flex: 1, backgroundColor: T.bg}}
       behavior={behavior}>
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
-        <Image source={require('../assets/splash-logo.png')} style={s.logo} resizeMode="contain" />
-        <Text style={[s.heading, {color: T.accent}]}>{t('setup.welcome')}</Text>
+        <Image source={require('../assets/splash-logo.png')} style={s.logo} resizeMode="contain" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+        <Text accessibilityRole="header" style={[s.heading, {color: T.accent}]}>{t('setup.welcome')}</Text>
         <Text style={[s.sub, {color: T.dim}]}>{t('setup.subtitle')}</Text>
         <View style={s.form}>
           <Text style={[s.label, {color: T.dim}]}>{t('setup.systemName')}</Text>
@@ -34,7 +34,7 @@ export const SetupScreen = ({theme: T, onSave}: Props) => {
             placeholderTextColor={T.muted} multiline numberOfLines={4}
             style={[s.input, s.textarea, {backgroundColor: T.surface, color: T.text, borderColor: T.border}]} />
           <TouchableOpacity onPress={() => name.trim() && onSave({name: name.trim(), description: desc.trim()})}
-            activeOpacity={0.8} style={[s.btn, {backgroundColor: T.accent}]}>
+            activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('setup.enter')} style={[s.btn, {backgroundColor: T.accent}]}>
             <Text style={s.btnText}>{t('setup.enter')}</Text>
           </TouchableOpacity>
         </View>

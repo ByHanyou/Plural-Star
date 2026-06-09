@@ -14,6 +14,8 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
   const [imgError, setImgError] = useState(false);
   useEffect(() => { setImgError(false); }, [member?.avatar]);
 
+  const radius = Math.round(size * 0.22);
+
   const pulseStyle = pulse
     ? {
         shadowColor: member?.color || 'transparent',
@@ -34,7 +36,7 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
         style={{
           width: size,
           height: size,
-          borderRadius: size / 2,
+          borderRadius: radius,
           overflow: 'hidden',
           backgroundColor: member?.color || T.toggleOff,
           ...pulseStyle,
@@ -54,7 +56,7 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
       style={{
         width: size,
         height: size,
-        borderRadius: size / 2,
+        borderRadius: radius,
         overflow: 'hidden',
         backgroundColor: member?.color || T.toggleOff,
         alignItems: 'center',

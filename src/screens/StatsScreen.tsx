@@ -10,7 +10,6 @@ import {Avatar} from '../components/Avatar';
 type TimeRange = 'all' | '7d' | '30d' | 'custom';
 
 const MAX_BOARD = 25;
-// Show More steps: 5 -> 10 -> 25
 const nextBoardLimit = (cur: number) => (cur < 10 ? 10 : MAX_BOARD);
 
 interface Props {
@@ -169,10 +168,10 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
     return (
       <TouchableOpacity onPress={() => expandBoard(boardKey)} activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={t('stats.showMoreN', {shown: limit, total, defaultValue: `Show more — showing ${limit} of ${total}`})}
+        accessibilityLabel={t('stats.showMoreN', {shown: limit, total})}
         style={{paddingVertical: 9, alignItems: 'center', borderTopWidth: 1, borderTopColor: T.border}}>
         <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>
-          {t('stats.showMore', {count: Math.min(next, total) - limit, defaultValue: 'Show more'})} ({Math.min(limit, total)}/{total})
+          {t('stats.showMore', {count: Math.min(next, total) - limit})} ({Math.min(limit, total)}/{total})
         </Text>
       </TouchableOpacity>
     );
@@ -185,8 +184,8 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
     const max = Math.max(...shown.map(([, v]) => v), 1);
     return (
       <View style={{marginBottom: 18}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{title}</Text>
-        <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{title}</Text>
+        <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border}}>
           {shown.map(([key, value], i) => {
             const member = getMember(key);
             const isLast = i === shown.length - 1;
@@ -221,8 +220,8 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
     const maxT = Math.max(...shown.map(e => e.time), 1);
     return (
       <View style={{marginBottom: 18}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.topFronters')}</Text>
-        <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.topFronters')}</Text>
+        <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border}}>
           {shown.map((entry, i) => {
             const member = getMember(entry.id);
             const isLast = i === shown.length - 1;
@@ -257,7 +256,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
         <RangeBtn id="all" label={t('stats.allTime')} />
         <RangeBtn id="7d" label={t('stats.last7')} />
         <RangeBtn id="30d" label={t('stats.last30')} />
-        <RangeBtn id="custom" label={t('stats.customRange', {defaultValue: 'Custom'})} />
+        <RangeBtn id="custom" label={t('stats.customRange')} />
       </View>
 
       {range === 'custom' && (
@@ -270,7 +269,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               if (t0 > customEnd) setCustomEnd(t0);
             }}
             mode="date"
-            label={t('stats.rangeStart', {defaultValue: 'Start date'})}
+            label={t('stats.rangeStart')}
             T={T}
           />
           <DateTimeEditor
@@ -281,7 +280,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               if (t1 < customStart) setCustomStart(t1);
             }}
             mode="date"
-            label={t('stats.rangeEnd', {defaultValue: 'End date'})}
+            label={t('stats.rangeEnd')}
             T={T}
           />
           <View style={{flexDirection: 'row', gap: 8, marginTop: 4}}>
@@ -300,7 +299,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               setCustomEnd(Date.now());
             }} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
-              <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisMonth', {defaultValue: 'This month'})}</Text>
+              <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisMonth')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => {
               const start = new Date(new Date().getFullYear(), 0, 1).getTime();
@@ -308,7 +307,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
               setCustomEnd(Date.now());
             }} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
-              <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisYear', {defaultValue: 'This year'})}</Text>
+              <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisYear')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -329,7 +328,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
 
       {stats.energyAvgs.length > 0 && (
         <View style={{marginBottom: 16}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('energy.avgEnergy')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('energy.avgEnergy')}</Text>
           {stats.energyAvgs.slice(0, 8).map(({id, avg}) => {
             const m = getMember(id);
             return (
@@ -348,7 +347,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
 
       {stats.peakHours.some((v: number) => v > 0) && (
         <View style={{marginBottom: 16}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.peakHours')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.peakHours')}</Text>
           <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
             {stats.peakHours.map((count: number, h: number) => {
               const max = Math.max(...stats.peakHours as number[], 1);
@@ -372,7 +371,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
       {stats.energyByHour.some((v: number) => v > 0) && (
         <View style={{marginBottom: 16}}>
           <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8}}>
-            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('stats.energyByHour', {defaultValue: 'Energy by Hour'})}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('stats.energyByHour')}</Text>
             <Text style={{fontSize: fs(9), color: T.muted}}>{t('energy.outOf10')}</Text>
           </View>
           <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
@@ -393,7 +392,7 @@ export const StatsScreen = ({theme: T, history, members, chatMessages}: Props) =
       )}
 
       <View style={{marginBottom: 16}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.topCoMembers')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.topCoMembers')}</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
           <View style={{flexDirection: 'row', gap: 6}}>
             {members.filter((m: Member) => !m.archived).map((m: Member) => (

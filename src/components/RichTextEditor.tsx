@@ -67,12 +67,12 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
           style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
           <View style={{padding: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
             <Text style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>
-              {i18n.t('mention.pickMember', {defaultValue: 'Mention a member'})}
+              {i18n.t('mention.pickMember')}
             </Text>
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder={i18n.t('common.search', {defaultValue: 'Search…'})}
+              placeholder={i18n.t('common.search')}
               placeholderTextColor={T.muted}
               autoFocus
               autoCorrect={false}
@@ -85,7 +85,7 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
           <ScrollView keyboardShouldPersistTaps="handled" style={{maxHeight: 320}}>
             {filtered.length === 0 ? (
               <Text style={{fontSize: fs(13), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20}}>
-                {i18n.t('mention.noMembers', {defaultValue: 'No members match'})}
+                {i18n.t('mention.noMembers')}
               </Text>
             ) : (
               filtered.map(m => (

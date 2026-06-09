@@ -9,11 +9,60 @@ export interface SystemInfo {
   banner?: string;
 }
 
+export type GroupNodeKind = 'group' | 'subsystem';
+
 export interface MemberGroup {
   id: string;
   name: string;
   color?: string;
+  kind?: GroupNodeKind;
+  parentId?: string | null;
+  sortOrder?: number;
 }
+
+export const groupKind = (g: MemberGroup): GroupNodeKind => g.kind || 'group';
+export const groupParent = (g: MemberGroup): string | null => g.parentId ?? null;
+
+export const childrenOf = (nodes: MemberGroup[], parentId: string | null): MemberGroup[] =>
+  nodes
+    .filter(n => groupParent(n) === parentId)
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
+
+export const descendantsOf = (nodes: MemberGroup[], id: string): MemberGroup[] => {
+  const out: MemberGroup[] = [];
+  const walk = (pid: string) => {
+    for (const n of nodes) {
+      if (groupParent(n) === pid) { out.push(n); walk(n.id); }
+    }
+  };
+  walk(id);
+  return out;
+};
+
+export const ancestorsOf = (nodes: MemberGroup[], id: string): MemberGroup[] => {
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const out: MemberGroup[] = [];
+  let cur = byId.get(id);
+  const seen = new Set<string>();
+  while (cur && groupParent(cur) != null) {
+    if (seen.has(cur.id)) break;
+    seen.add(cur.id);
+    const parent = byId.get(groupParent(cur)!);
+    if (!parent) break;
+    out.unshift(parent);
+    cur = parent;
+  }
+  return out;
+};
+
+// True if `candidateId` is `ofId` itself or any descendant of it — used to block
+// re-parenting a node into its own subtree (which would create a cycle).
+export const isDescendant = (nodes: MemberGroup[], candidateId: string, ofId: string): boolean => {
+  if (candidateId === ofId) return true;
+  return descendantsOf(nodes, ofId).some(n => n.id === candidateId);
+};
+
+export const nodeDepth = (nodes: MemberGroup[], id: string): number => ancestorsOf(nodes, id).length;
 
 export type CustomFieldType = 'text' | 'markdown' | 'date' | 'dateRange' | 'number' | 'toggle' | 'color' | 'month' | 'year' | 'monthYear' | 'timestamp' | 'monthDay' | 'image';
 
@@ -237,8 +286,6 @@ export const translateMood = (mood: string, t: (k: string) => string): string =>
   const parts = mood.split(',').map(s => s.trim()).filter(Boolean);
   if (parts.length === 0) return '';
   const translateOne = (one: string): string => {
-    // Match defaults case-insensitively so imported/older entries whose casing
-    // differs (e.g. "anxious") still resolve to the translatable key.
     const canon = DEFAULT_MOODS.find(d => d.toLowerCase() === one.toLowerCase());
     if (canon) {
       const translated = t(`mood.${canon}`);

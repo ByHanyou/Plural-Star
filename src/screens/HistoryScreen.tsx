@@ -141,20 +141,23 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4}}>
           {showToggle ? (
             <TouchableOpacity onPress={() => onToggleExpand(entryKey)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityState={{expanded: isExpanded}}
               style={{paddingVertical: 2, paddingHorizontal: 6}}>
               <Text style={{fontSize: fs(10), color: T.accent, fontWeight: '500'}}>
-                {isExpanded ? t('history.showLess', {defaultValue: 'Show less'}) : t('history.showMore', {defaultValue: 'Show more'})}
+                {isExpanded ? t('history.showLess') : t('history.showMore')}
               </Text>
             </TouchableOpacity>
           ) : <View />}
           <View style={{flexDirection: 'row', gap: 12}}>
             {onEditEntry && (
               <TouchableOpacity onPress={() => onEditEntry(originalIndex)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={t('history.editEntry')}
                 style={{paddingVertical: 2, paddingHorizontal: 6}}>
-                <Text style={{fontSize: fs(10), color: T.accent, opacity: 0.8}}>{t('history.editEntry', {defaultValue: 'Edit'})}</Text>
+                <Text style={{fontSize: fs(10), color: T.accent, opacity: 0.8}}>{t('history.editEntry')}</Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => onDelete(originalIndex)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel={t('history.deleteEntry')}
               style={{paddingVertical: 2, paddingHorizontal: 6}}>
               <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
             </TouchableOpacity>
@@ -244,7 +247,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
   const renderFrontRow = useCallback(({item}: {item: FrontHistoryRow}) => {
     if (item.kind === 'header') {
       return (
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase',
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase',
           color: T.dim, marginBottom: 8, marginTop: 16, fontWeight: '600'}}>{item.date}</Text>
       );
     }
@@ -312,6 +315,7 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: 16}}>
         <Text
+          accessibilityRole="header"
           style={[s.heading, {color: T.text}]}
           numberOfLines={1}
           maxFontSizeMultiplier={1.2}>
@@ -372,8 +376,8 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
                       <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text}}>{selectedMember.name}</Text>
                       {selectedMember.pronouns ? <Text style={{fontSize: fs(11), color: T.dim}}>{selectedMember.pronouns}</Text> : null}
                     </View>
-                    <TouchableOpacity onPress={() => {setSelectedMemberId(null); setMemberSearch('');}} activeOpacity={0.7}>
-                      <Text style={{fontSize: fs(14), color: T.dim}}>✕</Text>
+                    <TouchableOpacity onPress={() => {setSelectedMemberId(null); setMemberSearch('');}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.clear')} ${selectedMember.name}`}>
+                      <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -386,12 +390,13 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, o
                         <TouchableOpacity key={m.id}
                           onPress={() => {setSelectedMemberId(m.id); setMemberSearch('');}}
                           activeOpacity={0.7}
+                          accessibilityRole="button" accessibilityState={{selected: selectedMemberId === m.id}} accessibilityLabel={m.name}
                           style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12,
                             borderBottomWidth: 1, borderBottomColor: T.border,
                             backgroundColor: selectedMemberId === m.id ? `${m.color}12` : 'transparent'}}>
                           <Avatar member={m} size={28} T={T} />
                           <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}>{m.name}</Text>
-                          {selectedMemberId === m.id && <Text style={{color: m.color, marginLeft: 'auto'}}>✓</Text>}
+                          {selectedMemberId === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                         </TouchableOpacity>
                       ))}
                     </ScrollView>

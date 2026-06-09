@@ -15,6 +15,33 @@ import {saveAvatarFromUrl, saveAvatar, saveBannerFromBase64, saveBannerFromUrl, 
 import {parallelMap} from '../utils/concurrency';
 import {parseAmpar} from '../utils/ampar';
 
+const normalizeSpAvatarUrl = (raw: any): string => {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (s.startsWith('//')) return 'https:' + s;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (s.startsWith('/avatars/')) return 'https://spaces.apparyllis.com' + s;
+  if (/^[\w-]+(\.[\w-]+)+\//.test(s)) return 'https://' + s;
+  return '';
+};
+const spAvatarCandidates = (content: any, fallbackUid: string): string[] => {
+  const out: string[] = [];
+  const c = content || {};
+  const uuid = String(c.avatarUuid || '');
+  const uid = String(c.uid || fallbackUid || '');
+  if (uuid && uid) out.push(`https://spaces.apparyllis.com/avatars/${uid}/${uuid}`);
+  const direct = normalizeSpAvatarUrl(c.avatarUrl);
+  if (direct && !out.includes(direct)) out.push(direct);
+  return out;
+};
+const downloadFirstAvatar = async (memberId: string, urls: string[]): Promise<string | undefined> => {
+  for (const u of urls) {
+    const r = await saveAvatarFromUrl(memberId, u).catch(() => undefined);
+    if (r) return r;
+  }
+  return undefined;
+};
+
 interface Props {
   theme: any; system: SystemInfo; members: Member[]; front: FrontState | null;
   history: HistoryEntry[]; journal: JournalEntry[]; shareSettings: ShareSettings; appSettings: AppSettings;
@@ -30,7 +57,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const [restoreFile, setRestoreFile] = useState<string | null>(null);
   const [restorePath, setRestorePath] = useState<string | null>(null);
   const [restorePreview, setRestorePreview] = useState<boolean>(false);
-  const [restoreSel, setRestoreSel] = useState({system: true, members: true, avatars: false, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true});
+  const [restoreSel, setRestoreSel] = useState({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true});
   const [restoreError, setRestoreError] = useState('');
   const [restoreDone, setRestoreDone] = useState(false);
   const [recoverEntries, setRecoverEntries] = useState<RecoverableEntry[] | null>(null);
@@ -191,28 +218,21 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             const idMap: Record<string, string> = {};
             rawData.members.forEach((sp: any, i: number) => { const sid = normId(sp._id); if (sid) idMap[sid] = newMembers[i].id; });
             if (restoreSel.members && restoreSel.avatars) {
-              const spAvatarUrls: Record<string, string> = {};
+              const spAvatarUrls: Record<string, string[]> = {};
+              const spFallbackUid = String(rawData.members.find((x: any) => x.uid)?.uid || rawData.uid || '');
               rawData.members.forEach((sp: any, i: number) => {
                 const localId = newMembers[i].id;
-                const directUrl = String(sp.avatarUrl || '');
-                if (directUrl.startsWith('http://') || directUrl.startsWith('https://')) {
-                  spAvatarUrls[localId] = directUrl;
-                  return;
-                }
-                const avatarUuid = String(sp.avatarUuid || '');
-                const ownerUid = String(sp.uid || '');
-                if (avatarUuid && ownerUid) {
-                  spAvatarUrls[localId] = `https://spaces.apparyllis.com/avatars/${ownerUid}/${avatarUuid}`;
-                }
+                const cands = spAvatarCandidates(sp, spFallbackUid);
+                if (cands.length) spAvatarUrls[localId] = cands;
               });
               const spAvatarEntries = Object.entries(spAvatarUrls);
               if (spAvatarEntries.length > 0) {
-                setRestoreProgress(t('share.progressAvatarsDownload', {defaultValue: 'Downloading avatars…'}));
+                setRestoreProgress(t('share.progressAvatarsDownload'));
                 const downloaded: Record<string, string> = {};
-                await parallelMap(spAvatarEntries, async ([memberId, url]) => {
-                  const fileUri = await saveAvatarFromUrl(memberId, url).catch(() => undefined);
+                await parallelMap(spAvatarEntries, async ([memberId, urls]) => {
+                  const fileUri = await downloadFirstAvatar(memberId, urls as string[]);
                   if (fileUri) downloaded[memberId] = fileUri;
-                }, 10, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total, defaultValue: `Downloading avatars… ${done}/${total}`})));
+                }, 10, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total})));
                 if (Object.keys(downloaded).length > 0) {
                   const withAvatars = newMembers.map(m => downloaded[m.id] ? {...m, avatar: downloaded[m.id]} : m);
                   await store.set(KEYS.members, withAvatars);
@@ -395,12 +415,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               });
               const entries = Object.entries(ocAvatarUrls);
               if (entries.length > 0) {
-                setRestoreProgress(t('share.progressAvatarsDownload', {defaultValue: 'Downloading avatars…'}));
+                setRestoreProgress(t('share.progressAvatarsDownload'));
                 const downloaded: Record<string, string> = {};
                 await parallelMap(entries, async ([memberId, url]) => {
                   const fileUri = await saveAvatarFromUrl(memberId, url).catch(() => undefined);
                   if (fileUri) downloaded[memberId] = fileUri;
-                }, 10, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total, defaultValue: `Downloading avatars… ${done}/${total}`})));
+                }, 10, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total})));
                 if (Object.keys(downloaded).length > 0) {
                   const cur = await store.get<Member[]>(KEYS.members, []) || [];
                   const withAv = cur.map(m => downloaded[m.id] ? {...m, avatar: downloaded[m.id]} : m);
@@ -425,7 +445,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             const wantAvatars = restoreSel.avatars && data.avatars && Object.keys(data.avatars).length > 0;
             const wantBanners = restoreSel.banners && data.banners && Object.keys(data.banners).length > 0;
             if (wantAvatars) {
-              setRestoreProgress(t('share.progressAvatars', {defaultValue: 'Restoring avatars…'}));
+              setRestoreProgress(t('share.progressAvatars'));
               const entries = Object.entries(data.avatars!);
               const avatarMap: Record<string, string> = {};
               await parallelMap(entries, async ([memberId, raw]) => {
@@ -433,12 +453,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 const b64 = (raw as string).startsWith('data:') ? (raw as string).split(',')[1] : (raw as string);
                 const fileUri = await saveAvatar(memberId, b64).catch(() => null);
                 if (fileUri) avatarMap[memberId] = fileUri;
-              }, 6, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total, defaultValue: `Restoring avatars… ${done}/${total}`})));
+              }, 6, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total})));
               membersAccum = membersAccum.map(m => avatarMap[m.id] ? {...m, avatar: avatarMap[m.id]} : m);
               data.avatars = {};
             }
             if (wantBanners) {
-              setRestoreProgress(t('share.progressBanners', {defaultValue: 'Restoring banners…'}));
+              setRestoreProgress(t('share.progressBanners'));
               const entries = Object.entries(data.banners!);
               const bannerMap: Record<string, string> = {};
               await parallelMap(entries, async ([memberId, raw]) => {
@@ -446,15 +466,15 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 const b64 = (raw as string).startsWith('data:') ? (raw as string).split(',')[1] : (raw as string);
                 const fileUri = await saveBannerFromBase64(memberId, b64).catch(() => null);
                 if (fileUri) bannerMap[memberId] = fileUri;
-              }, 6, (done, total) => setRestoreProgress(t('share.progressBannersN', {done, total, defaultValue: `Restoring banners… ${done}/${total}`})));
+              }, 6, (done, total) => setRestoreProgress(t('share.progressBannersN', {done, total})));
               membersAccum = membersAccum.map(m => bannerMap[m.id] ? {...m, banner: bannerMap[m.id]} : m);
               data.banners = {};
             }
-            setRestoreProgress(t('share.progressSavingMembers', {defaultValue: 'Saving members…'}));
+            setRestoreProgress(t('share.progressSavingMembers'));
             await store.set(KEYS.members, membersAccum);
           } else if (restoreSel.avatars && !restoreSel.members) {
             if (data.avatars && Object.keys(data.avatars).length > 0) {
-              setRestoreProgress(t('share.progressAvatars', {defaultValue: 'Restoring avatars…'}));
+              setRestoreProgress(t('share.progressAvatars'));
               const existing = await store.get<Member[]>(KEYS.members) || [];
               const avatarMap: Record<string, string> = {};
               const entries = Object.entries(data.avatars);
@@ -463,13 +483,13 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 const b64 = (raw as string).startsWith('data:') ? (raw as string).split(',')[1] : (raw as string);
                 const fileUri = await saveAvatar(memberId, b64).catch(() => null);
                 if (fileUri) avatarMap[memberId] = fileUri;
-              }, 6, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total, defaultValue: `Restoring avatars… ${done}/${total}`})));
+              }, 6, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total})));
               const updated = existing.map(m => avatarMap[m.id] ? {...m, avatar: avatarMap[m.id]} : m);
               await store.set(KEYS.members, updated);
               data.avatars = {};
             }
             if (restoreSel.banners && data.banners && Object.keys(data.banners).length > 0) {
-              setRestoreProgress(t('share.progressBanners', {defaultValue: 'Restoring banners…'}));
+              setRestoreProgress(t('share.progressBanners'));
               const current = await store.get<Member[]>(KEYS.members) || [];
               const bannerMap: Record<string, string> = {};
               const entries = Object.entries(data.banners);
@@ -478,13 +498,13 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 const b64 = (raw as string).startsWith('data:') ? (raw as string).split(',')[1] : (raw as string);
                 const fileUri = await saveBannerFromBase64(memberId, b64).catch(() => null);
                 if (fileUri) bannerMap[memberId] = fileUri;
-              }, 6, (done, total) => setRestoreProgress(t('share.progressBannersN', {done, total, defaultValue: `Restoring banners… ${done}/${total}`})));
+              }, 6, (done, total) => setRestoreProgress(t('share.progressBannersN', {done, total})));
               const updated = current.map(m => bannerMap[m.id] ? {...m, banner: bannerMap[m.id]} : m);
               await store.set(KEYS.members, updated);
               data.banners = {};
             }
           } else if (restoreSel.banners && data.banners && Object.keys(data.banners).length > 0) {
-            setRestoreProgress(t('share.progressBanners', {defaultValue: 'Restoring banners…'}));
+            setRestoreProgress(t('share.progressBanners'));
             const current = await store.get<Member[]>(KEYS.members) || [];
             const bannerMap: Record<string, string> = {};
             const entries = Object.entries(data.banners);
@@ -493,7 +513,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               const b64 = (raw as string).startsWith('data:') ? (raw as string).split(',')[1] : (raw as string);
               const fileUri = await saveBannerFromBase64(memberId, b64).catch(() => null);
               if (fileUri) bannerMap[memberId] = fileUri;
-            }, 6, (done, total) => setRestoreProgress(t('share.progressBannersN', {done, total, defaultValue: `Restoring banners… ${done}/${total}`})));
+            }, 6, (done, total) => setRestoreProgress(t('share.progressBannersN', {done, total})));
             const updated = current.map(m => bannerMap[m.id] ? {...m, banner: bannerMap[m.id]} : m);
             await store.set(KEYS.members, updated);
             data.banners = {};
@@ -506,7 +526,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           if (restoreSel.chat) {
             if (data.chatChannels) await store.set(KEYS.chatChannels, data.chatChannels);
             if (data.chatMessages) {
-              setRestoreProgress(t('share.progressChat', {defaultValue: 'Restoring chat…'}));
+              setRestoreProgress(t('share.progressChat'));
               const channelIds = Object.keys(data.chatMessages).filter(id => {
                 const msgs = data.chatMessages![id];
                 return Array.isArray(msgs) && msgs.length > 0;
@@ -519,7 +539,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 } catch (chErr) {
                   console.error(`[RESTORE] failed channel ${chId}:`, chErr);
                 }
-              }, 4, (done, total) => setRestoreProgress(t('share.progressChatN', {done, total, defaultValue: `Restoring chat… ${done}/${total}`})));
+              }, 4, (done, total) => setRestoreProgress(t('share.progressChatN', {done, total})));
               data.chatMessages = {};
             }
           }
@@ -595,7 +615,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     if (!extToken.trim()) {Alert.alert(t('share.tokenRequired'), t('share.pkTokenRequiredMsg')); return;}
     setExtLoading(true); setExtPreview(null);
     try {
-      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.8.0'};
+      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.9.0'};
       const [sRes, mRes, swRes, gRes] = await Promise.all([
         fetch('https://api.pluralkit.me/v2/systems/@me', {headers}),
         fetch('https://api.pluralkit.me/v2/systems/@me/members', {headers}),
@@ -664,7 +684,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
   const normHex = (c: any): string => { const s = String(c || '').trim(); return s.startsWith('#') ? s : (s ? `#${s}` : '#DAA520'); };
 
-  // Merge an incoming foreign member into the local list by sourceId, then name.
   const mergeForeignMember = (merged: Member[], idMap: Record<string, string>, extId: string, incoming: Partial<Member>) => {
     const bySource = merged.findIndex(em => em.sourceId === extId);
     if (bySource >= 0) { merged[bySource] = {...merged[bySource], ...incoming, sourceId: extId}; idMap[extId.replace(/^[a-z]+:/, '')] = merged[bySource].id; return; }
@@ -679,19 +698,18 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const downloadAvatarsTo = async (urls: Record<string, string>) => {
     const entries = Object.entries(urls);
     if (entries.length === 0) return;
-    setRestoreProgress(t('share.progressAvatarsDownload', {defaultValue: 'Downloading avatars…'}));
+    setRestoreProgress(t('share.progressAvatarsDownload'));
     const downloaded: Record<string, string> = {};
     await parallelMap(entries, async ([memberId, url]) => {
       const fileUri = await saveAvatarFromUrl(memberId, url).catch(() => undefined);
       if (fileUri) downloaded[memberId] = fileUri;
-    }, 10, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total, defaultValue: `Downloading avatars… ${done}/${total}`})));
+    }, 10, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total})));
     if (Object.keys(downloaded).length > 0) {
       const cur = await store.get<Member[]>(KEYS.members, []) || [];
       await store.set(KEYS.members, cur.map(m => downloaded[m.id] ? {...m, avatar: downloaded[m.id]} : m));
     }
   };
 
-  // ---- Ourcana (JSON) -------------------------------------------------------
   const importOurcana = async (rawData: any) => {
     const ouSys = rawData.system || {};
     const ouMembers: any[] = Array.isArray(rawData.members) ? rawData.members : [];
@@ -753,7 +771,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     }
   };
 
-  // ---- HiveMind / Multiplicity (JSON) --------------------------------------
   const importMultiplicity = async (rawData: any) => {
     const sys = rawData.system || {};
     const alters: any[] = Array.isArray(rawData.alters) ? rawData.alters : [];
@@ -796,13 +813,13 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       });
       const b64Entries = Object.entries(b64Map);
       if (b64Entries.length > 0) {
-        setRestoreProgress(t('share.progressAvatars', {defaultValue: 'Restoring avatars…'}));
+        setRestoreProgress(t('share.progressAvatars'));
         const map: Record<string, string> = {};
         await parallelMap(b64Entries, async ([memberId, b64]) => {
           const raw = b64.startsWith('data:') ? b64.split(',')[1] : b64;
           const fileUri = await saveAvatar(memberId, raw).catch(() => null);
           if (fileUri) map[memberId] = fileUri;
-        }, 6, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total, defaultValue: `Restoring avatars… ${done}/${total}`})));
+        }, 6, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total})));
         if (Object.keys(map).length > 0) {
           const cur = await store.get<Member[]>(KEYS.members, []) || [];
           await store.set(KEYS.members, cur.map(m => map[m.id] ? {...m, avatar: map[m.id]} : m));
@@ -812,7 +829,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     }
   };
 
-  // ---- Ampersand (.ampar binary) -------------------------------------------
   const handleAmpersandPick = async () => {
     setRestoreError(''); setExtPreview(null); setImportStatus('idle'); setImportMsg('');
     try {
@@ -827,7 +843,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const systemRow = (tables.systems || [])[0] || {name: t('share.system')};
       const fieldDefs = tables.customFields || [];
       if (amMembers.length === 0 && fronting.length === 0) {
-        throw new Error(t('share.amparEmpty', {defaultValue: 'No members or fronting history found in this archive.'}));
+        throw new Error(t('share.amparEmpty'));
       }
       setExtPreview({system: systemRow, members: amMembers, switches: fronting, customFields: fieldDefs});
       setImportSource('ampersand');
@@ -844,63 +860,58 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           const amFronts = extPreview.switches || [];
           const amFields = extPreview.customFields || [];
           const idMap: Record<string, string> = {};
+
           if (extSel.system && extPreview.system?.name) {
             await store.set(KEYS.system, {...system, name: String(extPreview.system.name) || system.name});
           }
+
+          const fieldIdMap: Record<string, string> = {};
+          if (extSel.customFields) {
+            const defs: CustomFieldDef[] = amFields.map((f: any, i: number) => {
+              const localId = uid();
+              fieldIdMap[String(f.uuid)] = localId;
+              return {id: localId, name: String(f.name || `Field ${i + 1}`), type: 'text', sortOrder: f.priority ?? i};
+            });
+            await store.set(KEYS.customFieldDefs, defs);
+          }
+
           if (extSel.members) {
-            const existing = await store.get<Member[]>(KEYS.members, []) || [];
-            const merged: Member[] = [...existing];
-            amMembers.forEach((a: any) => {
-              mergeForeignMember(merged, idMap, 'amp:' + String(a.uuid), {
+            const newMembers: Member[] = amMembers.map((a: any) => {
+              const localId = uid();
+              idMap[String(a.uuid)] = localId;
+              const cf: CustomFieldValue[] = [];
+              const pairs = a.customFields?.value;
+              if (extSel.customFields && Array.isArray(pairs)) {
+                pairs.forEach((pair: any) => {
+                  if (!Array.isArray(pair) || pair.length < 2) return;
+                  const fid = fieldIdMap[String(pair[0])];
+                  if (!fid || pair[1] == null) return;
+                  cf.push({fieldId: fid, value: (typeof pair[1] === 'object' ? JSON.stringify(pair[1]) : String(pair[1])) as any});
+                });
+              }
+              return {
+                id: localId, sourceId: 'amp:' + String(a.uuid),
                 name: (a.name && String(a.name).trim()) || 'Unnamed member',
                 pronouns: String(a.pronouns || ''), role: '', color: normHex(a.color),
                 description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!a.isCustomFront,
-              });
+                tags: [], groupIds: [], customFields: cf,
+              } as Member;
             });
-            await store.set(KEYS.members, merged);
+            await store.set(KEYS.members, newMembers);
+          } else {
+            // Members not being replaced — map archive uuids onto existing amp: members so history still resolves.
+            const existing = await store.get<Member[]>(KEYS.members, []) || [];
+            amMembers.forEach((a: any) => { const ex = existing.find(m => m.sourceId === 'amp:' + String(a.uuid)); if (ex) idMap[String(a.uuid)] = ex.id; });
           }
-          if (extSel.customFields && amFields.length > 0) {
-            const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
-            const fieldIdMap: Record<string, string> = {};
-            const newDefs: CustomFieldDef[] = [];
-            amFields.forEach((f: any, i: number) => {
-              const name = String(f.name || `Field ${i + 1}`);
-              const ex = existingDefs.find(d => d.name.toLowerCase() === name.toLowerCase());
-              let localId: string;
-              if (ex) localId = ex.id; else { localId = uid(); newDefs.push({id: localId, name, type: 'text', sortOrder: f.priority ?? i}); }
-              fieldIdMap[String(f.uuid)] = localId;
-            });
-            if (newDefs.length > 0) await store.set(KEYS.customFieldDefs, [...existingDefs, ...newDefs]);
-            const cur = await store.get<Member[]>(KEYS.members, []) || [];
-            const updated = cur.map(lm => {
-              const a = amMembers.find((x: any) => idMap[String(x.uuid)] === lm.id);
-              const pairs = a?.customFields?.value;
-              if (!Array.isArray(pairs)) return lm;
-              const cf: CustomFieldValue[] = [...(lm.customFields || [])];
-              pairs.forEach((pair: any) => {
-                if (!Array.isArray(pair) || pair.length < 2) return;
-                const fid = fieldIdMap[String(pair[0])];
-                if (!fid || pair[1] == null) return;
-                const valStr = typeof pair[1] === 'object' ? JSON.stringify(pair[1]) : String(pair[1]);
-                const idx = cf.findIndex(c => c.fieldId === fid);
-                if (idx >= 0) cf[idx] = {fieldId: fid, value: valStr as any}; else cf.push({fieldId: fid, value: valStr as any});
-              });
-              return {...lm, customFields: cf};
-            });
-            await store.set(KEYS.members, updated);
-          }
-          if (extSel.frontHistory && amFronts.length > 0) {
+
+          if (extSel.frontHistory) {
             const switches = amFronts.map((f: any) => ({content: {member: String(f.member), startTime: f.startTime, endTime: f.endTime ?? null}}));
             const newH = convertSPSwitches(switches, idMap);
-            if (newH.length > 0) {
-              const cur = await store.get<HistoryEntry[]>(KEYS.history, []) || [];
-              const merged = [...newH, ...cur].sort((a, b) => b.startTime - a.startTime);
-              await store.set(KEYS.history, merged);
-              const open = findOpenFrontInHistory(merged);
-              if (open) await store.set(KEYS.front, open);
-            }
+            await store.set(KEYS.history, newH);
+            await store.set(KEYS.front, findOpenFrontInHistory(newH) || null);
           }
-          setImportStatus('success'); setImportMsg(t('share.importComplete', {defaultValue: 'Import complete.'}));
+
+          setImportStatus('success'); setImportMsg(t('share.importComplete'));
           setExtPreview(null);
           setTimeout(() => onDataImported(), 800);
         } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || 'Import failed.'); }
@@ -964,38 +975,30 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             if (isPK && m.id && m.id !== extId) idMap[m.id] = newId;
           });
           await store.set(KEYS.members, merged);
-          const avatarUrls: Record<string, string> = {};
+          const avatarCandidates: Record<string, string[]> = {};
           if (extSel.avatars) {
-            const isHttpUrl = (s: any): boolean =>
-              typeof s === 'string' && (s.startsWith('http://') || s.startsWith('https://'));
+            const spFallbackUid = String((extPreview.system && (extPreview.system.id || extPreview.system.uid || extPreview.system.content?.uid)) || extPreview.members.find((x: any) => x.content?.uid || x.uid)?.content?.uid || extPreview.members.find((x: any) => x.uid)?.uid || '');
             extPreview.members.forEach((m: any) => {
               const extId: string = isPK ? (m.uuid || m.id) : m._id || m.id;
               const localId = extId ? idMap[extId] : undefined;
               if (!localId) return;
-              let avatarUrl = '';
               if (isPK) {
-                if (isHttpUrl(m.avatar_url)) avatarUrl = m.avatar_url;
+                const u = normalizeSpAvatarUrl(m.avatar_url);
+                if (u) avatarCandidates[localId] = [u];
               } else {
-                const direct = m.content?.avatarUrl || m.avatarUrl;
-                const avatarUuid = m.content?.avatarUuid || m.avatarUuid;
-                const ownerUid = m.content?.uid || m.uid;
-                if (isHttpUrl(direct)) {
-                  avatarUrl = direct;
-                } else if (avatarUuid && ownerUid) {
-                  avatarUrl = `https://spaces.apparyllis.com/avatars/${ownerUid}/${avatarUuid}`;
-                }
+                const cands = spAvatarCandidates(m.content || m, spFallbackUid);
+                if (cands.length) avatarCandidates[localId] = cands;
               }
-              if (avatarUrl) avatarUrls[localId] = avatarUrl;
             });
           }
-          const avatarEntries = Object.entries(avatarUrls);
+          const avatarEntries = Object.entries(avatarCandidates);
           if (avatarEntries.length > 0) {
-            setRestoreProgress(t('share.progressAvatarsDownload', {defaultValue: 'Downloading avatars…'}));
+            setRestoreProgress(t('share.progressAvatarsDownload'));
             const avatarResults: Record<string, string> = {};
-            await parallelMap(avatarEntries, async ([memberId, url]) => {
-              const avatar = await saveAvatarFromUrl(memberId, url).catch(() => undefined);
+            await parallelMap(avatarEntries, async ([memberId, urls]) => {
+              const avatar = await downloadFirstAvatar(memberId, urls as string[]);
               if (avatar) avatarResults[memberId] = avatar;
-            }, 4, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total, defaultValue: `Downloading avatars… ${done}/${total}`})));
+            }, 4, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total})));
             const withAvatars = merged.map(m => avatarResults[m.id] ? {...m, avatar: avatarResults[m.id]} : m);
             await store.set(KEYS.members, withAvatars);
           }
@@ -1010,12 +1013,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             });
             const bannerEntries = Object.entries(bannerUrls);
             if (bannerEntries.length > 0) {
-              setRestoreProgress(t('share.progressBannersDownload', {defaultValue: 'Downloading banners…'}));
+              setRestoreProgress(t('share.progressBannersDownload'));
               const bannerResults: Record<string, string> = {};
               await parallelMap(bannerEntries, async ([memberId, url]) => {
                 const banner = await saveBannerFromUrl(memberId, url).catch(() => undefined);
                 if (banner) bannerResults[memberId] = banner;
-              }, 4, (done, total) => setRestoreProgress(t('share.progressBannersDownloadN', {done, total, defaultValue: `Downloading banners… ${done}/${total}`})));
+              }, 4, (done, total) => setRestoreProgress(t('share.progressBannersDownloadN', {done, total})));
               if (Object.keys(bannerResults).length > 0) {
                 const currentMembers = await store.get<Member[]>(KEYS.members) || [];
                 const withBanners = currentMembers.map(m => bannerResults[m.id] ? {...m, banner: bannerResults[m.id]} : m);
@@ -1309,26 +1312,21 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             if (spId) idMap[spId] = newId;
           });
           await store.set(KEYS.members, merged);
-          const avatarUrls: Record<string, string> = {};
+          const avatarUrls: Record<string, string[]> = {};
           if (extSel.avatars) {
+            const spFallbackUid = String(spMembers.find((x: any) => x.uid)?.uid || '');
             spMembers.forEach((m: any) => {
               const localId = m._id ? idMap[m._id] : undefined;
               if (!localId) return;
-              let avatarUrl = m.avatarUrl || '';
-              if (!avatarUrl && m.avatarUuid) {
-                const ownerUid = m.uid;
-                avatarUrl = ownerUid
-                  ? `https://spaces.apparyllis.com/avatars/${ownerUid}/${m.avatarUuid}`
-                  : `https://spaces.apparyllis.com/avatars/${m.avatarUuid}`;
-              }
-              if (avatarUrl) avatarUrls[localId] = avatarUrl;
+              const cands = spAvatarCandidates(m, spFallbackUid);
+              if (cands.length) avatarUrls[localId] = cands;
             });
           }
           const avatarEntries = Object.entries(avatarUrls);
           if (avatarEntries.length > 0) {
             const withAvatars = [...merged];
-            for (const [memberId, url] of avatarEntries) {
-              const avatar = await saveAvatarFromUrl(memberId, url);
+            for (const [memberId, urls] of avatarEntries) {
+              const avatar = await downloadFirstAvatar(memberId, urls as string[]);
               if (avatar) {
                 const idx = withAvatars.findIndex(m => m.id === memberId);
                 if (idx >= 0) withAvatars[idx] = {...withAvatars[idx], avatar};
@@ -1457,7 +1455,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       entries.forEach(e => { sel[e.key] = true; });
       setRecoverSel(sel);
     } catch (e) {
-      Alert.alert(t('share.recoverScanFailed', {defaultValue: 'Recovery scan failed'}), String(e));
+      Alert.alert(t('share.recoverScanFailed'), String(e));
       setRecoverEntries([]);
     } finally {
       setRecoverScanning(false);
@@ -1469,11 +1467,11 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     const toRestore = recoverEntries.filter(e => recoverSel[e.key]);
     if (toRestore.length === 0) return;
     Alert.alert(
-      t('share.recoverConfirmTitle', {defaultValue: 'Recover data?'}),
-      t('share.recoverConfirmMsg', {count: toRestore.length, defaultValue: `Restore ${toRestore.length} backup item${toRestore.length === 1 ? '' : 's'} into the app? This will overwrite current data for those categories.`}),
+      t('share.recoverConfirmTitle'),
+      t('share.recoverConfirmMsg', {count: toRestore.length}),
       [
         {text: t('common.cancel'), style: 'cancel'},
-        {text: t('share.recoverConfirm', {defaultValue: 'Recover'}), style: 'destructive', onPress: async () => {
+        {text: t('share.recoverConfirm'), style: 'destructive', onPress: async () => {
           let okCount = 0;
           for (const entry of toRestore) {
             const ok = await restoreFromBackup(entry.key);
@@ -1490,7 +1488,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     switch (key) {
       case KEYS.system: return t('share.systemNameDesc');
       case KEYS.members: return t('share.memberProfiles');
-      case KEYS.front: return t('hub.front', {defaultValue: 'Front'});
+      case KEYS.front: return t('hub.front');
       case KEYS.history: return t('share.frontHistory');
       case KEYS.journal: return t('share.journalEntries');
       case KEYS.groups: return t('share.memberGroups');
@@ -1537,8 +1535,8 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     </View>
   );
 
-  const Toggle = ({value, onToggle}: {value: boolean; onToggle: () => void}) => (
-    <TouchableOpacity onPress={onToggle} activeOpacity={0.8} accessibilityRole="switch" accessibilityState={{checked: value}} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: value ? T.accent : T.toggleOff, justifyContent: 'center'}}>
+  const Toggle = ({value, onToggle, label}: {value: boolean; onToggle: () => void; label?: string}) => (
+    <TouchableOpacity onPress={onToggle} activeOpacity={0.8} accessibilityRole="switch" accessibilityState={{checked: value}} accessibilityLabel={label} style={{width: 40, height: 22, borderRadius: 11, backgroundColor: value ? T.accent : T.toggleOff, justifyContent: 'center'}}>
       <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: value ? 20 : 3}} />
     </TouchableOpacity>
   );
@@ -1546,7 +1544,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const SectionRow = ({label, sublabel, value, onToggle, disabled = false}: any) => (
     <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: T.border, paddingHorizontal: 14, opacity: disabled ? 0.4 : 1}}>
       <View style={{flex: 1}}><Text style={{fontSize: fs(14), color: T.text, fontWeight: '500'}}>{label}</Text>{sublabel && <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{sublabel}</Text>}</View>
-      <Toggle value={value && !disabled} onToggle={disabled ? () => {} : onToggle} />
+      <Toggle value={value && !disabled} onToggle={disabled ? () => {} : onToggle} label={label} />
     </View>
   );
 
@@ -1579,13 +1577,13 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           <Divider label={t('share.fullSystemExport')} />
           <Text style={[s.para, {color: T.dim}]}>{t('share.downloadsDirectly')}</Text>
 
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8, marginTop: 4}}>{t('share.exportCategories', {defaultValue: 'Export Categories'})}</Text>
+          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8, marginTop: 4}}>{t('share.exportCategories')}</Text>
           <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
             {([
               ['system', t('share.systemNameDesc')],
               ['members', t('share.memberProfiles')],
               ['avatars', t('share.profilePictures')],
-              ['banners', t('share.banners', {defaultValue: 'Banners'})],
+              ['banners', t('share.banners')],
               ['frontHistory', t('share.frontHistory')],
               ['journal', t('share.journalEntries')],
               ['groups', t('share.memberGroups')],
@@ -1596,7 +1594,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               ['customFields', t('customFields.title')],
               ['noteboards', t('noteboard.title')],
               ['polls', t('polls.title')],
-              ['journalTemplates', t('journal.templatesTab', {defaultValue: 'Templates'})],
+              ['journalTemplates', t('journal.templatesTab')],
             ] as [keyof ExportCategories, string][]).map(([k, label]) => (
               <SectionRow key={k} label={label} value={!!exportSel[k]} onToggle={() => togExp(k)} />
             ))}
@@ -1604,7 +1602,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ JSON', handleJSON, T.accentBg, T.accent, `${T.accent}40`], ['↓ HTML', handleHTML, T.infoBg, T.info, `${T.info}40`]].map(([label, fn, bg, color, border]: any) => (
-              <TouchableOpacity key={label} onPress={fn} activeOpacity={0.7} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
+              <TouchableOpacity key={label} onPress={fn} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color}}>{label}</Text>
               </TouchableOpacity>
             ))}
@@ -1614,7 +1612,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           <Text style={[s.para, {color: T.dim}]}>{t('share.exportJournalOnly')}</Text>
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ .txt', 'txt', T.accentBg, T.accent, `${T.accent}40`], ['↓ .md', 'md', T.infoBg, T.info, `${T.info}40`], ['↓ .json', 'json', 'transparent', T.dim, T.border]].map(([label, fmt, bg, color, border]: any) => (
-              <TouchableOpacity key={fmt} onPress={() => handleJournalExport(fmt)} activeOpacity={0.7} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
+              <TouchableOpacity key={fmt} onPress={() => handleJournalExport(fmt)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
                 <Text style={{fontSize: fs(13), fontWeight: '500', color}}>{label}</Text>
               </TouchableOpacity>
             ))}
@@ -1623,7 +1621,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           <Divider label={t('share.sendEmail')} />
           <TextInput value={emailAddr} onChangeText={setEmailAddr} placeholder="recipient@email.com" placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10}} />
-          <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+          <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.openInMail')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
             <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.openInMail')}</Text>
           </TouchableOpacity>
         </View>
@@ -1644,13 +1642,13 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             <SourceBtn id="simplyplural" label={t('share.simplyPlural')} />
             <SourceBtn id="pluralkit" label={t('share.pluralKit')} />
             <SourceBtn id="spfile" label={t('share.spFile')} />
-            <SourceBtn id="ampersand" label={t('share.ampersand', {defaultValue: 'Ampersand'})} />
+            <SourceBtn id="ampersand" label={t('share.ampersand')} />
           </View>
           {importSource === 'journal' && (
             <View>
               <Divider label={t('share.importJournalEntry')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.importJournalDesc')}</Text>
-              <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+              <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickFile')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickFile')}</Text>
               </TouchableOpacity>
               {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
@@ -1661,9 +1659,9 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             <View>
               <Divider label={t('share.restoreBackup')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.restoreBackupDesc')}</Text>
-              <Text style={[s.para, {color: T.muted, fontSize: fs(11)}]}>{t('share.importFormatsNote', {defaultValue: 'Auto-detects Plural Star, Simply Plural, Octocon, Ourcana, and HiveMind (.json). For Ampersand (.ampar) use the Ampersand tab.'})}</Text>
-              <TouchableOpacity onPress={handlePickBackup} activeOpacity={0.7} style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: restoreFile ? T.success : T.border, borderRadius: 10, padding: 22, alignItems: 'center', marginBottom: 14, gap: 6, backgroundColor: restoreFile ? T.successBg : 'transparent'}}>
-                <Text style={{fontSize: fs(20), color: T.dim}}>↑</Text>
+              <Text style={[s.para, {color: T.muted, fontSize: fs(11)}]}>{t('share.importFormatsNote')}</Text>
+              <TouchableOpacity onPress={handlePickBackup} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={restoreFile || t('share.tapToSelect')} style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: restoreFile ? T.success : T.border, borderRadius: 10, padding: 22, alignItems: 'center', marginBottom: 14, gap: 6, backgroundColor: restoreFile ? T.successBg : 'transparent'}}>
+                <Text style={{fontSize: fs(20), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↑</Text>
                 <Text style={{fontSize: fs(13), color: restoreFile ? T.success : T.dim, textAlign: 'center'}}>{restoreFile || t('share.tapToSelect')}</Text>
               </TouchableOpacity>
               {restoreError ? <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {restoreError}</Text></View> : null}
@@ -1675,7 +1673,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                       ['system', t('share.systemNameDesc')],
                       ['members', t('share.memberProfiles')],
                       ['avatars', t('share.profilePictures')],
-                      ['banners', t('share.banners', {defaultValue: 'Banners'})],
+                      ['banners', t('share.banners')],
                       ['frontHistory', t('share.frontHistory')],
                       ['journal', t('share.journalEntries')],
                       ['groups', t('share.memberGroups')],
@@ -1686,27 +1684,27 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                       ['customFields', t('customFields.title')],
                       ['noteboards', t('noteboard.title')],
                       ['polls', t('polls.title')],
-                      ['journalTemplates', t('journal.templatesTab', {defaultValue: 'Templates'})],
+                      ['journalTemplates', t('journal.templatesTab')],
                     ] as any[]).map(([k, label]) => (
                       <SectionRow key={k} label={label} value={restoreSel[k as keyof typeof restoreSel]} onToggle={() => togR(k)} />
                     ))}
                   </View>
                   {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
                     : restoring ? <View style={{alignItems: 'center', paddingVertical: 16}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress || t('share.importing')}</Text></View>
-                    : <TouchableOpacity onPress={handleRestore} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
+                    : <TouchableOpacity onPress={handleRestore} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
                 </>
               )}
-              <Divider label={t('share.recoverData', {defaultValue: 'Recover Data'})} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.recoverDataDesc', {defaultValue: "If your data disappeared after a restart (welcome screen returns, members or groups gone, etc.), Plural Star may still have on-disk backups separate from the app's main storage. Scan to see what can be recovered."})}</Text>
+              <Divider label={t('share.recoverData')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.recoverDataDesc')}</Text>
               {!recoverEntries ? (
-                <TouchableOpacity onPress={handleScanRecovery} disabled={recoverScanning} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 14, opacity: recoverScanning ? 0.5 : 1}}>
-                  {recoverScanning ? <ActivityIndicator color={T.accent} size="small" /> : <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}>{t('share.scanForBackups', {defaultValue: 'Scan for recoverable backups'})}</Text>}
+                <TouchableOpacity onPress={handleScanRecovery} disabled={recoverScanning} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.scanForBackups')} accessibilityState={{disabled: recoverScanning}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 14, opacity: recoverScanning ? 0.5 : 1}}>
+                  {recoverScanning ? <ActivityIndicator color={T.accent} size="small" /> : <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}>{t('share.scanForBackups')}</Text>}
                 </TouchableOpacity>
               ) : recoverEntries.length === 0 ? (
                 <View style={{padding: 14, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 14}}>
-                  <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>{t('share.noBackupsFound', {defaultValue: 'No recoverable backups found on disk.'})}</Text>
+                  <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>{t('share.noBackupsFound')}</Text>
                   <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverDone(false);}} activeOpacity={0.7} accessibilityRole="button" style={{alignSelf: 'center', marginTop: 8}}>
-                    <Text style={{fontSize: fs(12), color: T.accent}}>{t('share.scanAgain', {defaultValue: 'Scan again'})}</Text>
+                    <Text style={{fontSize: fs(12), color: T.accent}}>{t('share.scanAgain')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
@@ -1733,15 +1731,15 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                   </View>
                   {recoverDone ? (
                     <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 14}}>
-                      <Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.recoverComplete', {defaultValue: '✓ Recovery complete — reloading…'})}</Text>
+                      <Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.recoverComplete')}</Text>
                     </View>
                   ) : (
                     <View style={{flexDirection: 'row', gap: 8, marginBottom: 14}}>
-                      <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverSel({}); setRecoverDone(false);}} activeOpacity={0.7} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+                      <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverSel({}); setRecoverDone(false);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
                         <Text style={{fontSize: fs(13), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={handleApplyRecovery} activeOpacity={0.7} disabled={Object.values(recoverSel).every(v => !v)} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: Object.values(recoverSel).every(v => !v) ? 0.4 : 1}}>
-                        <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.recoverSelected', {defaultValue: 'Recover selected'})}</Text>
+                      <TouchableOpacity onPress={handleApplyRecovery} activeOpacity={0.7} disabled={Object.values(recoverSel).every(v => !v)} accessibilityRole="button" accessibilityLabel={t('share.recoverSelected')} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: Object.values(recoverSel).every(v => !v) ? 0.4 : 1}}>
+                        <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.recoverSelected')}</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -1749,7 +1747,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               )}
               <Divider label={t('share.deleteAccount')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.deleteAccountDesc')}</Text>
-              <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+              <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.deleteAllData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.deleteAllData')}</Text>
               </TouchableOpacity>
             </View>
@@ -1761,6 +1759,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               <TextInput value={extToken} onChangeText={setExtToken} placeholder={importSource === 'simplyplural' ? t('share.spTokenPlaceholder') : t('share.pkTokenPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10, fontFamily: 'monospace'}} />
               <TouchableOpacity onPress={importSource === 'simplyplural' ? handleSimplyPluralFetch : handlePluralKitFetch} disabled={extLoading} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={t('share.fetchData')} accessibilityState={{disabled: extLoading}}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10, opacity: extLoading ? 0.5 : 1}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{extLoading ? t('share.fetching') : t('share.fetchData')}</Text>
               </TouchableOpacity>
@@ -1777,14 +1776,14 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                     <SectionRow label={t('share.memberProfiles')} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
                     <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
                     {importSource === 'pluralkit' && (
-                      <SectionRow label={t('share.banners', {defaultValue: 'Banners'})} value={extSel.banners} onToggle={() => togE('banners')} />
+                      <SectionRow label={t('share.banners')} value={extSel.banners} onToggle={() => togE('banners')} />
                     )}
                     <SectionRow label={t('share.frontHistory')} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                     {extPreview.groups && extPreview.groups.length > 0 && (
-                      <SectionRow label={t('share.groups', {defaultValue: 'Groups'})} sublabel={t('share.groupsCount', {count: extPreview.groups.length, defaultValue: `${extPreview.groups.length} group${extPreview.groups.length === 1 ? '' : 's'}`})} value={extSel.groups} onToggle={() => togE('groups')} />
+                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: extPreview.groups.length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={handleExtImport} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={handleExtImport} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1795,7 +1794,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             <View>
               <Divider label={t('share.spFileImport')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.spFileHint')}</Text>
-              <TouchableOpacity onPress={handleSPFileImport} activeOpacity={0.7}
+              <TouchableOpacity onPress={handleSPFileImport} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickSPFile')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickSPFile')}</Text>
               </TouchableOpacity>
@@ -1812,10 +1811,10 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                     <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
                     <SectionRow label={t('share.frontHistory')} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                     {extPreview.groups && extPreview.groups.length > 0 && (
-                      <SectionRow label={t('share.groups', {defaultValue: 'Groups'})} sublabel={t('share.groupsCount', {count: extPreview.groups.length, defaultValue: `${extPreview.groups.length} group${extPreview.groups.length === 1 ? '' : 's'}`})} value={extSel.groups} onToggle={() => togE('groups')} />
+                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: extPreview.groups.length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={handleSPFileConfirmImport} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={handleSPFileConfirmImport} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1824,11 +1823,11 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           )}
           {importSource === 'ampersand' && (
             <View>
-              <Divider label={t('share.ampersandImport', {defaultValue: 'Ampersand Import'})} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.ampersandHint', {defaultValue: 'Pick an Ampersand archive (.ampar) exported from the Ampersand app. Members, custom fields, and fronting history will be added to your system.'})}</Text>
-              <TouchableOpacity onPress={handleAmpersandPick} activeOpacity={0.7}
+              <Divider label={t('share.ampersandImport')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.ampersandHint')}</Text>
+              <TouchableOpacity onPress={handleAmpersandPick} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickAmparFile')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
-                <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickAmparFile', {defaultValue: 'Pick .ampar file'})}</Text>
+                <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickAmparFile')}</Text>
               </TouchableOpacity>
               {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
               {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
@@ -1845,7 +1844,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                     <SectionRow label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
                     <SectionRow label={t('share.frontHistory')} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
-                  <TouchableOpacity onPress={handleAmpersandConfirm} activeOpacity={0.7} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={handleAmpersandConfirm} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
