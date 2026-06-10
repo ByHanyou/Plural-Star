@@ -53,7 +53,7 @@ const downloadImageWithExtSniff = async (
       followRedirect: true,
     }).fetch('GET', url, {
       Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5',
-      'User-Agent': 'PluralStar/1.9.0 (avatar-import)',
+      'User-Agent': 'PluralStar/1.9.1 (avatar-import)',
     });
     const result = await new Promise<any>((resolve, reject) => {
       let settled = false;

@@ -245,6 +245,10 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     <Sheet visible={visible} title={t('modal.updateFront')} theme={T} onClose={onClose} footer={<><Btn variant="ghost" T={T} onPress={() => {onSave(EMPTY_TIER, EMPTY_TIER, EMPTY_TIER); onClose();}}>{t('common.clear')}</Btn><Btn T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
       <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      {customFronts.length > 0 && (<>
+        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
+        <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      </>)}
       <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
@@ -291,6 +295,10 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
 
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
       <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      {customFronts.length > 0 && (<>
+        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
+        <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      </>)}
       <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 8}} />
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>

@@ -47,12 +47,12 @@ const localizeOnAndroid = async (results: any[]): Promise<any[]> => {
   return out;
 };
 
-export const safePick = (options: {type: string[]}): Promise<any[]> => {
+export const safePick = (options: {type: string[]; allowMultiSelection?: boolean}): Promise<any[]> => {
   return new Promise((resolve, reject) => {
     Keyboard.dismiss();
     const launch = () => {
       try {
-        pickDocument(Platform.OS === 'ios' ? {type: [types.allFiles]} : options)
+        pickDocument(Platform.OS === 'ios' ? {type: [types.allFiles], allowMultiSelection: !!options.allowMultiSelection} : options)
           .then(async results => {
             try {
               const localized = await localizeOnAndroid(results);
