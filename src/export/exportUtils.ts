@@ -407,8 +407,8 @@ const zipToFile = async (
   try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
   const stream = await ReactNativeBlobUtil.fs.writeStream(tempPath, 'base64', false);
   const queue: Uint8Array[] = [];
-  let zipErr: any = null;
-  const zip = new Zip((err, data) => {
+  let zipErr: unknown = null;
+  const zip = new Zip((err: unknown, data: Uint8Array | undefined) => {
     if (err) { zipErr = err; return; }
     if (data && data.length) queue.push(data);
   });

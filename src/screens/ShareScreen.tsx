@@ -177,7 +177,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       try {
         content = await ReactNativeBlobUtil.fs.readFile(pickedPath, 'utf8');
       } catch {
-        content = await ReactNativeBlobUtil.fs.readFile(res.uri || res.fileCopyUri || pickedPath, 'utf8');
+        content = await ReactNativeBlobUtil.fs.readFile(res.uri || pickedPath, 'utf8');
       }
       let parsed: any;
       try { parsed = JSON.parse(content); } catch {

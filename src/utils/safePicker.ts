@@ -1,77 +1,120 @@
-import {Keyboard, Platform, InteractionManager} from 'react-native';
-import {pick as pickDocument, isErrorWithCode, errorCodes, keepLocalCopy, types} from '@react-native-documents/picker';
+import {InteractionManager, Keyboard, Platform} from 'react-native';
+import {
+  errorCodes,
+  isErrorWithCode,
+  keepLocalCopy,
+  pick as pickDocument,
+  types,
+  type DocumentPickerOptionsBase,
+  type DocumentPickerResponse,
+} from '@react-native-documents/picker';
 
-export const isPickerCancel = (err: any): boolean =>
-  isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED;
-export const getPickedFilePath = (result: any): string => {
-  const uri = result?.fileCopyUri || result?.uri || '';
-  if (uri.startsWith('file://')) {
-    const stripped = uri.replace('file://', '');
-    try { return decodeURIComponent(stripped); } catch { return stripped; }
-  }
-  return uri;
+type LocalizedDocumentPickerResponse = DocumentPickerResponse & {
+  fileCopyUri?: string;
+  fileName?: string;
 };
 
-const fallbackFileName = (result: any, idx: number): string => {
-  const raw = (result?.name || result?.fileName || '').toString().trim();
+export const isPickerCancel = (error: unknown): boolean =>
+  isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED;
+
+export const getPickedFilePath = (result: unknown): string => {
+  const typed = result as LocalizedDocumentPickerResponse | null | undefined;
+  const uri = typed?.fileCopyUri || typed?.uri || '';
+  if (!uri.startsWith('file://')) return uri;
+  const stripped = uri.replace('file://', '');
+  try {
+    return decodeURIComponent(stripped);
+  } catch {
+    return stripped;
+  }
+};
+
+const fallbackFileName = (
+  result: LocalizedDocumentPickerResponse,
+  index: number,
+): string => {
+  const raw = (result.name || result.fileName || '').toString().trim();
   if (raw) return raw;
-  const uri = (result?.uri || '').toString();
-  const tail = uri.split('/').pop() || '';
-  const decoded = (() => { try { return decodeURIComponent(tail); } catch { return tail; } })();
-  if (decoded && /\.[A-Za-z0-9]{1,8}$/.test(decoded)) return decoded;
-  return `picked-${Date.now()}-${idx}`;
-};
-
-const localizeOnAndroid = async (results: any[]): Promise<any[]> => {
-  if (Platform.OS !== 'android' || !Array.isArray(results) || results.length === 0) return results;
-  const out: any[] = [];
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
-    const srcUri = (r?.uri || r?.fileCopyUri || '').toString();
-    if (!srcUri || srcUri.startsWith('file://')) { out.push(r); continue; }
-    try {
-      const copyRes: any = await keepLocalCopy({
-        destination: 'cachesDirectory',
-        files: [{uri: srcUri, fileName: fallbackFileName(r, i)}],
-      });
-      const first = Array.isArray(copyRes) ? copyRes[0] : copyRes;
-      if (first && first.status === 'success' && typeof first.localUri === 'string' && first.localUri) {
-        out.push({...r, uri: first.localUri, fileCopyUri: first.localUri});
-      } else {
-        out.push(r);
-      }
-    } catch {
-      out.push(r);
-    }
+  const tail = (result.uri || '').toString().split('/').pop() || '';
+  try {
+    const decoded = decodeURIComponent(tail);
+    if (decoded && /\.[A-Za-z0-9]{1,8}$/.test(decoded)) return decoded;
+  } catch {
+    if (tail && /\.[A-Za-z0-9]{1,8}$/.test(tail)) return tail;
   }
-  return out;
+  return `picked-${Date.now()}-${index}`;
 };
 
-export const safePick = (options: {type: string[]; allowMultiSelection?: boolean}): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
-    Keyboard.dismiss();
-    const launch = () => {
-      try {
-        pickDocument(Platform.OS === 'ios' ? {type: [types.allFiles], allowMultiSelection: !!options.allowMultiSelection} : options)
-          .then(async results => {
-            try {
-              const localized = await localizeOnAndroid(results);
-              resolve(localized);
-            } catch (e) {
-              resolve(results);
-            }
-          })
-          .catch(reject);
-      } catch (e) {
-        reject(e);
+const localizeOnAndroid = async (
+  results: DocumentPickerResponse[],
+): Promise<DocumentPickerResponse[]> => {
+  if (Platform.OS !== 'android' || results.length === 0) return results;
+  const output: DocumentPickerResponse[] = [];
+
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index] as LocalizedDocumentPickerResponse;
+    const sourceUri = (result.uri || result.fileCopyUri || '').toString();
+
+    if (!sourceUri || sourceUri.startsWith('file://')) {
+      output.push(result);
+      continue;
+    }
+
+    try {
+      const copyResult = await keepLocalCopy({
+        destination: 'cachesDirectory',
+        files: [{uri: sourceUri, fileName: fallbackFileName(result, index)}],
+      });
+      const first = Array.isArray(copyResult) ? copyResult[0] : copyResult;
+
+      if (first?.status === 'success' && typeof first.localUri === 'string' && first.localUri) {
+        output.push({
+          ...result,
+          uri: first.localUri,
+          fileCopyUri: first.localUri,
+        } as DocumentPickerResponse);
+        continue;
       }
+    } catch {}
+
+    output.push(result);
+  }
+
+  return output;
+};
+
+export const safePick = async (
+  options: DocumentPickerOptionsBase,
+): Promise<DocumentPickerResponse[]> =>
+  new Promise((resolve, reject) => {
+    Keyboard.dismiss();
+
+    const launch = () => {
+      const pickerOptions =
+        Platform.OS === 'ios'
+          ? {
+              type: [types.allFiles],
+              allowMultiSelection: !!options.allowMultiSelection,
+            }
+          : options;
+
+      pickDocument(pickerOptions)
+        .then(async results => {
+          try {
+            resolve(await localizeOnAndroid(results));
+          } catch {
+            resolve(results);
+          }
+        })
+        .catch(reject);
     };
+
     if (Platform.OS === 'android') {
       InteractionManager.runAfterInteractions(() => {
         setTimeout(launch, 150);
       });
-    } else {
-      launch();
+      return;
     }
+
+    launch();
   });
-};

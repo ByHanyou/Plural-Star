@@ -6,8 +6,8 @@
     "android": "node scripts/run-android.js",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "build-android-release": "cd android && ./gradlew bundleRelease",
-    "build-android-apk": "cd android && ./gradlew assembleRelease",
+    "build-android-release": "cd android && bash ./gradlew bundleRelease",
+    "build-android-apk": "cd android && bash ./gradlew assembleRelease",
     "postinstall": "patch-package"
   },
   "dependencies": {

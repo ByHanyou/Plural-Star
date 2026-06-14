@@ -10,6 +10,12 @@ export interface PickedImage {
   height?: number;
 }
 
+const normalizePhotoQuality = (quality?: number): PhotoQuality => {
+  if (typeof quality !== 'number' || Number.isNaN(quality)) return 1;
+  const clamped = Math.max(0, Math.min(1, quality));
+  return Number(clamped.toFixed(1)) as PhotoQuality;
+};
+
 export const pickImageFromGallery = async (
   opts: {includeBase64?: boolean; quality?: number; maxWidth?: number; maxHeight?: number} = {},
 ): Promise<PickedImage | null> => {
@@ -17,7 +23,7 @@ export const pickImageFromGallery = async (
     mediaType: 'photo',
     selectionLimit: 1,
     includeBase64: opts.includeBase64 ?? false,
-    quality: (opts.quality ?? 1) as PhotoQuality,
+    quality: normalizePhotoQuality(opts.quality),
     maxWidth: opts.maxWidth ?? 1280,
     maxHeight: opts.maxHeight ?? 1280,
   });
