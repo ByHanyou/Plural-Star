@@ -1,20 +1,24 @@
 import {Keyboard, Platform, InteractionManager} from 'react-native';
-import {pick as pickDocument, isCancel as isPickerCancel} from '@react-native-documents/picker';
+import {
+  errorCodes,
+  isErrorWithCode,
+  pick as pickDocument,
+  type DocumentPickerOptionsBase,
+  type DocumentPickerResponse,
+} from '@react-native-documents/picker';
 
-export {isPickerCancel};
+export const isPickerCancel = (error: unknown): boolean =>
+  isErrorWithCode(error) && error.code === errorCodes.OPERATION_CANCELED;
 export const getPickedFilePath = (result: any): string => {
-  const uri = result?.fileCopyUri || result?.uri || '';
+  const uri = result?.uri || '';
   return uri.startsWith('file://') ? uri.replace('file://', '') : uri;
 };
 
-const resolveUri = (result: any): any => {
-  if (Platform.OS === 'android' && result.fileCopyUri) {
-    return {...result, uri: result.fileCopyUri};
-  }
-  return result;
-};
+const resolveUri = (result: DocumentPickerResponse): DocumentPickerResponse => result;
 
-export const safePick = (options: {type: string[]}): Promise<any[]> => {
+export const safePick = (
+  options: DocumentPickerOptionsBase,
+): Promise<DocumentPickerResponse[]> => {
   return new Promise((resolve, reject) => {
     Keyboard.dismiss();
     const launch = () => {
