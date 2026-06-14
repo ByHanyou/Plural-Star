@@ -91,7 +91,7 @@ export const buildExportBase = async (
   categories: ExportCategories = ALL_CATEGORIES,
 ): Promise<Record<string, any>> => {
   const cat = { ...ALL_CATEGORIES, ...categories };
-  const [groups, channels, settings, front, palettes, customFieldDefs, noteboards, polls, journalTemplates, relationships, relationshipTypes, medical] = await Promise.all([
+  const [groups, channels, settings, front, palettes, customFieldDefs, noteboards, polls, journalTemplates, relationships, relationshipTypes, medical, systemMapMembers] = await Promise.all([
     store.get<MemberGroup[]>(KEYS.groups),
     store.get<ChatChannel[]>(KEYS.chatChannels),
     store.get<AppSettings>(KEYS.settings),
@@ -104,6 +104,7 @@ export const buildExportBase = async (
     store.get<any[]>(KEYS.relationships),
     store.get<any[]>(KEYS.relationshipTypes),
     store.get<any>(KEYS.medical),
+    store.get<string[]>(KEYS.systemMapMembers),
   ]);
 
   const chatMessages: Record<string, ChatMessage[]> = {};
@@ -143,6 +144,7 @@ export const buildExportBase = async (
     journalTemplates: cat.journalTemplates ? (journalTemplates || []) : [],
     relationships: cat.relationships ? (relationships || []) : [],
     relationshipTypes: cat.relationships ? (relationshipTypes || []) : [],
+    systemMapMembers: cat.relationships ? (systemMapMembers || []) : [],
     medical: cat.medical ? (medical || undefined) : undefined,
   };
 };

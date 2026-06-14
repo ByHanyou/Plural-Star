@@ -130,6 +130,8 @@
     "customFront": "Front Tersuai",
     "customFronts": "Front Tersuai",
     "moveDown": "Alih ke bawah",
+    "moveAbove": "di atas {{name}}",
+    "moveBelow": "di bawah {{name}}",
     "moveUp": "Alih ke atas",
     "noCustomFronts": "Tiada front tersuai lagi.",
     "selectAction": "Pilih",

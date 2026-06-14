@@ -130,6 +130,8 @@
     "customFront": "Front Tùy chỉnh",
     "customFronts": "Front Tùy chỉnh",
     "moveDown": "Di chuyển xuống",
+    "moveAbove": "trên {{name}}",
+    "moveBelow": "dưới {{name}}",
     "moveUp": "Di chuyển lên",
     "noCustomFronts": "Chưa có front tùy chỉnh nào.",
     "selectAction": "Chọn",

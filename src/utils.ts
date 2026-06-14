@@ -421,6 +421,7 @@ export interface ExportPayload {
   journalTemplates?: JournalTemplate[];
   relationships?: Relationship[];
   relationshipTypes?: RelationshipTypeDef[];
+  systemMapMembers?: string[];
   medical?: MedicalData;
 }
 

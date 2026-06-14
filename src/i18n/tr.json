@@ -130,6 +130,8 @@
     "customFront": "Özel Front",
     "customFronts": "Özel Frontlar",
     "moveDown": "Aşağı taşı",
+    "moveAbove": "{{name}} üstüne",
+    "moveBelow": "{{name}} altına",
     "moveUp": "Yukarı taşı",
     "noCustomFronts": "Henüz özel front yok.",
     "selectAction": "Seç",

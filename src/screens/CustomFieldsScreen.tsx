@@ -122,7 +122,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
                   hitSlop={{top: 10, bottom: 6, left: 12, right: 12}}
                   activeOpacity={0.6}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t('members.moveUp')}, ${fd.name}`}
+                  accessibilityLabel={i === 0 ? `${t('members.moveUp')}, ${fd.name}` : `${t('members.moveUp')}, ${fd.name}, ${t('members.moveAbove', {name: fields[i - 1].name})}`}
                   accessibilityState={{disabled: i === 0}}
                   style={{padding: 3}}>
                   <Text style={{fontSize: fs(14), color: i === 0 ? T.border : T.muted, lineHeight: 14}}>▲</Text>
@@ -133,7 +133,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
                   hitSlop={{top: 6, bottom: 10, left: 12, right: 12}}
                   activeOpacity={0.6}
                   accessibilityRole="button"
-                  accessibilityLabel={`${t('members.moveDown')}, ${fd.name}`}
+                  accessibilityLabel={i === fields.length - 1 ? `${t('members.moveDown')}, ${fd.name}` : `${t('members.moveDown')}, ${fd.name}, ${t('members.moveBelow', {name: fields[i + 1].name})}`}
                   accessibilityState={{disabled: i === fields.length - 1}}
                   style={{padding: 3}}>
                   <Text style={{fontSize: fs(14), color: i === fields.length - 1 ? T.border : T.muted, lineHeight: 14}}>▼</Text>

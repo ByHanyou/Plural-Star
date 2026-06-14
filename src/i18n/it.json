@@ -130,6 +130,8 @@
     "customFront": "Front Personalizzato",
     "customFronts": "Front Personalizzati",
     "moveDown": "Sposta giù",
+    "moveAbove": "sopra {{name}}",
+    "moveBelow": "sotto {{name}}",
     "moveUp": "Sposta su",
     "noCustomFronts": "Nessun front personalizzato ancora.",
     "selectAction": "Seleziona",

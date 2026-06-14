@@ -130,6 +130,8 @@
     "customFront": "Custom Front",
     "customFronts": "Custom Fronts",
     "moveDown": "Move down",
+    "moveAbove": "above {{name}}",
+    "moveBelow": "below {{name}}",
     "moveUp": "Move up",
     "noCustomFronts": "No custom fronts yet.",
     "selectAction": "Select",

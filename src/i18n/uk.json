@@ -166,6 +166,8 @@
     "customFront": "Користувацький фронт",
     "customFronts": "Користувацькі фронти",
     "moveDown": "Вниз",
+    "moveAbove": "над {{name}}",
+    "moveBelow": "під {{name}}",
     "moveUp": "Вгору",
     "noCustomFronts": "Поки немає користувацьких фронтів.",
     "selectAction": "Вибрати",

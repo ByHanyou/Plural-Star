@@ -166,6 +166,8 @@
     "customFront": "自定义前台",
     "customFronts": "自定义前台",
     "moveDown": "下移",
+    "moveAbove": "在{{name}}上方",
+    "moveBelow": "在{{name}}下方",
     "moveUp": "上移",
     "noCustomFronts": "暂无自定义前台。",
     "selectAction": "选择",

@@ -166,6 +166,8 @@
     "customFront": "Benutzerdefinierte Front",
     "customFronts": "Benutzerdefinierte Fronten",
     "moveDown": "Nach unten",
+    "moveAbove": "über {{name}}",
+    "moveBelow": "unter {{name}}",
     "moveUp": "Nach oben",
     "noCustomFronts": "Noch keine benutzerdefinierten Fronten.",
     "selectAction": "Auswählen",

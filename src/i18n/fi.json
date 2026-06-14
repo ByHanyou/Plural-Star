@@ -166,6 +166,8 @@
     "customFront": "Mukautettu frontti",
     "customFronts": "Mukautetut frontit",
     "moveDown": "Siirrä alas",
+    "moveAbove": "kohteen {{name}} yläpuolelle",
+    "moveBelow": "kohteen {{name}} alapuolelle",
     "moveUp": "Siirrä ylös",
     "noCustomFronts": "Ei vielä mukautettuja fronteja.",
     "selectAction": "Valitse",

@@ -166,6 +166,8 @@
     "customFront": "Egendefinert front",
     "customFronts": "Egendefinerte fronter",
     "moveDown": "Flytt ned",
+    "moveAbove": "over {{name}}",
+    "moveBelow": "under {{name}}",
     "moveUp": "Flytt opp",
     "noCustomFronts": "Ingen egendefinerte fronter ennå.",
     "selectAction": "Velg",

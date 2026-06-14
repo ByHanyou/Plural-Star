@@ -130,6 +130,8 @@
     "customFront": "ฟรอนต์กำหนดเอง",
     "customFronts": "ฟรอนต์กำหนดเอง",
     "moveDown": "เลื่อนลง",
+    "moveAbove": "เหนือ {{name}}",
+    "moveBelow": "ใต้ {{name}}",
     "moveUp": "เลื่อนขึ้น",
     "noCustomFronts": "ยังไม่มีฟรอนต์กำหนดเอง",
     "selectAction": "เลือก",

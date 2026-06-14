@@ -166,6 +166,8 @@
     "customFront": "Frente personalizado",
     "customFronts": "Frentes personalizados",
     "moveDown": "Mover abajo",
+    "moveAbove": "encima de {{name}}",
+    "moveBelow": "debajo de {{name}}",
     "moveUp": "Mover arriba",
     "noCustomFronts": "Aún no hay frentes personalizados.",
     "selectAction": "Seleccionar",

@@ -42,12 +42,14 @@ interface MemberCardProps {
   onReorder?: (id: string, direction: 'up' | 'down') => void;
   onEditMember: (m: Member) => void;
   fields: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean};
+  prevName?: string;
+  nextName?: string;
 }
 
 const MemberCard = React.memo(function MemberCard({
   m, index, isLast, selectionMode, isSelected, showReorder,
   front, allFrontIds, groups, T, fs, t,
-  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember, fields,
+  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember, fields, prevName, nextName,
 }: MemberCardProps) {
   const tier = getMemberTier(m.id, front);
   const isFronting = allFrontIds.has(m.id);
@@ -81,10 +83,10 @@ const MemberCard = React.memo(function MemberCard({
         )}
         {!selectionMode && showReorder && (
           <View style={{justifyContent: 'center', gap: 2, marginRight: -6}}>
-            <TouchableOpacity onPress={() => !isFirst && onReorder && onReorder(m.id, 'up')} hitSlop={{top: 6, bottom: 2, left: 8, right: 8}} disabled={isFirst} accessibilityRole="button" accessibilityLabel={t('members.moveUp')}>
+            <TouchableOpacity onPress={() => !isFirst && onReorder && onReorder(m.id, 'up')} hitSlop={{top: 6, bottom: 2, left: 8, right: 8}} disabled={isFirst} accessibilityRole="button" accessibilityLabel={isFirst || !prevName ? `${t('members.moveUp')}, ${m.name}` : `${t('members.moveUp')}, ${m.name}, ${t('members.moveAbove', {name: prevName})}`}>
               <Text style={{fontSize: fs(14), color: isFirst ? T.muted : T.dim, opacity: isFirst ? 0.3 : 1}}>▲</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => !isLast && onReorder && onReorder(m.id, 'down')} hitSlop={{top: 2, bottom: 6, left: 8, right: 8}} disabled={isLast} accessibilityRole="button" accessibilityLabel={t('members.moveDown')}>
+            <TouchableOpacity onPress={() => !isLast && onReorder && onReorder(m.id, 'down')} hitSlop={{top: 2, bottom: 6, left: 8, right: 8}} disabled={isLast} accessibilityRole="button" accessibilityLabel={isLast || !nextName ? `${t('members.moveDown')}, ${m.name}` : `${t('members.moveDown')}, ${m.name}, ${t('members.moveBelow', {name: nextName})}`}>
               <Text style={{fontSize: fs(14), color: isLast ? T.muted : T.dim, opacity: isLast ? 0.3 : 1}}>▼</Text>
             </TouchableOpacity>
           </View>
@@ -304,8 +306,10 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       onReorder={handleReorder}
       onEditMember={onEdit}
       fields={listFields}
+      prevName={index > 0 ? filtered[index - 1].name : undefined}
+      nextName={index < filtered.length - 1 ? filtered[index + 1].name : undefined}
     />
-  ), [filtered.length, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields]);
+  ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields]);
 
   const allVisibleIds = filtered.map(m => m.id);
   const allSelectedInView = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));

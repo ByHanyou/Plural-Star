@@ -194,7 +194,7 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     if (visible) {
       const c: FrontState | null = current;
       setPrimaryIds(new Set(c?.primary?.memberIds || [])); setCoFrontIds(new Set(c?.coFront?.memberIds || [])); setCoConsciousIds(new Set(c?.coConscious?.memberIds || []));
-      setPrimaryMood(c?.primary?.mood || ''); setPrimaryCustomMood(''); setPrimaryShowCustom(false); setPrimaryLocation(c?.primary?.location || lastKnownLocation || ''); setPrimaryNote(c?.primary?.note || '');
+      setPrimaryMood(c?.primary?.mood || ''); setPrimaryCustomMood(''); setPrimaryShowCustom(false); setPrimaryLocation(c?.primary?.location || (settings?.gpsEnabled ? lastKnownLocation : '') || ''); setPrimaryNote(c?.primary?.note || '');
       setCoFrontMood(c?.coFront?.mood || ''); setCoFrontCustomMood(''); setCoFrontShowCustom(false); setCoFrontNote(c?.coFront?.note || '');
       setCoConsciousMood(c?.coConscious?.mood || ''); setCoConsciousCustomMood(''); setCoConsciousShowCustom(false); setCoConsciousNote(c?.coConscious?.note || '');
       setPrimaryEnergy(c?.primary?.energyLevel); setCoFrontEnergy(c?.coFront?.energyLevel); setCoConsciousEnergy(c?.coConscious?.energyLevel);
@@ -341,7 +341,7 @@ export const SetStatusModal = ({visible, theme: T, statuses, selfId, current, se
       const c: FrontState | null = current;
       setStatusIds(new Set((c?.primary?.memberIds || []).filter((id: string) => id !== selfId)));
       setMood(c?.primary?.mood || ''); setCustomMood(''); setShowCustom(false);
-      setLocation(c?.primary?.location || lastKnownLocation || ''); setNote(c?.primary?.note || '');
+      setLocation(c?.primary?.location || (settings?.gpsEnabled ? lastKnownLocation : '') || ''); setNote(c?.primary?.note || '');
       setEnergy(c?.primary?.energyLevel);
     }
   }, [visible, current, selfId, lastKnownLocation]);
@@ -416,9 +416,9 @@ export const EditFrontDetailModal = ({visible, theme: T, front, tier, settings, 
   const isPrimary = tier === 'primary';
   const tierLabel = statusMode ? t('tabs.status') : t(`tier.${tier === 'primary' ? 'primaryFront' : tier === 'coFront' ? 'coFront' : 'coConscious'}`);
   const [mood, setMood] = useState(tierData.mood || ''); const [customMood, setCustomMood] = useState(''); const [showCustomMood, setShowCustomMood] = useState(false);
-  const [location, setLocation] = useState(tierData.location || lastKnownLocation || ''); const [note, setNote] = useState(tierData.note || '');
+  const [location, setLocation] = useState(tierData.location || (settings?.gpsEnabled ? lastKnownLocation : '') || ''); const [note, setNote] = useState(tierData.note || '');
   const allMoods = [...DEFAULT_MOODS, ...(settings?.customMoods || [])]; const allLocations = settings?.locations || [];
-  React.useEffect(() => { if (visible) { const td = front?.[tier] || EMPTY_TIER; setMood(td.mood || ''); setLocation(td.location || lastKnownLocation || ''); setNote(td.note || ''); setShowCustomMood(false); setCustomMood(''); } }, [visible, front, tier, lastKnownLocation]);
+  React.useEffect(() => { if (visible) { const td = front?.[tier] || EMPTY_TIER; setMood(td.mood || ''); setLocation(td.location || (settings?.gpsEnabled ? lastKnownLocation : '') || ''); setNote(td.note || ''); setShowCustomMood(false); setCustomMood(''); } }, [visible, front, tier, lastKnownLocation]);
 
   return (
     <Sheet visible={visible} title={t('tier.editTier', {tier: tierLabel})} theme={T} onClose={onClose}

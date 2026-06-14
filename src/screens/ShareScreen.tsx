@@ -278,6 +278,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             if (restoreSel.journalTemplates && data.journalTemplates) await store.set(KEYS.journalTemplates, data.journalTemplates);
             if (restoreSel.relationships && data.relationships) await store.set(KEYS.relationships, data.relationships);
             if (restoreSel.relationships && data.relationshipTypes) await store.set(KEYS.relationshipTypes, data.relationshipTypes);
+            if (restoreSel.relationships && data.systemMapMembers) await store.set(KEYS.systemMapMembers, data.systemMapMembers);
             if (restoreSel.medical && data.medical) await store.set(KEYS.medical, data.medical);
             setRestoreDone(true); setTimeout(() => onDataImported(), 800);
             return;
@@ -701,6 +702,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           if (restoreSel.journalTemplates && data.journalTemplates) await store.set(KEYS.journalTemplates, data.journalTemplates);
           if (restoreSel.relationships && data.relationships) await store.set(KEYS.relationships, data.relationships);
           if (restoreSel.relationships && data.relationshipTypes) await store.set(KEYS.relationshipTypes, data.relationshipTypes);
+            if (restoreSel.relationships && data.systemMapMembers) await store.set(KEYS.systemMapMembers, data.systemMapMembers);
           if (restoreSel.medical && data.medical) await store.set(KEYS.medical, data.medical);
           setRestoreDone(true); setTimeout(() => onDataImported(), 800);
         } catch (e: any) {
