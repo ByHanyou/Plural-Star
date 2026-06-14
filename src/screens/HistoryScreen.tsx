@@ -377,13 +377,16 @@ export const HistoryScreen = ({theme: T, history, journal, getMember, members, s
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
               style={[s.subtab, {
+                flex: 1,
+                alignItems: 'center',
                 borderBottomWidth: 2,
                 borderBottomColor: subTab === tab ? T.accent : 'transparent',
               }]}>
-              <AccentText T={T} style={{
+              <AccentText T={T} numberOfLines={2} maxFontSizeMultiplier={1.3} style={{
                 fontSize: fs(13),
                 fontWeight: subTab === tab ? '600' : '400',
                 color: subTab === tab ? T.accent : T.dim,
+                textAlign: 'center',
               }}>
                 {tab === 'front'
                   ? (singlet ? t('history.statusHistory') : t('history.frontHistory'))

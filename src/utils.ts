@@ -206,6 +206,27 @@ export const DEFAULT_MEDICAL: MedicalData = {
 export const isValidTimeHHMM = (v: string): boolean =>
   /^([01]?\d|2[0-3]):[0-5]\d$/.test(v.trim());
 
+// Convert a 12-hour entry ("9", "9:30") + meridiem to canonical 24h "HH:MM". Returns null if invalid.
+export const time12to24 = (raw: string, ampm: 'AM' | 'PM'): string | null => {
+  const m = /^(\d{1,2})(?::(\d{2}))?$/.exec((raw || '').trim());
+  if (!m) return null;
+  let h = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  if (h < 1 || h > 12 || min < 0 || min > 59) return null;
+  if (ampm === 'AM') { if (h === 12) h = 0; } else { if (h !== 12) h += 12; }
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+};
+
+// Format a canonical 24h "HH:MM" for display as 12-hour with meridiem, e.g. "9:00 PM".
+export const formatTime12 = (hhmm24: string): string => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm24 || '').trim());
+  if (!m) return hhmm24;
+  let h = parseInt(m[1], 10);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${m[2]} ${ampm}`;
+};
+
 export const emergencyNotificationLine = (e: EmergencyInfo | undefined): string | null => {
   if (!e || !e.showOnNotification) return null;
   const parts = [e.conditions, e.allergies, e.bloodType].map(x => (x || '').trim()).filter(Boolean);

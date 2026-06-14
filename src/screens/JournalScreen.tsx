@@ -162,8 +162,8 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
         {(['entries', 'templates'] as JournalSubTab[]).map(tab => (
           <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
             accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
-            style={{paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 2, borderBottomColor: subTab === tab ? T.accent : 'transparent'}}>
-            <Text style={{fontSize: fs(13), color: subTab === tab ? T.accent : T.dim, fontWeight: subTab === tab ? '600' : '400'}}>
+            style={{flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 2, borderBottomColor: subTab === tab ? T.accent : 'transparent'}}>
+            <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={{fontSize: fs(13), textAlign: 'center', color: subTab === tab ? T.accent : T.dim, fontWeight: subTab === tab ? '600' : '400'}}>
               {tab === 'entries'
                 ? t('journal.entriesTab')
                 : t('journal.templatesTab')}

@@ -3,7 +3,7 @@ import {View, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView} from 'r
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {MedicalData, Medication, MedicalAppointment, MedicalHistoryEntry, uid, fmtTime, fmtDate, isValidTimeHHMM} from '../utils';
+import {MedicalData, Medication, MedicalAppointment, MedicalHistoryEntry, uid, fmtTime, fmtDate, time12to24, formatTime12} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 
 type MedSection = 'medications' | 'appointments' | 'history' | 'emergency';
@@ -29,6 +29,7 @@ export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
   const [medDosage, setMedDosage] = useState('');
   const [medTimes, setMedTimes] = useState<string[]>([]);
   const [medTimeInput, setMedTimeInput] = useState('');
+  const [medAmPm, setMedAmPm] = useState<'AM' | 'PM'>('AM');
   const [medNotes, setMedNotes] = useState('');
 
   const [apptFormId, setApptFormId] = useState<string | null>(null);
@@ -75,13 +76,12 @@ export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
   };
 
   const addMedTime = () => {
-    const v = medTimeInput.trim();
-    if (!isValidTimeHHMM(v)) {
+    const v = time12to24(medTimeInput, medAmPm);
+    if (!v) {
       Alert.alert(t('medical.title'), t('medical.invalidTime'));
       return;
     }
-    const normalized = v.length === 4 ? `0${v}` : v;
-    if (!medTimes.includes(normalized)) setMedTimes([...medTimes, normalized].sort());
+    if (!medTimes.includes(v)) setMedTimes([...medTimes, v].sort());
     setMedTimeInput('');
   };
 
@@ -273,18 +273,27 @@ export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
                   <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
                     {medTimes.map(tm => (
                       <TouchableOpacity key={tm} onPress={() => setMedTimes(medTimes.filter(x => x !== tm))} activeOpacity={0.7}
-                        accessibilityRole="button" accessibilityLabel={`${t('common.remove')} ${tm}`}
+                        accessibilityRole="button" accessibilityLabel={`${t('common.remove')} ${formatTime12(tm)}`}
                         style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, backgroundColor: `${T.accent}15`, borderColor: `${T.accent}40`}}>
-                        <Text style={{fontSize: fs(12), color: T.accent, fontFamily: 'monospace'}}>{tm}</Text>
+                        <Text style={{fontSize: fs(12), color: T.accent, fontFamily: 'monospace'}}>{formatTime12(tm)}</Text>
                         <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
                 )}
                 <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10}}>
-                  <TextInput value={medTimeInput} onChangeText={setMedTimeInput} placeholder={t('medical.timeHint')} placeholderTextColor={T.muted} keyboardType="numbers-and-punctuation" maxLength={5}
+                  <TextInput value={medTimeInput} onChangeText={setMedTimeInput} placeholder="9:00" placeholderTextColor={T.muted} keyboardType="numbers-and-punctuation" maxLength={5}
                     style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), fontFamily: 'monospace'}}
                     onSubmitEditing={addMedTime} returnKeyType="done" />
+                  <View style={{flexDirection: 'row', borderWidth: 1, borderColor: T.border, borderRadius: 8, overflow: 'hidden'}}>
+                    {(['AM', 'PM'] as const).map(ap => (
+                      <TouchableOpacity key={ap} onPress={() => setMedAmPm(ap)} activeOpacity={0.7}
+                        accessibilityRole="button" accessibilityLabel={ap} accessibilityState={{selected: medAmPm === ap}}
+                        style={{paddingHorizontal: 12, paddingVertical: 9, backgroundColor: medAmPm === ap ? T.accent : T.surface}}>
+                        <Text style={{fontSize: fs(12), fontWeight: '700', color: medAmPm === ap ? '#0a0508' : T.dim}}>{ap}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                   <TouchableOpacity onPress={addMedTime} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('medical.addTime')}
                     style={{paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
                     <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{t('medical.addTime')}</Text>
@@ -304,7 +313,7 @@ export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
                   <Text style={{fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">💊</Text>
                   <View style={{flex: 1}}>
                     <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1}>{med.name}{med.dosage ? `  ·  ${med.dosage}` : ''}</Text>
-                    {med.times.length > 0 && <Text style={{fontSize: fs(11), color: T.dim, fontFamily: 'monospace'}}>{med.times.join('  ')}</Text>}
+                    {med.times.length > 0 && <Text style={{fontSize: fs(11), color: T.dim, fontFamily: 'monospace'}}>{med.times.map(formatTime12).join('  ')}</Text>}
                     {med.notes ? <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{med.notes}</Text> : null}
                   </View>
                   <TouchableOpacity onPress={() => toggleMedication(med.id)} activeOpacity={0.8}

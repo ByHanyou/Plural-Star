@@ -535,7 +535,7 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
-      <View style={{flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
+      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
         <TouchableOpacity onPress={() => {setShowMemberPicker(true); setMemberPickerSearch('');}} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={t('members.addMember')}
           style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
@@ -647,11 +647,13 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
           </Animated.View>
         </View>
 
-        {(mapMembers.length === 0 || relationships.length === 0) && (
-          <View pointerEvents="none" style={{...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 32}}>
-            <Text style={{fontSize: fs(12), color: T.dim, textAlign: 'center', paddingHorizontal: 32}}>
-              {mapMembers.length === 0 ? t('systemMap.emptyMap') : t('systemMap.noRelationships')}
-            </Text>
+        {(mapMembers.length === 0 || relationships.length === 0) && !selectedId && (
+          <View pointerEvents="none" style={{position: 'absolute', left: 16, right: 16, bottom: 16, alignItems: 'center'}}>
+            <View style={{maxWidth: 360, backgroundColor: T.card, borderWidth: 1, borderColor: T.border, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10}}>
+              <Text style={{fontSize: fs(12), color: T.dim, textAlign: 'center'}}>
+                {mapMembers.length === 0 ? t('systemMap.emptyMap') : t('systemMap.noRelationships')}
+              </Text>
+            </View>
           </View>
         )}
 

@@ -27,6 +27,7 @@ const rgbToHsv = (r: number, g: number, b: number) => {
 };
 
 const hsvToRgb = (h: number, s: number, v: number) => {
+  h = ((h % 360) + 360) % 360;
   const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
   let r = 0, g = 0, b = 0;
   if (h < 60) {r = c; g = x;} else if (h < 120) {r = x; g = c;} else if (h < 180) {g = c; b = x;}
@@ -42,7 +43,7 @@ const hsvToHex = (h: number, s: number, v: number) => {
 const hexToHsv = (hex: string) => { const {r, g, b} = hexToRgb(hex); return rgbToHsv(r, g, b); };
 
 const SAT_N = 60;   // vertical strips across saturation (left→right)
-const VAL_N = 48;   // horizontal black-overlay strips for value (top→bottom)
+const VAL_N = 64;   // horizontal black-overlay strips for value (top→bottom)
 const HUE_N = 72;   // strips across the hue bar
 const VAL_ALPHAS = Array.from({length: VAL_N}, (_, i) => i / (VAL_N - 1));
 const HUE_STRIPS = Array.from({length: HUE_N}, (_, i) => hsvToHex((i / (HUE_N - 1)) * 360, 1, 1));
@@ -59,21 +60,37 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
   const sqRef = useRef({w: 0, h: 0});
   const hueRef = useRef(0);
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
+  // the exact hex we last emitted, so we can ignore the parent echoing it back to us
+  const lastHexRef = useRef(safe.toUpperCase());
+
+  // Adopt an external/typed hex while preserving hue (and saturation for black),
+  // which a grayscale/white/black hex cannot represent on its own.
+  const adopt = (n: string) => {
+    const nh = hexToHsv(n);
+    const prev = hsvRef.current;
+    const merged = {
+      h: nh.s === 0 ? prev.h : nh.h,
+      s: (nh.s === 0 && nh.v === 0) ? prev.s : nh.s,
+      v: nh.v,
+    };
+    hsvRef.current = merged;
+    setHsv(merged);
+    lastHexRef.current = n.toUpperCase();
+  };
 
   useEffect(() => {
     const n = normalizeHex(value || '');
     if (!isValidHex(n)) return;
-    const cur = hsvToHex(hsvRef.current.h, hsvRef.current.s, hsvRef.current.v);
-    if (n.toUpperCase() !== cur.toUpperCase()) {
-      setHsv(hexToHsv(n));
-      setHexText(n.toUpperCase());
-    }
+    if (n.toUpperCase() === lastHexRef.current) return; // our own echo — ignore
+    adopt(n);
+    setHexText(n.toUpperCase());
   }, [value]);
 
   const commit = (next: {h: number; s: number; v: number}) => {
     hsvRef.current = next;
     setHsv(next);
     const hex = hsvToHex(next.h, next.s, next.v);
+    lastHexRef.current = hex.toUpperCase();
     setHexText(hex);
     onChangeRef.current(hex);
   };
@@ -107,9 +124,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
     setHexText(val);
     const n = normalizeHex(val);
     if (isValidHex(n)) {
-      const next = hexToHsv(n);
-      hsvRef.current = next;
-      setHsv(next);
+      adopt(n);
       onChangeRef.current(n.toUpperCase());
     }
   };
@@ -133,10 +148,10 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         accessibilityValue={{text: curHex}}
         style={{width: '100%', height: 160, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: T.border}}>
         <View style={{position: 'absolute', left: 0, top: 0, width: sqSize.w, height: sqSize.h, flexDirection: 'row'}} pointerEvents="none">
-          {satStrips.map((c, i) => (<View key={i} style={{width: Math.ceil(sqSize.w / SAT_N) + 1, height: sqSize.h, backgroundColor: c}} />))}
+          {satStrips.map((c, i) => (<View key={i} style={{width: Math.round((i + 1) * sqSize.w / SAT_N) - Math.round(i * sqSize.w / SAT_N), height: sqSize.h, backgroundColor: c}} />))}
         </View>
         <View style={{position: 'absolute', left: 0, top: 0, width: sqSize.w, height: sqSize.h, flexDirection: 'column'}} pointerEvents="none">
-          {VAL_ALPHAS.map((a, i) => (<View key={i} style={{width: sqSize.w, height: Math.ceil(sqSize.h / VAL_N) + 1, backgroundColor: `rgba(0,0,0,${a})`}} />))}
+          {VAL_ALPHAS.map((a, i) => (<View key={i} style={{width: sqSize.w, height: Math.round((i + 1) * sqSize.h / VAL_N) - Math.round(i * sqSize.h / VAL_N), backgroundColor: `rgba(0,0,0,${a})`}} />))}
         </View>
         <View pointerEvents="none" style={{position: 'absolute', left: hsv.s * sqSize.w - 9, top: (1 - hsv.v) * sqSize.h - 9, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: curHex}} />
       </View>
@@ -149,7 +164,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         onAccessibilityAction={e => { const cur = hsvRef.current; const step = e.nativeEvent.actionName === 'increment' ? 10 : -10; commit({...cur, h: (cur.h + step + 360) % 360}); }}
         style={{height: 18, borderRadius: 9, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: T.border}}>
         <View style={{position: 'absolute', left: 0, top: 0, width: hueW, height: 18, flexDirection: 'row'}} pointerEvents="none">
-          {HUE_STRIPS.map((c, i) => (<View key={i} style={{width: Math.ceil(hueW / HUE_N) + 1, height: 18, backgroundColor: c}} />))}
+          {HUE_STRIPS.map((c, i) => (<View key={i} style={{width: Math.round((i + 1) * hueW / HUE_N) - Math.round(i * hueW / HUE_N), height: 18, backgroundColor: c}} />))}
         </View>
         <View pointerEvents="none" style={{position: 'absolute', left: (hsv.h / 360) * hueW - 9, top: -1, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: hueHex}} />
       </View>

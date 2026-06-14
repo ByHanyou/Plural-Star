@@ -606,17 +606,18 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       {!confirmDel && <Btn instant T={T} onPress={() => {if (f.name.trim()) {onSave(f); onClose();}}}>{t('common.save')}</Btn>}</>)}>
 
       {!isNew && !profileMode && (
-        <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border, marginBottom: 14}}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}}
+          contentContainerStyle={{borderBottomWidth: 1, borderBottomColor: T.border}}>
           {(['main', 'fields', 'connections', 'noteboard'] as MemberTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setMemberTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
               style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
-              <Text style={{fontSize: fs(12), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}}>
+              <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={{fontSize: fs(12), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}}>
                 {tab === 'main' ? (readOnly ? t('modal.profile') : t('modal.editMember')) : tab === 'fields' ? t('customFields.title') : tab === 'connections' ? t('systemMap.connections') : t('noteboard.title')}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       )}
 
       {(memberTab === 'main' || isNew) && (<>
