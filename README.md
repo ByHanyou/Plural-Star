@@ -10,12 +10,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/TheHanyou/Plural-Star/releases/latest/download/app-release.apk">
-    <img src="https://img.shields.io/badge/Download%20APK-Latest%20Release-DAA520?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  <a href="https://play.google.com/store/apps/details?id=com.pluralspace.app">
+    <img src="https://img.shields.io/badge/Google%20Play-Get%20the%20App-DAA520?style=for-the-badge&logo=googleplay&logoColor=white" alt="Get it on Google Play" />
   </a>
   &nbsp;
-  <a href="https://github.com/TheHanyou/Plural-Star/releases/latest/download/PluralSpace.ipa">
-    <img src="https://img.shields.io/badge/Download%20IPA-Latest%20Release-DAA520?style=for-the-badge&logo=apple&logoColor=white" alt="Download IPA" />
+  <a href="https://apps.apple.com/in/app/plural-star/id6763964266">
+    <img src="https://img.shields.io/badge/App%20Store-Download-DAA520?style=for-the-badge&logo=appstore&logoColor=white" alt="Download on the App Store" />
   </a>
 </p>
 
@@ -36,8 +36,6 @@
 ---
 
 > **Renamed from Plural Space.** The app, repo, and subreddit were renamed to Plural Star for community clarity — another app was also using the Plural Space name. Your existing installation, data, backups, and Buy-Me-a-Coffee links all continue to work; on-device data and old Plural Space `.json` exports are fully compatible with Plural Star.
->
-> The iOS build artifact is still named `PluralSpace.ipa` because the underlying Xcode project name hasn't been migrated (doing so requires a separate native-module refactor). This is cosmetic only — the installed app shows as Plural Star everywhere on your device.
 
 Plural Star is a private, offline-first system management app built for plural individuals — those with DID, OSDD, or any form of plurality.
 
@@ -131,13 +129,11 @@ Full privacy policy: [https://thehanyou.github.io/Plural-Star/](https://thehanyo
 
 ## Installation
 
-**Android — Direct APK (sideload)**  
-Download the latest APK from the button above or from [Releases](https://github.com/TheHanyou/Plural-Star/releases). Enable "Install from unknown sources" on your device and install.
+**Android**  
+Download Plural Star from [Google Play](https://play.google.com/store/apps/details?id=com.pluralspace.app).
 
-**iOS — IPA (sideload)**  
-Download the latest IPA from the button above or from [Releases](https://github.com/TheHanyou/Plural-Star/releases). Install using [AltStore](https://altstore.io/) or a Mac with Xcode. Requires either AltStore or an Apple Developer account.
-
-Direct AltStore Download: (paste into Safari) altstore://install?url=https://github.com/TheHanyou/Plural-Star/releases/download/v1.5.2/PluralSpace.ipa
+**iOS**  
+Download Plural Star from the [App Store](https://apps.apple.com/in/app/plural-star/id6763964266).
 
 ---
 

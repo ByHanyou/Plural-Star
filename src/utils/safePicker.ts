@@ -21,7 +21,10 @@ export const getPickedFilePath = (result: unknown): string => {
   const typed = result as LocalizedDocumentPickerResponse | null | undefined;
   const uri = typed?.fileCopyUri || typed?.uri || '';
   if (!uri.startsWith('file://')) return uri;
-  const stripped = uri.replace('file://', '');
+  const stripped = uri
+    .replace('file://', '')
+    .split('#')[0]
+    .split('?')[0];
   try {
     return decodeURIComponent(stripped);
   } catch {

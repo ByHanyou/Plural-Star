@@ -91,6 +91,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
     if (!activeChannelId || !activeMemberId) return;
     try {
       const [res] = await safePick({type: ['*/*']});
+      if (!res) return;
       const fileName = res.name || 'file';
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
       const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];

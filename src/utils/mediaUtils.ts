@@ -204,7 +204,10 @@ export const saveBioImage = async (
 };
 
 const persistImage = async (sourceUri: string, destPath: string): Promise<string> => {
-  const readPath = sourceUri.replace('file://', '');
+  const readPath = sourceUri
+    .replace('file://', '')
+    .split('#')[0]
+    .split('?')[0];
   const raw = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
   await ReactNativeBlobUtil.fs.writeFile(destPath, raw, 'base64');
   return `file://${destPath}?t=${Date.now()}`;
