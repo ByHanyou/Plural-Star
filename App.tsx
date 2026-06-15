@@ -44,7 +44,11 @@ const TAB_ICONS: Record<Tab, string> = {
   front: '◈', members: '◇', hub: '⬡', journal: '◉', history: '◷',
 };
 
-const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: false};
+const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: false, pkFrontSyncEnabled: false};
+
+const PK_MEMBER_REF_RE = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[a-z]{5})$/i;
+
+const isPluralKitMemberRef = (value?: string): value is string => !!value && PK_MEMBER_REF_RE.test(value.trim());
 
 const setDyslexicEnabled = (on: boolean) => {
   setAppTextDyslexicEnabled(on);
@@ -522,6 +526,32 @@ function MainAppContent() {
     return undefined;
   };
 
+  const syncFrontToPluralKit = async (nextFront: FrontState | null) => {
+    if (!appSettings.pkFrontSyncEnabled) return;
+    const token = appSettings.pkToken?.trim();
+    if (!token) return;
+    const memberRefs = (nextFront?.primary.memberIds || [])
+      .map(id => members.find(m => m.id === id)?.sourceId?.trim())
+      .filter(isPluralKitMemberRef);
+    try {
+      const res = await fetch('https://api.pluralkit.me/v2/systems/@me/switches', {
+        method: 'POST',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+          'User-Agent': 'PluralStar/1.10.2',
+        },
+        body: JSON.stringify({members: memberRefs}),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('[PS] PluralKit front sync failed:', res.status, text);
+      }
+    } catch (e) {
+      console.error('[PS] PluralKit front sync error:', e);
+    }
+  };
+
   const updateFront = async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
     const now = Date.now();
     const cleanTier = (tier: FrontTier): FrontTier =>
@@ -577,6 +607,7 @@ function MainAppContent() {
     setFront(nf);
     await store.set(KEYS.front, nf);
     await saveHistory(newHistory);
+    await syncFrontToPluralKit(nf);
 
     if (nf) {
       const allFrontIds = [...nf.primary.memberIds, ...nf.coFront.memberIds, ...nf.coConscious.memberIds];

@@ -549,7 +549,9 @@
     "textScaleLarge": "Large",
     "textScaleExtraLarge": "Extra Large",
     "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font.",
+    "pkFrontSync": "PluralKit Front Sync",
+    "pkFrontSyncDesc": "Mirror primary front changes to your PluralKit system."
   },
   "notification": {
     "locationPermTitle": "Location Permission",
