@@ -45,6 +45,8 @@ const hexToHsv = (hex: string) => { const {r, g, b} = hexToRgb(hex); return rgbT
 const SAT_N = 60;   // vertical strips across saturation (left→right)
 const VAL_N = 64;   // horizontal black-overlay strips for value (top→bottom)
 const HUE_N = 72;   // strips across the hue bar
+const KNOB_SIZE = 18;
+const KNOB_RADIUS = KNOB_SIZE / 2;
 const VAL_ALPHAS = Array.from({length: VAL_N}, (_, i) => i / (VAL_N - 1));
 const HUE_STRIPS = Array.from({length: HUE_N}, (_, i) => hsvToHex((i / (HUE_N - 1)) * 360, 1, 1));
 
@@ -137,6 +139,10 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
 
   const hueHex = hsvToHex(hsv.h, 1, 1);
   const curHex = hsvToHex(hsv.h, hsv.s, hsv.v);
+  const sqLeft = clamp(hsv.s * sqSize.w - KNOB_RADIUS, 0, Math.max(0, sqSize.w - KNOB_SIZE));
+  const sqTop = clamp((1 - hsv.v) * sqSize.h - KNOB_RADIUS, 0, Math.max(0, sqSize.h - KNOB_SIZE));
+  const hueRatio = Math.min(hsv.h, 359.999) / 360;
+  const hueLeft = clamp(hueRatio * hueW - KNOB_RADIUS, 0, Math.max(0, hueW - KNOB_SIZE));
 
   return (
     <View>
@@ -153,7 +159,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         <View style={{position: 'absolute', left: 0, top: 0, width: sqSize.w, height: sqSize.h, flexDirection: 'column'}} pointerEvents="none">
           {VAL_ALPHAS.map((a, i) => (<View key={i} style={{width: sqSize.w, height: Math.round((i + 1) * sqSize.h / VAL_N) - Math.round(i * sqSize.h / VAL_N), backgroundColor: `rgba(0,0,0,${a})`}} />))}
         </View>
-        <View pointerEvents="none" style={{position: 'absolute', left: hsv.s * sqSize.w - 9, top: (1 - hsv.v) * sqSize.h - 9, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: curHex}} />
+        <View pointerEvents="none" style={{position: 'absolute', left: sqLeft, top: sqTop, width: KNOB_SIZE, height: KNOB_SIZE, borderRadius: KNOB_RADIUS, borderWidth: 2, borderColor: '#fff', backgroundColor: curHex}} />
       </View>
 
       <View
@@ -166,7 +172,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         <View style={{position: 'absolute', left: 0, top: 0, width: hueW, height: 18, flexDirection: 'row'}} pointerEvents="none">
           {HUE_STRIPS.map((c, i) => (<View key={i} style={{width: Math.round((i + 1) * hueW / HUE_N) - Math.round(i * hueW / HUE_N), height: 18, backgroundColor: c}} />))}
         </View>
-        <View pointerEvents="none" style={{position: 'absolute', left: (hsv.h / 360) * hueW - 9, top: -1, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: hueHex}} />
+        <View pointerEvents="none" style={{position: 'absolute', left: hueLeft, top: -1, width: KNOB_SIZE, height: KNOB_SIZE, borderRadius: KNOB_RADIUS, borderWidth: 2, borderColor: '#fff', backgroundColor: hueHex}} />
       </View>
 
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14}}>

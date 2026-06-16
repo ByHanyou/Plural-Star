@@ -561,12 +561,27 @@ export const base64FromU8 = (bytes: Uint8Array): string => {
   return b64Aligned(bytes, aligned) + b64Tail(bytes, aligned);
 };
 
+const normalizeZipEntryPath = (path: string): string => path.replace(/\\/g, '/').replace(/^\.?\//, '').toLowerCase();
+
+const findZipEntry = (files: Record<string, Uint8Array>, name: string): Uint8Array | null => {
+  const target = normalizeZipEntryPath(name);
+  if (!target) return null;
+  for (const [key, value] of Object.entries(files)) {
+    if (normalizeZipEntryPath(key) === target) return value;
+  }
+  const suffix = `/${target}`;
+  for (const [key, value] of Object.entries(files)) {
+    if (normalizeZipEntryPath(key).endsWith(suffix)) return value;
+  }
+  return null;
+};
+
 export const readZipBundle = async (
   zipPath: string,
 ): Promise<{files: Record<string, Uint8Array>; data: any | null}> => {
   const bytes = await readFileBytes(zipPath);
   const files = unzipSync(bytes);
-  const dj = files['data.json'];
+  const dj = findZipEntry(files, 'data.json');
   const data = dj ? JSON.parse(strFromU8(dj)) : null;
   return {files, data};
 };

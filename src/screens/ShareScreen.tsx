@@ -45,6 +45,21 @@ const downloadFirstAvatar = async (memberId: string, urls: string[]): Promise<st
   return undefined;
 };
 
+const normalizeZipEntryPath = (raw: any): string => String(raw || '').replace(/\\/g, '/').replace(/^\.?\//, '').toLowerCase();
+
+const getZipFile = (files: Record<string, Uint8Array>, rawPath: any): Uint8Array | null => {
+  const target = normalizeZipEntryPath(rawPath);
+  if (!target) return null;
+  for (const [key, value] of Object.entries(files)) {
+    if (normalizeZipEntryPath(key) === target) return value;
+  }
+  const suffix = `/${target}`;
+  for (const [key, value] of Object.entries(files)) {
+    if (normalizeZipEntryPath(key).endsWith(suffix)) return value;
+  }
+  return null;
+};
+
 const spGet = async (url: string, headers: any): Promise<any | null> => {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -1230,11 +1245,12 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           if (extSel.avatars && psZipFiles) {
             setRestoreProgress(t('share.progressAvatars'));
             const saved: Record<string, string> = {};
-            const withA = psMembers.filter((m: any) => idMap[String(m.id)] && m.avatar_media_path && psZipFiles[String(m.avatar_media_path)]);
+            const withA = psMembers.filter((m: any) => idMap[String(m.id)] && getZipFile(psZipFiles, m.avatar_media_path));
             let done = 0;
             for (const m of withA) {
               const lid = idMap[String(m.id)];
-              const uri = await saveAvatar(lid, base64FromU8(psZipFiles[String(m.avatar_media_path)])).catch(() => null);
+              const avatarBytes = getZipFile(psZipFiles, m.avatar_media_path);
+              const uri = avatarBytes ? await saveAvatar(lid, base64FromU8(avatarBytes)).catch(() => null) : null;
               if (uri) saved[lid] = uri;
               done++; setRestoreProgress(t('share.progressAvatarsN', {done, total: withA.length}));
             }
