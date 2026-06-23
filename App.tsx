@@ -45,7 +45,13 @@ const TAB_ICONS: Record<Tab, string> = {
   front: '◈', members: '◇', hub: '⬡', journal: '◉', history: '◷',
 };
 
-const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: false};
+const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: false, pkFrontSyncEnabled: false};
+
+const PK_MEMBER_REF_RE = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[a-z]{5})$/i;
+const EXTERNAL_API_USER_AGENT = 'PluralStar/1.10.2 (the1hanyou@gmail.com)';
+const PK_FRONT_SYNC_COOLDOWN_MS = 5000;
+
+const isPluralKitMemberRef = (value?: string): value is string => !!value && PK_MEMBER_REF_RE.test(value.trim());
 
 const setDyslexicEnabled = (on: boolean) => {
   setAppTextDyslexicEnabled(on);
@@ -67,7 +73,7 @@ const getGPSLocation = (): Promise<string | null> =>
             const {latitude, longitude} = pos.coords;
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=10`,
-              {headers: {'User-Agent': 'PluralStar/1.9.0'}},
+              {headers: {'User-Agent': EXTERNAL_API_USER_AGENT}},
             );
             const data = await res.json();
             const a = data.address || {};
@@ -126,6 +132,11 @@ function MainAppContent() {
   const [, setDyslexicTick] = useState(0);
   const insets = useSafeAreaInsets();
   const fs = (s: number) => Math.round(s * (appSettings.textScale || 1));
+  const pkSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pkPendingMemberRefsRef = useRef<string[] | null>(null);
+  const pkLastSyncedKeyRef = useRef<string>('');
+  const pkLastSyncAtRef = useRef(0);
+  const pkSyncInFlightRef = useRef(false);
 
   const openMemberById = (id: string) => {
     const m = members.find(mb => mb.id === id);
@@ -554,6 +565,72 @@ function MainAppContent() {
     return undefined;
   };
 
+  const flushPluralKitFrontSync = async () => {
+    if (pkSyncInFlightRef.current) return;
+    if (!appSettings.pkFrontSyncEnabled) return;
+    const token = appSettings.pkToken?.trim();
+    const memberRefs = pkPendingMemberRefsRef.current;
+    if (!token || !memberRefs) return;
+    const payloadKey = memberRefs.join('|');
+    pkPendingMemberRefsRef.current = null;
+    pkSyncInFlightRef.current = true;
+    pkLastSyncAtRef.current = Date.now();
+    try {
+      const res = await fetch('https://api.pluralkit.me/v2/systems/@me/switches', {
+        method: 'POST',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+          'User-Agent': EXTERNAL_API_USER_AGENT,
+        },
+        body: JSON.stringify({members: memberRefs}),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.error('[PS] PluralKit front sync failed:', res.status, text);
+      } else {
+        pkLastSyncedKeyRef.current = payloadKey;
+      }
+    } catch (e) {
+      console.error('[PS] PluralKit front sync error:', e);
+    } finally {
+      pkSyncInFlightRef.current = false;
+      if (pkPendingMemberRefsRef.current) {
+        const delay = Math.max(0, PK_FRONT_SYNC_COOLDOWN_MS - (Date.now() - pkLastSyncAtRef.current));
+        pkSyncTimeoutRef.current = setTimeout(() => {
+          pkSyncTimeoutRef.current = null;
+          void flushPluralKitFrontSync();
+        }, delay);
+      }
+    }
+  };
+
+  const syncFrontToPluralKit = async (nextFront: FrontState | null) => {
+    if (!appSettings.pkFrontSyncEnabled) return;
+    const token = appSettings.pkToken?.trim();
+    if (!token) return;
+    const memberRefs = (nextFront?.primary.memberIds || [])
+      .map(id => members.find(m => m.id === id)?.sourceId?.trim())
+      .filter(isPluralKitMemberRef);
+    const payloadKey = memberRefs.join('|');
+    if (payloadKey === pkLastSyncedKeyRef.current) return;
+    pkPendingMemberRefsRef.current = memberRefs;
+    if (pkSyncTimeoutRef.current) clearTimeout(pkSyncTimeoutRef.current);
+    const delay = pkSyncInFlightRef.current ? PK_FRONT_SYNC_COOLDOWN_MS : Math.max(0, PK_FRONT_SYNC_COOLDOWN_MS - (Date.now() - pkLastSyncAtRef.current));
+    if (delay === 0 && !pkSyncInFlightRef.current) {
+      await flushPluralKitFrontSync();
+      return;
+    }
+    pkSyncTimeoutRef.current = setTimeout(() => {
+      pkSyncTimeoutRef.current = null;
+      void flushPluralKitFrontSync();
+    }, delay);
+  };
+
+  useEffect(() => () => {
+    if (pkSyncTimeoutRef.current) clearTimeout(pkSyncTimeoutRef.current);
+  }, []);
+
   const updateFront = async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
     const now = Date.now();
     const cleanTier = (tier: FrontTier): FrontTier =>
@@ -609,6 +686,7 @@ function MainAppContent() {
     setFront(nf);
     await store.set(KEYS.front, nf);
     await saveHistory(newHistory);
+    await syncFrontToPluralKit(nf);
 
     if (nf) {
       const allFrontIds = [...nf.primary.memberIds, ...nf.coFront.memberIds, ...nf.coConscious.memberIds];
