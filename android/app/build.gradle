@@ -24,7 +24,7 @@ android {
         applicationId "com.pluralspace.app"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 52
+        versionCode 53
         versionName "1.10.2"
     }
 

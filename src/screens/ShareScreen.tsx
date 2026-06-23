@@ -4,7 +4,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {exportJSON, exportBundle, exportHTML, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, base64FromU8} from '../export/exportUtils';
+import {exportJSON, exportZipBundle, exportHTML, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8} from '../export/exportUtils';
 import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
 import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
 
@@ -91,7 +91,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const [extToken, setExtToken] = useState('');
   const [extLoading, setExtLoading] = useState(false);
   const [extPreview, setExtPreview] = useState<{members: any[]; switches: any[]; system: any; customFields?: any[]; groups?: any[]; journal?: any[]; chat?: any[]; polls?: any[]} | null>(null);
-  const [extSel, setExtSel] = useState({system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true});
+  const [extSel, setExtSel] = useState({system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true, displayNames: true});
   const [psAvatarIndex, setPsAvatarIndex] = useState<Record<string, string> | null>(null);
   const [psZipFiles, setPsZipFiles] = useState<Record<string, Uint8Array> | null>(null);
 
@@ -116,7 +116,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   });
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
 
-  const handleJSON = async () => {try {await exportBundle(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
+  const handleJSON = async () => {try {await exportZipBundle(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleHTML = async () => {try {await exportHTML(system, members, history, journal);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleEmail = () => {
     if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
@@ -154,11 +154,17 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const pickedPath = getPickedFilePath(res);
       const isZip = /\.zip$/i.test(res.name || '') || /\.zip$/i.test(pickedPath);
       if (isZip) {
-        let bundle: {files: Record<string, Uint8Array>; data: any | null} | null = null;
+        let bundle: {files: Record<string, Uint8Array>; data: any | null; manifest: any | null} | null = null;
         try { bundle = await readZipBundle(pickedPath); }
         catch { bundle = await readZipBundle(res.uri || pickedPath); }
         const bdata = bundle?.data;
-        if (!bdata || !(bdata._meta?.app === 'Plural Star' || bdata._meta?.app === 'Plural Space')) {
+        const manifestApp = bundle?.manifest?.app;
+        if (!bdata || !(
+          bdata._meta?.app === 'Plural Star'
+          || bdata._meta?.app === 'Plural Space'
+          || manifestApp === 'Plural Star'
+          || manifestApp === 'Plural Space'
+        )) {
           setRestoreError(t('share.bundleNotRecognized'));
           return;
         }
@@ -206,6 +212,15 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
     } catch (e: any) {if (!isPickerCancel(e)) setRestoreError(e.message || 'Could not read file.');}
   };
 
+  // Dedicated .zip (full bundle) import — force EVERY category on, including
+  // avatars + banners, so a zip restore always brings the whole system and its
+  // media, then reuse the shared pick/validate flow (which routes .zip through
+  // readZipBundle and sets restoreIsBundle).
+  const handlePickZipBackup = () => {
+    setRestoreSel({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true, medical: true});
+    handlePickBackup();
+  };
+
   const handleRestore = () => {
     if (!restorePath || !restorePreview) return;
     Alert.alert(t('share.restoreData'), t('share.restoreDataMsg'), [
@@ -214,34 +229,17 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         setRestoring(true);
         try {
           if (restoreIsBundle) {
-            const {files, data} = await readZipBundle(restorePath);
-            if (!data) throw new Error('Bundle is missing data.json');
+            const {data} = await importZipBundle(restorePath);
             if (restoreSel.system && data.system) await store.set(KEYS.system, data.system);
             if (restoreSel.members && Array.isArray(data.members)) {
-              let mem: any[] = data.members.map((m: any) => { const {avatar_media_path, banner_media_path, ...rest} = m; return rest; });
+              let mem: any[] = data.members;
               if (restoreSel.avatars) {
-                const withA = data.members.filter((m: any) => m.avatar_media_path && files[m.avatar_media_path]);
-                const map: Record<string, string> = {};
-                let done = 0;
-                setRestoreProgress(t('share.progressAvatars'));
-                for (const m of withA) {
-                  const uri = await saveAvatar(m.id, base64FromU8(files[m.avatar_media_path])).catch(() => null);
-                  if (uri) map[m.id] = uri;
-                  done++; setRestoreProgress(t('share.progressAvatarsN', {done, total: withA.length}));
-                }
-                mem = mem.map(m => map[m.id] ? {...m, avatar: map[m.id]} : m);
+                const avatarMap = await importBase64MemberMedia('avatar', data.avatars || {}, (memberId, raw) => saveAvatar(memberId, raw).catch(() => null), t('share.progressAvatars'), 'share.progressAvatarsN');
+                mem = mem.map(m => avatarMap[m.id] ? {...m, avatar: avatarMap[m.id]} : m);
               }
               if (restoreSel.banners) {
-                const withB = data.members.filter((m: any) => m.banner_media_path && files[m.banner_media_path]);
-                const map: Record<string, string> = {};
-                let done = 0;
-                setRestoreProgress(t('share.progressBanners'));
-                for (const m of withB) {
-                  const uri = await saveBannerFromBase64(m.id, base64FromU8(files[m.banner_media_path])).catch(() => null);
-                  if (uri) map[m.id] = uri;
-                  done++; setRestoreProgress(t('share.progressBannersN', {done, total: withB.length}));
-                }
-                mem = mem.map(m => map[m.id] ? {...m, banner: map[m.id]} : m);
+                const bannerMap = await importBase64MemberMedia('banner', data.banners || {}, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN');
+                mem = mem.map(m => bannerMap[m.id] ? {...m, banner: bannerMap[m.id]} : m);
               }
               setRestoreProgress(t('share.progressSavingMembers'));
               await store.set(KEYS.members, mem);
@@ -296,7 +294,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 name: spName || 'Unknown',
                 pronouns: String(sp.pronouns || ''),
                 role: '',
-                color: String(sp.color || '#DAA520'),
+                color: normHex(sp.color),
                 description: String(sp.desc || ''),
                 archived: !!sp.archived,
                 customFields: existing?.customFields || [],
@@ -692,7 +690,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       }
       groups.push(group);
     }
-    return groups.map(group => {
+    const built = groups.map(group => {
       const allIds = [...new Set(group.flatMap(e => e.resolvedIds))];
       const startTime = Math.min(...group.map(e => e.startTime));
       const endTimes = group.map(e => e.endTime);
@@ -700,6 +698,18 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const notes = group.map(e => e.note).filter(Boolean);
       return {memberIds: allIds, startTime, endTime, note: notes.join(' | '), mood: undefined, location: undefined} as HistoryEntry;
     }).filter(h => h.memberIds.length > 0);
+    // Simply Plural exports frequently contain many stale frontHistory entries with no
+    // endTime. Importing them all as "open" stacks multiple current fronts, leaves
+    // phantom/empty fronts, and breaks the front notification. Close every open entry
+    // that has a later switch after it, so only the single most-recent front stays current.
+    built.sort((a, b) => a.startTime - b.startTime);
+    for (let i = 0; i < built.length; i++) {
+      if (built[i].endTime != null) continue;
+      for (let j = i + 1; j < built.length; j++) {
+        if (built[j].startTime > built[i].startTime) { built[i].endTime = built[j].startTime; break; }
+      }
+    }
+    return built;
   };
 
   const convertPKSwitches = (switches: any[], idMap: Record<string, string>): HistoryEntry[] => {
@@ -942,13 +952,18 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const psTime = (v: any): number => { if (!v) return 0; const ms = new Date(String(v)).getTime(); return isNaN(ms) ? 0 : ms; };
 
   const convertPluralSpaceFronts = (fronts: any[], idMap: Record<string, string>): HistoryEntry[] => {
-    type PsEntry = {mid: string; tier: 'front' | 'co_front' | 'co_con'; startTime: number; endTime: number | null; note: string};
+    type PsEntry = {mid: string; tier: 'front' | 'co_front' | 'co_con'; startTime: number; endTime: number | null; live: boolean; note: string};
     const parsed: PsEntry[] = fronts.map((f: any) => {
       const mid = idMap[String(f.member_id)] || '';
       const startTime = psTime(f.started_at);
-      const endTime = f.is_live ? null : (f.ended_at ? psTime(f.ended_at) : null);
+      const live = !!f.is_live;
+      const parsedEnd = f.ended_at ? psTime(f.ended_at) : 0;
+      // endTime null = "open": either genuinely live (is_live), or a past front whose
+      // ended_at the export omitted (older PluralSpace exports). The latter are closed
+      // at the next switch below so they don't all read as the current front.
+      const endTime = live ? null : (parsedEnd > 0 ? parsedEnd : null);
       const tier: PsEntry['tier'] = f.type === 'co_front' ? 'co_front' : f.type === 'co_con' ? 'co_con' : 'front';
-      return {mid, tier, startTime, endTime: endTime === 0 ? null : endTime, note: String(f.comment || '')};
+      return {mid, tier, startTime, endTime, live, note: String(f.comment || '')};
     }).filter(e => e.mid && e.startTime > 0);
     parsed.sort((a, b) => a.startTime - b.startTime);
     const OVERLAP_TOLERANCE = 60 * 1000;
@@ -965,21 +980,32 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       }
       groups.push(group);
     }
-    return groups.map(group => {
+    const built = groups.map(group => {
       let main = [...new Set(group.filter(e => e.tier === 'front').map(e => e.mid))];
       let coF = [...new Set(group.filter(e => e.tier === 'co_front').map(e => e.mid))].filter(id => !main.includes(id));
       const coC = [...new Set(group.filter(e => e.tier === 'co_con').map(e => e.mid))].filter(id => !main.includes(id) && !coF.includes(id));
       if (main.length === 0 && coF.length > 0) { main = coF; coF = []; }
       const startTime = Math.min(...group.map(e => e.startTime));
-      const endTimes = group.map(e => e.endTime);
-      const endTime = endTimes.includes(null) ? null : Math.max(...(endTimes as number[]));
+      const groupLive = group.some(e => e.live);
+      const endVals = group.map(e => e.endTime);
+      const endTime = groupLive ? null : (endVals.includes(null) ? null : Math.max(...(endVals as number[])));
       const notes = [...new Set(group.map(e => e.note).filter(Boolean))];
-      return {
+      return {live: groupLive, h: {
         memberIds: main, startTime, endTime, note: notes.join(' | '), mood: undefined, location: undefined,
         coFrontIds: coF.length > 0 ? coF : undefined,
         coConsciousIds: coC.length > 0 ? coC : undefined,
-      } as HistoryEntry;
-    }).filter(h => h.memberIds.length > 0);
+      } as HistoryEntry};
+    }).filter(g => g.h.memberIds.length > 0);
+    // Close any non-live, still-open entry at the start of the next switch — only
+    // genuinely-live fronts (is_live) stay "current", even when the export omits end times.
+    built.sort((a, b) => a.h.startTime - b.h.startTime);
+    for (let i = 0; i < built.length; i++) {
+      if (built[i].h.endTime != null || built[i].live) continue;
+      for (let j = i + 1; j < built.length; j++) {
+        if (built[j].h.startTime > built[i].h.startTime) { built[i].h.endTime = built[j].h.startTime; break; }
+      }
+    }
+    return built.map(g => g.h);
   };
 
   const handlePluralSpacePick = async () => {
@@ -1402,7 +1428,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           extPreview.members.forEach((m: any) => {
             const extId: string = isPK ? (m.uuid || m.id) : m._id || m.id;
             const incoming: Partial<Member> = {
-              name: isPK ? (m.name || m.display_name || 'Unknown') : (m.content?.name || m.name || 'Unknown'),
+              name: isPK ? ((extSel.displayNames ? (m.display_name || m.name) : (m.name || m.display_name)) || 'Unknown') : (m.content?.name || m.name || 'Unknown'),
               pronouns: isPK ? (m.pronouns || '') : (m.content?.pronouns || ''),
               role: isPK ? '' : (m.content?.role || ''),
               color: isPK ? (m.color ? `#${m.color}` : '#DAA520') : (m.content?.color || '#DAA520'),
@@ -1744,7 +1770,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               name: m.name || 'Unknown',
               pronouns: m.pronouns || '',
               role: '',
-              color: m.color || '#DAA520',
+              color: normHex(m.color),
               description: m.desc || '',
               archived: !!m.archived,
             };
@@ -2123,10 +2149,23 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               <Divider label={t('share.restoreBackup')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.restoreBackupDesc')}</Text>
               <Text style={[s.para, {color: T.muted, fontSize: fs(11)}]}>{t('share.importFormatsNote')}</Text>
-              <TouchableOpacity onPress={handlePickBackup} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={restoreFile || t('share.tapToSelect')} style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: restoreFile ? T.success : T.border, borderRadius: 10, padding: 22, alignItems: 'center', marginBottom: 14, gap: 6, backgroundColor: restoreFile ? T.successBg : 'transparent'}}>
-                <Text style={{fontSize: fs(20), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↑</Text>
-                <Text style={{fontSize: fs(13), color: restoreFile ? T.success : T.dim, textAlign: 'center'}}>{restoreFile || t('share.tapToSelect')}</Text>
-              </TouchableOpacity>
+              <View style={{flexDirection: 'row', gap: 10, marginBottom: 8}}>
+                <TouchableOpacity onPress={handlePickZipBackup} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importZipBtn')} style={{flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 8, borderWidth: 1.5, backgroundColor: T.accentBg, borderColor: `${T.accent}80`}}>
+                  <Text style={{fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">📦</Text>
+                  <Text style={{fontSize: fs(14), fontWeight: '700', color: T.accent}}>{t('share.importZipBtn')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handlePickBackup} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importJsonBtn')} style={{flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 8, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`}}>
+                  <Text style={{fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{'{ }'}</Text>
+                  <Text style={{fontSize: fs(14), fontWeight: '600', color: T.info}}>{t('share.importJsonBtn')}</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={[s.para, {color: T.muted, fontSize: fs(11), marginBottom: 12}]}>{t('share.importZipHint')}</Text>
+              {restoreFile ? (
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: T.success, backgroundColor: T.successBg, marginBottom: 12}}>
+                  <Text style={{fontSize: fs(14), color: T.success}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>
+                  <Text style={{fontSize: fs(13), color: T.success, flex: 1}} numberOfLines={1}>{restoreFile}</Text>
+                </View>
+              ) : null}
               {restoreError ? <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {restoreError}</Text></View> : null}
               {restorePreview && (
                 <>
@@ -2239,6 +2278,9 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
                     <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
+                    {importSource === 'pluralkit' && (
+                      <SectionRow label={t('share.usePkDisplayNames')} sublabel={t('share.usePkDisplayNamesHint')} value={extSel.displayNames} onToggle={() => togE('displayNames')} />
+                    )}
                     <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
                     {importSource === 'pluralkit' && (
                       <SectionRow label={t('share.banners')} value={extSel.banners} onToggle={() => togE('banners')} />

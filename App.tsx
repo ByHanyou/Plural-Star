@@ -33,6 +33,7 @@ import {CustomFieldsScreen} from './src/screens/CustomFieldsScreen';
 import {PollsScreen} from './src/screens/PollsScreen';
 import {SystemMapScreen} from './src/screens/SystemMapScreen';
 import {MedicalScreen} from './src/screens/MedicalScreen';
+import {MailboxScreen} from './src/screens/MailboxScreen';
 import {StatusScreen} from './src/screens/StatusScreen';
 import {ProfileScreen} from './src/screens/ProfileScreen';
 import {SetFrontModal, SetStatusModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal, CustomFrontModal} from './src/modals';
@@ -216,8 +217,22 @@ function MainAppContent() {
         await store.set(KEYS.settings, loadedSettingsObj);
       }
       if (!loadedSystem) {
-        console.warn('[STARTUP] No system info loaded — entering first-run state. If this is unexpected, check for AsyncStorage failures above.');
-        setFirstRun(true);
+        const realMemberCount = (loadedMembers || []).filter(m => !m.isCustomFront).length;
+        const hasUserData = realMemberCount > 0 || (hist && hist.length > 0) || (jour && jour.length > 0) || (grps && grps.length > 0);
+        if (hasUserData) {
+          // The system record was lost (e.g. AsyncStorage didn't flush before a
+          // power-off — a known iOS issue) but the user's members/history survived.
+          // Reconstruct a minimal system and persist it instead of dropping into
+          // first-run Setup, which would strand their data and look like a full wipe.
+          console.warn(`[STARTUP] System missing but ${realMemberCount} members + data present — reconstructing system, NOT entering first-run.`);
+          const recovered: SystemInfo = {name: '', description: ''};
+          loadedSystem = recovered;
+          await store.set(KEYS.system, recovered);
+          setSystem(recovered);
+        } else {
+          console.warn('[STARTUP] No system info loaded — entering first-run state. If this is unexpected, check for AsyncStorage failures above.');
+          setFirstRun(true);
+        }
       } else {
         setSystem(loadedSystem);
       }
@@ -275,8 +290,15 @@ function MainAppContent() {
       if (savedLang) changeLanguage(savedLang as SupportedLanguage);
     } catch (e) {
       console.error('[PS] startup load error:', e);
-      setSystem({name: '', description: ''});
-      setMembers([]);
+      // A transient load error must NOT look like a wipe. Try a focused recovery of
+      // the user's members/system (store.get self-heals from the file backup) before
+      // deciding to show first-run Setup. Only enter first-run if nothing is recoverable.
+      let recoveredMembers: Member[] = [];
+      let recoveredSystem: SystemInfo | null = null;
+      try { recoveredMembers = (await store.get<Member[]>(KEYS.members, [])) || []; } catch {}
+      try { recoveredSystem = await store.get<SystemInfo>(KEYS.system); } catch {}
+      const realCount = recoveredMembers.filter(m => !m.isCustomFront).length;
+      setMembers(recoveredMembers);
       setFront(null);
       setHistory([]);
       setJournal([]);
@@ -287,7 +309,17 @@ function MainAppContent() {
       setPalettes([]);
       setChatChannels(DEFAULT_CHANNELS.map(c => ({id: uid(), name: c.name, createdAt: Date.now()})));
       setAllChatMessages([]);
-      setFirstRun(true);
+      if (recoveredSystem) {
+        setSystem(recoveredSystem);
+      } else if (realCount > 0) {
+        const r: SystemInfo = {name: '', description: ''};
+        setSystem(r);
+        try { await store.set(KEYS.system, r); } catch {}
+        console.warn(`[STARTUP] load error but ${realCount} members recovered — reconstructed system instead of first-run.`);
+      } else {
+        setSystem({name: '', description: ''});
+        setFirstRun(true);
+      }
     } finally {
       setLoaded(true);
     }
@@ -645,14 +677,16 @@ function MainAppContent() {
     const u = members.find(x => x.id === m.id) ? members.map(x => (x.id === m.id ? m : x)) : [...members, m];
     await saveMembers(u);
   };
-  const deleteMember = async (id: string) => saveMembers(members.filter(m => m.id !== id));
+  // Soft-delete: keep a hidden tombstone (archived + deleted) so front history & stats
+  // still resolve the member's name instead of showing the raw ID ("scary symbols").
+  const deleteMember = async (id: string) => saveMembers(members.map(m => m.id === id ? {...m, archived: true, deleted: true} : m));
   const bulkSetArchived = async (ids: string[], archived: boolean) => {
     const idSet = new Set(ids);
     await saveMembers(members.map(m => idSet.has(m.id) ? {...m, archived} : m));
   };
   const bulkDeleteMembers = async (ids: string[]) => {
     const idSet = new Set(ids);
-    await saveMembers(members.filter(m => !idSet.has(m.id)));
+    await saveMembers(members.map(m => idSet.has(m.id) ? {...m, archived: true, deleted: true} : m));
   };
   const bulkAddGroups = async (ids: string[], groupIds: string[]) => {
     const idSet = new Set(ids);
@@ -693,7 +727,7 @@ function MainAppContent() {
     return (
       <View style={[styles.loading, {backgroundColor: T.bg}]}>
         <StatusBar barStyle="light-content" backgroundColor={T.bg} translucent={false} />
-        <Image source={require('./src/assets/splash-logo.png')} style={styles.splashLogo} resizeMode="contain" />
+        <Image source={require('./src/assets/splash-logo.png')} accessibilityElementsHidden importantForAccessibility="no" style={styles.splashLogo} resizeMode="contain" />
         <Text style={[styles.splashName, {color: T.accent}]}>Plural Star</Text>
       </View>
     );
@@ -771,6 +805,10 @@ function MainAppContent() {
     <MedicalScreen theme={C} medical={medical} onSave={saveMedical} />
   );
 
+  const renderMailboxScreen = (onBack: () => void) => (
+    <MailboxScreen theme={C} members={members} onBack={onBack} />
+  );
+
   const renderArchiveScreen = () => (
     <MembersScreen theme={C} members={members} front={front} groups={groups} archiveOnly
       onAdd={() => {}}
@@ -805,9 +843,12 @@ function MainAppContent() {
           onSaveGroups={saveGroups} onSaveSortMode={async (mode) => {const next = {...appSettings, memberSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);}} onReorderMember={async (id, direction) => {
           const active = members.filter(m => !m.archived);
           const archived = members.filter(m => m.archived);
-          const needsInit = active.some(m => m.sortOrder === undefined);
-          const seeded = needsInit ? active.map((m, i) => ({...m, sortOrder: i})) : [...active];
-          const ordered = [...seeded].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+          // Order exactly the way the Members list shows manual sort: by sortOrder,
+          // with members that have none (e.g. freshly imported) falling to the end in
+          // a stable order. Then reindex so those get real positions — previously this
+          // re-seeded from the raw members-array index, which didn't match the on-screen
+          // order, so ▲/▼ moved the wrong neighbours for imported members.
+          const ordered = [...active].sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
           const idx = ordered.findIndex(m => m.id === id);
           if (idx === -1) return;
           const swapWith = direction === 'up' ? idx - 1 : idx + 1;
@@ -822,7 +863,7 @@ function MainAppContent() {
           onBulkAddGroups={bulkAddGroups}
         />;
       case 'hub':
-        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
+        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
       case 'journal':
         return <JournalScreen theme={C} journal={journal} templates={journalTemplates} members={members} systemJournalPassword={system.journalPassword} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} onTogglePin={e => saveEntry({...e, pinned: !e.pinned})} onSaveTemplates={saveJournalTemplates} onMentionPress={openMemberById} />;
       case 'history':

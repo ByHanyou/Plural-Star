@@ -76,7 +76,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   const toggle = (id: string) => {
     Keyboard.dismiss();
     const next = new Set(selected);
-    if (next.has(id)) { next.delete(id); } else { next.add(id); }
+    if (next.has(id)) { next.delete(id); } else { next.add(id); setSearch(''); }
     setSelected(next);
   };
 
@@ -460,24 +460,19 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [linkInput, setLinkInput] = useState('');
   const [linking, setLinking] = useState(false);
 
-  type MemberTab = 'main' | 'fields' | 'connections' | 'noteboard';
+  type MemberTab = 'main' | 'fields' | 'connections';
   const [memberTab, setMemberTab] = useState<MemberTab>('main');
   const [relList, setRelList] = useState<Relationship[]>([]);
   const [relTypes, setRelTypes] = useState<RelationshipTypeDef[]>([]);
 
   const [fieldDefs, setFieldDefs] = useState<CustomFieldDef[]>([]);
-  const [allNotes, setAllNotes] = useState<NoteboardEntry[]>([]);
-  const [noteboardLastSeen, setNoteboardLastSeen] = useState(0);
-  const [noteText, setNoteText] = useState('');
-  const [noteAuthorId, setNoteAuthorId] = useState<string>('');
   const [markdownEditFieldId, setMarkdownEditFieldId] = useState<string | null>(null);
 
   useEffect(() => {
     store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || []));
-    store.get<NoteboardEntry[]>(KEYS.noteboards, []).then(n => setAllNotes(n || []));
   }, []);
 
-  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setMemberTab('main'); setNoteText(''); setNoteAuthorId((members || []).find((m: Member) => !m.archived)?.id || ''); store.get<NoteboardEntry[]>(KEYS.noteboards, []).then(n => setAllNotes(n || [])); } }, [visible, member?.id]);
+  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setMemberTab('main'); } }, [visible, member?.id]);
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
@@ -515,53 +510,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     ]);
   };
 
-  const memberNotes = allNotes.filter(n => n.memberId === f.id).sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return b.timestamp - a.timestamp;
-  });
-
-  const saveNotes = async (updated: NoteboardEntry[]) => {
-    setAllNotes(updated);
-    await store.set(KEYS.noteboards, updated);
-  };
-
-  const addNote = () => {
-    if (!noteText.trim() || !noteAuthorId) return;
-    const entry: NoteboardEntry = {id: uid(), memberId: f.id, authorId: noteAuthorId, content: noteText.trim(), timestamp: Date.now()};
-    saveNotes([...allNotes, entry]);
-    setNoteText('');
-  };
-
-  const deleteNote = (id: string) => Alert.alert(t('noteboard.deleteNote'), t('noteboard.deleteNoteMsg'), [
-    {text: t('common.cancel'), style: 'cancel'},
-    {text: t('common.delete'), style: 'destructive', onPress: () => saveNotes(allNotes.filter(n => n.id !== id))},
-  ]);
-
-  const markNoteboardRead = async () => {
-    if (!f.id || isNew) return;
-    try {
-      const lastSeen = (await store.get<Record<string, number>>(KEYS.lastNoteboardSeen, {})) || {};
-      setNoteboardLastSeen(lastSeen[f.id] || 0);
-      lastSeen[f.id] = Date.now();
-      await store.set(KEYS.lastNoteboardSeen, lastSeen);
-    } catch (e) {}
-  };
-
-  React.useEffect(() => {
-    if (visible && memberTab === 'noteboard' && f.id && !isNew) {
-      markNoteboardRead();
-    }
-  }, [visible, memberTab, f.id, isNew]);
-
   React.useEffect(() => {
     if (visible && memberTab === 'connections' && !isNew) {
       store.get<Relationship[]>(KEYS.relationships, []).then(r => setRelList(r || []));
       store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []).then(tt => setRelTypes(tt || []));
     }
   }, [visible, memberTab, isNew]);
-
-  const togglePin = (id: string) => saveNotes(allNotes.map(n => n.id === id ? {...n, pinned: !n.pinned} : n));
 
   const setFieldVal = (fieldId: string, newVal: string | number | boolean | null) => {
     const existing = f.customFields || [];
@@ -581,7 +535,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     } catch (e: any) { Alert.alert(t('modal.pfpFailed'), e?.message || ''); }
   };
 
-  const activeMembers = sortMembersBySearch<Member>((members || []).filter((m: Member) => !m.archived && !m.isCustomFront), '');
 
   const relTypeMap = new Map(allRelationshipTypes(relTypes).map((td: RelationshipTypeDef) => [td.id, td] as [string, RelationshipTypeDef]));
   const relTypeName = (td: RelationshipTypeDef) => (td.preset && !td.overridden) ? t(`relType.${td.id}`) : td.name;
@@ -603,17 +556,17 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
       {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={() => {if (f.name.trim()) {onSave(f); onClose();}}}>{t('common.save')}</Btn>}</>)}>
+      {!confirmDel && <Btn instant T={T} onPress={async () => {const nm = (f.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...f, name: nm}); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
 
       {!isNew && !profileMode && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}}
           contentContainerStyle={{borderBottomWidth: 1, borderBottomColor: T.border}}>
-          {(['main', 'fields', 'connections', 'noteboard'] as MemberTab[]).map(tab => (
+          {(['main', 'fields', 'connections'] as MemberTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setMemberTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
               style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
               <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={{fontSize: fs(12), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}}>
-                {tab === 'main' ? (readOnly ? t('modal.profile') : t('modal.editMember')) : tab === 'fields' ? t('customFields.title') : tab === 'connections' ? t('systemMap.connections') : t('noteboard.title')}
+                {tab === 'main' ? (readOnly ? t('modal.profile') : t('modal.editMember')) : tab === 'fields' ? t('customFields.title') : t('systemMap.connections')}
               </Text>
             </TouchableOpacity>
           ))}
@@ -624,7 +577,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         <View style={{alignItems: 'center', marginBottom: 16}}>
           <TouchableOpacity onPress={readOnly ? undefined : pickAvatar} activeOpacity={readOnly ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>
             {f.avatar ? (
-              <Image source={{uri: f.avatar}} style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
+              <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
             ) : (
               <View style={{width: 80, height: 80, borderRadius: 18, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
                 <Text style={{fontSize: fs(28), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(f.name || '?')}</Text>
@@ -668,7 +621,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
           }} activeOpacity={readOnly ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={t('memberProfile.changeBanner')} style={{marginBottom: 10}}>
             <View style={{width: '100%', aspectRatio: 3, borderRadius: 8, borderWidth: readOnly ? 0 : 1, borderStyle: 'dashed', borderColor: T.border, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
-              {f.banner ? <Image source={{uri: f.banner}} style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('memberProfile.changeBanner')}</Text>}
+              {f.banner ? <Image source={{uri: f.banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('memberProfile.changeBanner')}</Text>}
             </View>
           </TouchableOpacity>
         )}
@@ -893,7 +846,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                     <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
                     {val ? (
                       <View>
-                        <Image source={{uri: String(val)}} style={{width: '100%', height: 180, borderRadius: 8, backgroundColor: T.surface}} resizeMode="cover" />
+                        <Image source={{uri: String(val)}} accessibilityRole="image" accessibilityLabel="Image" style={{width: '100%', height: 180, borderRadius: 8, backgroundColor: T.surface}} resizeMode="cover" />
                         {!readOnly && (
                           <View style={{flexDirection: 'row', gap: 16, marginTop: 6}}>
                             <TouchableOpacity onPress={() => pickCfImage(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.change')}><Text style={{fontSize: fs(12), color: T.accent}}>{t('common.change')}</Text></TouchableOpacity>
@@ -1015,68 +968,6 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         </View>
       )}
 
-      {memberTab === 'noteboard' && !isNew && (
-        <View>
-          {memberNotes.length > 0 ? memberNotes.map(note => {
-            const author = (members || []).find((m: Member) => m.id === note.authorId);
-            const unread = note.timestamp > noteboardLastSeen;
-            return (
-              <TouchableOpacity key={note.id} onPress={markNoteboardRead} activeOpacity={0.85}
-                accessibilityRole="button"
-                accessibilityLabel={`${unread ? t('noteboard.unread') + '. ' : ''}${author?.name || '?'}: ${note.content}`}
-                style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: unread ? 2 : 1, borderColor: (unread || note.pinned) ? T.accent : T.border, padding: 12, marginBottom: 8}}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
-                  <View style={{width: 22, height: 22, borderRadius: 5, backgroundColor: author?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
-                    <Text style={{fontSize: fs(9), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(author?.name || '?')}</Text>
-                  </View>
-                  <Text style={{fontSize: fs(12), color: author?.color || T.dim, fontWeight: '500'}}>{author?.name || '?'}</Text>
-                  {unread && <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{width: 8, height: 8, borderRadius: 4, backgroundColor: T.accent, marginLeft: 4}} />}
-                  <Text style={{fontSize: fs(10), color: T.muted, marginLeft: 'auto'}}>{fmtTime(note.timestamp)}</Text>
-                </View>
-                <Text style={{fontSize: fs(13), color: T.text, lineHeight: 20}}>{note.content}</Text>
-                <View style={{flexDirection: 'row', gap: 12, marginTop: 8}}>
-                  <TouchableOpacity onPress={() => {togglePin(note.id); markNoteboardRead();}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={note.pinned ? t('noteboard.unpin') : t('noteboard.pin')}>
-                    <Text style={{fontSize: fs(11), color: note.pinned ? T.accent : T.dim}}>{note.pinned ? `📌 ${t('noteboard.unpin')}` : t('noteboard.pin')}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => deleteNote(note.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('noteboard.deleteNote')}>
-                    <Text style={{fontSize: fs(11), color: T.danger}}>{t('noteboard.deleteNote')}</Text>
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
-            );
-          }) : (
-            <View style={{alignItems: 'center', paddingVertical: 40}}>
-              <Text style={{fontSize: fs(13), color: T.muted}}>{t('noteboard.noNotes')}</Text>
-            </View>
-          )}
-
-          <View style={{backgroundColor: T.surface, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginTop: 8}}>
-              <View style={{marginBottom: 8}}>
-                <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('noteboard.writingAs')}</Text>
-                <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4}}>
-                    {activeMembers.map((m: Member) => (
-                      <TouchableOpacity key={m.id} onPress={() => setNoteAuthorId(m.id)} activeOpacity={0.7}
-                        accessibilityRole="button" accessibilityState={{selected: noteAuthorId === m.id}} accessibilityLabel={m.name}
-                        style={{paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
-                          backgroundColor: noteAuthorId === m.id ? `${m.color}20` : T.bg,
-                          borderColor: noteAuthorId === m.id ? `${m.color}50` : T.border}}>
-                        <Text style={{fontSize: fs(11), color: noteAuthorId === m.id ? m.color : T.dim}}>{m.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-              </View>
-              <View style={{flexDirection: 'row', gap: 8, alignItems: 'flex-end'}}>
-                <TextInput value={noteText} onChangeText={setNoteText} placeholder={t('noteboard.placeholder')} placeholderTextColor={T.muted} multiline
-                  style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 48, textAlignVertical: 'top'}} />
-                <TouchableOpacity onPress={addNote} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={t('noteboard.addNote')}
-                  style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10}}>
-                  <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>+</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-        </View>
-      )}
     </Sheet>
   );
 };
@@ -1219,9 +1110,9 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
       </View>
       {showTemplatePicker && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowTemplatePicker(false)}>
-          <TouchableOpacity activeOpacity={1} onPress={() => setShowTemplatePicker(false)}
+          <TouchableOpacity activeOpacity={1} onPress={() => setShowTemplatePicker(false)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
             style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24}}>
-            <TouchableOpacity activeOpacity={1} onPress={() => {}}
+            <TouchableOpacity activeOpacity={1} onPress={() => {}} accessible={false}
               style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
               <View style={{padding: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
                 <Text style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>
@@ -1457,7 +1348,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
         }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.changeAvatar')}>
           <View style={{width: 64, height: 64, borderRadius: 14, borderWidth: 2, borderColor: T.accent, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
-            {f.avatar ? <Image source={{uri: f.avatar}} style={{width: 64, height: 64, borderRadius: 14}} resizeMode="cover" /> : <Text style={{fontSize: fs(22), color: T.dim}}>📷</Text>}
+            {f.avatar ? <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 64, height: 64, borderRadius: 14}} resizeMode="cover" /> : <Text style={{fontSize: fs(22), color: T.dim}}>📷</Text>}
           </View>
         </TouchableOpacity>
         <View style={{flex: 1}}>
@@ -1473,7 +1364,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
           }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.changeBanner')}>
             <View style={{width: '100%', aspectRatio: 3, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: T.border, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
-              {f.banner ? <Image source={{uri: f.banner}} style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('systemProfile.changeBanner')}</Text>}
+              {f.banner ? <Image source={{uri: f.banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('systemProfile.changeBanner')}</Text>}
             </View>
           </TouchableOpacity>
           {f.banner && <TouchableOpacity onPress={() => Alert.alert(t('systemProfile.removeBanner'), t('modal.removeImageMsg'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.remove'), style: 'destructive', onPress: () => setF((x: any) => ({...x, banner: undefined}))}])} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeBanner')}><Text style={{fontSize: fs(10), color: T.danger, marginTop: 4}}>{t('systemProfile.removeBanner')}</Text></TouchableOpacity>}
@@ -1771,7 +1662,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
       <View style={{alignItems: 'center', marginBottom: 16}}>
         <TouchableOpacity onPress={pickPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>
           {f.avatar ? (
-            <Image source={{uri: f.avatar}} style={{width: 88, height: 88, borderRadius: 20, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
+            <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 88, height: 88, borderRadius: 20, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
           ) : (
             <View style={{width: 88, height: 88, borderRadius: 20, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
               <Text style={{fontSize: fs(30), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(f.name || '?')}</Text>

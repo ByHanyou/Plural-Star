@@ -7,7 +7,7 @@ import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFron
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
 
-type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'discord' | 'credits' | 'supportPS';
+type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'discord' | 'credits' | 'supportPS';
 
 interface Props {
   theme: any;
@@ -29,6 +29,7 @@ interface Props {
   systemMapRelCount?: number;
   mapFocus?: {id: string; n: number} | null;
   renderMedicalScreen: () => React.ReactNode;
+  renderMailboxScreen: (onBack: () => void) => React.ReactNode;
   resetKey?: number;
   editHistoryIndex?: number | null;
   onClearEditHistory?: () => void;
@@ -372,7 +373,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 const DISCORD_URL = 'https://discord.gg/FFQw33cu8m';
 const BMC_URL = 'https://www.buymeacoffee.com/PluralStar';
 
-export const HubScreen = ({theme: T, singlet = false, selfId, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMedicalScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
+export const HubScreen = ({theme: T, singlet = false, selfId, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMedicalScreen, renderMailboxScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
@@ -538,6 +539,14 @@ export const HubScreen = ({theme: T, singlet = false, selfId, members, history, 
     );
   }
 
+  if (activeTile === 'mailbox') {
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        {renderMailboxScreen(() => setActiveTile(null))}
+      </View>
+    );
+  }
+
   if (activeTile === 'credits') {
     const credits: {name: string; role: string; url: string}[] = [
       {name: 'The Loud House System', role: t('hub.creditLogo'), url: 'https://x.com/theloudhousesys?s=21'},
@@ -573,6 +582,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, members, history, 
     {id: 'medical', icon: '⚕', label: t('medical.title')},
     {id: 'statistics', icon: '⊞', label: t('hub.statistics')},
     {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
+    {id: 'mailbox', icon: '✉', label: t('mailbox.title')},
     {id: 'polls', icon: '📊', label: t('polls.title')},
     {id: 'systemMap', icon: '🕸', label: t('systemMap.title')},
     {id: 'customFields', icon: '☰', label: t('customFields.title')},
@@ -582,7 +592,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, members, history, 
     {id: 'credits', icon: '✦', label: t('hub.credits')},
     {id: 'discord', icon: '💬', label: t('hub.discord'), external: true},
     {id: 'supportPS', icon: '☕', label: t('hub.supportPS'), external: true},
-  ].filter(tile => !singlet || (tile.id !== 'chat' && tile.id !== 'systemManager' && tile.id !== 'customFields' && tile.id !== 'polls' && tile.id !== 'archive' && tile.id !== 'systemMap')) as {id: HubTile; icon: string; label: string; external?: boolean}[];
+  ].filter(tile => !singlet || (tile.id !== 'chat' && tile.id !== 'systemManager' && tile.id !== 'customFields' && tile.id !== 'polls' && tile.id !== 'archive' && tile.id !== 'systemMap' && tile.id !== 'mailbox')) as {id: HubTile; icon: string; label: string; external?: boolean}[];
 
   const handleTilePress = (tile: typeof tiles[0]) => {
     if (tile.external && tile.id === 'discord') {

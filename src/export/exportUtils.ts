@@ -12,6 +12,7 @@ import {
   MemberGroup,
   AppSettings,
   FrontState,
+  ExportPayload,
   fmtTime,
   fmtDur,
 } from '../utils';
@@ -37,6 +38,16 @@ export interface ExportCategories {
   journalTemplates?: boolean;
   relationships?: boolean;
   medical?: boolean;
+}
+
+interface BundleMemberMedia {
+  avatar_media_path?: string;
+  banner_media_path?: string;
+}
+
+export interface ImportedZipBundle {
+  files: Record<string, Uint8Array>;
+  data: ExportPayload;
 }
 
 const ALL_CATEGORIES: ExportCategories = {
@@ -472,7 +483,7 @@ const loadImageBytes = async (src: string): Promise<Uint8Array | null> => {
   } catch { return null; }
 };
 
-export const exportBundle = async (
+export const exportZipBundle = async (
   system: SystemInfo,
   members: Member[],
   history: HistoryEntry[],
@@ -533,6 +544,39 @@ export const exportBundle = async (
   await deliverFile(tempPath, filename);
 };
 
+export const exportBundle = exportZipBundle;
+
+const normalizeZipEntryPath = (value: string): string => value.replace(/\\/g, '/').replace(/^\.?\//, '');
+
+const findZipEntry = (
+  files: Record<string, Uint8Array>,
+  targetPath: string,
+): Uint8Array | undefined => {
+  const normalizedTarget = normalizeZipEntryPath(targetPath);
+  if (!normalizedTarget) return undefined;
+  const direct = files[normalizedTarget];
+  if (direct) return direct;
+  return Object.entries(files).find(([name]) => normalizeZipEntryPath(name).endsWith(`/${normalizedTarget}`) || normalizeZipEntryPath(name) === normalizedTarget)?.[1];
+};
+
+const parseZipJson = (
+  files: Record<string, Uint8Array>,
+  targetPath: string,
+): any | null => {
+  const entry = findZipEntry(files, targetPath);
+  if (!entry) return null;
+  return JSON.parse(strFromU8(entry));
+};
+
+const isPluralStarBundleData = (data: any, manifest?: any | null): boolean => {
+  const metaApp = data?._meta?.app;
+  const manifestApp = manifest?.app;
+  return metaApp === 'Plural Star'
+    || metaApp === 'Plural Space'
+    || manifestApp === 'Plural Star'
+    || manifestApp === 'Plural Space';
+};
+
 const readFileBytes = (path: string): Promise<Uint8Array> => new Promise((resolve, reject) => {
   const clean = path.replace(/^file:\/\//, '');
   const chunks: Uint8Array[] = [];
@@ -563,12 +607,52 @@ export const base64FromU8 = (bytes: Uint8Array): string => {
 
 export const readZipBundle = async (
   zipPath: string,
-): Promise<{files: Record<string, Uint8Array>; data: any | null}> => {
+): Promise<{files: Record<string, Uint8Array>; data: any | null; manifest: any | null}> => {
   const bytes = await readFileBytes(zipPath);
   const files = unzipSync(bytes);
-  const dj = files['data.json'];
-  const data = dj ? JSON.parse(strFromU8(dj)) : null;
-  return {files, data};
+  const manifest = parseZipJson(files, 'manifest.json');
+  const data = parseZipJson(files, 'data.json');
+  return {files, data, manifest};
+};
+
+const collectBundledMemberMedia = (
+  files: Record<string, Uint8Array>,
+  members: BundleMemberMedia[],
+  field: 'avatar_media_path' | 'banner_media_path',
+): Record<string, string> => {
+  const out: Record<string, string> = {};
+  members.forEach((member: any) => {
+    const memberId = String(member?.id || '');
+    const mediaPath = String(member?.[field] || '');
+    if (!memberId || !mediaPath) return;
+    const bytes = findZipEntry(files, mediaPath);
+    if (!bytes) return;
+    out[memberId] = base64FromU8(bytes);
+  });
+  return out;
+};
+
+export const importZipBundle = async (zipPath: string): Promise<ImportedZipBundle> => {
+  const {files, data, manifest} = await readZipBundle(zipPath);
+  if (!data || !isPluralStarBundleData(data, manifest)) {
+    throw new Error('This .zip is not a Plural Star backup bundle.');
+  }
+  const rawMembers = Array.isArray(data.members) ? data.members : [];
+  const members = rawMembers.map((member: any) => {
+    const {avatar_media_path, banner_media_path, ...rest} = member || {};
+    return rest;
+  });
+  const avatars = collectBundledMemberMedia(files, rawMembers, 'avatar_media_path');
+  const banners = collectBundledMemberMedia(files, rawMembers, 'banner_media_path');
+  return {
+    files,
+    data: {
+      ...data,
+      members,
+      avatars,
+      banners,
+    },
+  };
 };
 
 export const exportHTML = async (

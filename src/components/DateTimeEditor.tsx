@@ -58,11 +58,12 @@ const EditableCell = ({
 
   return (
     <View style={{alignItems: 'center', width}}>
-      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} hitSlop={{top: 4, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
-        <Text style={{fontSize: fs(14), color: T.dim}}>▲</Text>
+      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel="Increase" hitSlop={{top: 4, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
+        <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▲</Text>
       </TouchableOpacity>
       <TextInput
         value={text}
+        accessibilityLabel="Value"
         onChangeText={t => { editing.current = true; setText(t.replace(/[^0-9]/g, '')); }}
         onFocus={() => { editing.current = true; }}
         onBlur={() => commit()}
@@ -73,8 +74,8 @@ const EditableCell = ({
         maxLength={Math.max(pad, String(max).length)}
         style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 4, paddingVertical: 4, minWidth: width, textAlign: 'center', fontSize: fs(14), color: T.text, fontWeight: '500', fontFamily: 'monospace'}}
       />
-      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
-        <Text style={{fontSize: fs(14), color: T.dim}}>▼</Text>
+      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel="Decrease" hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
+        <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▼</Text>
       </TouchableOpacity>
     </View>
   );
@@ -161,6 +162,7 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
 
   const headerToggle = (
     <TouchableOpacity onPress={() => collapsible && setExpanded(!expanded)} activeOpacity={collapsible ? 0.7 : 1}
+      accessibilityRole={collapsible ? 'button' : undefined} accessibilityState={collapsible ? {expanded} : undefined} accessibilityLabel={fmtSummary()}
       style={{flexDirection: 'row', gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: expanded ? `${T.accent}50` : T.border}}>
       <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{fmtSummary()}</Text>
       {collapsible && <Text style={{fontSize: fs(12), color: T.dim}}>{expanded ? '▲' : '▼'}</Text>}
@@ -212,6 +214,7 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                   width={44} T={T}
                 />
                 <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}
+                  accessibilityRole="button" accessibilityLabel={isPM ? 'PM, switch to AM' : 'AM, switch to PM'}
                   style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, marginLeft: 4}}>
                   <Text style={{fontSize: fs(13), color: T.accent, fontWeight: '600'}}>{isPM ? 'PM' : 'AM'}</Text>
                 </TouchableOpacity>

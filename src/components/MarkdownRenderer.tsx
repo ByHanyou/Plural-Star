@@ -16,6 +16,18 @@ const isValidImageUri = (u: unknown): u is string => {
   return /^https?:\/\//i.test(s) || /^file:\/\//i.test(s) || /^content:\/\//i.test(s) || s.startsWith('data:image/');
 };
 
+// Renders a remote/local image but, if the load fails (dead link, host blocking
+// React Native's image loader, expired URL, etc.), shows a visible placeholder
+// instead of silently rendering nothing.
+const UriImage = ({uri, style, T}: {uri: string; style: any; T: any}) => {
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => { setFailed(false); }, [uri]);
+  if (failed) {
+    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>[image unavailable]</Text>;
+  }
+  return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" onError={() => setFailed(true)} />;
+};
+
 const renderTextWithMentions = (
   text: string,
   T: any,
@@ -93,7 +105,7 @@ const renderInlineHTML = (html: string, T: any, members?: Member[], onMentionPre
         const w = widthMatch ? Number(widthMatch[1]) : undefined;
         const h = heightMatch ? Number(heightMatch[1]) : undefined;
         if (isValidUrl) {
-          parts.push(<Image key={key++} source={{uri: url}} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} resizeMode="contain" />);
+          parts.push(<Image key={key++} source={{uri: url}} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" />);
         } else {
           parts.push(<Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image: {url}]</Text>);
         }
@@ -203,7 +215,7 @@ const renderHTMLBlocks = (html: string, T: any, members?: Member[], onMentionPre
                   const sideH = (wAttr && hAttr) ? Math.round(sideW * (Number(hAttr[1]) / Number(wAttr[1]))) : Math.round(sideW * 1.4);
                   return (
                     <View key={i} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
-                      <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" />
+                      <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" />
                       <Text style={{flex: 1, fontSize: fs(13, T), color: T.dim, lineHeight: 20}}>{renderInlineHTML(restHtml, T, members, onMentionPress)}</Text>
                     </View>
                   );
@@ -247,7 +259,7 @@ const renderInline = (text: string, T: any, members?: Member[], onMentionPress?:
     [/!\[([^\]]*)\]\(([^)]+)\)/, m => {
       const url = m[2].replace(/[)]+$/, '').trim();
       if (!isValidImageUri(url)) return <Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image]</Text>;
-      return <Image key={key++} source={{uri: url}} style={{width: 200, height: 200, borderRadius: 8}} resizeMode="contain" />;
+      return <UriImage key={key++} uri={url} style={{width: 200, height: 200, borderRadius: 8}} T={T} />;
     }],
     [/\[(.+?)\]\((.+?)\)/, m => <Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => Linking.openURL(m[2])}>{m[1]}</Text>],
   ];
@@ -305,7 +317,7 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
         const sideH = sizeHint ? Math.round(sideW * (Number(sizeHint[2]) / Number(sizeHint[1]))) : Math.round(sideW * 1.4);
         elements.push(
           <View key={i * 3} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
-            <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" />
+            <UriImage uri={url} style={{width: sideW, height: sideH, borderRadius: 8}} T={T} />
             <View style={{flex: 1, gap: 2}}>
               {before ? renderMarkdownLine(before, T, i * 3 + 1, members, onMentionPress) : null}
               {after ? renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress) : null}
@@ -316,7 +328,7 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
       }
       if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
       if (isValidImageUri(url)) {
-        elements.push(<Image key={i * 3 + 1} source={{uri: url}} style={{width: '100%', height: 200, borderRadius: 8}} resizeMode="contain" />);
+        elements.push(<UriImage key={i * 3 + 1} uri={url} style={{width: '100%', height: 200, borderRadius: 8}} T={T} />);
       } else {
         elements.push(<Text key={i * 3 + 1} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image]</Text>);
       }
