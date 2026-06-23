@@ -235,14 +235,15 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const deferredQuery = useDeferredValue(query);
 
   const tabMembers = members.filter(m => {
+    if (m.deleted) return false;
     if (m.isCustomFront) return memberTab === 'customFronts';
     if (memberTab === 'customFronts') return false;
     return memberTab === 'archived' ? m.archived : !m.archived;
   });
   const allFrontIds = useMemo(() => new Set(allFrontMemberIds(front)), [front]);
   const allTags = [...new Set(tabMembers.flatMap(m => m.tags || []))].sort();
-  const archivedCount = members.filter(m => m.archived && !m.isCustomFront).length;
-  const customFrontCount = members.filter(m => m.isCustomFront).length;
+  const archivedCount = members.filter(m => m.archived && !m.isCustomFront && !m.deleted).length;
+  const customFrontCount = members.filter(m => m.isCustomFront && !m.deleted).length;
 
   const activeGroupIds = useMemo(() => activeGroup ? new Set([activeGroup, ...descendantsOf(groups, activeGroup).map(g => g.id)]) : null, [activeGroup, groups]);
 

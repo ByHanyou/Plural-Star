@@ -80,11 +80,12 @@ export interface CustomFieldValue {
 
 export interface NoteboardEntry {
   id: string;
-  memberId: string;
-  authorId: string;
+  memberId: string;   // recipient (whose mailbox this lands in)
+  authorId: string;   // sender
   content: string;
   timestamp: number;
   pinned?: boolean;
+  read?: boolean;     // marked true once the recipient's mailbox has been opened
 }
 
 export interface PollOption {
@@ -116,6 +117,10 @@ export interface Member {
   tags?: string[];
   groupIds?: string[];
   archived?: boolean;
+  // Soft-delete tombstone: hidden from all member lists (roster, archive, pickers) but
+  // kept in storage so front history & stats can still resolve the member's name/color
+  // instead of showing the raw ID.
+  deleted?: boolean;
   avatar?: string;
   avatarTransparent?: boolean;
   banner?: string;
@@ -652,7 +657,7 @@ export const sortMembers = (members: Member[], mode: MemberSortMode = 'alphabeti
     case 'age': return sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     case 'color': return sorted.sort((a, b) => a.color.localeCompare(b.color));
     case 'role': return sorted.sort((a, b) => (a.role || '').localeCompare(b.role || ''));
-    case 'manual': return sorted.sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+    case 'manual': return sorted.sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
     default: return sorted;
   }
 };

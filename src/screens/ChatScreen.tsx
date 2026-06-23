@@ -303,7 +303,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
             </View>
             {msg.type === 'image' ? (
               (typeof msg.content === 'string' && msg.content.trim().length > 0) ? (
-                <Image source={{uri: msg.content.trim()}} style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
+                <Image source={{uri: msg.content.trim()}} accessibilityRole="image" accessibilityLabel="Image" style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
               ) : (
                 <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginTop: 4}}>[image unavailable]</Text>
               )

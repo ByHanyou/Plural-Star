@@ -45,6 +45,8 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
           source={{uri: member.avatar}}
           style={{width: size, height: size}}
           resizeMode="cover"
+          accessibilityElementsHidden
+          importantForAccessibility="no"
           onError={() => setImgError(true)}
         />
       </View>

@@ -1,5 +1,5 @@
-import React, {useState, useMemo} from 'react';
-import {View, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, Modal, ScrollView} from 'react-native';
+import React, {useState, useMemo, useEffect} from 'react';
+import {View, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, Modal, ScrollView, Keyboard} from 'react-native';
 import {Text, TextInput} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts} from '../theme';
@@ -41,6 +41,7 @@ const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => 
       contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 6, gap: 6, flexDirection: 'row', alignItems: 'center'}}>
       {MD_TOOLS.map(tool => (
         <TouchableOpacity key={tool.label} onPress={() => onInsert(tool.before, tool.after)} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityLabel={tool.label}
           style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: T.border, backgroundColor: T.bg}}>
           <Text style={{fontSize: fs(12), fontWeight: tool.bold ? '700' : '500', fontStyle: tool.italic ? 'italic' : 'normal', textDecorationLine: tool.strike ? 'line-through' : 'none', color: T.dim}}>{tool.label}</Text>
         </TouchableOpacity>
@@ -61,9 +62,9 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
-      <TouchableOpacity activeOpacity={1} onPress={onCancel}
+      <TouchableOpacity activeOpacity={1} onPress={onCancel} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')}
         style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24}}>
-        <TouchableOpacity activeOpacity={1} onPress={() => {}}
+        <TouchableOpacity activeOpacity={1} onPress={() => {}} accessible={false}
           style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
           <View style={{padding: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
             <Text style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>
@@ -72,6 +73,7 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
             <TextInput
               value={search}
               onChangeText={setSearch}
+              accessibilityLabel={i18n.t('common.search')}
               placeholder={i18n.t('common.search')}
               placeholderTextColor={T.muted}
               autoFocus
@@ -90,6 +92,7 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
             ) : (
               filtered.map(m => (
                 <TouchableOpacity key={m.id} onPress={() => onPick(m)} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityLabel={m.name}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
                   <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
                   <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{m.name}</Text>
@@ -109,6 +112,17 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   const insets = useSafeAreaInsets();
   const [text, setText] = useState(initialContent || '');
   const [showMentionPicker, setShowMentionPicker] = useState(false);
+  // Pad the scroll area by the keyboard height so the lower part of a long bio /
+  // description stays reachable instead of being trapped behind the keyboard
+  // (KeyboardAvoidingView alone doesn't shift a multiline TextInput — RN #16826).
+  const [kbHeight, setKbHeight] = useState(0);
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s1 = Keyboard.addListener(showEvt, (e: any) => setKbHeight(e?.endCoordinates?.height || 0));
+    const s2 = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    return () => { s1.remove(); s2.remove(); };
+  }, []);
 
   const insertFormat = (before: string, after: string) => {
     const placeholder = before.includes('<img') ? 'URL Here' : (after ? 'text' : '');
@@ -131,11 +145,11 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   return (
     <View style={[s.container, {backgroundColor: T.bg, paddingTop: Platform.OS === 'ios' ? insets.top : 0}]}>
       <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.bg}]}>
-        <TouchableOpacity onPress={onClose} activeOpacity={0.7} style={s.headerBtn}>
+        <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')} style={s.headerBtn}>
           <Text style={{fontSize: fs(14), color: T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{i18n.t('common.cancel')}</Text>
         </TouchableOpacity>
-        <Text style={[s.headerTitle, {color: T.text, flex: 1, textAlign: 'center', marginHorizontal: 8}]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{title}</Text>
-        <TouchableOpacity onPress={handleSave} activeOpacity={0.7} style={[s.headerBtn, {alignItems: 'flex-end'}]}>
+        <Text accessibilityRole="header" style={[s.headerTitle, {color: T.text, flex: 1, textAlign: 'center', marginHorizontal: 8}]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{title}</Text>
+        <TouchableOpacity onPress={handleSave} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.save')} style={[s.headerBtn, {alignItems: 'flex-end'}]}>
           <Text style={{fontSize: fs(14), fontWeight: '600', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{i18n.t('common.save')}</Text>
         </TouchableOpacity>
       </View>
@@ -145,12 +159,13 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
         </View>
         {members && members.length > 0 && (
           <TouchableOpacity onPress={() => setShowMentionPicker(true)} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityLabel={i18n.t('mention.pickMember')}
             style={{paddingHorizontal: 14, paddingVertical: 7, marginRight: 8, borderRadius: 6, borderWidth: 1, borderColor: T.accent, backgroundColor: T.accentBg}}>
-            <Text style={{fontSize: fs(14), fontWeight: '700', color: T.accent}}>@</Text>
+            <Text style={{fontSize: fs(14), fontWeight: '700', color: T.accent}} accessibilityElementsHidden importantForAccessibility="no">@</Text>
           </TouchableOpacity>
         )}
       </View>
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled">
+      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 40 + kbHeight}} keyboardShouldPersistTaps="handled">
         <TextInput
           value={text}
           onChangeText={setText}

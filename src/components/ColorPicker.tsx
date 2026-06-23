@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {memo, useEffect, useMemo, useRef, useState} from 'react';
 import {View, PanResponder} from 'react-native';
 import {Text, TextInput} from './AppText';
 import {useTranslation} from 'react-i18next';
@@ -42,11 +42,51 @@ const hsvToHex = (h: number, s: number, v: number) => {
 };
 const hexToHsv = (hex: string) => { const {r, g, b} = hexToRgb(hex); return rgbToHsv(r, g, b); };
 
-const SAT_N = 60;   // vertical strips across saturation (left→right)
-const VAL_N = 64;   // horizontal black-overlay strips for value (top→bottom)
-const HUE_N = 72;   // strips across the hue bar
+const SAT_N = 48;   // vertical strips across saturation (white → hue, left→right)
+const VAL_N = 48;   // horizontal black-overlay strips for value (top→bottom)
+const HUE_N = 60;   // strips across the hue bar
 const VAL_ALPHAS = Array.from({length: VAL_N}, (_, i) => i / (VAL_N - 1));
 const HUE_STRIPS = Array.from({length: HUE_N}, (_, i) => hsvToHex((i / (HUE_N - 1)) * 360, 1, 1));
+
+// Memoized saturation/value gradient for a fixed hue + size. Rendered once per
+// hue change (NOT on every drag frame), so dragging the thumb costs nothing here.
+// Strips are absolutely positioned and overlap by 1px to remove the hairline
+// seams Fabric leaves between exactly-adjacent Views (the "patchy" gradient).
+const SatValGradient = memo(({hue, w, h}: {hue: number; w: number; h: number}) => {
+  const satStrips = useMemo(
+    () => Array.from({length: SAT_N}, (_, i) => hsvToHex(hue, i / (SAT_N - 1), 1)),
+    [hue],
+  );
+  if (w <= 0 || h <= 0) return null;
+  return (
+    <View pointerEvents="none" style={{position: 'absolute', left: 0, top: 0, width: w, height: h}}>
+      {satStrips.map((c, i) => {
+        const left = Math.round(i * w / SAT_N);
+        const right = Math.round((i + 1) * w / SAT_N);
+        return <View key={i} style={{position: 'absolute', left, top: 0, width: right - left + 1, height: h, backgroundColor: c}} />;
+      })}
+      {VAL_ALPHAS.map((a, i) => {
+        const top = Math.round(i * h / VAL_N);
+        const bottom = Math.round((i + 1) * h / VAL_N);
+        return <View key={i} style={{position: 'absolute', left: 0, top, width: w, height: bottom - top + 1, backgroundColor: `rgba(0,0,0,${a})`}} />;
+      })}
+    </View>
+  );
+});
+
+// Memoized hue bar — depends only on width, so it never re-renders during a drag.
+const HueGradient = memo(({w}: {w: number}) => {
+  if (w <= 0) return null;
+  return (
+    <View pointerEvents="none" style={{position: 'absolute', left: 0, top: 0, width: w, height: 18}}>
+      {HUE_STRIPS.map((c, i) => {
+        const left = Math.round(i * w / HUE_N);
+        const right = Math.round((i + 1) * w / HUE_N);
+        return <View key={i} style={{position: 'absolute', left, top: 0, width: right - left + 1, height: 18, backgroundColor: c}} />;
+      })}
+    </View>
+  );
+});
 
 export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex: string) => void; T: any}) => {
   const {t} = useTranslation();
@@ -109,6 +149,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
   const sqPan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: e => applySq(e.nativeEvent.locationX, e.nativeEvent.locationY),
     onPanResponderMove: e => applySq(e.nativeEvent.locationX, e.nativeEvent.locationY),
   })).current;
@@ -116,6 +157,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
   const huePan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
     onPanResponderGrant: e => applyHue(e.nativeEvent.locationX),
     onPanResponderMove: e => applyHue(e.nativeEvent.locationX),
   })).current;
@@ -129,12 +171,6 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
     }
   };
 
-  // vertical saturation strips for the current hue (white → full hue), at value 1
-  const satStrips = useMemo(
-    () => Array.from({length: SAT_N}, (_, i) => hsvToHex(hsv.h, i / (SAT_N - 1), 1)),
-    [hsv.h],
-  );
-
   const hueHex = hsvToHex(hsv.h, 1, 1);
   const curHex = hsvToHex(hsv.h, hsv.s, hsv.v);
 
@@ -147,12 +183,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         accessibilityLabel={t('modal.color')}
         accessibilityValue={{text: curHex}}
         style={{width: '100%', height: 160, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: T.border}}>
-        <View style={{position: 'absolute', left: 0, top: 0, width: sqSize.w, height: sqSize.h, flexDirection: 'row'}} pointerEvents="none">
-          {satStrips.map((c, i) => (<View key={i} style={{width: Math.round((i + 1) * sqSize.w / SAT_N) - Math.round(i * sqSize.w / SAT_N), height: sqSize.h, backgroundColor: c}} />))}
-        </View>
-        <View style={{position: 'absolute', left: 0, top: 0, width: sqSize.w, height: sqSize.h, flexDirection: 'column'}} pointerEvents="none">
-          {VAL_ALPHAS.map((a, i) => (<View key={i} style={{width: sqSize.w, height: Math.round((i + 1) * sqSize.h / VAL_N) - Math.round(i * sqSize.h / VAL_N), backgroundColor: `rgba(0,0,0,${a})`}} />))}
-        </View>
+        <SatValGradient hue={hsv.h} w={sqSize.w} h={sqSize.h} />
         <View pointerEvents="none" style={{position: 'absolute', left: hsv.s * sqSize.w - 9, top: (1 - hsv.v) * sqSize.h - 9, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: curHex}} />
       </View>
 
@@ -163,9 +194,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
         onAccessibilityAction={e => { const cur = hsvRef.current; const step = e.nativeEvent.actionName === 'increment' ? 10 : -10; commit({...cur, h: (cur.h + step + 360) % 360}); }}
         style={{height: 18, borderRadius: 9, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: T.border}}>
-        <View style={{position: 'absolute', left: 0, top: 0, width: hueW, height: 18, flexDirection: 'row'}} pointerEvents="none">
-          {HUE_STRIPS.map((c, i) => (<View key={i} style={{width: Math.round((i + 1) * hueW / HUE_N) - Math.round(i * hueW / HUE_N), height: 18, backgroundColor: c}} />))}
-        </View>
+        <HueGradient w={hueW} />
         <View pointerEvents="none" style={{position: 'absolute', left: (hsv.h / 360) * hueW - 9, top: -1, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: hueHex}} />
       </View>
 
