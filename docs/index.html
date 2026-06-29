@@ -21,16 +21,16 @@
 
 <span class="logo">Plural Star</span>
 <h1>Privacy Policy</h1>
-<span class="updated">Last updated: April 2026</span>
+<span class="updated">Last updated: June 2026</span>
 
 <div class="rename-note">
   <strong>Renamed from Plural Space.</strong> The app, repository, and subreddit were renamed to Plural Star for community clarity — another app was also using the Plural Space name. Your installation, data, backups, and any links continue to work; the app behavior and privacy practices described below have not changed as part of the rename.
 </div>
 
-<p>Plural Star is a private front-tracking, journaling, and system-management application for plural systems. Your privacy is fundamental to how this app is built. This policy explains what data the app handles, how it is used, and how it is stored.</p>
+<p>Plural Star is a private front-tracking, journaling, and system-management application for plural systems. Your privacy is fundamental to how this app is built. This policy explains what data the app handles, how it is used, and how it is stored, including our optional decentralized networking features.</p>
 
 <h2>1. Data the App Handles</h2>
-<p>All content you enter in the app is stored exclusively on your device:</p>
+<p>All content you enter in the app is stored exclusively on your device. Depending on the features you enable, this includes:</p>
 <ul>
   <li><strong>System information</strong> — system name, description, system-level banner and avatar</li>
   <li><strong>Member profiles</strong> — names, pronouns, roles, colors, markdown descriptions, profile pictures, 900&times;300 banners, tags, group assignments</li>
@@ -42,21 +42,23 @@
   <li><strong>Polls</strong> — system polls with options, votes, and voter tracking</li>
   <li><strong>Settings and preferences</strong> — theme, language, notification toggles, front-check interval, custom palettes, custom moods, saved locations</li>
   <li><strong>Approximate location</strong> — only when GPS is explicitly enabled in Settings (off by default). Your device's coordinates are reverse-geocoded to a neighbourhood or city name via OpenStreetMap Nominatim. Raw GPS coordinates are never stored.</li>
+  <li><strong>Network and Sync Data (optional)</strong> — when using Friends &amp; Syncing, the app handles cryptographic Peer IDs, friend lists, connection metadata, and encrypted sync payloads.</li>
 </ul>
 
 <h2>2. How Your Data Is Used</h2>
-<p>All data is used solely to provide app features — tracking fronting sessions, maintaining a system journal, managing custom fields and noteboards, running polls, and generating history and insights. Your data is never used for advertising, analytics, profiling, or any purpose beyond what you see in the app.</p>
+<p>All data is used solely to provide app features — tracking fronting sessions, maintaining a system journal, managing custom fields and noteboards, running polls, generating history and insights, and facilitating secure peer-to-peer synchronization and friend interactions when explicitly enabled. Your data is never used for advertising, analytics, profiling, or any purpose beyond what you see in the app.</p>
 
-<h2>3. Data Storage</h2>
-<p>All data is stored locally on your device. Plural Star does not operate any servers, does not require an account, and does not transmit your data to any third party, with three narrow exceptions:</p>
+<h2>3. Data Storage and Transmission</h2>
+<p>All data is fundamentally stored locally on your device. Plural Star does not operate any centralized storage servers, does not require an account, and does not transmit your data to any third party, with four narrow exceptions:</p>
 <ul>
+  <li><strong>Decentralized Sync &amp; Friends (optional):</strong> If you enable online features, your device communicates through our Decentralized LibP2P Relay Node Network (<a href="https://github.com/ByHanyou/Plural-Star-Node">Plural-Star-Node</a>). Your data is transmitted using end-to-end encryption (E2EE) and is only accessible to the specific peers (your other devices or explicitly approved friends) you authorize. Relay nodes merely facilitate the connection and NAT traversal; they cannot read, decrypt, or permanently store your system data.</li>
   <li><strong>GPS location (optional):</strong> If you enable the GPS feature, your device's coordinates are sent over HTTPS to <a href="https://nominatim.openstreetmap.org">Nominatim (OpenStreetMap)</a> to resolve a neighbourhood or city name. Only coordinates are sent — no identifiers, no account information, no system data.</li>
   <li><strong>Simply Plural / PluralKit token import (optional):</strong> If you use the import feature with a token, the token is used for one-time API requests to those services to fetch your data. The token is not stored by Plural Star after the import completes.</li>
   <li><strong>Simply Plural file import (optional):</strong> If you import a Simply Plural JSON export file, the file is read from your device's local storage only. No network traffic occurs during file import.</li>
 </ul>
 
 <h2>4. Data Sharing</h2>
-<p>Plural Star does not sell, share, or transmit your personal data to any third parties for any purpose beyond what is described in Section 3.</p>
+<p>Plural Star does not sell, share, or transmit your personal data to any third parties for any purpose beyond what is described in Section 3. When utilizing the Friends &amp; Syncing network, you retain absolute control over which cryptographic peers receive your encrypted data.</p>
 
 <h2>5. Notifications</h2>
 <p>Plural Star can display local notifications on your device. All notifications are generated entirely on-device and are not transmitted anywhere.</p>

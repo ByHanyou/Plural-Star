@@ -36,6 +36,8 @@ import {MedicalScreen} from './src/screens/MedicalScreen';
 import {MailboxScreen} from './src/screens/MailboxScreen';
 import {StatusScreen} from './src/screens/StatusScreen';
 import {ProfileScreen} from './src/screens/ProfileScreen';
+import {NetworkScreen} from './src/screens/NetworkScreen';
+import {NetworkManager} from './src/network/NetworkManager';
 import {SetFrontModal, SetStatusModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal, CustomFrontModal} from './src/modals';
 
 type Tab = 'front' | 'members' | 'hub' | 'journal' | 'history';
@@ -379,6 +381,23 @@ function MainAppContent() {
   };
 
   useEffect(() => { loadAll(); }, []);
+  useEffect(() => { NetworkManager.init().catch(e => console.error('[NETWORK] init failed:', e)); }, []);
+  useEffect(() => { NetworkManager.updateMyFront(front, members).catch(() => {}); }, [front, members]);
+  // Poke the sync engine when any synced data changes (it debounces + rate-limits).
+  useEffect(() => { NetworkManager.notifyDataChanged(); }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
+  // Apply incoming device-sync writes by reloading app state.
+  useEffect(() => NetworkManager.onSyncApplied(() => { loadAll(); }), [loadAll]);
+  // Prompt to resolve a device-sync conflict (which device's data wins).
+  useEffect(() => NetworkManager.onSyncConflict(c => {
+    Alert.alert(
+      t('network.syncConflictTitle'),
+      t('network.syncConflictMsg', {device: c.deviceName, defaultValue: `Your data differs from ${c.deviceName}. Which device should win?`}),
+      [
+        {text: t('network.keepThisDevice'), onPress: () => { NetworkManager.resolveConflict(c.peerId, 'mine'); }},
+        {text: t('network.keepOtherDevice'), onPress: () => { NetworkManager.resolveConflict(c.peerId, 'theirs'); }},
+      ],
+    );
+  }), [t]);
   useEffect(() => { if (loaded && !firstRun) requestPermissions(); }, [loaded, firstRun]);
 
   useEffect(() => {
@@ -805,6 +824,10 @@ function MainAppContent() {
     <MedicalScreen theme={C} medical={medical} onSave={saveMedical} />
   );
 
+  const renderNetworkScreen = () => (
+    <NetworkScreen theme={C} />
+  );
+
   const renderMailboxScreen = (onBack: () => void) => (
     <MailboxScreen theme={C} members={members} onBack={onBack} />
   );
@@ -863,7 +886,7 @@ function MainAppContent() {
           onBulkAddGroups={bulkAddGroups}
         />;
       case 'hub':
-        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
+        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
       case 'journal':
         return <JournalScreen theme={C} journal={journal} templates={journalTemplates} members={members} systemJournalPassword={system.journalPassword} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} onTogglePin={e => saveEntry({...e, pinned: !e.pinned})} onSaveTemplates={saveJournalTemplates} onMentionPress={openMemberById} />;
       case 'history':

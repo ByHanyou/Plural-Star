@@ -1,0 +1,679 @@
+// NetworkManager — the single coordinator for the app's network client.
+//
+// Friend/Sync model (mutual, no one-way): tapping "Add Friend" generates a short
+// code that lives 30 minutes and can be used by several people in that window.
+// You enter their code and they enter yours; the link only becomes connected
+// once BOTH sides have entered the other's code.
+//
+// Mechanism: while a code is active the app publishes its signed identity to the
+// node's rendezvous under hash(code). Entering someone's code looks up their
+// record, then sends a signed "connect" over the E2E channel. Each side flips to
+// 'accepted' only once it has both entered the other's code AND received their
+// connect — so neither can be added one-way.
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { store, KEYS } from '../storage';
+import {
+  Identity,
+  FriendIdentity,
+  loadOrCreateIdentity,
+} from './identity';
+import { NodeClient, PacketReceived } from './NodeClient';
+import { sealMessage, openMessage } from './crypto';
+import { resolveNetwork } from './defaultNetwork';
+import {
+  rendezvousNamespace,
+  makeRendezvousRecord,
+  openRendezvousRecord,
+} from './rendezvous';
+import { decodeBase64, encodeBase64 } from './bytes';
+import { generateFriendCode, generateSyncCode, Member } from '../utils';
+import { buildFrontShare } from './frontShare';
+import {
+  Friend,
+  FrontShare,
+  NetMessage,
+  NetworkSettings,
+  ConnStatus,
+  RENDEZVOUS_TTL_SECONDS,
+  FRIENDS_STORAGE_KEY,
+  NETWORK_SETTINGS_KEY,
+  SYNC_EXCLUDE_KEYS,
+  SYNC_STATE_KEY,
+} from './types';
+
+// Live-sync tuning. A large initial sync must trickle out, not fire all at once:
+// messages are kept small, large single values are split into parts, and every
+// message is paced apart so a big sync spreads over time instead of bursting.
+const SYNC_DEBOUNCE_MS = 8000; // coalesce bursts of edits
+const SYNC_MIN_INTERVAL_MS = 8000; // floor between push cycles
+const SYNC_MSG_BUDGET = 64 * 1024; // max value bytes packed into one 'sync' message
+const SYNC_CHUNK_SIZE = 48 * 1024; // a value larger than the budget streams in parts this big
+const SYNC_PACE_MS = 300; // delay between consecutive messages (the anti-burst throttle)
+const SYNC_MAX_PARTS = 4096; // reject absurd part counts on receive
+
+const SYNC_EXCLUDE = new Set(SYNC_EXCLUDE_KEYS);
+
+const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+
+// Fast non-cryptographic content hash for change detection (FNV-1a, 32-bit).
+const contentHash = (s: string): string => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16);
+};
+
+export interface NetworkState {
+  enabled: boolean;
+  status: ConnStatus;
+  peerId: string | null;
+  friends: Friend[];
+  devices: Friend[];
+  onlinePeers: string[];
+  relayConfigured: boolean;
+  activeFriendCode: string | null;
+  activeFriendExpiresAt: number | null;
+  activeDeviceCode: string | null;
+  activeDeviceExpiresAt: number | null;
+}
+
+type LinkKind = 'friend' | 'device';
+
+export interface IncomingDM {
+  peerId: string;
+  body: string;
+  ts: number;
+}
+
+interface ActiveCode {
+  code: string;
+  namespace: string;
+  expiresAt: number;
+}
+
+type StateListener = (s: NetworkState) => void;
+type DMListener = (dm: IncomingDM) => void;
+
+class NetworkManagerImpl {
+  private identity: Identity | null = null;
+  private client: NodeClient | null = null;
+  private settings: NetworkSettings = { enabled: false };
+  private friends: Friend[] = [];
+  private online: Set<string> = new Set();
+  private status: ConnStatus = 'disabled';
+  private active: { friend: ActiveCode | null; device: ActiveCode | null } = { friend: null, device: null };
+  private codeTimers: { friend: ReturnType<typeof setTimeout> | null; device: ReturnType<typeof setTimeout> | null } = { friend: null, device: null };
+  private systemName = 'Plural Star user';
+  private myFront: FrontShare | null = null;
+
+  // ---- sync engine state ----
+  private lastHashes: Record<string, string> = {};
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastPushAt = 0;
+  private syncing = false; // guard against overlapping push cycles
+  private chunkBuffers: Map<string, {parts: string[]; total: number; seqs: Set<number>}> = new Map();
+  private pendingConflicts: Map<string, {key: string; remoteValue: string; remoteHash: string}[]> = new Map();
+  private syncAppliedListeners: Set<() => void> = new Set();
+  private syncConflictListeners: Set<(c: {peerId: string; deviceName: string; keys: string[]}) => void> = new Set();
+
+  private stateListeners: Set<StateListener> = new Set();
+  private dmListeners: Set<DMListener> = new Set();
+  private loaded = false;
+
+  subscribe(fn: StateListener): () => void {
+    this.stateListeners.add(fn);
+    fn(this.getState());
+    return () => this.stateListeners.delete(fn);
+  }
+
+  onDM(fn: DMListener): () => void {
+    this.dmListeners.add(fn);
+    return () => this.dmListeners.delete(fn);
+  }
+
+  getState(): NetworkState {
+    const net = resolveNetwork(this.settings);
+    return {
+      enabled: this.settings.enabled,
+      status: this.status,
+      peerId: this.identity?.peerId ?? null,
+      friends: this.friends.filter(f => f.kind !== 'device'),
+      devices: this.friends.filter(f => f.kind === 'device'),
+      onlinePeers: Array.from(this.online),
+      relayConfigured: !!net.relayUrl,
+      activeFriendCode: this.active.friend?.code ?? null,
+      activeFriendExpiresAt: this.active.friend?.expiresAt ?? null,
+      activeDeviceCode: this.active.device?.code ?? null,
+      activeDeviceExpiresAt: this.active.device?.expiresAt ?? null,
+    };
+  }
+
+  private notify(): void {
+    const snap = this.getState();
+    this.stateListeners.forEach(fn => {
+      try {
+        fn(snap);
+      } catch (e) {
+        console.error('[NETWORK] state listener threw:', e);
+      }
+    });
+  }
+
+  private async persistFriends(): Promise<void> {
+    await store.set(FRIENDS_STORAGE_KEY, this.friends);
+  }
+
+  private async persistSettings(): Promise<void> {
+    await store.set(NETWORK_SETTINGS_KEY, this.settings);
+  }
+
+  async init(): Promise<void> {
+    if (this.loaded) return;
+    this.loaded = true;
+    this.settings = (await store.get<NetworkSettings>(NETWORK_SETTINGS_KEY, null)) || {
+      enabled: false,
+    };
+    this.friends = (await store.get<Friend[]>(FRIENDS_STORAGE_KEY, null)) || [];
+    this.lastHashes = (await store.get<Record<string, string>>(SYNC_STATE_KEY, null)) || {};
+    this.identity = await loadOrCreateIdentity();
+    try {
+      const sys = await store.get<{ name?: string }>(KEYS.system, null);
+      if (sys && sys.name) this.systemName = sys.name;
+    } catch {}
+    if (this.settings.enabled) await this.connect();
+    else this.notify();
+  }
+
+  private setStatus(s: ConnStatus): void {
+    this.status = s;
+    this.notify();
+  }
+
+  private async connect(): Promise<void> {
+    const self = this.identity ?? (this.identity = await loadOrCreateIdentity());
+    const net = resolveNetwork(this.settings);
+    if (!net.relayUrl) {
+      this.setStatus('error');
+      return;
+    }
+    if (this.client) this.client.disconnect();
+
+    const client = new NodeClient(net.relayUrl, net.token, self.peerId);
+    this.client = client;
+
+    client.on('status', (s: ConnStatus) => {
+      this.setStatus(s);
+      // Re-publish an active code after a (re)connect so it stays resolvable.
+      if (s === 'online') this.republishActiveCode();
+    });
+    client.on('packet_received', (p: PacketReceived) => this.handlePacket(p));
+    client.on('peer_online', (e: any) => {
+      if (e?.peer_id) {
+        this.online.add(e.peer_id);
+        this.notify();
+      }
+    });
+    client.on('peer_offline', (e: any) => {
+      if (e?.peer_id) {
+        this.online.delete(e.peer_id);
+        this.notify();
+      }
+    });
+    client.on('error', (e: any) => console.warn('[NETWORK] client error:', e));
+
+    client.connect();
+  }
+
+  async setEnabled(enabled: boolean): Promise<void> {
+    this.settings = { ...this.settings, enabled };
+    await this.persistSettings();
+    if (enabled) {
+      await this.connect();
+    } else {
+      if (this.client) this.client.disconnect();
+      this.client = null;
+      this.online.clear();
+      this.clearActiveCode('friend');
+      this.clearActiveCode('device');
+      this.setStatus('disabled');
+    }
+  }
+
+  async setRelayOverride(relayUrl?: string, token?: string): Promise<void> {
+    this.settings = { ...this.settings, relayUrl, token };
+    await this.persistSettings();
+    if (this.settings.enabled) await this.connect();
+    else this.notify();
+  }
+
+  // ---- code lifecycle ----
+
+  // Generate (or regenerate) my shareable code and publish my identity under it.
+  async generateCode(kind: LinkKind = 'friend'): Promise<string> {
+    if (!this.identity) this.identity = await loadOrCreateIdentity();
+    const code = kind === 'device' ? generateSyncCode() : generateFriendCode();
+    const namespace = rendezvousNamespace(code, kind === 'device' ? 'sync' : 'friend');
+    this.active[kind] = { code, namespace, expiresAt: Date.now() + RENDEZVOUS_TTL_SECONDS * 1000 };
+    const prev = this.codeTimers[kind];
+    if (prev) clearTimeout(prev);
+    this.codeTimers[kind] = setTimeout(() => this.clearActiveCode(kind), RENDEZVOUS_TTL_SECONDS * 1000);
+    await this.republishActiveCode();
+    this.notify();
+    return code;
+  }
+
+  private async republishActiveCode(): Promise<void> {
+    const self = this.identity;
+    if (!this.client || !self) return;
+    const record = makeRendezvousRecord(self);
+    for (const kind of ['friend', 'device'] as const) {
+      const a = this.active[kind];
+      if (!a) continue;
+      if (a.expiresAt <= Date.now()) {
+        this.clearActiveCode(kind);
+        continue;
+      }
+      try {
+        const remainingSec = Math.max(1, Math.round((a.expiresAt - Date.now()) / 1000));
+        await this.client.rendezvousRegister(a.namespace, record, remainingSec);
+      } catch (e) {
+        console.warn('[NETWORK] rendezvous register failed:', e);
+      }
+    }
+  }
+
+  clearActiveCode(kind: LinkKind): void {
+    const tm = this.codeTimers[kind];
+    if (tm) {
+      clearTimeout(tm);
+      this.codeTimers[kind] = null;
+    }
+    this.active[kind] = null;
+    this.notify();
+  }
+
+  // ---- entering a friend's code ----
+
+  async enterCode(theirCode: string, kind: LinkKind): Promise<void> {
+    const self = this.identity;
+    const client = this.client;
+    if (!self || !client) throw new Error('network not connected');
+    const code = (theirCode || '').trim();
+    if (!code) throw new Error('empty code');
+
+    const namespace = rendezvousNamespace(code, kind === 'device' ? 'sync' : 'friend');
+    const record = await client.rendezvousLookup(namespace);
+    if (!record) throw new Error('code not found or expired');
+    const id = openRendezvousRecord(record);
+    if (!id) throw new Error('invalid record');
+    if (id.peerId === self.peerId) throw new Error('that is your own code');
+
+    const existing = this.friends.find(f => f.peerId === id.peerId);
+    // If they already entered my code, both sides have now acted -> accepted.
+    const status: Friend['status'] = existing?.status === 'entered_mine' ? 'accepted' : 'entered_theirs';
+    const fallbackName = kind === 'device' ? 'Device' : 'Friend';
+    this.upsertFriend(this.friendFrom(id, existing?.displayName || fallbackName, status, kind));
+    await this.persistFriends();
+    this.notify();
+
+    // Tell them I entered their code (rides the E2E channel).
+    await this.sendTo(id.peerId, { t: 'connect', name: this.systemName, kind });
+    // If this completed the link, kick off the right initial exchange.
+    if (status === 'accepted') {
+      if (kind === 'friend') await this.sendMyFrontTo(id.peerId);
+      else this.notifyDataChanged();
+    }
+  }
+
+  async enterFriendCode(code: string): Promise<void> {
+    return this.enterCode(code, 'friend');
+  }
+
+  async enterDeviceCode(code: string): Promise<void> {
+    return this.enterCode(code, 'device');
+  }
+
+  // ---- inbound ----
+
+  private handlePacket(p: PacketReceived): void {
+    const self = this.identity;
+    if (!self || !p?.sender_peer_id || !p?.payload) return;
+    const opened = openMessage(self, p.sender_peer_id, p.payload);
+    if (!opened) return;
+    this.routeMessage(opened.sender, opened.message);
+  }
+
+  private upsertFriend(partial: Friend): void {
+    const idx = this.friends.findIndex(f => f.peerId === partial.peerId);
+    if (idx >= 0) this.friends[idx] = { ...this.friends[idx], ...partial };
+    else this.friends.push(partial);
+  }
+
+  private friendFrom(id: FriendIdentity, displayName: string, status: Friend['status'], kind: LinkKind): Friend {
+    return {
+      peerId: id.peerId,
+      edPublicKey: encodeBase64(id.edPublicKey),
+      boxPublicKey: encodeBase64(id.boxPublicKey),
+      displayName,
+      addedAt: Date.now(),
+      kind,
+      status,
+    };
+  }
+
+  private routeMessage(sender: FriendIdentity, msg: NetMessage): void {
+    switch (msg.t) {
+      case 'connect': {
+        const existing = this.friends.find(f => f.peerId === sender.peerId);
+        if (existing && existing.status === 'entered_theirs') {
+          // I had entered their code; now they've entered mine -> connected.
+          this.upsertFriend({ ...existing, status: 'accepted', displayName: msg.name || existing.displayName });
+          if (existing.kind === 'device') this.notifyDataChanged();
+          else this.sendMyFrontTo(sender.peerId);
+        } else if (existing && existing.status === 'accepted') {
+          this.upsertFriend({ ...existing, displayName: msg.name || existing.displayName });
+        } else {
+          // They entered my code first; wait until I enter theirs.
+          const kind = msg.kind || 'friend';
+          this.upsertFriend(this.friendFrom(sender, msg.name || (kind === 'device' ? 'Device' : 'Friend'), 'entered_mine', kind));
+        }
+        this.persistFriends();
+        this.notify();
+        break;
+      }
+      case 'disconnect': {
+        this.friends = this.friends.filter(f => f.peerId !== sender.peerId);
+        this.persistFriends();
+        this.notify();
+        break;
+      }
+      case 'dm': {
+        const existing = this.friends.find(f => f.peerId === sender.peerId);
+        if (existing && existing.status === 'accepted') {
+          this.dmListeners.forEach(fn => {
+            try {
+              fn({ peerId: sender.peerId, body: msg.body, ts: msg.ts });
+            } catch {}
+          });
+        }
+        break;
+      }
+      case 'front': {
+        const existing = this.friends.find(f => f.peerId === sender.peerId);
+        if (existing && existing.status === 'accepted') {
+          this.upsertFriend({ ...existing, lastStatus: msg.status, statusUpdatedAt: Date.now() });
+          this.persistFriends();
+          this.notify();
+        }
+        break;
+      }
+      case 'sync': {
+        this.applySync(sender, msg.keys).catch(e => console.warn('[NETWORK] applySync failed:', e));
+        break;
+      }
+      case 'sync_chunk': {
+        // Only buffer chunks from an accepted device.
+        const dev = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device' && f.status === 'accepted');
+        if (dev) this.handleSyncChunk(sender, msg);
+        break;
+      }
+      case 'ping':
+        break;
+    }
+  }
+
+  // ---- outbound ----
+
+  private async sendTo(recipientPeerId: string, msg: NetMessage): Promise<void> {
+    const self = this.identity;
+    const client = this.client;
+    if (!self || !client) throw new Error('network not connected');
+    const friend = this.friends.find(f => f.peerId === recipientPeerId) || null;
+    if (!friend) throw new Error('no public key for recipient');
+    const payload = sealMessage(self, decodeBase64(friend.boxPublicKey), msg);
+    await client.send(recipientPeerId, payload);
+  }
+
+  async removeFriend(peerId: string): Promise<void> {
+    try {
+      await this.sendTo(peerId, { t: 'disconnect' });
+    } catch {
+      // best-effort; remove locally regardless
+    }
+    this.friends = this.friends.filter(f => f.peerId !== peerId);
+    await this.persistFriends();
+    this.notify();
+  }
+
+  async sendDM(peerId: string, body: string): Promise<void> {
+    await this.sendTo(peerId, { t: 'dm', body, ts: Date.now() });
+  }
+
+  // Called by the app whenever the local front (or members) change. Caches the
+  // resolved status and broadcasts it to all accepted friends (best-effort).
+  async updateMyFront(front: any, members: Member[]): Promise<void> {
+    this.myFront = buildFrontShare(front, members);
+    for (const f of this.friends) {
+      if (f.status !== 'accepted' || f.kind === 'device') continue;
+      try {
+        await this.sendTo(f.peerId, { t: 'front', status: this.myFront });
+      } catch {}
+    }
+  }
+
+  private async sendMyFrontTo(peerId: string): Promise<void> {
+    try {
+      await this.sendTo(peerId, { t: 'front', status: this.myFront });
+    } catch {}
+  }
+
+  // ---- live data sync (between your own linked devices) ----
+
+  onSyncApplied(fn: () => void): () => void {
+    this.syncAppliedListeners.add(fn);
+    return () => this.syncAppliedListeners.delete(fn);
+  }
+
+  onSyncConflict(fn: (c: {peerId: string; deviceName: string; keys: string[]}) => void): () => void {
+    this.syncConflictListeners.add(fn);
+    return () => this.syncConflictListeners.delete(fn);
+  }
+
+  private emitSyncApplied(): void {
+    this.syncAppliedListeners.forEach(fn => {
+      try {
+        fn();
+      } catch {}
+    });
+  }
+
+  private acceptedDevices(): Friend[] {
+    return this.friends.filter(f => f.kind === 'device' && f.status === 'accepted');
+  }
+
+  // Poke from the app whenever local data changes. Debounced + rate-limited so a
+  // burst of edits results in at most one push per interval (no relay flooding).
+  notifyDataChanged(): void {
+    if (!this.settings.enabled || this.acceptedDevices().length === 0) return;
+    if (this.syncTimer) clearTimeout(this.syncTimer);
+    this.syncTimer = setTimeout(() => {
+      this.syncTimer = null;
+      this.doSyncPush().catch(e => console.warn('[NETWORK] sync push failed:', e));
+    }, SYNC_DEBOUNCE_MS);
+  }
+
+  private async snapshot(): Promise<Record<string, string>> {
+    const keys = (await AsyncStorage.getAllKeys()).filter(
+      k => k.startsWith('ps:') && !SYNC_EXCLUDE.has(k),
+    );
+    // async-storage v3 renamed multiGet -> getMany (returns a Record). One
+    // batched native call rather than N round-trips for a large snapshot.
+    const got = await AsyncStorage.getMany(keys);
+    const out: Record<string, string> = {};
+    for (const k in got) {
+      const v = got[k];
+      if (v != null) out[k] = v;
+    }
+    return out;
+  }
+
+  private async doSyncPush(): Promise<void> {
+    if (this.syncing) return; // never overlap push cycles
+    const devices = this.acceptedDevices();
+    if (devices.length === 0) return;
+    const now = Date.now();
+    if (now - this.lastPushAt < SYNC_MIN_INTERVAL_MS) {
+      this.notifyDataChanged(); // too soon — try again after the floor
+      return;
+    }
+
+    const snap = await this.snapshot();
+    const changed: {k: string; v: string; h: string}[] = [];
+    for (const k in snap) {
+      const h = contentHash(snap[k]);
+      if (this.lastHashes[k] !== h) changed.push({k, v: snap[k], h});
+    }
+    if (changed.length === 0) return;
+
+    this.syncing = true;
+    this.lastPushAt = now;
+    try {
+      // Send one message to every linked device, then pace before the next so a
+      // large sync trickles out instead of bursting all at once.
+      const sendOne = async (msg: NetMessage) => {
+        for (const d of devices) {
+          try {
+            await this.sendTo(d.peerId, msg);
+          } catch {}
+        }
+        await sleep(SYNC_PACE_MS);
+      };
+
+      let batch: Record<string, {v: string; h: string}> = {};
+      let size = 0;
+      const flush = async () => {
+        if (Object.keys(batch).length === 0) return;
+        const payload = batch;
+        batch = {};
+        size = 0;
+        await sendOne({t: 'sync', keys: payload});
+      };
+
+      for (const c of changed) {
+        if (c.v.length > SYNC_MSG_BUDGET) {
+          // Oversized single value (e.g. a big image): flush the pending batch,
+          // then stream it in paced parts the receiver reassembles.
+          await flush();
+          const total = Math.ceil(c.v.length / SYNC_CHUNK_SIZE);
+          for (let seq = 0; seq < total; seq++) {
+            const data = c.v.slice(seq * SYNC_CHUNK_SIZE, (seq + 1) * SYNC_CHUNK_SIZE);
+            await sendOne({t: 'sync_chunk', key: c.k, h: c.h, seq, total, data});
+          }
+        } else {
+          if (size + c.v.length > SYNC_MSG_BUDGET && Object.keys(batch).length) await flush();
+          batch[c.k] = {v: c.v, h: c.h};
+          size += c.v.length;
+        }
+        this.lastHashes[c.k] = c.h; // our value becomes the new shared base
+      }
+      await flush();
+      await store.set(SYNC_STATE_KEY, this.lastHashes);
+    } finally {
+      this.syncing = false;
+    }
+  }
+
+  // Reassemble a streamed oversized value, then apply it like any synced key.
+  private handleSyncChunk(sender: FriendIdentity, m: {key: string; h: string; seq: number; total: number; data: string}): void {
+    if (!m.key || m.total <= 0 || m.total > SYNC_MAX_PARTS || m.seq < 0 || m.seq >= m.total) return;
+    const id = `${sender.peerId}:${m.key}:${m.h}`;
+    let buf = this.chunkBuffers.get(id);
+    if (!buf) {
+      buf = {parts: new Array(m.total).fill(''), total: m.total, seqs: new Set()};
+      this.chunkBuffers.set(id, buf);
+    }
+    buf.parts[m.seq] = m.data;
+    buf.seqs.add(m.seq);
+    if (buf.seqs.size >= buf.total) {
+      const v = buf.parts.join('');
+      this.chunkBuffers.delete(id);
+      this.applySync(sender, {[m.key]: {v, h: m.h}}).catch(e => console.warn('[NETWORK] applySync(chunk) failed:', e));
+    }
+  }
+
+  private async applySync(sender: FriendIdentity, keys: Record<string, {v: string; h: string}>): Promise<void> {
+    const dev = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device' && f.status === 'accepted');
+    if (!dev) return; // only sync with accepted devices
+    const applied: string[] = [];
+    const conflicts: {key: string; remoteValue: string; remoteHash: string}[] = [];
+    for (const k in keys) {
+      if (!k.startsWith('ps:') || SYNC_EXCLUDE.has(k)) continue;
+      const incoming = keys[k];
+      const localRaw = await AsyncStorage.getItem(k);
+      const localHash = localRaw != null ? contentHash(localRaw) : '__absent__';
+      const base = this.lastHashes[k];
+      if (localHash === incoming.h) {
+        this.lastHashes[k] = incoming.h;
+        continue; // already identical
+      }
+      const noConflict = localRaw == null || (base !== undefined && localHash === base);
+      if (noConflict) {
+        await AsyncStorage.setItem(k, incoming.v);
+        this.lastHashes[k] = incoming.h;
+        applied.push(k);
+      } else {
+        // Local changed since last sync (or no shared base, both populated) -> ask.
+        conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
+      }
+    }
+    if (applied.length) {
+      await store.set(SYNC_STATE_KEY, this.lastHashes);
+      this.emitSyncApplied();
+    }
+    if (conflicts.length) {
+      this.pendingConflicts.set(sender.peerId, conflicts);
+      this.syncConflictListeners.forEach(fn => {
+        try {
+          fn({peerId: sender.peerId, deviceName: dev.displayName, keys: conflicts.map(c => c.key)});
+        } catch {}
+      });
+    }
+  }
+
+  // Resolve a pending conflict batch: keep this device's data or the other's.
+  async resolveConflict(peerId: string, keep: 'mine' | 'theirs'): Promise<void> {
+    const conflicts = this.pendingConflicts.get(peerId);
+    if (!conflicts) return;
+    if (keep === 'theirs') {
+      for (const c of conflicts) {
+        await AsyncStorage.setItem(c.key, c.remoteValue);
+        this.lastHashes[c.key] = c.remoteHash;
+      }
+      this.emitSyncApplied();
+    } else {
+      const push: Record<string, {v: string; h: string}> = {};
+      for (const c of conflicts) {
+        const localRaw = await AsyncStorage.getItem(c.key);
+        if (localRaw != null) {
+          const h = contentHash(localRaw);
+          this.lastHashes[c.key] = h;
+          push[c.key] = {v: localRaw, h};
+        }
+      }
+      try {
+        await this.sendTo(peerId, {t: 'sync', keys: push});
+      } catch {}
+    }
+    await store.set(SYNC_STATE_KEY, this.lastHashes);
+    this.pendingConflicts.delete(peerId);
+  }
+
+  isFriendOnline(peerId: string): boolean {
+    return this.online.has(peerId);
+  }
+}
+
+export const NetworkManager = new NetworkManagerImpl();

@@ -7,7 +7,7 @@ import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFron
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
 
-type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'discord' | 'credits' | 'supportPS';
+type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'discord' | 'credits' | 'supportPS';
 
 interface Props {
   theme: any;
@@ -30,6 +30,7 @@ interface Props {
   mapFocus?: {id: string; n: number} | null;
   renderMedicalScreen: () => React.ReactNode;
   renderMailboxScreen: (onBack: () => void) => React.ReactNode;
+  renderNetworkScreen: () => React.ReactNode;
   resetKey?: number;
   editHistoryIndex?: number | null;
   onClearEditHistory?: () => void;
@@ -373,7 +374,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 const DISCORD_URL = 'https://discord.gg/FFQw33cu8m';
 const BMC_URL = 'https://www.buymeacoffee.com/PluralStar';
 
-export const HubScreen = ({theme: T, singlet = false, selfId, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMedicalScreen, renderMailboxScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
+export const HubScreen = ({theme: T, singlet = false, selfId, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMedicalScreen, renderMailboxScreen, renderNetworkScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
@@ -547,6 +548,20 @@ export const HubScreen = ({theme: T, singlet = false, selfId, members, history, 
     );
   }
 
+  if (activeTile === 'network') {
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
+          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
+            <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
+          </TouchableOpacity>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('network.title')}</Text>
+        </View>
+        {renderNetworkScreen()}
+      </View>
+    );
+  }
+
   if (activeTile === 'credits') {
     const credits: {name: string; role: string; url: string}[] = [
       {name: 'The Loud House System', role: t('hub.creditLogo'), url: 'https://x.com/theloudhousesys?s=21'},
@@ -583,6 +598,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, members, history, 
     {id: 'statistics', icon: '⊞', label: t('hub.statistics')},
     {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
     {id: 'mailbox', icon: '✉', label: t('mailbox.title')},
+    {id: 'network', icon: '🛰', label: t('network.title')},
     {id: 'polls', icon: '📊', label: t('polls.title')},
     {id: 'systemMap', icon: '🕸', label: t('systemMap.title')},
     {id: 'customFields', icon: '☰', label: t('customFields.title')},

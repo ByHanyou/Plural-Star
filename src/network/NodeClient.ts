@@ -1,0 +1,238 @@
+// Transport client for a single Plural Star Node.
+//
+// Speaks the node's local API (see Plural Star Node README):
+//   REST  POST /send            {recipient_peer_id, payload(b64), packet_id?}
+//         GET  /peers           known online app peers
+//         GET  /health          node status
+//   WS    GET  /ws?peer_id=&token=   register this app peer; receive events
+//
+// All REST calls send `Authorization: Bearer <token>`; the WebSocket passes the
+// token as a query param (the node accepts either). The client auto-reconnects
+// the WebSocket with capped exponential backoff and emits typed events.
+
+import { ConnStatus } from './types';
+
+type Listener = (payload: any) => void;
+
+export interface SendResult {
+  status: string;
+  packet_id: string;
+}
+
+export interface PacketReceived {
+  sender_peer_id: string;
+  payload: string; // base64
+}
+
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_MAX_MS = 30000;
+
+export class NodeClient {
+  private relayUrl: string;
+  private token: string;
+  private peerId: string;
+
+  private ws: WebSocket | null = null;
+  private wantOpen = false;
+  private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private listeners: Map<string, Set<Listener>> = new Map();
+
+  constructor(relayUrl: string, token: string, peerId: string) {
+    this.relayUrl = relayUrl.replace(/\/+$/, '');
+    this.token = token;
+    this.peerId = peerId;
+  }
+
+  // ---- event emitter ----
+  on(event: string, fn: Listener): () => void {
+    let set = this.listeners.get(event);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(event, set);
+    }
+    set.add(fn);
+    return () => set!.delete(fn);
+  }
+
+  private emit(event: string, payload?: any): void {
+    const set = this.listeners.get(event);
+    if (!set) return;
+    set.forEach(fn => {
+      try {
+        fn(payload);
+      } catch (e) {
+        console.error(`[NETWORK] listener for ${event} threw:`, e);
+      }
+    });
+  }
+
+  private authHeaders(): Record<string, string> {
+    const h: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (this.token) h.Authorization = `Bearer ${this.token}`;
+    return h;
+  }
+
+  // ---- REST ----
+  async health(): Promise<any> {
+    const res = await fetch(`${this.relayUrl}/health`, { headers: this.authHeaders() });
+    if (!res.ok) throw new Error(`health ${res.status}`);
+    return res.json();
+  }
+
+  async peers(): Promise<any> {
+    const res = await fetch(`${this.relayUrl}/peers`, { headers: this.authHeaders() });
+    if (!res.ok) throw new Error(`peers ${res.status}`);
+    return res.json();
+  }
+
+  // Send an opaque payload to a recipient PeerID. Pass the same packetId to
+  // multiple nodes for multi-path redundancy (the relay dedups end-to-end).
+  async send(
+    recipientPeerId: string,
+    payloadBase64: string,
+    packetId?: string,
+  ): Promise<SendResult> {
+    const body: Record<string, string> = {
+      recipient_peer_id: recipientPeerId,
+      payload: payloadBase64,
+    };
+    if (packetId) body.packet_id = packetId;
+    const res = await fetch(`${this.relayUrl}/send`, {
+      method: 'POST',
+      headers: this.authHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try {
+        detail = JSON.stringify(await res.json());
+      } catch {}
+      throw new Error(`send ${res.status} ${detail}`);
+    }
+    return res.json();
+  }
+
+  // ---- Rendezvous (code -> identity resolution) ----
+  // The node keeps an in-memory, TTL-swept map of namespace -> opaque record.
+  // The namespace is hash(code); the record is the owner's signed identity.
+  // The relay never sees the code itself, and nothing is written to disk.
+
+  async rendezvousRegister(
+    namespace: string,
+    recordBase64: string,
+    ttlSeconds: number,
+  ): Promise<void> {
+    const res = await fetch(`${this.relayUrl}/rendezvous/register`, {
+      method: 'POST',
+      headers: this.authHeaders(),
+      body: JSON.stringify({ namespace, record: recordBase64, ttl_seconds: ttlSeconds }),
+    });
+    if (!res.ok) throw new Error(`rendezvous register ${res.status}`);
+  }
+
+  // Returns the stored record (base64) for a namespace, or null if none/expired.
+  async rendezvousLookup(namespace: string): Promise<string | null> {
+    const res = await fetch(
+      `${this.relayUrl}/rendezvous/lookup?namespace=${encodeURIComponent(namespace)}`,
+      { headers: this.authHeaders() },
+    );
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`rendezvous lookup ${res.status}`);
+    const body = await res.json();
+    return body && typeof body.record === 'string' ? body.record : null;
+  }
+
+  // ---- WebSocket ----
+  private wsEndpoint(): string {
+    // Build the query manually; URLSearchParams is not reliably present in RN.
+    const base = this.relayUrl.replace(/^http/, 'ws');
+    let q = `peer_id=${encodeURIComponent(this.peerId)}`;
+    if (this.token) q += `&token=${encodeURIComponent(this.token)}`;
+    return `${base}/ws?${q}`;
+  }
+
+  connect(): void {
+    this.wantOpen = true;
+    this.openSocket();
+  }
+
+  private openSocket(): void {
+    if (this.ws) return;
+    this.emit('status', (this.reconnectAttempts > 0 ? 'reconnecting' : 'connecting') as ConnStatus);
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(this.wsEndpoint());
+    } catch (e) {
+      this.emit('error', e);
+      this.scheduleReconnect();
+      return;
+    }
+    this.ws = ws;
+
+    ws.onopen = () => {
+      this.reconnectAttempts = 0;
+      this.emit('status', 'online' as ConnStatus);
+    };
+
+    ws.onmessage = ev => {
+      let msg: any;
+      try {
+        msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
+      } catch {
+        return;
+      }
+      if (!msg || typeof msg.type !== 'string') return;
+      // Re-emit by event type: packet_received, peer_online, peer_offline,
+      // node_connected, node_disconnected, error.
+      this.emit(msg.type, msg);
+    };
+
+    ws.onerror = e => {
+      this.emit('error', e);
+    };
+
+    ws.onclose = () => {
+      this.ws = null;
+      if (this.wantOpen) {
+        this.emit('status', 'reconnecting' as ConnStatus);
+        this.scheduleReconnect();
+      } else {
+        this.emit('status', 'disabled' as ConnStatus);
+      }
+    };
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.wantOpen || this.reconnectTimer) return;
+    const delay = Math.min(
+      RECONNECT_MAX_MS,
+      RECONNECT_BASE_MS * Math.pow(2, this.reconnectAttempts),
+    );
+    this.reconnectAttempts++;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.wantOpen) this.openSocket();
+    }, delay);
+  }
+
+  disconnect(): void {
+    this.wantOpen = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {}
+      this.ws = null;
+    }
+    this.emit('status', 'disabled' as ConnStatus);
+  }
+
+  isConnected(): boolean {
+    return !!this.ws && this.ws.readyState === 1; // WebSocket.OPEN
+  }
+}

@@ -14,6 +14,7 @@
     "@lodev09/react-native-true-sheet": "^3.11.0",
     "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-clipboard/clipboard": "^1.16.3",
     "@react-native-community/image-editor": "^4.3.0",
     "@react-native-documents/picker": "^10.1.5",
     "@react-native/gradle-plugin": "0.85.3",
@@ -24,11 +25,13 @@
     "react-i18next": "^16.6.1",
     "react-native": "0.85.3",
     "react-native-blob-util": "^0.24.10",
+    "react-native-get-random-values": "^1.11.0",
     "react-native-image-picker": "^8.2.1",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-localize": "^3.7.0",
     "react-native-safe-area-context": "^5.8.0",
-    "react-native-share": "^12.3.1"
+    "react-native-share": "^12.3.1",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
