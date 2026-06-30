@@ -1,15 +1,3 @@
-// Transport client for a single Plural Star Node.
-//
-// Speaks the node's local API (see Plural Star Node README):
-//   REST  POST /send            {recipient_peer_id, payload(b64), packet_id?}
-//         GET  /peers           known online app peers
-//         GET  /health          node status
-//   WS    GET  /ws?peer_id=&token=   register this app peer; receive events
-//
-// All REST calls send `Authorization: Bearer <token>`; the WebSocket passes the
-// token as a query param (the node accepts either). The client auto-reconnects
-// the WebSocket with capped exponential backoff and emits typed events.
-
 import { ConnStatus } from './types';
 
 type Listener = (payload: any) => void;
@@ -21,7 +9,7 @@ export interface SendResult {
 
 export interface PacketReceived {
   sender_peer_id: string;
-  payload: string; // base64
+  payload: string;
 }
 
 const RECONNECT_BASE_MS = 1000;
@@ -44,7 +32,6 @@ export class NodeClient {
     this.peerId = peerId;
   }
 
-  // ---- event emitter ----
   on(event: string, fn: Listener): () => void {
     let set = this.listeners.get(event);
     if (!set) {
@@ -73,7 +60,6 @@ export class NodeClient {
     return h;
   }
 
-  // ---- REST ----
   async health(): Promise<any> {
     const res = await fetch(`${this.relayUrl}/health`, { headers: this.authHeaders() });
     if (!res.ok) throw new Error(`health ${res.status}`);
@@ -86,14 +72,13 @@ export class NodeClient {
     return res.json();
   }
 
-  // Send an opaque payload to a recipient PeerID. Pass the same packetId to
-  // multiple nodes for multi-path redundancy (the relay dedups end-to-end).
   async send(
     recipientPeerId: string,
     payloadBase64: string,
     packetId?: string,
   ): Promise<SendResult> {
     const body: Record<string, string> = {
+      sender_peer_id: this.peerId,
       recipient_peer_id: recipientPeerId,
       payload: payloadBase64,
     };
@@ -113,11 +98,6 @@ export class NodeClient {
     return res.json();
   }
 
-  // ---- Rendezvous (code -> identity resolution) ----
-  // The node keeps an in-memory, TTL-swept map of namespace -> opaque record.
-  // The namespace is hash(code); the record is the owner's signed identity.
-  // The relay never sees the code itself, and nothing is written to disk.
-
   async rendezvousRegister(
     namespace: string,
     recordBase64: string,
@@ -131,7 +111,6 @@ export class NodeClient {
     if (!res.ok) throw new Error(`rendezvous register ${res.status}`);
   }
 
-  // Returns the stored record (base64) for a namespace, or null if none/expired.
   async rendezvousLookup(namespace: string): Promise<string | null> {
     const res = await fetch(
       `${this.relayUrl}/rendezvous/lookup?namespace=${encodeURIComponent(namespace)}`,
@@ -143,9 +122,7 @@ export class NodeClient {
     return body && typeof body.record === 'string' ? body.record : null;
   }
 
-  // ---- WebSocket ----
   private wsEndpoint(): string {
-    // Build the query manually; URLSearchParams is not reliably present in RN.
     const base = this.relayUrl.replace(/^http/, 'ws');
     let q = `peer_id=${encodeURIComponent(this.peerId)}`;
     if (this.token) q += `&token=${encodeURIComponent(this.token)}`;
@@ -183,8 +160,6 @@ export class NodeClient {
         return;
       }
       if (!msg || typeof msg.type !== 'string') return;
-      // Re-emit by event type: packet_received, peer_online, peer_offline,
-      // node_connected, node_disconnected, error.
       this.emit(msg.type, msg);
     };
 
@@ -233,6 +208,6 @@ export class NodeClient {
   }
 
   isConnected(): boolean {
-    return !!this.ws && this.ws.readyState === 1; // WebSocket.OPEN
+    return !!this.ws && this.ws.readyState === 1;
   }
 }
