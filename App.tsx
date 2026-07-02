@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import {View, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert} from 'react-native';
+import {View, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, PermissionsAndroid, Alert, AppState} from 'react-native';
 import {Text, TextInput, setAppTextDyslexicEnabled, setAppTextFont} from './src/components/AppText';
 import {fontFamilyForChoice} from './src/theme';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -13,7 +13,7 @@ import type {SupportedLanguage} from './src/i18n/i18n';
 import {T, BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {AccentText} from './src/components/AccentText';
-import {store, KEYS} from './src/storage';
+import {store, KEYS, storageLooksWiped, restoreAllBackups} from './src/storage';
 import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, frontToHistoryEntry, uid, makeDefaultCustomFronts, isFrontEmpty, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode, emergencyNotificationLine} from './src/utils';
 import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia, migrateStaleMediaPaths, rebaseChatMessageMedia} from './src/utils/mediaUtils';
 import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, showNoteboardNotification, clearNoteboardNotification, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders} from './src/services/NotificationService';
@@ -88,6 +88,11 @@ function MainAppContent() {
 
   const [loaded, setLoaded] = useState(false);
   const [firstRun, setFirstRun] = useState(false);
+  // True when the last loadAll couldn't trust what it read (blank store that
+  // couldn't be restored, or a thrown load). While set: nothing persists, and
+  // coming back to the foreground re-runs loadAll — the storage that was
+  // unreadable at (background) launch is usually readable by then.
+  const storageSuspectRef = useRef(false);
   const [locked, setLocked] = useState(false);
   const [tab, setTab] = useState<Tab>('front');
   const [systemMapRelCount, setSystemMapRelCount] = useState(0);
@@ -172,6 +177,24 @@ function MainAppContent() {
   }, []);
 
   const loadAll = useCallback(async () => {
+    // Blank-store guard (any platform): if AsyncStorage has NONE of our keys but
+    // file backups exist, this is a failed load after a reboot/force-quit/update
+    // — not a fresh install. Restore the backups BEFORE reading. If even the
+    // restore can't land, mark the load suspect: render what we have but never
+    // persist anything and never enter first-run, so one bad boot can't turn
+    // into a real wipe (the reseed below used to overwrite members + backups).
+    let storageSuspect = false;
+    try {
+      if (await storageLooksWiped()) {
+        console.warn('[STARTUP] AsyncStorage blank but backups exist — restoring before load');
+        const n = await restoreAllBackups();
+        console.warn(`[STARTUP] restored ${n} keys from file backups`);
+        if (n === 0) storageSuspect = true;
+      }
+    } catch {
+      storageSuspect = true;
+    }
+    storageSuspectRef.current = storageSuspect;
     try {
       const [sys, mem, fr, hist, jour, jourTemplates, share, settings, savedLang, grps, savedPalettes, savedChannels] = await Promise.all([
         store.get<SystemInfo>(KEYS.system),
@@ -194,7 +217,7 @@ function MainAppContent() {
         const {members: migratedMembers, changed: avatarsChanged} = await migrateInlineAvatars(loadedMembers);
         if (avatarsChanged) {
           loadedMembers = migratedMembers;
-          await store.set(KEYS.members, loadedMembers);
+          if (!storageSuspect) await store.set(KEYS.members, loadedMembers);
         }
       } catch (e) {
         console.error('[PS] avatar migration error:', e);
@@ -204,15 +227,21 @@ function MainAppContent() {
         if (pathsChanged) {
           loadedMembers = rebasedMembers;
           loadedSystem = rebasedSystem;
-          await store.set(KEYS.members, loadedMembers);
-          if (rebasedSystem) await store.set(KEYS.system, rebasedSystem);
+          if (!storageSuspect) {
+            await store.set(KEYS.members, loadedMembers);
+            if (rebasedSystem) await store.set(KEYS.system, rebasedSystem);
+          }
           console.log('[STARTUP] rebased stale Documents:// media paths');
         }
       } catch (e) {
         console.error('[PS] media path rebase error:', e);
       }
       let loadedSettingsObj: AppSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
-      if (!loadedSettingsObj.customFrontsSeeded) {
+      // NEVER reseed off a suspect load: when the settings read comes back blank
+      // on a bad boot, this block used to see customFrontsSeeded=false and write
+      // preset-only members over BOTH stores — turning a transient blank read
+      // into a real wipe. Reseeding can always wait for the next healthy boot.
+      if (!loadedSettingsObj.customFrontsSeeded && !storageSuspect) {
         loadedMembers = [...loadedMembers, ...makeDefaultCustomFronts()];
         loadedSettingsObj = {...loadedSettingsObj, customFrontsSeeded: true};
         await store.set(KEYS.members, loadedMembers);
@@ -229,8 +258,14 @@ function MainAppContent() {
           console.warn(`[STARTUP] System missing but ${realMemberCount} members + data present — reconstructing system, NOT entering first-run.`);
           const recovered: SystemInfo = {name: '', description: ''};
           loadedSystem = recovered;
-          await store.set(KEYS.system, recovered);
+          if (!storageSuspect) await store.set(KEYS.system, recovered);
           setSystem(recovered);
+        } else if (storageSuspect) {
+          // Blank read we couldn't verify: DON'T greet the user with Setup as if
+          // their data were gone. Show an empty (but non-destructive) state; the
+          // foreground re-load below retries as soon as storage is readable.
+          console.warn('[STARTUP] Blank load with suspect storage — staying OUT of first-run; will retry on foreground.');
+          setSystem({name: '', description: ''});
         } else {
           console.warn('[STARTUP] No system info loaded — entering first-run state. If this is unexpected, check for AsyncStorage failures above.');
           setFirstRun(true);
@@ -241,7 +276,7 @@ function MainAppContent() {
       setMembers(loadedMembers);
       const migratedFront = migrateFrontState(fr) || findOpenFrontInHistory(hist || []);
       setFront(migratedFront);
-      if ((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) {
+      if (((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) && !storageSuspect) {
         await store.set(KEYS.front, migratedFront);
       }
       setHistory(hist || []);
@@ -256,7 +291,7 @@ function MainAppContent() {
       let channels = savedChannels || [];
       if (channels.length === 0) {
         channels = DEFAULT_CHANNELS.map(c => ({id: uid(), name: c.name, createdAt: Date.now()}));
-        await store.set(KEYS.chatChannels, channels);
+        if (!storageSuspect) await store.set(KEYS.chatChannels, channels);
       }
       setChatChannels(channels);
       await loadChatMessages(channels);
@@ -281,7 +316,8 @@ function MainAppContent() {
 
       try {
         const savedCodes = await store.get<DeviceCodes>(KEYS.deviceCodes);
-        if (!savedCodes || !savedCodes.friendCode || !savedCodes.syncCode) {
+        // Suspect loads must not rotate identity codes off a blank read.
+        if ((!savedCodes || !savedCodes.friendCode || !savedCodes.syncCode) && !storageSuspect) {
           const fresh: DeviceCodes = {friendCode: generateFriendCode(), syncCode: generateSyncCode(), createdAt: Date.now()};
           await store.set(KEYS.deviceCodes, fresh);
         }
@@ -292,6 +328,9 @@ function MainAppContent() {
       if (savedLang) changeLanguage(savedLang as SupportedLanguage);
     } catch (e) {
       console.error('[PS] startup load error:', e);
+      // A load that THREW is a suspect load: render best-effort, persist nothing,
+      // retry on foreground.
+      storageSuspectRef.current = true;
       // A transient load error must NOT look like a wipe. Try a focused recovery of
       // the user's members/system (store.get self-heals from the file backup) before
       // deciding to show first-run Setup. Only enter first-run if nothing is recoverable.
@@ -316,11 +355,11 @@ function MainAppContent() {
       } else if (realCount > 0) {
         const r: SystemInfo = {name: '', description: ''};
         setSystem(r);
-        try { await store.set(KEYS.system, r); } catch {}
         console.warn(`[STARTUP] load error but ${realCount} members recovered — reconstructed system instead of first-run.`);
       } else {
         setSystem({name: '', description: ''});
-        setFirstRun(true);
+        // Never enter Setup off a failed load — the foreground retry decides.
+        console.warn('[STARTUP] load error with nothing recovered — staying OUT of first-run; will retry on foreground.');
       }
     } finally {
       setLoaded(true);
@@ -381,6 +420,20 @@ function MainAppContent() {
   };
 
   useEffect(() => { loadAll(); }, []);
+  // If the launch load was suspect (typical: the OS woke the app in the
+  // background after a reboot, before its storage was readable — a notification
+  // wake does exactly this), re-run the load the moment the app actually comes
+  // to the foreground. This is the "restart the app fixed it" fix, minus the
+  // restart. No-op when the last load was healthy.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active' && storageSuspectRef.current) {
+        console.warn('[STARTUP] foreground after suspect load — retrying loadAll');
+        loadAll();
+      }
+    });
+    return () => sub.remove();
+  }, [loadAll]);
   useEffect(() => { NetworkManager.init().catch(e => console.error('[NETWORK] init failed:', e)); }, []);
   useEffect(() => { NetworkManager.updateMyFront(front, members).catch(() => {}); }, [front, members]);
   // Poke the sync engine when any synced data changes (it debounces + rate-limits).
@@ -396,6 +449,13 @@ function MainAppContent() {
         {text: t('network.keepThisDevice'), onPress: () => { NetworkManager.resolveConflict(c.peerId, 'mine'); }},
         {text: t('network.keepOtherDevice'), onPress: () => { NetworkManager.resolveConflict(c.peerId, 'theirs'); }},
       ],
+    );
+  }), [t]);
+  // Both devices picked the same clone direction — the initial copy was skipped.
+  useEffect(() => NetworkManager.onSyncRoleMismatch(c => {
+    Alert.alert(
+      t('network.syncRoleMismatchTitle', {defaultValue: 'Sync setup mismatch'}),
+      t('network.syncRoleMismatchMsg', {device: c.deviceName, defaultValue: `You and ${c.deviceName} both chose the same direction, so the initial copy was skipped. New changes will still sync. To copy everything, remove the link and pair again — choose "send" on one device and "receive" on the other.`}),
     );
   }), [t]);
   useEffect(() => { if (loaded && !firstRun) requestPermissions(); }, [loaded, firstRun]);

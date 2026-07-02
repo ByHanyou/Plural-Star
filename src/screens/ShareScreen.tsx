@@ -722,12 +722,20 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
   const normHex = (c: any): string => { const s = String(c || '').trim(); return s.startsWith('#') ? s : (s ? `#${s}` : '#DAA520'); };
 
+  // Re-importing a member is an explicit "I want this member back": if the local
+  // match is a soft-delete tombstone (deleted + archived, kept for history/stats),
+  // revive it. Without this, deleting members and then re-importing left them
+  // invisible forever — the tombstone flags survived every merge, and only a
+  // full wipe + reimport appeared to "fix" it.
+  const reviveIfTombstoned = (em: Member, incoming: Partial<Member>): Partial<Member> =>
+    em.deleted ? { deleted: false, archived: incoming.archived ?? false } : {};
+
   const mergeForeignMember = (merged: Member[], idMap: Record<string, string>, extId: string, incoming: Partial<Member>) => {
     const bySource = merged.findIndex(em => em.sourceId === extId);
-    if (bySource >= 0) { merged[bySource] = {...merged[bySource], ...incoming, sourceId: extId}; idMap[extId.replace(/^[a-z]+:/, '')] = merged[bySource].id; return; }
+    if (bySource >= 0) { merged[bySource] = {...merged[bySource], ...incoming, ...reviveIfTombstoned(merged[bySource], incoming), sourceId: extId}; idMap[extId.replace(/^[a-z]+:/, '')] = merged[bySource].id; return; }
     const lower = String(incoming.name || '').toLowerCase();
     const byName = merged.findIndex(em => !em.sourceId && em.name.toLowerCase() === lower);
-    if (byName >= 0) { merged[byName] = {...merged[byName], ...incoming, sourceId: extId}; idMap[extId.replace(/^[a-z]+:/, '')] = merged[byName].id; return; }
+    if (byName >= 0) { merged[byName] = {...merged[byName], ...incoming, ...reviveIfTombstoned(merged[byName], incoming), sourceId: extId}; idMap[extId.replace(/^[a-z]+:/, '')] = merged[byName].id; return; }
     const nid = uid();
     merged.push({id: nid, sourceId: extId, tags: [], groupIds: [], customFields: [], ...incoming} as Member);
     idMap[extId.replace(/^[a-z]+:/, '')] = nid;

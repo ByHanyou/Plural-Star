@@ -14,6 +14,20 @@ export interface PacketReceived {
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+// RN fetch has NO default timeout: a request to an unreachable relay can hang
+// for minutes, which froze the UI (busy state never cleared — dead Enable
+// toggle, "hitting enter does nothing"). Every HTTP call gets a hard cap.
+const FETCH_TIMEOUT_MS = 15000;
+
+const fetchWithTimeout = async (url: string, init?: RequestInit): Promise<Response> => {
+  const ctrl = new AbortController();
+  const tm = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...(init || {}), signal: ctrl.signal });
+  } finally {
+    clearTimeout(tm);
+  }
+};
 
 export class NodeClient {
   private relayUrl: string;
@@ -61,13 +75,13 @@ export class NodeClient {
   }
 
   async health(): Promise<any> {
-    const res = await fetch(`${this.relayUrl}/health`, { headers: this.authHeaders() });
+    const res = await fetchWithTimeout(`${this.relayUrl}/health`, { headers: this.authHeaders() });
     if (!res.ok) throw new Error(`health ${res.status}`);
     return res.json();
   }
 
   async peers(): Promise<any> {
-    const res = await fetch(`${this.relayUrl}/peers`, { headers: this.authHeaders() });
+    const res = await fetchWithTimeout(`${this.relayUrl}/peers`, { headers: this.authHeaders() });
     if (!res.ok) throw new Error(`peers ${res.status}`);
     return res.json();
   }
@@ -83,7 +97,7 @@ export class NodeClient {
       payload: payloadBase64,
     };
     if (packetId) body.packet_id = packetId;
-    const res = await fetch(`${this.relayUrl}/send`, {
+    const res = await fetchWithTimeout(`${this.relayUrl}/send`, {
       method: 'POST',
       headers: this.authHeaders(),
       body: JSON.stringify(body),
@@ -103,7 +117,7 @@ export class NodeClient {
     recordBase64: string,
     ttlSeconds: number,
   ): Promise<void> {
-    const res = await fetch(`${this.relayUrl}/rendezvous/register`, {
+    const res = await fetchWithTimeout(`${this.relayUrl}/rendezvous/register`, {
       method: 'POST',
       headers: this.authHeaders(),
       body: JSON.stringify({ namespace, record: recordBase64, ttl_seconds: ttlSeconds }),
@@ -112,7 +126,7 @@ export class NodeClient {
   }
 
   async rendezvousLookup(namespace: string): Promise<string | null> {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${this.relayUrl}/rendezvous/lookup?namespace=${encodeURIComponent(namespace)}`,
       { headers: this.authHeaders() },
     );

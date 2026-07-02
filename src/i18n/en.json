@@ -844,7 +844,17 @@
     "syncConflictTitle": "Sync conflict",
     "syncConflictMsg": "Your data differs from {{device}}. Which device should win?",
     "keepThisDevice": "This device",
-    "keepOtherDevice": "Other device"
+    "keepOtherDevice": "Other device",
+    "syncDirectionTitle": "Set up the first copy",
+    "syncDirectionMsg": "Which way should the first copy go? Choose \"Send\" on the device that has your data and \"Receive\" on the device being set up. After the first copy, changes sync both ways.",
+    "syncSendMine": "Send this device's data",
+    "syncReceiveTheirs": "Receive their data",
+    "syncRoleMismatchTitle": "Sync setup mismatch",
+    "syncRoleMismatchMsg": "You and {{device}} both chose the same direction, so the initial copy was skipped. New changes will still sync. To copy everything, remove the link and pair again — choose \"send\" on one device and \"receive\" on the other.",
+    "syncCloneSending": "Sending first copy…",
+    "syncCloneReceiving": "Receiving first copy…",
+    "syncCloneDone": "First copy complete",
+    "publishFailed": "Couldn't publish your code — check your connection and try again."
   },
   "mailbox": {
     "title": "Mailbox",

@@ -105,6 +105,44 @@ export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
   }
 };
 
+// True when AsyncStorage holds NONE of the app's keys while file backups exist —
+// the signature of a blank/failed storage load (reboot before flush, force-quit,
+// update migration), NOT a fresh install. A fresh install has no backups.
+export const storageLooksWiped = async (): Promise<boolean> => {
+  let psKeys: string[] = [];
+  let readFailed = false;
+  try {
+    const all = await AsyncStorage.getAllKeys();
+    psKeys = all.filter(k => k.startsWith('ps:'));
+  } catch (e) {
+    readFailed = true;
+    console.error('[STORAGE] getAllKeys THREW during boot probe:', e);
+  }
+  if (!readFailed && psKeys.length > 0) return false;
+  try {
+    const backups = await listRecoverableBackups();
+    return backups.length > 0;
+  } catch {
+    return false;
+  }
+};
+
+// Push every file backup back into AsyncStorage. Returns how many keys landed.
+export const restoreAllBackups = async (): Promise<number> => {
+  let restored = 0;
+  try {
+    const backups = await listRecoverableBackups();
+    for (const b of backups) {
+      try {
+        if (await restoreFromBackup(b.key)) restored++;
+      } catch {}
+    }
+  } catch (e) {
+    console.error('[STORAGE] restoreAllBackups error:', e);
+  }
+  return restored;
+};
+
 export const restoreFromBackup = async (key: string): Promise<boolean> => {
   try {
     const path = backupPath(key);

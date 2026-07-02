@@ -28,6 +28,17 @@ export interface Friend {
   // 'friend' = another person; 'device' = one of your own devices (for Sync).
   kind: 'friend' | 'device';
   status: 'entered_theirs' | 'entered_mine' | 'accepted';
+  // Device links only — the directed initial copy ("clone"):
+  //   initRole    = MY role, chosen when I entered their code. 'source' = this
+  //                 device's data is cloned to the other; 'target' = mine gets
+  //                 replaced by theirs. After the clone, sync is bidirectional.
+  //   peerRole    = the role THEY claimed in their connect (mismatch detection).
+  //   initPending = the initial clone hasn't completed yet. On a source: clone
+  //                 still owed (retried on reconnect). On a target: outbound
+  //                 sync is suppressed until the clone lands.
+  initRole?: 'source' | 'target';
+  peerRole?: 'source' | 'target';
+  initPending?: boolean;
   // Last front/status this friend shared (notification parity). Shown greyed
   // when the friend is offline.
   lastStatus?: FrontShare | null;
@@ -70,15 +81,22 @@ export interface NetworkSettings {
 
 export type NetMessage =
   // sent when I enter your code: asserts mutual intent. Carries my display name
-  // and which kind of link this is (friend vs your own device).
-  | { t: 'connect'; name: string; kind: 'friend' | 'device' }
+  // (for device links: a device label, so you can tell your devices apart) and
+  // which kind of link this is. `ack: true` marks a confirmation reply — it
+  // tells the other side their connect landed and must never be replied to
+  // (that's what terminates the exchange).
+  // `role` (device links): which side of the initial clone the sender chose.
+  | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target' }
   | { t: 'disconnect' }
   | { t: 'ping' }
   | { t: 'front'; status: FrontShare | null }
   // device sync: a diff of changed storage keys (value + content hash).
-  | { t: 'sync'; keys: Record<string, {v: string; h: string}> }
+  // `init: true` marks messages of the initial clone — the target applies them
+  // unconditionally (no conflict prompts). `initDone: true` on the final message
+  // ends the clone and lifts the target's outbound-sync suppression.
+  | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean }
   // one part of a single oversized key, streamed and reassembled by the receiver.
-  | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string }
+  | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean }
   | { t: 'dm'; body: string; ts: number };
 
 // Keys that must NEVER sync between devices (each device keeps its own).
