@@ -13,6 +13,8 @@
 
 import { Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import ReactNativeBlobUtil from 'react-native-blob-util';
+import { saveAvatar, saveBannerFromBase64 } from '../utils/mediaUtils';
 import { store, KEYS } from '../storage';
 import {
   Identity,
@@ -195,6 +197,7 @@ class NetworkManagerImpl {
       enabled: false,
     };
     this.friends = (await store.get<Friend[]>(FRIENDS_STORAGE_KEY, null)) || [];
+    this.expireStaleClones();
     this.lastHashes = (await store.get<Record<string, string>>(SYNC_STATE_KEY, null)) || {};
     this.identity = await loadOrCreateIdentity();
     try {
@@ -228,10 +231,14 @@ class NetworkManagerImpl {
     client.on('status', (s: ConnStatus) => {
       this.setStatus(s);
       if (s === 'online') {
+        this.expireStaleClones();
         this.refreshOnlinePeers();
         this.republishActiveCode();
         this.resendPendingConnects();
         this.restartPendingClones();
+        // Reconcile with linked devices: edits made while either side was
+        // offline are otherwise lost (the relay has no store-and-forward).
+        this.sendSyncReqs();
       }
     });
     client.on('packet_received', (p: PacketReceived) => this.handlePacket(p));
@@ -244,6 +251,10 @@ class NetworkManagerImpl {
           f => f.peerId === e.peer_id && f.kind === 'device' && f.status === 'accepted' && f.initRole === 'source' && f.initPending,
         );
         if (owed) this.doInitClonePush(owed.peerId).catch(() => {});
+        const linked = this.friends.find(
+          f => f.peerId === e.peer_id && f.kind === 'device' && f.status === 'accepted' && !f.initPending,
+        );
+        if (linked) this.sendSyncReqTo(linked.peerId).catch(() => {});
         this.notify();
       }
     });
@@ -368,7 +379,7 @@ class NetworkManagerImpl {
     const fallbackName = kind === 'device' ? 'Device' : 'Friend';
     this.upsertFriend({
       ...this.friendFrom(id, existing?.displayName || fallbackName, status, kind),
-      ...(kind === 'device' && role ? { initRole: role, initPending: true } : {}),
+      ...(kind === 'device' && role ? { initRole: role, initPending: true, initStartedAt: Date.now() } : {}),
     });
     await this.persistFriends();
     this.notify();
@@ -486,6 +497,10 @@ class NetworkManagerImpl {
       }
       case 'sync': {
         this.applySync(sender, msg.keys, !!msg.init, !!msg.initDone).catch(e => console.warn('[NETWORK] applySync failed:', e));
+        break;
+      }
+      case 'sync_req': {
+        this.handleSyncReq(sender, msg.hashes).catch(e => console.warn('[NETWORK] sync_req failed:', e));
         break;
       }
       case 'sync_chunk': {
@@ -670,7 +685,197 @@ class NetworkManagerImpl {
       const v = got[k];
       if (v != null) out[k] = v;
     }
+    Object.assign(out, await this.mediaEntries(out[KEYS.members]));
     return out;
+  }
+
+  // Virtual media entries: avatars/banners as data URIs under ps:media:* keys.
+  // File paths are meaningless on another device; the bytes ride the normal
+  // sync/chunk machinery and the receiver writes them to its own storage.
+  private mediaCache: Map<string, string> = new Map();
+  private async mediaEntries(membersRaw: string | undefined): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    if (!membersRaw) return out;
+    let list: any[];
+    try {
+      list = JSON.parse(membersRaw);
+    } catch {
+      return out;
+    }
+    if (!Array.isArray(list)) return out;
+    for (const m of list) {
+      if (!m || m.deleted) continue;
+      for (const [field, kind] of [['avatar', 'av'], ['banner', 'bn']] as const) {
+        const val = m[field];
+        if (typeof val !== 'string' || !val) continue;
+        const key = `ps:media:${kind}:${m.id}`;
+        if (val.startsWith('data:')) {
+          out[key] = val;
+          continue;
+        }
+        if (!val.startsWith('file://')) continue;
+        const cached = this.mediaCache.get(val);
+        if (cached) {
+          out[key] = cached;
+          continue;
+        }
+        try {
+          const path = val.replace(/^file:\/\//, '').split('?')[0];
+          const b64 = await ReactNativeBlobUtil.fs.readFile(path, 'base64');
+          const ext = (path.split('.').pop() || 'jpg').toLowerCase();
+          const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+          const uri = `data:${mime};base64,${b64}`;
+          if (this.mediaCache.size > 80) this.mediaCache.clear();
+          this.mediaCache.set(val, uri);
+          out[key] = uri;
+        } catch {}
+      }
+    }
+    return out;
+  }
+
+  // Write an incoming media entry to THIS device's storage and point the
+  // member's field at the new local file.
+  private async applyMedia(key: string, dataUri: string): Promise<void> {
+    const m = key.match(/^ps:media:(av|bn):(.+)$/);
+    if (!m) return;
+    const kind = m[1];
+    const memberId = m[2];
+    let uri: string;
+    try {
+      uri = kind === 'av' ? await saveAvatar(memberId, dataUri) : await saveBannerFromBase64(memberId, dataUri);
+    } catch {
+      return;
+    }
+    const raw = await AsyncStorage.getItem(KEYS.members);
+    if (!raw) return;
+    try {
+      const list = JSON.parse(raw);
+      if (!Array.isArray(list)) return;
+      const idx = list.findIndex((x: any) => x && x.id === memberId);
+      if (idx < 0) return;
+      list[idx][kind === 'av' ? 'avatar' : 'banner'] = uri;
+      const v = JSON.stringify(list);
+      await AsyncStorage.setItem(KEYS.members, v);
+      this.lastHashes[KEYS.members] = contentHash(v);
+    } catch {}
+  }
+
+  // Media never travels inside ps:members (paths are device-local): when a
+  // members value arrives, keep this device's avatar/banner for each member;
+  // the ps:media entries carry the actual image updates.
+  private preserveLocalMedia(incomingRaw: string, localRaw: string | null): string {
+    try {
+      const inc = JSON.parse(incomingRaw);
+      if (!Array.isArray(inc)) return incomingRaw;
+      const loc = localRaw ? JSON.parse(localRaw) : [];
+      const byId = new Map((Array.isArray(loc) ? loc : []).map((x: any) => [x?.id, x]));
+      for (const mm of inc) {
+        if (!mm) continue;
+        const lm = byId.get(mm.id);
+        mm.avatar = lm?.avatar;
+        mm.banner = lm?.banner;
+      }
+      return JSON.stringify(inc);
+    } catch {
+      return incomingRaw;
+    }
+  }
+
+  // The target's outbound mute (initPending) must never outlive the clone: if
+  // the source's initDone marker was lost, the flag would wedge the link one-way
+  // forever — and freeze the device out of reconnect reconciliation too. Any
+  // target-side pending clone older than 10 minutes (or with no timestamp, i.e.
+  // wedged by an older build) reverts to normal bidirectional sync; the
+  // reconciliation pass converges whatever the clone didn't finish.
+  private expireStaleClones(): void {
+    const CLONE_TIMEOUT_MS = 10 * 60 * 1000;
+    let changed = false;
+    this.friends = this.friends.map(f => {
+      if (f.kind === 'device' && f.initRole === 'target' && f.initPending) {
+        if (!f.initStartedAt || Date.now() - f.initStartedAt > CLONE_TIMEOUT_MS) {
+          changed = true;
+          return { ...f, initPending: false };
+        }
+      }
+      return f;
+    });
+    if (changed) {
+      this.persistFriends();
+      this.notify();
+    }
+  }
+
+  private sendSyncReqs(): void {
+    for (const d of this.acceptedDevices()) this.sendSyncReqTo(d.peerId).catch(() => {});
+  }
+
+  private async sendSyncReqTo(peerId: string): Promise<void> {
+    const snap = await this.snapshot();
+    const hashes: Record<string, string> = {};
+    for (const k in snap) hashes[k] = contentHash(snap[k]);
+    await this.sendTo(peerId, {t: 'sync_req', hashes});
+  }
+
+  // Reply to a reconciliation request: push every key whose content differs
+  // from what they reported. Receiver applies with normal conflict checks.
+  private async handleSyncReq(sender: FriendIdentity, theirs: Record<string, string>): Promise<void> {
+    // A sync_req only comes from a device that considers the link fully live —
+    // if we're still muted as a clone target, the clone era is over: unmute.
+    const pending = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device' && f.status === 'accepted' && f.initRole === 'target' && f.initPending);
+    if (pending) {
+      this.upsertFriend({ ...pending, initPending: false });
+      await this.persistFriends();
+      this.notify();
+    }
+    const dev = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device' && f.status === 'accepted' && !f.initPending);
+    if (!dev || !theirs) return;
+    if (this.syncing) {
+      setTimeout(() => this.handleSyncReq(sender, theirs).catch(() => {}), SYNC_PACE_MS * 10);
+      return;
+    }
+    const snap = await this.snapshot();
+    const diff: {k: string; v: string; h: string}[] = [];
+    for (const k in snap) {
+      const h = contentHash(snap[k]);
+      if (theirs[k] !== h) diff.push({k, v: snap[k], h});
+    }
+    if (diff.length === 0) return;
+    this.syncing = true;
+    try {
+      const sendOne = async (msg: NetMessage) => {
+        try {
+          await this.sendTo(sender.peerId, msg);
+        } catch {}
+        await sleep(SYNC_PACE_MS);
+      };
+      let batch: Record<string, {v: string; h: string}> = {};
+      let size = 0;
+      const flush = async () => {
+        if (Object.keys(batch).length === 0) return;
+        const payload = batch;
+        batch = {};
+        size = 0;
+        await sendOne({t: 'sync', keys: payload});
+      };
+      for (const c of diff) {
+        if (c.v.length > SYNC_MSG_BUDGET) {
+          await flush();
+          const total = Math.ceil(c.v.length / SYNC_CHUNK_SIZE);
+          for (let seq = 0; seq < total; seq++) {
+            const data = c.v.slice(seq * SYNC_CHUNK_SIZE, (seq + 1) * SYNC_CHUNK_SIZE);
+            await sendOne({t: 'sync_chunk', key: c.k, h: c.h, seq, total, data});
+          }
+        } else {
+          if (size + c.v.length > SYNC_MSG_BUDGET && Object.keys(batch).length) await flush();
+          batch[c.k] = {v: c.v, h: c.h};
+          size += c.v.length;
+        }
+      }
+      await flush();
+    } finally {
+      this.syncing = false;
+    }
   }
 
   private async doSyncPush(): Promise<void> {
@@ -836,6 +1041,14 @@ class NetworkManagerImpl {
     for (const k in keys) {
       if (!k.startsWith('ps:') || SYNC_EXCLUDE.has(k)) continue;
       const incoming = keys[k];
+      if (k.startsWith('ps:media:')) {
+        if (this.lastHashes[k] !== incoming.h) {
+          await this.applyMedia(k, incoming.v);
+          this.lastHashes[k] = incoming.h;
+          applied.push(k);
+        }
+        continue;
+      }
       const localRaw = await AsyncStorage.getItem(k);
       const localHash = localRaw != null ? contentHash(localRaw) : '__absent__';
       const base = this.lastHashes[k];
@@ -843,17 +1056,24 @@ class NetworkManagerImpl {
         this.lastHashes[k] = incoming.h;
         continue; // already identical
       }
-      if (cloning) {
-        await AsyncStorage.setItem(k, incoming.v);
-        this.lastHashes[k] = incoming.h;
+      const writeValue = async () => {
+        if (k === KEYS.members) {
+          const v = this.preserveLocalMedia(incoming.v, localRaw);
+          await AsyncStorage.setItem(k, v);
+          this.lastHashes[k] = contentHash(v);
+        } else {
+          await AsyncStorage.setItem(k, incoming.v);
+          this.lastHashes[k] = incoming.h;
+        }
         applied.push(k);
+      };
+      if (cloning) {
+        await writeValue();
         continue;
       }
       const noConflict = localRaw == null || (base !== undefined && localHash === base);
       if (noConflict) {
-        await AsyncStorage.setItem(k, incoming.v);
-        this.lastHashes[k] = incoming.h;
-        applied.push(k);
+        await writeValue();
       } else {
         // Local changed since last sync (or no shared base, both populated) -> ask.
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
@@ -885,8 +1105,15 @@ class NetworkManagerImpl {
     if (!conflicts) return;
     if (keep === 'theirs') {
       for (const c of conflicts) {
-        await AsyncStorage.setItem(c.key, c.remoteValue);
-        this.lastHashes[c.key] = c.remoteHash;
+        if (c.key === KEYS.members) {
+          const localRaw = await AsyncStorage.getItem(c.key);
+          const v = this.preserveLocalMedia(c.remoteValue, localRaw);
+          await AsyncStorage.setItem(c.key, v);
+          this.lastHashes[c.key] = contentHash(v);
+        } else {
+          await AsyncStorage.setItem(c.key, c.remoteValue);
+          this.lastHashes[c.key] = c.remoteHash;
+        }
       }
       this.emitSyncApplied();
     } else {

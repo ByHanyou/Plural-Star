@@ -31,6 +31,7 @@ export interface Friend {
   initRole?: 'source' | 'target';
   peerRole?: 'source' | 'target';
   initPending?: boolean;
+  initStartedAt?: number;
   // Last front/status this friend shared (notification parity). Shown greyed
   // when the friend is offline.
   lastStatus?: FrontShare | null;
@@ -82,6 +83,8 @@ export type NetMessage =
   | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean }
   // one part of a single oversized key, streamed and reassembled by the receiver.
   | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean }
+  // reconnect reconciliation: my current key->hash map; reply with keys that differ.
+  | { t: 'sync_req'; hashes: Record<string, string> }
   | { t: 'dm'; body: string; ts: number };
 
 // Keys that must NEVER sync between devices (each device keeps its own).
