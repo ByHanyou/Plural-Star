@@ -228,9 +228,11 @@ function MainAppContent() {
       }
       let loadedSettingsObj: AppSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
       if (!loadedSettingsObj.customFrontsSeeded && !storageSuspect) {
-        loadedMembers = [...loadedMembers, ...makeDefaultCustomFronts()];
+        const existingCustomNames = new Set(loadedMembers.filter(m => m.isCustomFront).map(m => (m.name || '').toLowerCase()));
+        const seeds = makeDefaultCustomFronts().filter(cf => !existingCustomNames.has(cf.name.toLowerCase()));
+        loadedMembers = [...loadedMembers, ...seeds];
         loadedSettingsObj = {...loadedSettingsObj, customFrontsSeeded: true};
-        await store.set(KEYS.members, loadedMembers);
+        if (seeds.length > 0) await store.set(KEYS.members, loadedMembers);
         await store.set(KEYS.settings, loadedSettingsObj);
       }
       if (!loadedSystem) {

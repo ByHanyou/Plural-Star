@@ -117,6 +117,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
         const msg = String(e?.message || e).toLowerCase();
         if (msg.includes('own')) throw new Error(t('network.ownCode'));
         if (msg.includes('not found') || msg.includes('expired')) throw new Error(t('network.notFound'));
+        if (msg.includes('timed out') || msg.includes('network request failed') || msg.includes('not connected')) throw new Error(t('network.publishFailed'));
         throw new Error(t('network.invalidCode'));
       }
     });

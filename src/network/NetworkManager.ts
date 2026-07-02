@@ -11,7 +11,7 @@
 // 'accepted' only once it has both entered the other's code AND received their
 // connect — so neither can be added one-way.
 
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { store, KEYS } from '../storage';
 import {
@@ -201,6 +201,9 @@ class NetworkManagerImpl {
       const sys = await store.get<{ name?: string }>(KEYS.system, null);
       if (sys && sys.name) this.systemName = sys.name;
     } catch {}
+    AppState.addEventListener('change', s => {
+      if (s === 'active' && this.settings.enabled && this.client) this.client.ensureConnected();
+    });
     if (this.settings.enabled) await this.connect();
     else this.notify();
   }

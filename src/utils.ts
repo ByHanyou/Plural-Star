@@ -19,6 +19,7 @@ export interface MemberGroup {
   kind?: GroupNodeKind;
   parentId?: string | null;
   sortOrder?: number;
+  sourceId?: string;
 }
 
 export const groupKind = (g: MemberGroup): GroupNodeKind => g.kind || 'group';

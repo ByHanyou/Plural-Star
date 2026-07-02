@@ -472,8 +472,10 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
               const groupIdMap: Record<string, string> = {};
               ocTags.forEach((tg: any) => {
                 const name = String(tg.name || 'Group');
-                let g = mergedGroups.find(x => x.name.toLowerCase() === name.toLowerCase());
-                if (!g) { g = {id: uid(), name, color: tg.color ? ocColor(tg.color) : undefined}; mergedGroups.push(g); }
+                const srcId = `oc:${String(tg.id)}`;
+                let g = mergedGroups.find(x => x.sourceId === srcId) || mergedGroups.find(x => !x.sourceId && x.name.toLowerCase() === name.toLowerCase());
+                if (!g) { g = {id: uid(), name, color: tg.color ? ocColor(tg.color) : undefined, sourceId: srcId}; mergedGroups.push(g); }
+                else { g.name = name; g.sourceId = srcId; }
                 groupIdMap[String(tg.id)] = g.id;
               });
               await store.set(KEYS.groups, mergedGroups);
@@ -872,8 +874,10 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const groupIdMap: Record<string, string> = {};
       ouTags.forEach((tg: any) => {
         const name = String(tg.label || tg.name || 'Group');
-        let g = mergedGroups.find(x => x.name.toLowerCase() === name.toLowerCase());
-        if (!g) { g = {id: uid(), name, color: tg.color ? normHex(tg.color) : undefined}; mergedGroups.push(g); }
+        const srcId = `ou:${String(tg.id)}`;
+        let g = mergedGroups.find(x => x.sourceId === srcId) || mergedGroups.find(x => !x.sourceId && x.name.toLowerCase() === name.toLowerCase());
+        if (!g) { g = {id: uid(), name, color: tg.color ? normHex(tg.color) : undefined, sourceId: srcId}; mergedGroups.push(g); }
+        else { g.name = name; g.sourceId = srcId; }
         groupIdMap[String(tg.id)] = g.id;
       });
       await store.set(KEYS.groups, mergedGroups);
@@ -1156,8 +1160,10 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             const groupIdMap: Record<string, string> = {};
             psGroups.forEach((g: any) => {
               const name = String(g?.name || 'Group');
-              let lg = mergedGroups.find(x => x.name.toLowerCase() === name.toLowerCase());
-              if (!lg) { lg = {id: uid(), name, color: g?.color ? normHex(g.color) : undefined}; mergedGroups.push(lg); }
+              const srcId = g?.id != null ? `sp:${String(g.id)}` : null;
+              let lg = (srcId ? mergedGroups.find(x => x.sourceId === srcId) : undefined) || mergedGroups.find(x => !x.sourceId && x.name.toLowerCase() === name.toLowerCase());
+              if (!lg) { lg = {id: uid(), name, color: g?.color ? normHex(g.color) : undefined, sourceId: srcId || undefined}; mergedGroups.push(lg); }
+              else if (srcId) { lg.name = name; lg.sourceId = srcId; }
               groupIdMap[String(g?.id)] = lg.id;
               groupIdMap[name.toLowerCase()] = lg.id;
             });
@@ -1649,7 +1655,8 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           }
           if (extSel.groups && extPreview.groups && extPreview.groups.length > 0) {
             const existingGroups = await store.get<MemberGroup[]>(KEYS.groups, []) || [];
-            const newGroups: MemberGroup[] = [];
+            const mergedGroups: MemberGroup[] = [...existingGroups];
+            let groupsChanged = false;
             const groupIdMap: Record<string, string> = {};
             const groupMemberMap: Record<string, string[]> = {};
             extPreview.groups.forEach((g: any) => {
@@ -1660,13 +1667,26 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 ? (Array.isArray(g.members) ? g.members : [])
                 : (Array.isArray(g.content?.members) ? g.content.members : (Array.isArray(g.members) ? g.members : []));
               if (!gName || !externalId) return;
-              const existing = existingGroups.find(eg => eg.name.toLowerCase() === gName.toLowerCase());
-              const localId = existing ? existing.id : uid();
-              if (!existing) newGroups.push({id: localId, name: gName, color: gColor});
+              const srcId = `${isPK ? 'pk' : 'ext'}:${externalId}`;
+              // Match by external identity first so a group renamed at the source
+              // follows the rename here instead of duplicating; name is fallback.
+              const bySource = mergedGroups.findIndex(eg => eg.sourceId === srcId);
+              const byName = bySource < 0 ? mergedGroups.findIndex(eg => !eg.sourceId && eg.name.toLowerCase() === gName.toLowerCase()) : -1;
+              const idx = bySource >= 0 ? bySource : byName;
+              let localId: string;
+              if (idx >= 0) {
+                localId = mergedGroups[idx].id;
+                mergedGroups[idx] = {...mergedGroups[idx], name: gName, color: gColor ?? mergedGroups[idx].color, sourceId: srcId};
+                groupsChanged = true;
+              } else {
+                localId = uid();
+                mergedGroups.push({id: localId, name: gName, color: gColor, sourceId: srcId});
+                groupsChanged = true;
+              }
               groupIdMap[externalId] = localId;
               groupMemberMap[localId] = externalMembers;
             });
-            if (newGroups.length > 0) await store.set(KEYS.groups, [...existingGroups, ...newGroups]);
+            if (groupsChanged) await store.set(KEYS.groups, mergedGroups);
             if (Object.keys(groupMemberMap).length > 0) {
               const currentMembers = await store.get<Member[]>(KEYS.members, []) || [];
               const memberLocalIdsByGroup: Record<string, Set<string>> = {};
