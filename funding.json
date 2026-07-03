@@ -1,0 +1,110 @@
+{
+    "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+    "version": "v1.1.0",
+    "entity": {
+        "type": "individual",
+        "role": "maintainer",
+        "name": "The Hanyou System",
+        "email": "The1Hanyou@gmail.com",
+        "phone": "",
+        "description": "Solo developer of Plural Star, a free and open source toolkit built for the plural community — people living as multiple self-states or system members, including those with DID/OSDD. Plural systems have long relied on general-purpose tools that don't fit how they actually live; Plural Star is purpose-built for them: front tracking, member profiles, journals, medical info with reminders, internal messaging, and cross-device sync — all local-first, with end-to-end encrypted networking and a self-hostable relay so no one's data ever depends on a company server.\n\nThe project spans a React Native mobile app (Google Play + Apple App Store, ~5,000 users), an Electron desktop app at feature parity, and an AGPL Go relay node anyone can run. It ships in 17 languages with an ongoing accessibility focus (screen reader support, dyslexia-friendly fonts, reduced-motion options). Development is sustained by one person alongside a community Discord of 1,000+ members whose bug reports and testing drive every release.",
+        "webpageUrl": {
+            "url": "https://github.com/ByHanyou/Plural-Star"
+        }
+    },
+    "projects": [
+        {
+            "guid": "plural-star",
+            "name": "Plural Star",
+            "description": "The core mobile app (React Native, iOS + Android), live on both app stores with roughly 5,000 users. Front tracking with history and statistics, member profiles with custom fields, journals, polls, system chat, an internal mailbox, medical tracking with cross-platform reminders, a relationship map that scales to systems with thousands of members, and importers for seven other plurality apps so no one is locked in. Local-first storage with encrypted on-device backups; the Friends & Sync networking layer is end-to-end encrypted (Ed25519/X25519, tweetnacl) with the relay treated as hostile — it only ever sees opaque blobs. Fully translated into 17 languages with screen-reader accessibility throughout.",
+            "webpageUrl": {
+                "url": "https://github.com/ByHanyou/Plural-Star"
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/ByHanyou/Plural-Star"
+            },
+            "licenses": ["spdx:AGPL-3.0-or-later"],
+            "tags": ["mental-health", "plurality", "mobile-app", "react-native", "end-to-end-encryption", "accessibility", "privacy", "local-first"]
+        },
+        {
+            "guid": "plural-star-desktop",
+            "name": "Plural Star Desktop",
+            "description": "The Electron/React desktop companion (Windows, macOS, Linux) at full feature parity with mobile, including the end-to-end encrypted Friends & Sync networking. Desktop and phone pair as devices with a user-directed initial copy, then live bidirectional sync with reconnect reconciliation and media transfer — the same wire protocol across platforms. Ships in the same 17 languages.",
+            "webpageUrl": {
+                "url": "https://github.com/ByHanyou/Plural-Star-Desktop"
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/ByHanyou/Plural-Star-Desktop"
+            },
+            "licenses": ["spdx:AGPL-3.0-or-later"],
+            "tags": ["mental-health", "plurality", "desktop-app", "electron", "end-to-end-encryption", "accessibility", "privacy"]
+        },
+        {
+            "guid": "plural-star-node",
+            "name": "Plural Star Node",
+            "description": "A self-hostable Go relay node built on libp2p (DHT discovery, GossipSub presence, relay streams between nodes). Nodes form a mesh so users on different relays can still reach each other; the app-facing API handles rendezvous-based friend pairing (the node never sees codes or message contents — records are signed and payloads are end-to-end encrypted). The public network currently runs on the maintainer's own hardware; funding directly supports moving it to redundant hosting and finishing the multi-node resilience work (relay failover, multi-entry bootstrap, cross-node rendezvous) so the network survives any single node going offline.",
+            "webpageUrl": {
+                "url": "https://github.com/ByHanyou/Plural-Star-Node"
+            },
+            "repositoryUrl": {
+                "url": "https://github.com/ByHanyou/Plural-Star-Node"
+            },
+            "licenses": ["spdx:AGPL-3.0-or-later"],
+            "tags": ["peer-to-peer", "libp2p", "self-hosted", "relay", "networking", "privacy", "golang"]
+        }
+    ],
+    "funding": {
+        "channels": [
+            {
+                "guid": "bank",
+                "type": "bank",
+                "address": "",
+                "description": "Direct bank transfer. Please contact by email for details."
+            },
+            {
+                "guid": "github-sponsors",
+                "type": "payment-provider",
+                "address": "https://github.com/sponsors/ByHanyou",
+                "description": "GitHub Sponsors for recurring or one-time support."
+            },
+            {
+                "guid": "buymeacoffee",
+                "type": "payment-provider",
+                "address": "https://www.buymeacoffee.com/PluralStar",
+                "description": "One-time community support."
+            }
+        ],
+        "plans": [
+            {
+                "guid": "sustainability",
+                "status": "active",
+                "name": "Project sustainability",
+                "description": "Sustains full-time solo development across all three codebases (mobile, desktop, relay node) and funds the network resilience roadmap: redundant relay hosting so ~5,000 users no longer depend on a single residential node, relay failover in the apps, and cross-node rendezvous.",
+                "amount": 10000,
+                "currency": "USD",
+                "frequency": "one-time",
+                "channels": ["bank"]
+            },
+            {
+                "guid": "hosting-monthly",
+                "status": "active",
+                "name": "Relay hosting",
+                "description": "Covers server costs for public relay nodes.",
+                "amount": 50,
+                "currency": "USD",
+                "frequency": "monthly",
+                "channels": ["github-sponsors", "buymeacoffee"]
+            },
+            {
+                "guid": "goodwill",
+                "status": "active",
+                "name": "Goodwill plan",
+                "description": "Any amount helps keep Plural Star free for a community that is rarely built for.",
+                "amount": 0,
+                "currency": "USD",
+                "frequency": "one-time",
+                "channels": ["github-sponsors", "buymeacoffee", "bank"]
+            }
+        ]
+    }
+}
