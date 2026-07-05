@@ -243,6 +243,7 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
   const memberById = useMemo(() => new Map(eligibleMembers.map(m => [m.id, m])), [eligibleMembers]);
 
   const [relationships, setRelationships] = useState<Relationship[]>([]);
+  const [posOverrides, setPosOverrides] = useState<Record<string, {x: number; y: number}>>({});
   useEffect(() => { onRelCountChange?.(relationships.length); }, [relationships.length, onRelCountChange]);
   const [customTypes, setCustomTypes] = useState<RelationshipTypeDef[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -268,16 +269,24 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
 
   useEffect(() => {
     (async () => {
-      const [rels, savedTypes, savedMapIds] = await Promise.all([
+      const [rels, savedTypes, savedMapIds, savedPositions] = await Promise.all([
         store.get<Relationship[]>(KEYS.relationships, []),
         store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []),
         store.get<string[]>(KEYS.systemMapMembers),
+        store.get<Record<string, {x: number; y: number}>>(KEYS.systemMapPositions),
       ]);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
       const ids = new Set(members.map(m => m.id));
       const valid = all.filter(r => ids.has(r.fromId) && ids.has(r.toId));
       setRelationships(valid);
+      if (savedPositions) {
+        const pruned: Record<string, {x: number; y: number}> = {};
+        for (const id in savedPositions) {
+          if (ids.has(id)) pruned[id] = savedPositions[id];
+        }
+        setPosOverrides(pruned);
+      }
       if (valid.length !== all.length) await store.set(KEYS.relationships, valid);
       if (savedMapIds) {
         setMapIds(savedMapIds.filter(id => ids.has(id)));
@@ -326,6 +335,25 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
   };
 
   const layout = useMemo(() => buildLayout(mapMembers, relationships), [mapMembers, relationships]);
+  const nodes = useMemo(() => {
+    let changed = false;
+    const out = layout.nodes.map(n => {
+      const o = posOverrides[n.id];
+      if (!o) return n;
+      changed = true;
+      return {...n, x: o.x, y: o.y};
+    });
+    return changed ? out : layout.nodes;
+  }, [layout, posOverrides]);
+  const nodesById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
+  const maxExtentEff = useMemo(() => {
+    let me = layout.maxExtent;
+    for (const id in posOverrides) {
+      const o = posOverrides[id];
+      me = Math.max(me, Math.abs(o.x) + 60, Math.abs(o.y) + 60);
+    }
+    return me;
+  }, [layout, posOverrides]);
   const degrees = useMemo(() => relationshipDegrees(mapMembers.map(m => m.id), relationships), [mapMembers, relationships]);
   const usageByType = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -372,14 +400,17 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
   const animScale = useRef(new Animated.Value(1)).current;
   const viewportRef = useRef({x: 0, y: 0, w: 0, h: 0});
   const containerRef = useRef<View>(null);
-  const layoutRef = useRef(layout);
-  layoutRef.current = layout;
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const maxExtentRef = useRef(maxExtentEff);
+  maxExtentRef.current = maxExtentEff;
+  const dragRef = useRef<{id: string; startX: number; startY: number} | null>(null);
 
   const applyFit = useCallback(() => {
     const vp = viewportRef.current;
     if (vp.w === 0 || vp.h === 0) return;
     const p = panRef.current;
-    const fit = Math.min(1, (Math.min(vp.w, vp.h) / 2 - 16) / layoutRef.current.maxExtent);
+    const fit = Math.min(1, (Math.min(vp.w, vp.h) / 2 - 16) / maxExtentRef.current);
     p.tx = 0;
     p.ty = 0;
     p.scale = fit;
@@ -390,39 +421,46 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
 
   useEffect(() => { applyFit(); }, [layout, applyFit]);
 
-  const handleTap = useCallback((pageX: number, pageY: number) => {
+  const nodeAt = useCallback((pageX: number, pageY: number): MapNode | null => {
     const vp = viewportRef.current;
     const p = panRef.current;
     const wx = (pageX - vp.x - vp.w / 2 - p.tx) / p.scale;
     const wy = (pageY - vp.y - vp.h / 2 - p.ty) / p.scale;
-    let best: string | null = null;
+    let best: MapNode | null = null;
     let bestD = Number.MAX_VALUE;
     const slack = p.scale < 1 ? 14 / p.scale : 14;
-    for (const node of layoutRef.current.nodes) {
+    for (const node of nodesRef.current) {
       const d = Math.hypot(node.x - wx, node.y - wy);
       if (d < node.r + slack && d < bestD) {
         bestD = d;
-        best = node.id;
+        best = node;
       }
     }
-    setSelectedId(best);
+    return best;
   }, []);
+
+  const handleTap = useCallback((pageX: number, pageY: number) => {
+    setSelectedId(nodeAt(pageX, pageY)?.id ?? null);
+  }, [nodeAt]);
 
   const responder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: () => {
+    onPanResponderGrant: (evt) => {
       const p = panRef.current;
       p.startTx = p.tx;
       p.startTy = p.ty;
       p.startScale = p.scale;
       p.startDist = 0;
       p.moved = false;
+      const hit = nodeAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
+      dragRef.current = hit ? {id: hit.id, startX: hit.x, startY: hit.y} : null;
     },
     onPanResponderMove: (evt, gs) => {
       const p = panRef.current;
       const touches = evt.nativeEvent.touches;
       if (touches.length >= 2) {
+        dragRef.current = null;
         const dx = touches[0].pageX - touches[1].pageX;
         const dy = touches[0].pageY - touches[1].pageY;
         const dist = Math.hypot(dx, dy) || 1;
@@ -434,6 +472,15 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
           animScale.setValue(p.scale);
         }
         p.moved = true;
+      } else if (dragRef.current) {
+        if (Math.abs(gs.dx) > 4 || Math.abs(gs.dy) > 4) p.moved = true;
+        if (p.moved) {
+          const drag = dragRef.current;
+          const cap = HALF - 80;
+          const nx = Math.max(-cap, Math.min(cap, drag.startX + gs.dx / p.scale));
+          const ny = Math.max(-cap, Math.min(cap, drag.startY + gs.dy / p.scale));
+          setPosOverrides(prev => ({...prev, [drag.id]: {x: nx, y: ny}}));
+        }
       } else {
         if (Math.abs(gs.dx) > 4 || Math.abs(gs.dy) > 4) p.moved = true;
         p.tx = p.startTx + gs.dx;
@@ -443,9 +490,20 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
       }
     },
     onPanResponderRelease: (evt, gs) => {
-      if (!panRef.current.moved) handleTap(gs.x0 + gs.dx, gs.y0 + gs.dy);
+      const drag = dragRef.current;
+      dragRef.current = null;
+      if (!panRef.current.moved) {
+        handleTap(gs.x0 + gs.dx, gs.y0 + gs.dy);
+        return;
+      }
+      if (drag) {
+        setPosOverrides(prev => {
+          store.set(KEYS.systemMapPositions, prev).catch(() => {});
+          return prev;
+        });
+      }
     },
-  }), [handleTap, animTx, animTy, animScale]);
+  }), [nodeAt, handleTap, animTx, animTy, animScale]);
 
   const zoomBy = (f: number) => {
     const p = panRef.current;
@@ -575,8 +633,8 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
             transform: [{translateX: animTx}, {translateY: animTy}, {scale: animScale}],
           }}>
             {relationships.map(r => {
-              const a = layout.byId.get(r.fromId);
-              const b = layout.byId.get(r.toId);
+              const a = nodesById.get(r.fromId);
+              const b = nodesById.get(r.toId);
               if (!a || !b) return null;
               const dx = b.x - a.x;
               const dy = b.y - a.y;
@@ -598,12 +656,12 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
                 }} />
               );
             })}
-            {layout.nodes.map(node => {
+            {nodes.map(node => {
               const m = memberById.get(node.id);
               if (!m) return null;
               const dimmed = hopDistances ? !inReach(node.id) : false;
               const isSel = node.id === selectedId;
-              const nodeCount = layout.nodes.length;
+              const nodeCount = nodes.length;
               const showAvatar = nodeCount <= 250;
               const showLabel = nodeCount <= 600;
               return (

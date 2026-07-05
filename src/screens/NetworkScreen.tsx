@@ -1,21 +1,38 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Switch, Alert, AccessibilityInfo} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Switch, Alert, AccessibilityInfo, Modal} from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {fmtDur, fmtTime} from '../utils';
+import {fmtDur, fmtTime, uid, Member, MemberGroup, JournalEntry} from '../utils';
+import {store, KEYS} from '../storage';
 import {useNetwork} from '../network/useNetwork';
 import {NetworkManager} from '../network/NetworkManager';
-import {Friend, MAX_NOTIF_FRIENDS} from '../network/types';
+import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode, PRIVACY_BUCKETS_KEY} from '../network/types';
 
 interface Props {
   theme: any;
+  members?: Member[];
+  groups?: MemberGroup[];
+  journal?: JournalEntry[];
 }
 
-type NetTab = 'friends' | 'settings';
+type NetTab = 'friends' | 'settings' | 'privacy';
 type Kind = 'friend' | 'device';
+type BucketFeature = 'members' | 'groups' | 'journal' | 'history';
 
-export const NetworkScreen = ({theme: T}: Props) => {
+const emptyScope = (): PrivacyScope => ({mode: 'none', ids: []});
+const newBucket = (name: string): PrivacyBucket => ({
+  id: uid(),
+  name,
+  members: emptyScope(),
+  groups: emptyScope(),
+  journal: emptyScope(),
+  history: emptyScope(),
+  friendPeerIds: [],
+  createdAt: Date.now(),
+});
+
+export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []}: Props) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const net = useNetwork();
@@ -28,6 +45,22 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const [busy, setBusy] = useState(false);
   const [copiedKind, setCopiedKind] = useState<Kind | null>(null);
   const [, setNowTick] = useState(0);
+  const [buckets, setBuckets] = useState<PrivacyBucket[]>([]);
+  const [editBucket, setEditBucket] = useState<PrivacyBucket | null>(null);
+  const [pickerFeature, setPickerFeature] = useState<BucketFeature | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
+
+  useEffect(() => {
+    store.get<PrivacyBucket[]>(PRIVACY_BUCKETS_KEY, []).then(saved => {
+      if (saved && Array.isArray(saved)) setBuckets(saved);
+    }).catch(() => {});
+  }, []);
+
+  const saveBuckets = async (next: PrivacyBucket[]) => {
+    setBuckets(next);
+    await store.set(PRIVACY_BUCKETS_KEY, next);
+    NetworkManager.notifyDataChanged();
+  };
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(n => n + 1), 1000);
@@ -229,6 +262,50 @@ export const NetworkScreen = ({theme: T}: Props) => {
     );
   };
 
+  const featureLabel = (f: BucketFeature): string =>
+    f === 'members' ? t('tabs.members') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : t('tabs.history');
+  const scopeSummary = (s: PrivacyScope): string =>
+    s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
+  const setScopeMode = (f: BucketFeature, mode: PrivacyScopeMode) => {
+    if (!editBucket) return;
+    setEditBucket({...editBucket, [f]: {...editBucket[f], mode}});
+    if (mode === 'select') { setPickerSearch(''); setPickerFeature(f); }
+  };
+  const togglePickId = (id: string) => {
+    if (!editBucket || !pickerFeature) return;
+    const sc = editBucket[pickerFeature];
+    const ids = sc.ids.includes(id) ? sc.ids.filter(x => x !== id) : [...sc.ids, id];
+    setEditBucket({...editBucket, [pickerFeature]: {...sc, ids}});
+  };
+  const commitBucket = async () => {
+    if (!editBucket) return;
+    const name = editBucket.name.trim();
+    if (!name) return;
+    const exists = buckets.some(b => b.id === editBucket.id);
+    const next = exists ? buckets.map(b => (b.id === editBucket.id ? {...editBucket, name} : b)) : [...buckets, {...editBucket, name}];
+    await saveBuckets(next);
+    setEditBucket(null);
+  };
+  const cloneBucket = (b: PrivacyBucket) => {
+    setEditBucket({
+      id: uid(),
+      name: `${b.name} 2`,
+      members: {mode: b.members.mode, ids: [...b.members.ids]},
+      groups: {mode: b.groups.mode, ids: [...b.groups.ids]},
+      journal: {mode: b.journal.mode, ids: [...b.journal.ids]},
+      history: {mode: b.history.mode, ids: [...b.history.ids]},
+      friendPeerIds: [],
+      createdAt: Date.now(),
+    });
+  };
+  const confirmDeleteBucket = (b: PrivacyBucket) => {
+    Alert.alert(t('network.deleteBucket'), t('network.deleteBucketMsg', {name: b.name}), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('common.delete'), style: 'destructive', onPress: () => { saveBuckets(buckets.filter(x => x.id !== b.id)).catch(() => {}); }},
+    ]);
+  };
+  const pickableMembers = members.filter(m => !m.deleted && !m.isCustomFront);
+
   const deviceStatusText = (f: Friend): string => {
     if (f.status === 'entered_theirs') return t('network.waitingThem');
     if (f.status === 'entered_mine') return t('network.waitingYou');
@@ -276,6 +353,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border}} accessibilityRole="tablist">
         <TabBtn id="friends" label={t('network.tabFriends')} />
+        <TabBtn id="privacy" label={t('network.tabPrivacy')} />
         <TabBtn id="settings" label={t('network.tabSettings')} />
       </View>
 
@@ -295,6 +373,40 @@ export const NetworkScreen = ({theme: T}: Props) => {
               ) : (
                 net.friends.map(f => renderRow(f, renderFriendStatus(f), friendStatusA11y(f)))
               )}
+            </View>
+          </>
+        ) : tab === 'privacy' ? (
+          <>
+            <View style={card}>
+              <Text accessibilityRole="header" style={labelStyle}>{t('network.tabPrivacy')}</Text>
+              <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 12}}>{t('network.privacyDesc')}</Text>
+              <TouchableOpacity onPress={() => setEditBucket(newBucket(''))} activeOpacity={0.8} style={primaryBtn} accessibilityRole="button" accessibilityLabel={t('network.newBucket')}>
+                <Text style={{color: '#fff', fontWeight: '600', fontSize: fs(13)}}>{t('network.newBucket')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={card}>
+              <Text accessibilityRole="header" style={[labelStyle, {marginBottom: 8}]}>{t('network.buckets')}</Text>
+              {buckets.length === 0 ? (
+                <Text style={{fontSize: fs(12), color: T.dim}}>{t('network.noBuckets')}</Text>
+              ) : buckets.map(b => (
+                <View key={b.id} style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
+                  <TouchableOpacity style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket({...b})} activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${b.name}. ${(['members', 'groups', 'journal', 'history'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
+                    <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} importantForAccessibility="no">{b.name}</Text>
+                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2} importantForAccessibility="no">
+                      {(['members', 'groups', 'journal', 'history'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => cloneBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.cloneBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                    <Text style={{color: T.dim, fontSize: fs(15)}} importantForAccessibility="no">⧉</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => confirmDeleteBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.deleteBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                    <Text style={{color: T.dim, fontSize: fs(16)}} importantForAccessibility="no">✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
           </>
         ) : (
@@ -343,6 +455,102 @@ export const NetworkScreen = ({theme: T}: Props) => {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={!!editBucket && !pickerFeature} transparent animationType="fade" onRequestClose={() => setEditBucket(null)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
+          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>
+              {editBucket && buckets.some(b => b.id === editBucket.id) ? editBucket.name : t('network.newBucket')}
+            </Text>
+            <View style={{paddingHorizontal: 16, paddingBottom: 4}}>
+              <Text style={labelStyle} nativeID="lblBucketName">{t('network.bucketName')}</Text>
+              <TextInput value={editBucket?.name || ''} onChangeText={v => editBucket && setEditBucket({...editBucket, name: v})}
+                placeholder={t('network.bucketName')} placeholderTextColor={T.muted} style={inputStyle}
+                accessibilityLabel={t('network.bucketName')} accessibilityLabelledBy="lblBucketName" />
+            </View>
+            {editBucket && (['members', 'groups', 'journal', 'history'] as BucketFeature[]).map(f => (
+              <View key={f} style={{paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.text}}>{featureLabel(f)}</Text>
+                  {(['all', 'select', 'none'] as PrivacyScopeMode[]).map(mode => {
+                    const sel = editBucket[f].mode === mode;
+                    const label = mode === 'all' ? t('network.scopeAll') : mode === 'select' ? t('network.scopeSelect') : t('network.scopeNone');
+                    return (
+                      <TouchableOpacity key={mode} onPress={() => setScopeMode(f, mode)} activeOpacity={0.7}
+                        accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={`${featureLabel(f)}: ${label}`}
+                        style={{marginLeft: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                          backgroundColor: sel ? T.accentBg : 'transparent', borderColor: sel ? T.accent : T.border}}>
+                        <Text style={{fontSize: fs(11), color: sel ? T.accent : T.dim}} importantForAccessibility="no">{label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {editBucket[f].mode === 'select' && (
+                  <TouchableOpacity onPress={() => { setPickerSearch(''); setPickerFeature(f); }} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityLabel={`${featureLabel(f)}: ${t('network.scopeSelect')}, ${editBucket[f].ids.length}`}
+                    style={{marginTop: 6, alignSelf: 'flex-start'}}>
+                    <Text style={{fontSize: fs(11), color: T.accent}}>{`${editBucket[f].ids.length} ✎`}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+            <View style={{flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: T.border}}>
+              <TouchableOpacity onPress={() => setEditBucket(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+                style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={commitBucket} disabled={!editBucket?.name.trim()} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityState={{disabled: !editBucket?.name.trim()}} accessibilityLabel={t('common.save')}
+                style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: editBucket?.name.trim() ? 1 : 0.4}}>
+                <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.save')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!editBucket && !!pickerFeature} transparent animationType="fade" onRequestClose={() => setPickerFeature(null)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
+          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '75%', overflow: 'hidden'}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>
+              {pickerFeature ? featureLabel(pickerFeature) : ''} — {t('network.scopeSelect')}
+            </Text>
+            {pickerFeature !== 'groups' && (
+              <View style={{paddingHorizontal: 16, paddingBottom: 8}}>
+                <TextInput value={pickerSearch} onChangeText={setPickerSearch} placeholder={t('common.search')} placeholderTextColor={T.muted} style={inputStyle} accessibilityLabel={t('common.search')} />
+              </View>
+            )}
+            <ScrollView style={{maxHeight: 340}}>
+              {(pickerFeature === 'groups'
+                ? groups.map(g => ({id: g.id, name: g.name}))
+                : pickerFeature === 'journal'
+                ? journal
+                    .filter(e => !pickerSearch.trim() || (e.title || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+                    .map(e => ({id: e.id, name: `${e.password ? '🔒 ' : ''}${e.title || fmtTime(e.timestamp)}`}))
+                : pickableMembers
+                    .filter(m => !pickerSearch.trim() || m.name.toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+                    .map(m => ({id: m.id, name: m.name}))
+              ).map(item => {
+                const checked = !!(editBucket && pickerFeature && editBucket[pickerFeature].ids.includes(item.id));
+                return (
+                  <TouchableOpacity key={item.id} onPress={() => togglePickId(item.id)} activeOpacity={0.7}
+                    accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={item.name}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
+                    <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} importantForAccessibility="no">
+                      {checked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
+                    </View>
+                    <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} importantForAccessibility="no">{item.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setPickerFeature(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
+              style={{alignItems: 'center', paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>
+              <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

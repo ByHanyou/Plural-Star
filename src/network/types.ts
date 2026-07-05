@@ -105,6 +105,34 @@ export const RENDEZVOUS_TTL_SECONDS = 30 * 60; // codes live 30 minutes
 // Max friends pinnable into the persistent notification (takeover guard).
 export const MAX_NOTIF_FRIENDS = 5;
 
+// ---- Privacy Buckets (groundwork for the friends sharing expansion) ----
+// A bucket describes what friends assigned to it may see, per feature:
+// everything, a selection, or nothing. `ids` semantics per feature:
+// members/history = member ids, groups = group ids, journal = ENTRY ids.
+// Passworded journal entries keep their lock when shared — the recipient must
+// also know the password; a bucket grant never strips entry protection.
+export type PrivacyScopeMode = 'all' | 'select' | 'none';
+
+export interface PrivacyScope {
+  mode: PrivacyScopeMode;
+  ids: string[];
+}
+
+export interface PrivacyBucket {
+  id: string;
+  name: string;
+  members: PrivacyScope;
+  groups: PrivacyScope;
+  journal: PrivacyScope;
+  history: PrivacyScope;
+  // Friend assignment lands with the sharing expansion; carried now so buckets
+  // survive that upgrade without migration.
+  friendPeerIds: string[];
+  createdAt: number;
+}
+
+export const PRIVACY_BUCKETS_KEY = 'ps:privacyBuckets';
+
 // Connection status surfaced to the UI.
 export type ConnStatus =
   | 'disabled'

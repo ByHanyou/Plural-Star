@@ -34,6 +34,7 @@ import {PollsScreen} from './src/screens/PollsScreen';
 import {SystemMapScreen} from './src/screens/SystemMapScreen';
 import {MedicalScreen} from './src/screens/MedicalScreen';
 import {MailboxScreen} from './src/screens/MailboxScreen';
+import {WhiteboardScreen} from './src/screens/WhiteboardScreen';
 import {StatusScreen} from './src/screens/StatusScreen';
 import {ProfileScreen} from './src/screens/ProfileScreen';
 import {NetworkScreen} from './src/screens/NetworkScreen';
@@ -650,8 +651,8 @@ function MainAppContent() {
         e.endTime === null && e.startTime === front.startTime && (!e.changeType || e.changeType === 'front') ? {...e, endTime: now} : e);
     }
 
+    let finalFront = nf;
     if (nf) {
-      const frontEntry = frontToHistoryEntry(nf, null, 'front');
       if (continuing) {
         const extras: HistoryEntry[] = [];
         const moodChanged = (nf.primary.mood || undefined) !== (front!.primary.mood || undefined);
@@ -667,16 +668,33 @@ function MainAppContent() {
           entry.changeTime = now + 1;
           extras.push(entry);
         }
-        newHistory = newHistory.map(e =>
-          e.endTime === null && e.startTime === front!.startTime && (!e.changeType || e.changeType === 'front') ? frontEntry : e);
-        newHistory = [...extras, ...newHistory];
+        const tierTracked = (a: FrontTier, b: FrontTier) =>
+          (a.mood || undefined) !== (b.mood || undefined) || (a.energyLevel ?? undefined) !== (b.energyLevel ?? undefined);
+        const segment = tierTracked(nf.primary, front!.primary) || tierTracked(nf.coFront, front!.coFront)
+          || tierTracked(nf.coConscious, front!.coConscious) || locChanged;
+        if (segment) {
+          // Tracked state changed mid-session: close the open entry as it was
+          // and start a new segment, so history keeps the timeline instead of
+          // overwriting it.
+          finalFront = {...nf, startTime: now};
+          const segEntry = frontToHistoryEntry(finalFront, null, 'front');
+          newHistory = newHistory.map(e =>
+            e.endTime === null && e.startTime === front!.startTime && (!e.changeType || e.changeType === 'front') ? {...e, endTime: now} : e);
+          newHistory = [segEntry, ...extras, ...newHistory];
+        } else {
+          const frontEntry = frontToHistoryEntry(nf, null, 'front');
+          newHistory = newHistory.map(e =>
+            e.endTime === null && e.startTime === front!.startTime && (!e.changeType || e.changeType === 'front') ? frontEntry : e);
+          newHistory = [...extras, ...newHistory];
+        }
       } else {
+        const frontEntry = frontToHistoryEntry(nf, null, 'front');
         newHistory = [frontEntry, ...newHistory];
       }
     }
 
-    setFront(nf);
-    await store.set(KEYS.front, nf);
+    setFront(finalFront);
+    await store.set(KEYS.front, finalFront);
     await saveHistory(newHistory);
 
     if (nf) {
@@ -727,19 +745,49 @@ function MainAppContent() {
     const tierData = front[tier];
     const resolvedLocation = tier === 'primary' ? await maybeGPS(location) : tierData.location;
     const updatedTier = {...tierData, mood, location: resolvedLocation, note: note ?? tierData.note};
-    const updated = {...front, [tier]: updatedTier};
+    const moodChanged = (mood || undefined) !== (tierData.mood || undefined);
+    const locChanged = tier === 'primary' && (resolvedLocation || undefined) !== (tierData.location || undefined);
+    const noteChanged = note !== undefined && (note || undefined) !== (tierData.note || undefined);
+    const segment = moodChanged || locChanged;
+    const updated = segment ? {...front, [tier]: updatedTier, startTime: now} : {...front, [tier]: updatedTier};
     setFront(updated); await store.set(KEYS.front, updated);
     if (tier === 'primary') {
       if (resolvedLocation) await updateLastLocation(resolvedLocation);
       else await clearLastLocation();
     }
     const extras: HistoryEntry[] = [];
-    const moodChanged = (mood || undefined) !== (tierData.mood || undefined);
-    const locChanged = tier === 'primary' && (resolvedLocation || undefined) !== (tierData.location || undefined);
-    const noteChanged = note !== undefined && (note || undefined) !== (tierData.note || undefined);
     if (moodChanged || locChanged) { const entry = frontToHistoryEntry(updated, null, moodChanged ? 'mood' : 'location', tier); entry.changeTime = now; extras.push(entry); }
     if (noteChanged) { const entry = frontToHistoryEntry(updated, null, 'note', tier); entry.changeTime = now + 1; extras.push(entry); }
-    if (extras.length > 0) await saveHistory([...extras, ...history]);
+    let newHistory = [...history];
+    if (segment) {
+      const segEntry = frontToHistoryEntry(updated, null, 'front');
+      newHistory = newHistory.map(e =>
+        e.endTime === null && e.startTime === front.startTime && (!e.changeType || e.changeType === 'front') ? {...e, endTime: now} : e);
+      newHistory = [segEntry, ...extras, ...newHistory];
+      await saveHistory(newHistory);
+    } else if (extras.length > 0) {
+      await saveHistory([...extras, ...newHistory]);
+    }
+  };
+
+  const quickAddToFront = async (id: string, tierKey: FrontTierKey) => {
+    const strip = (tier: FrontTier): FrontTier => ({...tier, memberIds: tier.memberIds.filter(x => x !== id)});
+    const tiers: Record<FrontTierKey, FrontTier> = {
+      primary: front ? strip(front.primary) : {memberIds: [], note: ''},
+      coFront: front ? strip(front.coFront) : {memberIds: [], note: ''},
+      coConscious: front ? strip(front.coConscious) : {memberIds: [], note: ''},
+    };
+    tiers[tierKey] = {...tiers[tierKey], memberIds: [...tiers[tierKey].memberIds, id]};
+    await updateFront(tiers.primary, tiers.coFront, tiers.coConscious);
+  };
+
+  const removeFromFront = async (id: string) => {
+    if (!front) return;
+    await updateFront(
+      {...front.primary, memberIds: front.primary.memberIds.filter(x => x !== id)},
+      {...front.coFront, memberIds: front.coFront.memberIds.filter(x => x !== id)},
+      {...front.coConscious, memberIds: front.coConscious.memberIds.filter(x => x !== id)},
+    );
   };
 
   const saveMember = async (m: Member) => {
@@ -875,11 +923,19 @@ function MainAppContent() {
   );
 
   const renderNetworkScreen = () => (
-    <NetworkScreen theme={C} />
+    <NetworkScreen theme={C} members={members} groups={groups} journal={journal} />
   );
 
   const renderMailboxScreen = (onBack: () => void) => (
-    <MailboxScreen theme={C} members={members} onBack={onBack} />
+    <MailboxScreen theme={C} members={members} onBack={onBack}
+      onSetMailboxPassword={(memberId, password) => {
+        const m = members.find(x => x.id === memberId);
+        if (m) saveMember({...m, mailboxPassword: password});
+      }} />
+  );
+
+  const renderWhiteboardScreen = (onBack: () => void) => (
+    <WhiteboardScreen theme={C} onBack={onBack} />
   );
 
   const renderArchiveScreen = () => (
@@ -909,6 +965,7 @@ function MainAppContent() {
             onEditStatus={m => {setEditCustomFront(m); setShowCustomFront(true);}} />;
         }
         return <MembersScreen theme={C} members={members} front={front} groups={groups} initialSortMode={appSettings.memberSortMode} memberListFields={appSettings.memberListFields} onSaveListFields={async (next: any) => {const sNext = {...appSettings, memberListFields: next}; setAppSettings(sNext); await store.set(KEYS.settings, sNext);}}
+          onQuickAddToFront={quickAddToFront} onRemoveFromFront={removeFromFront}
           onAdd={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setShowMember(true);}}
           onAddCustomFront={() => {setEditCustomFront(null); setShowCustomFront(true);}}
           onEdit={m => { if (m.isCustomFront) {setEditCustomFront(m); setShowCustomFront(true);} else {setEditMember(m); setViewOnlyMember(false); setShowMember(true);} }}
@@ -936,7 +993,7 @@ function MainAppContent() {
           onBulkAddGroups={bulkAddGroups}
         />;
       case 'hub':
-        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
+        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} renderWhiteboardScreen={renderWhiteboardScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
       case 'journal':
         return <JournalScreen theme={C} journal={journal} templates={journalTemplates} members={members} systemJournalPassword={system.journalPassword} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} onTogglePin={e => saveEntry({...e, pinned: !e.pinned})} onSaveTemplates={saveJournalTemplates} onMentionPress={openMemberById} />;
       case 'history':

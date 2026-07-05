@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Modal} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
@@ -10,18 +10,25 @@ interface Props {
   theme: any;
   members: Member[];
   onBack: () => void;
+  onSetMailboxPassword?: (memberId: string, password?: string) => void;
 }
 
 // The mailbox reuses the existing noteboard store: each message's `memberId` is the
 // recipient's inbox and `authorId` is the sender, so notes written before this feature
 // existed automatically appear as mail in that member's mailbox — no migration needed.
-export const MailboxScreen = ({theme: T, members, onBack}: Props) => {
+export const MailboxScreen = ({theme: T, members, onBack, onSetMailboxPassword}: Props) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const behavior = useKeyboardBehavior();
 
   const [notes, setNotes] = useState<NoteboardEntry[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set());
+  const [pwFor, setPwFor] = useState<string | null>(null);
+  const [pwInput, setPwInput] = useState('');
+  const [pwError, setPwError] = useState(false);
+  const [lockManage, setLockManage] = useState(false);
+  const [lockInput, setLockInput] = useState('');
   const [composing, setComposing] = useState(false);
   const [fromId, setFromId] = useState('');
   const [toId, setToId] = useState('');
@@ -55,7 +62,55 @@ export const MailboxScreen = ({theme: T, members, onBack}: Props) => {
     if (changed) save(updated);
   };
 
-  const openInbox = (id: string) => { setOpenId(id); markRead(id); };
+  const openInbox = (id: string) => {
+    const m = byId(id);
+    if (m?.mailboxPassword && !unlockedIds.has(id)) {
+      setPwInput('');
+      setPwError(false);
+      setPwFor(id);
+      return;
+    }
+    setOpenId(id);
+    markRead(id);
+  };
+
+  const submitUnlock = () => {
+    if (!pwFor) return;
+    const m = byId(pwFor);
+    if (pwInput === (m?.mailboxPassword || '')) {
+      setUnlockedIds(prev => new Set(prev).add(pwFor));
+      setOpenId(pwFor);
+      markRead(pwFor);
+      setPwFor(null);
+      setPwInput('');
+      setPwError(false);
+    } else {
+      setPwError(true);
+    }
+  };
+
+  const submitLock = () => {
+    if (!openId || !onSetMailboxPassword) return;
+    const owner = byId(openId);
+    const next = lockInput.trim();
+    if (!next && owner?.mailboxPassword) {
+      Alert.alert(t('mailbox.lockTitle'), t('mailbox.removeLockMsg'), [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: t('common.delete'), style: 'destructive', onPress: () => {
+          onSetMailboxPassword(openId, undefined);
+          setLockManage(false);
+          setLockInput('');
+        }},
+      ]);
+      return;
+    }
+    if (next) {
+      onSetMailboxPassword(openId, next);
+      setUnlockedIds(prev => new Set(prev).add(openId));
+    }
+    setLockManage(false);
+    setLockInput('');
+  };
 
   const send = (recipientId: string, senderId: string) => {
     if (!recipientId || !senderId || !text.trim()) return;
@@ -132,6 +187,12 @@ export const MailboxScreen = ({theme: T, members, onBack}: Props) => {
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
           </TouchableOpacity>
           <Text accessibilityRole="header" style={{fontSize: fs(18), fontWeight: '600', color: T.text, flex: 1}} numberOfLines={1}>{t('mailbox.inboxOf', {name: owner?.name || '?'})}</Text>
+          {!!onSetMailboxPassword && (
+            <TouchableOpacity onPress={() => { setLockInput(''); setLockManage(true); }} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel={t('mailbox.lockTitle')} style={{padding: 6}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+              <Text style={{fontSize: fs(15), color: owner?.mailboxPassword ? T.accent : T.dim}} importantForAccessibility="no">{owner?.mailboxPassword ? '🔒' : '🔓'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 24}} keyboardShouldPersistTaps="handled">
           {msgs.length > 0 ? msgs.map(n => <MessageCard key={n.id} note={n} />) : (
@@ -153,6 +214,27 @@ export const MailboxScreen = ({theme: T, members, onBack}: Props) => {
             </View>
           </View>
         </ScrollView>
+        <Modal visible={lockManage} transparent animationType="fade" onRequestClose={() => setLockManage(false)}>
+          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
+            <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+              <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 6}}>{t('mailbox.lockTitle')}</Text>
+              <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 10}}>{t('mailbox.lockHint')}</Text>
+              <TextInput value={lockInput} onChangeText={setLockInput} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
+                accessibilityLabel={t('journal.password')}
+                style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), marginBottom: 12}} />
+              <View style={{flexDirection: 'row', gap: 10}}>
+                <TouchableOpacity onPress={() => { setLockManage(false); setLockInput(''); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+                  style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                  <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={submitLock} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}
+                  style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                  <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.save')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     );
   }
@@ -199,7 +281,10 @@ export const MailboxScreen = ({theme: T, members, onBack}: Props) => {
                 <Text style={{fontSize: fs(13), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(m?.name || '?')}</Text>
               </View>
               <View style={{flex: 1}}>
-                <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1}>{m?.name || '?'}</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                  <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text, flexShrink: 1}} numberOfLines={1}>{m?.name || '?'}</Text>
+                  {!!m?.mailboxPassword && <Text style={{fontSize: fs(11)}} importantForAccessibility="no">🔒</Text>}
+                </View>
                 <Text style={{fontSize: fs(11), color: T.muted}}>{t('mailbox.messageCount', {count})}</Text>
               </View>
               {unread > 0 && (
@@ -216,6 +301,30 @@ export const MailboxScreen = ({theme: T, members, onBack}: Props) => {
           </View>
         )}
       </ScrollView>
+      <Modal visible={!!pwFor} transparent animationType="fade" onRequestClose={() => setPwFor(null)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
+          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 6}}>
+              {`🔒 ${byId(pwFor || '')?.name || '?'}`}
+            </Text>
+            <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 10}}>{t('mailbox.lockedPrompt')}</Text>
+            <TextInput value={pwInput} onChangeText={v => { setPwInput(v); setPwError(false); }} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
+              accessibilityLabel={t('journal.password')} onSubmitEditing={submitUnlock}
+              style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: pwError ? T.danger : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), marginBottom: 8}} />
+            {pwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 8}} accessibilityRole="alert">{t('journal.incorrectPassword')}</Text>}
+            <View style={{flexDirection: 'row', gap: 10}}>
+              <TouchableOpacity onPress={() => { setPwFor(null); setPwInput(''); setPwError(false); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+                style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={submitUnlock} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('journal.unlock')}
+                style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('journal.unlock')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 };

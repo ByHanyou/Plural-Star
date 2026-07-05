@@ -5,7 +5,7 @@ import {Avatar} from '../components/Avatar';
 import {FlashList, FlashListRef} from '@shopify/flash-list';
 import {useTranslation} from 'react-i18next';
 import {Fonts, PALETTE} from '../theme';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay} from '../utils';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -41,6 +41,8 @@ interface MemberCardProps {
   onEnterSelection: (id: string) => void;
   onReorder?: (id: string, direction: 'up' | 'down') => void;
   onEditMember: (m: Member) => void;
+  onQuickFront?: (m: Member) => void;
+  onRemoveFromFront?: (m: Member) => void;
   fields: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean};
   prevName?: string;
   nextName?: string;
@@ -49,14 +51,14 @@ interface MemberCardProps {
 const MemberCard = React.memo(function MemberCard({
   m, index, isLast, selectionMode, isSelected, showReorder,
   front, allFrontIds, groups, T, fs, t,
-  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember, fields, prevName, nextName,
+  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember, onQuickFront, onRemoveFromFront, fields, prevName, nextName,
 }: MemberCardProps) {
   const tier = getMemberTier(m.id, front);
   const isFronting = allFrontIds.has(m.id);
   const badgeCfg = tier ? TIER_BADGE_KEY[tier] : null;
   const badgeColor = badgeCfg ? (T as any)[badgeCfg.colorKey] || T.accent : T.accent;
   const memberGroups = useMemo(
-    () => groups.filter(g => (m.groupIds || []).includes(g.id)),
+    () => sortGroupsForDisplay(groups.filter(g => (m.groupIds || []).includes(g.id)), groups),
     [groups, m.groupIds],
   );
   const isFirst = index === 0;
@@ -106,11 +108,21 @@ const MemberCard = React.memo(function MemberCard({
           )}
         </View>
         {!selectionMode && (
-          <TouchableOpacity onPress={() => onEditMember(m)} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-            accessibilityRole="button" accessibilityLabel={`${t('common.edit')}, ${m.name}`}
-            style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-            <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>{t('common.edit')}</Text>
-          </TouchableOpacity>
+          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+            {!!onQuickFront && !!onRemoveFromFront && !m.archived && !m.deleted && (
+              <TouchableOpacity onPress={() => isFronting ? onRemoveFromFront(m) : onQuickFront(m)} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+                accessibilityRole="button" accessibilityLabel={`${isFronting ? t('members.removeFromFront') : t('members.addToFront')}, ${m.name}`}
+                style={{width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: isFronting ? `${T.danger}12` : T.accentBg, borderColor: isFronting ? `${T.danger}50` : `${T.accent}40`}}>
+                <Text style={{fontSize: fs(15), fontWeight: '600', color: isFronting ? T.danger : T.accent}} importantForAccessibility="no">{isFronting ? '−' : '＋'}</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => onEditMember(m)} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+              accessibilityRole="button" accessibilityLabel={`${t('common.edit')}, ${m.name}`}
+              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>{t('common.edit')}</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -134,9 +146,11 @@ interface Props {
   onBulkAddGroups?: (ids: string[], groupIds: string[]) => void | Promise<void>;
   memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean};
   onSaveListFields?: (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean}) => void;
+  onQuickAddToFront?: (id: string, tier: FrontTierKey) => void | Promise<void>;
+  onRemoveFromFront?: (id: string) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, members, front, groups, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields}: Props) => {
+export const MembersScreen = ({theme: T, members, front, groups, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
   const {t} = useTranslation();
   const fs = useCallback((s: number) => Math.round(s * (T.textScale || 1)), [T.textScale]);
   const [memberTab, setMemberTab] = useState<'active' | 'archived' | 'customFronts'>(archiveOnly ? 'archived' : 'active');
@@ -149,6 +163,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const [showGroupAssign, setShowGroupAssign] = useState(false);
   const [groupAssignSel, setGroupAssignSel] = useState<Set<string>>(new Set());
   const [showDisplayOptions, setShowDisplayOptions] = useState(false);
+  const [quickFrontFor, setQuickFrontFor] = useState<Member | null>(null);
   const [listFields, setListFields] = useState({groups: true, descriptions: true, pronouns: true, roles: true, ...(memberListFields || {})});
   const toggleListField = (k: 'groups' | 'descriptions' | 'pronouns' | 'roles') => {
     const next = {...listFields, [k]: !listFields[k]};
@@ -306,11 +321,18 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       onEnterSelection={enterSelection}
       onReorder={handleReorder}
       onEditMember={onEdit}
+      onQuickFront={onQuickAddToFront ? setQuickFrontFor : undefined}
+      onRemoveFromFront={onRemoveFromFront ? (mm: Member) => {
+        Alert.alert(t('members.removeFromFront'), t('members.removeFromFrontMsg', {name: mm.name}), [
+          {text: t('common.cancel'), style: 'cancel'},
+          {text: t('network.remove'), style: 'destructive', onPress: () => { onRemoveFromFront(mm.id); }},
+        ]);
+      } : undefined}
       fields={listFields}
       prevName={index > 0 ? filtered[index - 1].name : undefined}
       nextName={index < filtered.length - 1 ? filtered[index + 1].name : undefined}
     />
-  ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields]);
+  ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields, onQuickAddToFront, onRemoveFromFront]);
 
   const allVisibleIds = filtered.map(m => m.id);
   const allSelectedInView = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
@@ -565,6 +587,38 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
           </View>
         </View>
       </View>
+    </Modal>
+    <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
+      <TouchableOpacity activeOpacity={1} onPress={() => setQuickFrontFor(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+        style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
+        <TouchableOpacity activeOpacity={1} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+          <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>
+            {t('members.addToFront')}{quickFrontFor ? ` — ${quickFrontFor.name}` : ''}
+          </Text>
+          {(([
+            ['primary', t('tier.primaryFront'), T.accent],
+            ['coFront', t('tier.coFront'), T.info || T.accent],
+            ['coConscious', t('tier.coConscious'), T.success || T.accent],
+          ] as [FrontTierKey, string, string][])
+            .filter(([k]) => !(quickFrontFor?.isCustomFront && k === 'coConscious')))
+            .map(([k, label, color]) => (
+              <TouchableOpacity key={k} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label}
+                onPress={() => {
+                  const mm = quickFrontFor;
+                  setQuickFrontFor(null);
+                  if (mm && onQuickAddToFront) onQuickAddToFront(mm.id, k);
+                }}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>
+                <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: color}} importantForAccessibility="no" />
+                <Text style={{fontSize: fs(14), color: T.text}}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          <TouchableOpacity onPress={() => setQuickFrontFor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+            style={{alignItems: 'center', paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>
+            <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
     <Modal visible={showDisplayOptions} transparent animationType="fade" onRequestClose={() => setShowDisplayOptions(false)}>
       <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
