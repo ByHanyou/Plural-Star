@@ -19,7 +19,7 @@ const getTierField = (front: any, tier: string, field: string): string | undefin
 };
 
 const resolveNames = (ids: string[], members: Member[]): string =>
-  ids.map(id => members.find(m => m.id === id)?.name || '?').join(', ');
+  ids.map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ');
 
 export const buildFrontShare = (front: any, members: Member[]): FrontShare | null => {
   if (!front) return null;
@@ -31,12 +31,13 @@ export const buildFrontShare = (front: any, members: Member[]): FrontShare | nul
   const primary = resolveNames(primaryIds, members);
   const coFront = resolveNames(coFrontIds, members);
   const coConscious = resolveNames(coConsciousIds, members);
+  if (!primary && !coFront && !coConscious) return null;
 
   return {
-    fronters: primary || coFront || coConscious || '?',
-    primary: primaryIds.length ? primary : undefined,
-    coFront: coFrontIds.length ? coFront : undefined,
-    coConscious: coConsciousIds.length ? coConscious : undefined,
+    fronters: primary || coFront || coConscious,
+    primary: primary || undefined,
+    coFront: coFront || undefined,
+    coConscious: coConscious || undefined,
     mood: getTierField(front, 'primary', 'mood'),
     location: getTierField(front, 'primary', 'location'),
     note: getTierField(front, 'primary', 'note'),

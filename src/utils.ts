@@ -30,6 +30,27 @@ export const childrenOf = (nodes: MemberGroup[], parentId: string | null): Membe
     .filter(n => groupParent(n) === parentId)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
 
+export const groupDisplayOrder = (nodes: MemberGroup[]): Map<string, number> => {
+  const order = new Map<string, number>();
+  const walk = (parentId: string | null) => {
+    for (const g of childrenOf(nodes, parentId)) {
+      if (order.has(g.id)) continue;
+      order.set(g.id, order.size);
+      walk(g.id);
+    }
+  };
+  walk(null);
+  for (const g of nodes) {
+    if (!order.has(g.id)) order.set(g.id, order.size);
+  }
+  return order;
+};
+
+export const sortGroupsForDisplay = (list: MemberGroup[], all: MemberGroup[]): MemberGroup[] => {
+  const order = groupDisplayOrder(all);
+  return [...list].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+};
+
 export const descendantsOf = (nodes: MemberGroup[], id: string): MemberGroup[] => {
   const out: MemberGroup[] = [];
   const walk = (pid: string) => {
@@ -130,6 +151,7 @@ export interface Member {
   createdAt?: number;
   sourceId?: string;
   isCustomFront?: boolean;
+  mailboxPassword?: string;
 }
 
 export const DEFAULT_CUSTOM_FRONT_NAMES = ['Chatty', 'Non-Verbal', 'IWC', 'DNI', 'Blurry', 'Blendy', 'Rapid Switching', 'Foggy', 'Grounded', 'Dissociated', 'Anxious', 'Depressed', 'Cheerful', 'Happy', 'Sad', 'Crisis', 'Melancholy', 'Stimming', 'Stressed', 'Working', 'Traveling', 'Sleeping', 'Hyperfocus'];

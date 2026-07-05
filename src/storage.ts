@@ -22,6 +22,8 @@ export const KEYS = {
   relationships: 'ps:relationships',
   relationshipTypes: 'ps:relationshipTypes',
   systemMapMembers: 'ps:systemMapMembers',
+  systemMapPositions: 'ps:systemMapPositions',
+  whiteboard: 'ps:whiteboard',
   deviceCodes: 'ps:deviceCodes',
   medical: 'ps:medical',
 };

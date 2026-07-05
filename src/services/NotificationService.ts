@@ -181,7 +181,7 @@ export const showFrontNotification = async (
     const title = content ? content.title : systemName;
     const body = content ? content.body : friendLines.length > 0 ? friendLines[0].replace(/^◈ /, '') : onlineLabel;
     const ownBig = content ? content.bigText : '';
-    const bigText = [ownBig, ...friendLines].filter(Boolean).join('\n') || onlineLabel;
+    const bigText = [ownBig, ...friendLines].filter(Boolean).join('\n\n') || onlineLabel;
 
     await notifee.displayNotification({
       id: NOTIF_ID,

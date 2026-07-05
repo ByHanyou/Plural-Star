@@ -8,7 +8,7 @@ import {Avatar} from '../components/Avatar';
 import {ColorPicker} from '../components/ColorPicker';
 import {PALETTE, BUILTIN_PALETTES, deriveTheme, FONT_OPTIONS, Fonts} from '../theme';
 import type {CustomPalette, FontChoice} from '../theme';
-import {Member, MemberGroup, JournalEntry, JournalTemplate, FrontState, FrontTier, FrontTierKey, SystemInfo, AppSettings, TextScale, TEXT_SCALE_OPTIONS, CustomFieldDef, CustomFieldValue, NoteboardEntry, uid, isValidHex, normalizeHex, DEFAULT_MOODS, EMPTY_TIER, TIER_LABELS, fmtTime, getInitials, translateMood, parseMoodList, toggleMoodInList, serializeMoodList, sortMembersBySearch, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR} from '../utils';
+import {Member, MemberGroup, JournalEntry, JournalTemplate, FrontState, FrontTier, FrontTierKey, SystemInfo, AppSettings, TextScale, TEXT_SCALE_OPTIONS, CustomFieldDef, CustomFieldValue, NoteboardEntry, uid, isValidHex, normalizeHex, DEFAULT_MOODS, EMPTY_TIER, TIER_LABELS, fmtTime, getInitials, translateMood, parseMoodList, toggleMoodInList, serializeMoodList, sortMembersBySearch, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, sortGroupsForDisplay} from '../utils';
 import {store, KEYS} from '../storage';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
@@ -652,9 +652,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         )}
 
         {(groups || []).length > 0 && (() => {
-          const visibleGroups = readOnly
-            ? (groups || []).filter((g: MemberGroup) => (f.groupIds || []).includes(g.id))
-            : (groups || []);
+          const visibleGroups = sortGroupsForDisplay(
+            readOnly
+              ? (groups || []).filter((g: MemberGroup) => (f.groupIds || []).includes(g.id))
+              : (groups || []),
+            groups || [],
+          );
           if (readOnly && visibleGroups.length === 0) return null;
           return (
             <>

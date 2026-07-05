@@ -94,6 +94,15 @@ const canonicalForSync = (s: string): string =>
 
 const syncHash = (s: string): string => contentHash(canonicalForSync(s));
 
+const realMemberCount = (raw: string): number => {
+  try {
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list.filter((m: any) => m && !m.isCustomFront && !m.deleted).length : 0;
+  } catch {
+    return 0;
+  }
+};
+
 export interface NetworkState {
   enabled: boolean;
   status: ConnStatus;
@@ -943,6 +952,10 @@ class NetworkManagerImpl {
       this.upsertFriend({ ...pending, initPending: false });
       await this.persistFriends();
       this.notify();
+      // A freshly-healed clone target may hold partial data — it must PULL from
+      // the source, never diff-push its own skeleton back over it.
+      this.sendSyncReqTo(sender.peerId).catch(() => {});
+      return;
     }
     const dev = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device' && f.status === 'accepted' && !f.initPending);
     if (!dev || !theirs) return;
@@ -1188,6 +1201,10 @@ class NetworkManagerImpl {
         this.lastHashes[k] = incoming.h;
         continue; // already identical
       }
+      if (localRaw != null && canonicalForSync(localRaw) === canonicalForSync(incoming.v)) {
+        this.lastHashes[k] = localHash;
+        continue;
+      }
       const writeValue = async () => {
         if (k === KEYS.members) {
           const v = this.preserveLocalMedia(incoming.v, localRaw);
@@ -1201,6 +1218,12 @@ class NetworkManagerImpl {
       };
       if (cloning) {
         await writeValue();
+        continue;
+      }
+      if (k === KEYS.members && localRaw != null && realMemberCount(incoming.v) === 0 && realMemberCount(localRaw) > 0) {
+        // An incoming roster with zero real members never silently replaces a
+        // populated one — the user decides, no matter what the hashes say.
+        conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
         continue;
       }
       const noConflict = localRaw == null || (base !== undefined && localHash === base);
