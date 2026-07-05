@@ -504,6 +504,7 @@
     "rolePlaceholder": "主持者、保护者、守门人…",
     "color": "颜色",
     "hue": "色相",
+    "colorLock": "颜色锁定",
     "invalidHex": "无效的十六进制颜色",
     "transparentColor": "透明",
     "removeImageMsg": "要移除此图片吗？",
@@ -651,6 +652,8 @@
     "manage": "组",
     "allGroups": "所有组",
     "addPlaceholder": "新组名…",
+    "addMembers": "添加成员",
+    "removeMembers": "移除成员",
     "deleteGroup": "删除组",
     "deleteGroupMsg": "移除此组？成员不会被删除。",
     "deleteWithChildrenMsg": "其中包含 {{count}} 个嵌套项目。保留并上移一级，还是全部删除？"

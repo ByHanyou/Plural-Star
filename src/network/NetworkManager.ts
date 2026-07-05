@@ -463,6 +463,15 @@ class NetworkManagerImpl {
   }
 
   private routeMessage(sender: FriendIdentity, msg: NetMessage): void {
+    const known = this.friends.find(f => f.peerId === sender.peerId);
+    if (known) {
+      const ed = encodeBase64(sender.edPublicKey);
+      const box = encodeBase64(sender.boxPublicKey);
+      if (known.edPublicKey !== ed || known.boxPublicKey !== box) {
+        this.upsertFriend({ ...known, edPublicKey: ed, boxPublicKey: box });
+        this.persistFriends();
+      }
+    }
     switch (msg.t) {
       case 'connect': {
         const existing = this.friends.find(f => f.peerId === sender.peerId);

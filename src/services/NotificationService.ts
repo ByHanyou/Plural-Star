@@ -116,21 +116,34 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n')};
 };
 
-const frontAndroidConfig = (bigText: string) => ({
-  channelId: NOTIF_CHANNEL_ID,
-  ongoing: true,
-  onlyAlertOnce: true,
-  autoCancel: false,
-  smallIcon: 'ic_stat_notification',
-  importance: AndroidImportance.LOW,
-  visibility: AndroidVisibility.PUBLIC,
-  pressAction: {id: 'default'},
-  color: '#DAA520',
-  style: {
-    type: AndroidStyle.BIGTEXT as const,
-    text: bigText,
-  },
-});
+const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback: string) => {
+  const base = {
+    channelId: NOTIF_CHANNEL_ID,
+    ongoing: true,
+    onlyAlertOnce: true,
+    autoCancel: false,
+    smallIcon: 'ic_stat_notification',
+    importance: AndroidImportance.LOW,
+    visibility: AndroidVisibility.PUBLIC,
+    pressAction: {id: 'default'},
+    color: '#DAA520',
+  };
+  if (friendLines.length === 0) {
+    return {
+      ...base,
+      style: {type: AndroidStyle.BIGTEXT as const, text: ownBigText || fallback},
+    };
+  }
+  let ownLines = ownBigText ? ownBigText.split('\n') : [];
+  if (ownLines.length + friendLines.length > 6) {
+    ownLines = ownLines.slice(0, Math.max(1, 6 - friendLines.length));
+  }
+  const lines = [...ownLines, ...friendLines].slice(0, 6);
+  return {
+    ...base,
+    style: {type: AndroidStyle.INBOX as const, lines},
+  };
+};
 
 let fgsBound = false;
 
@@ -181,13 +194,12 @@ export const showFrontNotification = async (
     const title = content ? content.title : systemName;
     const body = content ? content.body : friendLines.length > 0 ? friendLines[0].replace(/^◈ /, '') : onlineLabel;
     const ownBig = content ? content.bigText : '';
-    const bigText = [ownBig, ...friendLines].filter(Boolean).join('\n\n') || onlineLabel;
 
     await notifee.displayNotification({
       id: NOTIF_ID,
       title,
       body,
-      android: {...frontAndroidConfig(bigText), asForegroundService: netOn},
+      android: {...frontAndroidConfig(ownBig, friendLines, onlineLabel), asForegroundService: netOn},
     });
     if (netOn) fgsBound = true;
   } catch (e) {
@@ -217,7 +229,7 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
-        android: {...frontAndroidConfig(content.bigText), asForegroundService: NetworkManager.getState().enabled},
+        android: {...frontAndroidConfig(content.bigText, buildFriendLines(), content.body), asForegroundService: NetworkManager.getState().enabled},
       },
       trigger,
     );

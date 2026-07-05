@@ -31,7 +31,8 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
   const [globalPwInput, setGlobalPwInput] = useState('');
   const [globalPwError, setGlobalPwError] = useState(false);
   const [unlockedEntries, setUnlockedEntries] = useState<Set<string>>(new Set());
-  const [entryPwModal, setEntryPwModal] = useState<{entry: JournalEntry; mode: 'edit' | 'delete'} | null>(null);
+  const [entryPwModal, setEntryPwModal] = useState<{entry: JournalEntry; mode: 'edit' | 'delete' | 'view'} | null>(null);
+  const [viewEntry, setViewEntry] = useState<JournalEntry | null>(null);
   const [entryPwInput, setEntryPwInput] = useState('');
   const [entryPwError, setEntryPwError] = useState(false);
   const [exportMenuEntry, setExportMenuEntry] = useState<JournalEntry | null>(null);
@@ -85,6 +86,11 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
     else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'edit'});}
   };
 
+  const handleViewTap = (entry: JournalEntry) => {
+    if (!entry.password || unlockedEntries.has(entry.id)) {setViewEntry(entry);}
+    else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'view'});}
+  };
+
   const handleDeleteTap = (entry: JournalEntry) => {
     if (!entry.password || unlockedEntries.has(entry.id)) {
       Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDelete(entry.id)}]);
@@ -99,6 +105,7 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
       setUnlockedEntries(prev => new Set([...prev, entryPwModal.entry.id]));
       setEntryPwError(false);
       if (entryPwModal.mode === 'edit') {onEdit(entryPwModal.entry);}
+      else if (entryPwModal.mode === 'view') {setViewEntry(entryPwModal.entry);}
       else {Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDelete(entryPwModal.entry.id)}]);}
       setEntryPwModal(null);
     } else setEntryPwError(true);
@@ -329,12 +336,16 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
                   </View>
                 )}
                 {isLocked ? (
-                  <TouchableOpacity onPress={() => handleEntryTap(e)} accessibilityRole="button" accessibilityLabel={t('journal.tapToUnlock')} style={{paddingVertical: 8, alignItems: 'center'}}>
+                  <TouchableOpacity onPress={() => handleViewTap(e)} accessibilityRole="button" accessibilityLabel={t('journal.tapToUnlock')} style={{paddingVertical: 8, alignItems: 'center'}}>
                     <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic'}}>{t('journal.tapToUnlock')}</Text>
                   </TouchableOpacity>
                 ) : (
                   <>
-                    {e.body ? <View style={{maxHeight: 80, overflow: 'hidden'}}><RichText text={e.body} T={T} numberOfLines={4} members={members} onMentionPress={onMentionPress} /></View> : null}
+                    {e.body ? (
+                      <TouchableOpacity onPress={() => handleViewTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${e.title || t('common.untitled')}`}>
+                        <View style={{maxHeight: 80, overflow: 'hidden'}} pointerEvents="none"><RichText text={e.body} T={T} numberOfLines={4} members={members} onMentionPress={onMentionPress} /></View>
+                      </TouchableOpacity>
+                    ) : null}
                     {(e.hashtags || []).length > 0 && (
                       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8}}>
                         {(e.hashtags || []).map(tag => (
@@ -383,6 +394,47 @@ export const JournalScreen = ({theme: T, journal, templates, members, systemJour
               style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!viewEntry} transparent animationType="fade" onRequestClose={() => setViewEntry(null)}>
+        <View style={s.overlay}>
+          <View style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border, maxWidth: 480, maxHeight: '85%'}]}>
+            <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text}]} numberOfLines={2}>{viewEntry?.pinned ? '📌 ' : ''}{viewEntry?.title || t('common.untitled')}</Text>
+            <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 8}}>{viewEntry ? fmtTime(viewEntry.timestamp) : ''}</Text>
+            {viewEntry && (viewEntry.authorIds || []).length > 0 && (
+              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10}}>
+                {(viewEntry.authorIds || []).map(id => getMember(id)).filter(Boolean).map(m => (
+                  <View key={m!.id} style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, backgroundColor: `${m!.color}20`, borderColor: `${m!.color}45`}}>
+                    <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m!.color}} />
+                    <Text style={{fontSize: fs(11), fontWeight: '600', color: m!.color}}>{m!.name}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            <ScrollView style={{flexShrink: 1}} contentContainerStyle={{paddingBottom: 4}}>
+              {viewEntry?.body ? <RichText text={viewEntry.body} T={T} members={members} onMentionPress={onMentionPress} /> : null}
+              {viewEntry && (viewEntry.hashtags || []).length > 0 && (
+                <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 10}}>
+                  {(viewEntry.hashtags || []).map(tag => (
+                    <View key={tag} style={[s.tagChip, {backgroundColor: `${T.info}12`, borderColor: `${T.info}30`}]}>
+                      <Text style={{fontSize: fs(11), color: T.info}}>{tag}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            <View style={{flexDirection: 'row', gap: 8, marginTop: 14}}>
+              <TouchableOpacity onPress={() => setViewEntry(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
+                style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.close')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { const e = viewEntry; setViewEntry(null); if (e) handleEntryTap(e); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.edit')}
+                style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`}}>
+                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('common.edit')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

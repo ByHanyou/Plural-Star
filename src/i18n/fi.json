@@ -497,6 +497,7 @@
     "rolePlaceholder": "esim. Isäntä, Suojelija",
     "color": "Väri",
     "hue": "Sävy",
+    "colorLock": "Värilukko",
     "invalidHex": "Virheellinen heksakoodi",
     "transparentColor": "Läpinäkyvä",
     "removeImageMsg": "Poistetaanko tämä kuva?",
@@ -651,6 +652,8 @@
     "manage": "Ryhmät",
     "allGroups": "Kaikki Ryhmät",
     "addPlaceholder": "Uuden ryhmän nimi…",
+    "addMembers": "Lisää jäseniä",
+    "removeMembers": "Poista jäseniä",
     "deleteGroup": "Poista Ryhmä",
     "deleteGroupMsg": "Poista tämä ryhmä? Jäseniä ei poisteta.",
     "deleteWithChildrenMsg": "Sisältää {{count}} sisäkkäistä kohdetta. Säilytetäänkö ne ja siirretään taso ylöspäin, vai poistetaanko kaikki?"

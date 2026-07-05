@@ -76,12 +76,12 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     if (dirtyRef.current) store.set(KEYS.whiteboard, strokesRef.current).catch(() => {});
   }, []);
 
-  const toWorld = (pageX: number, pageY: number): [number, number] => {
+  const toWorld = (localX: number, localY: number): [number, number] => {
     const vp = viewportRef.current;
     const p = panRef.current;
     return [
-      (pageX - vp.x - vp.w / 2 - p.tx) / p.scale,
-      (pageY - vp.y - vp.h / 2 - p.ty) / p.scale,
+      (localX - vp.w / 2 - p.tx) / p.scale,
+      (localY - vp.h / 2 - p.ty) / p.scale,
     ];
   };
 
@@ -111,7 +111,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       p.startTy = p.ty;
       p.startScale = p.scale;
       p.startDist = 0;
-      const [wx, wy] = toWorld(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
+      const [wx, wy] = toWorld(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
       if (toolRef.current === 'draw') {
         currentRef.current = {id: uid(), c: colorRef.current, w: widthRef.current, pts: [clampWorld(wx), clampWorld(wy)]};
         setCurrent(currentRef.current);
@@ -145,7 +145,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         setView({tx: p.tx, ty: p.ty, scale: p.scale});
         return;
       }
-      const [wx, wy] = toWorld(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
+      const [wx, wy] = toWorld(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
       if (toolRef.current === 'erase') {
         eraseAt(wx, wy);
         return;
@@ -264,18 +264,11 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         accessibilityLabel={t('whiteboard.title')}
         style={{flex: 1, overflow: 'hidden', backgroundColor: T.card}}
         onLayout={(e) => {
-          const {x, y, width: w, height: h} = e.nativeEvent.layout;
+          const {width: w, height: h} = e.nativeEvent.layout;
           viewportRef.current = {...viewportRef.current, w, h};
         }}
-        ref={(node: any) => {
-          if (node && node.measureInWindow) {
-            node.measureInWindow((x: number, y: number, w: number, h: number) => {
-              viewportRef.current = {x, y, w, h};
-            });
-          }
-        }}
         {...responder.panHandlers}>
-        <Svg width="100%" height="100%">
+        <Svg width="100%" height="100%" pointerEvents="none">
           <G transform={`translate(${viewportRef.current.w / 2 + view.tx}, ${viewportRef.current.h / 2 + view.ty}) scale(${view.scale})`}>
             <Path d={`M ${-HALF} ${-HALF} H ${HALF} V ${HALF} H ${-HALF} Z`} fill="none" stroke={T.border} strokeWidth={2 / view.scale} />
             {paths.map(p => (

@@ -481,6 +481,7 @@
     "rolePlaceholder": "宿主、守護者、守門人…",
     "color": "顏色",
     "hue": "色相",
+    "colorLock": "顏色鎖定",
     "invalidHex": "十六進位顏色無效",
     "transparentColor": "透明",
     "removeImageMsg": "要移除此圖片嗎？",
@@ -628,6 +629,8 @@
     "manage": "群組",
     "allGroups": "所有群組",
     "addPlaceholder": "新群組名稱…",
+    "addMembers": "新增成員",
+    "removeMembers": "移除成員",
     "deleteGroup": "刪除群組",
     "deleteGroupMsg": "移除此群組？成員不會被刪除。",
     "deleteWithChildrenMsg": "此群組包含 {{count}} 個巢狀項目。要保留並上移一層，還是全部刪除？"

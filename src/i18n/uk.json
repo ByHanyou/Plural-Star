@@ -504,6 +504,7 @@
     "rolePlaceholder": "Хост, Захисник, Воротар…",
     "color": "Колір",
     "hue": "Відтінок",
+    "colorLock": "Блокування кольору",
     "invalidHex": "Невірний hex-колір",
     "transparentColor": "Прозорий",
     "removeImageMsg": "Видалити це зображення?",
@@ -651,6 +652,8 @@
     "manage": "Групи",
     "allGroups": "Усі групи",
     "addPlaceholder": "Назва нової групи…",
+    "addMembers": "Додати учасників",
+    "removeMembers": "Прибрати учасників",
     "deleteGroup": "Видалити групу",
     "deleteGroupMsg": "Видалити цю групу? Учасники залишаться.",
     "deleteWithChildrenMsg": "Містить вкладених елементів: {{count}}. Зберегти їх, піднявши на рівень вище, чи видалити все?"

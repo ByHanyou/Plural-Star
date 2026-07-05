@@ -509,6 +509,7 @@
     "rolePlaceholder": "Host, Protector, Guardián…",
     "color": "Color",
     "hue": "Tono",
+    "colorLock": "Bloqueo de color",
     "invalidHex": "Color hex inválido",
     "transparentColor": "Transparente",
     "removeImageMsg": "¿Quitar esta imagen?",
@@ -658,6 +659,8 @@
     "manage": "Grupos",
     "allGroups": "Todos los Grupos",
     "addPlaceholder": "Nombre del nuevo grupo…",
+    "addMembers": "Añadir miembros",
+    "removeMembers": "Quitar miembros",
     "deleteGroup": "Eliminar Grupo",
     "deleteGroupMsg": "¿Quitar este grupo? Los miembros no se eliminarán.",
     "deleteWithChildrenMsg": "Contiene {{count}} elemento(s) anidado(s). ¿Mantenerlos y subirlos un nivel, o eliminar todo?"

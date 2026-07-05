@@ -28,6 +28,25 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: any}) => {
   return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" onError={() => setFailed(true)} />;
 };
 
+const AutoImage = ({uri, T, hintRatio}: {uri: string; T: any; hintRatio?: number}) => {
+  const [ratio, setRatio] = React.useState<number | null>(hintRatio || null);
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => {
+    let live = true;
+    setFailed(false);
+    if (hintRatio) { setRatio(hintRatio); return; }
+    setRatio(null);
+    Image.getSize(uri, (w, h) => { if (live && w > 0 && h > 0) setRatio(w / h); }, () => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, [uri, hintRatio]);
+  if (failed) {
+    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>[image unavailable]</Text>;
+  }
+  const r = ratio || 1.5;
+  const sizing = r >= 1 ? {width: '100%' as const, aspectRatio: r} : {width: '100%' as const, height: 280};
+  return <Image source={{uri}} style={[{borderRadius: 8, marginVertical: 2}, sizing]} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" onError={() => setFailed(true)} />;
+};
+
 const renderTextWithMentions = (
   text: string,
   T: any,
@@ -66,7 +85,10 @@ const renderTextWithMentions = (
 
 const isHTML = (text: string): boolean => {
   const t = text.trim();
-  return t.startsWith('<') || /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr|img|br|strong|em|b|i|s|del|code|a)\b/i.test(t);
+  if (/^<(?:img|br)\b/i.test(t)) {
+    return /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr|strong|em|b|i|s|del|code|a)\b/i.test(t);
+  }
+  return t.startsWith('<') || /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr|strong|em|b|i|s|del|code|a)\b/i.test(t);
 };
 
 const decodeEntities = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
@@ -301,7 +323,16 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
 }) => {
   if (!text) return null;
   if (isHTML(text)) return renderHTMLBlocks(text, T, members, onMentionPress);
-  const lines = text.split('\n');
+  const mdText = text
+    .replace(/<img\s[^>]*>/gi, tag => {
+      const src = (tag.match(/src=["']([^"']+)["']/) || [])[1] || '';
+      if (!src) return '';
+      const w = (tag.match(/width=["']?(\d+)/) || [])[1];
+      const h = (tag.match(/height=["']?(\d+)/) || [])[1];
+      return `![](${src}${w && h ? `#${w}x${h}` : ''})`;
+    })
+    .replace(/<br\s*\/?>/gi, '\n');
+  const lines = mdText.split('\n');
   const displayLines = numberOfLines ? lines.slice(0, numberOfLines) : lines;
   const elements: React.ReactNode[] = [];
   displayLines.forEach((line, i) => {
@@ -328,7 +359,8 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
       }
       if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
       if (isValidImageUri(url)) {
-        elements.push(<UriImage key={i * 3 + 1} uri={url} style={{width: '100%', height: 200, borderRadius: 8}} T={T} />);
+        const hintRatio = sizeHint ? Number(sizeHint[1]) / Number(sizeHint[2]) : undefined;
+        elements.push(<AutoImage key={i * 3 + 1} uri={url} T={T} hintRatio={hintRatio && hintRatio > 0 ? hintRatio : undefined} />);
       } else {
         elements.push(<Text key={i * 3 + 1} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image]</Text>);
       }
@@ -340,7 +372,7 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
       const before = line.slice(0, line.indexOf(imgMatch[0])).trim();
       const after = line.slice(line.indexOf(imgMatch[0]) + imgMatch[0].length).trim();
       if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
-      elements.push(<Image key={i * 3 + 1} source={{uri: imgMatch[0]}} style={{width: '100%', height: 200, borderRadius: 8}} resizeMode="contain" />);
+      elements.push(<AutoImage key={i * 3 + 1} uri={imgMatch[0]} T={T} />);
       if (after) elements.push(renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress));
     } else {
       elements.push(renderMarkdownLine(line, T, i, members, onMentionPress));

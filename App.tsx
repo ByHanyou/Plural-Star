@@ -17,6 +17,7 @@ import {store, KEYS, storageLooksWiped, restoreAllBackups} from './src/storage';
 import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, frontToHistoryEntry, uid, makeDefaultCustomFronts, isFrontEmpty, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode, emergencyNotificationLine} from './src/utils';
 import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia, migrateStaleMediaPaths, rebaseChatMessageMedia} from './src/utils/mediaUtils';
 import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, showNoteboardNotification, clearNoteboardNotification, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders} from './src/services/NotificationService';
+import {waitForProtectedData} from './src/services/LiveActivityService';
 
 import {SetupScreen} from './src/screens/SetupScreen';
 import {LockScreen} from './src/screens/LockScreen';
@@ -175,8 +176,12 @@ function MainAppContent() {
 
   const loadAll = useCallback(async () => {
     let storageSuspect = false;
+    if (!(await waitForProtectedData())) {
+      console.warn('[STARTUP] Protected data still locked (pre-unlock background launch) — marking storage suspect.');
+      storageSuspect = true;
+    }
     try {
-      if (await storageLooksWiped()) {
+      if (!storageSuspect && await storageLooksWiped()) {
         console.warn('[STARTUP] AsyncStorage blank but backups exist — restoring before load');
         const n = await restoreAllBackups();
         console.warn(`[STARTUP] restored ${n} keys from file backups`);
@@ -202,6 +207,11 @@ function MainAppContent() {
         store.get<ChatChannel[]>(KEYS.chatChannels, []),
       ]);
       console.log(`[STARTUP] loadAll begin — sys:${!!sys} members:${(mem||[]).length} groups:${(grps||[]).length} journal:${(jour||[]).length} history:${(hist||[]).length} channels:${(savedChannels||[]).length}`);
+      if (!storageSuspect && !sys && (mem || []).length === 0 && (hist || []).length === 0 && AppState.currentState !== 'active') {
+        console.warn('[STARTUP] Blank load while app is not active — background/prewarm launch, storage may still be locked. Marking suspect; will retry on foreground.');
+        storageSuspect = true;
+        storageSuspectRef.current = true;
+      }
       let loadedSystem = sys;
       let loadedMembers = mem || [];
       try {
@@ -809,6 +819,10 @@ function MainAppContent() {
     const idSet = new Set(ids);
     await saveMembers(members.map(m => idSet.has(m.id) ? {...m, groupIds: [...new Set([...(m.groupIds || []), ...groupIds])]} : m));
   };
+  const bulkRemoveFromGroup = async (ids: string[], groupId: string) => {
+    const idSet = new Set(ids);
+    await saveMembers(members.map(m => idSet.has(m.id) ? {...m, groupIds: (m.groupIds || []).filter(g => g !== groupId)} : m));
+  };
   const saveEntry = async (e: JournalEntry) => {
     const u = journal.find(x => x.id === e.id) ? journal.map(x => (x.id === e.id ? e : x)) : [e, ...journal];
     await saveJournal(u);
@@ -993,7 +1007,7 @@ function MainAppContent() {
           onBulkAddGroups={bulkAddGroups}
         />;
       case 'hub':
-        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} renderWhiteboardScreen={renderWhiteboardScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
+        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} members={members} history={history} front={front} onSaveHistory={saveHistory} onSetFront={handleHubSetFront} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} members={members} groups={groups} onSaveGroups={saveGroups} onViewMember={openMemberById} front={front} onQuickFront={quickAddToFront} onRemoveFromFront={removeFromFront} onAddToGroup={(ids, groupId) => bulkAddGroups(ids, [groupId])} onRemoveFromGroup={bulkRemoveFromGroup} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} renderWhiteboardScreen={renderWhiteboardScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
       case 'journal':
         return <JournalScreen theme={C} journal={journal} templates={journalTemplates} members={members} systemJournalPassword={system.journalPassword} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} onTogglePin={e => saveEntry({...e, pinned: !e.pinned})} onSaveTemplates={saveJournalTemplates} onMentionPress={openMemberById} />;
       case 'history':

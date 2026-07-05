@@ -509,6 +509,7 @@
     "rolePlaceholder": "ホスト、プロテクター、ゲートキーパー…",
     "color": "色",
     "hue": "色相",
+    "colorLock": "カラーロック",
     "invalidHex": "無効な16進数カラー",
     "transparentColor": "透明",
     "removeImageMsg": "この画像を削除しますか？",
@@ -658,6 +659,8 @@
     "manage": "グループ",
     "allGroups": "すべてのグループ",
     "addPlaceholder": "新しいグループ名…",
+    "addMembers": "メンバーを追加",
+    "removeMembers": "メンバーを外す",
     "deleteGroup": "グループを削除",
     "deleteGroupMsg": "このグループを削除しますか？メンバーは削除されません。",
     "deleteWithChildrenMsg": "{{count}} 件の入れ子項目が含まれています。1 つ上の階層に残しますか、それともすべて削除しますか？"

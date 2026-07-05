@@ -7,6 +7,7 @@ type LiveActivityModule = {
   endActivity(): Promise<unknown>;
   getFriendsPushToken?(): Promise<string | null>;
   endFriendsActivity?(): Promise<unknown>;
+  waitForProtectedData?(): Promise<boolean>;
 };
 
 const nativeModule: LiveActivityModule | null =
@@ -31,6 +32,20 @@ export const endFriendsActivity = async (): Promise<void> => {
   try {
     await nativeModule.endFriendsActivity();
   } catch {}
+};
+
+export const waitForProtectedData = async (): Promise<boolean> => {
+  if (Platform.OS !== 'ios') return true;
+  if (!nativeModule || typeof nativeModule.waitForProtectedData !== 'function') return true;
+  try {
+    const raced = await Promise.race<boolean | 'timeout'>([
+      nativeModule.waitForProtectedData() as Promise<boolean>,
+      new Promise<'timeout'>(r => setTimeout(() => r('timeout'), 32000)),
+    ]);
+    return raced === true;
+  } catch {
+    return true;
+  }
 };
 
 export const updateFrontLiveActivity = async (

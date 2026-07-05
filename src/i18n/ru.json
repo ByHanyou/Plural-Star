@@ -509,6 +509,7 @@
     "rolePlaceholder": "Хост, Защитник, Привратник…",
     "color": "Цвет",
     "hue": "Оттенок",
+    "colorLock": "Блокировка цвета",
     "invalidHex": "Неверный hex-цвет",
     "transparentColor": "Прозрачный",
     "removeImageMsg": "Удалить это изображение?",
@@ -658,6 +659,8 @@
     "manage": "Группы",
     "allGroups": "Все группы",
     "addPlaceholder": "Имя новой группы…",
+    "addMembers": "Добавить участников",
+    "removeMembers": "Убрать участников",
     "deleteGroup": "Удалить группу",
     "deleteGroupMsg": "Удалить эту группу? Участники останутся.",
     "deleteWithChildrenMsg": "Содержит вложенных элементов: {{count}}. Сохранить их, подняв на уровень выше, или удалить всё?"

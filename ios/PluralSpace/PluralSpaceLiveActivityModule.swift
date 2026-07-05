@@ -1,5 +1,6 @@
 import Foundation
 import React
+import UIKit
 
 #if canImport(ActivityKit)
 import ActivityKit
@@ -177,6 +178,40 @@ class PluralSpaceLiveActivity: NSObject {
 #else
     resolve(NSNull())
 #endif
+  }
+
+  @objc(waitForProtectedData:rejecter:)
+  func waitForProtectedData(
+    _ resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+    DispatchQueue.main.async {
+      if UIApplication.shared.isProtectedDataAvailable {
+        resolve(true)
+        return
+      }
+      var resolved = false
+      var observer: NSObjectProtocol?
+      var timeoutWork: DispatchWorkItem?
+      let finish: (Bool) -> Void = { ok in
+        if resolved { return }
+        resolved = true
+        if let obs = observer {
+          NotificationCenter.default.removeObserver(obs)
+          observer = nil
+        }
+        timeoutWork?.cancel()
+        resolve(ok)
+      }
+      observer = NotificationCenter.default.addObserver(
+        forName: UIApplication.protectedDataDidBecomeAvailableNotification,
+        object: nil,
+        queue: .main
+      ) { _ in finish(true) }
+      let work = DispatchWorkItem { finish(false) }
+      timeoutWork = work
+      DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: work)
+    }
   }
 
   @objc(endFriendsActivity:rejecter:)

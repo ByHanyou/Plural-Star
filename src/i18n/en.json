@@ -486,6 +486,7 @@
     "rolePlaceholder": "Host, Protector, Gatekeeper…",
     "color": "Color",
     "hue": "Hue",
+    "colorLock": "Color lock",
     "invalidHex": "Invalid hex color",
     "transparentColor": "Transparent",
     "removeImageMsg": "Remove this image?",
@@ -635,6 +636,8 @@
     "manage": "Groups",
     "allGroups": "All Groups",
     "addPlaceholder": "New group name…",
+    "addMembers": "Add members",
+    "removeMembers": "Remove members",
     "deleteGroup": "Delete Group",
     "deleteGroupMsg": "Remove this group? Members won't be deleted.",
     "deleteWithChildrenMsg": "This contains {{count}} nested item(s). Keep them and move them up one level, or delete everything?"

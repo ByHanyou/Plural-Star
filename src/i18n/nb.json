@@ -502,6 +502,7 @@
     "rolePlaceholder": "f.eks. Vert, Beskytter",
     "color": "Farge",
     "hue": "Fargetone",
+    "colorLock": "Fargelås",
     "invalidHex": "Ugyldig hekskode",
     "transparentColor": "Gjennomsiktig",
     "removeImageMsg": "Fjerne dette bildet?",
@@ -658,6 +659,8 @@
     "manage": "Grupper",
     "allGroups": "Alle Grupper",
     "addPlaceholder": "Nytt gruppenavn…",
+    "addMembers": "Legg til medlemmer",
+    "removeMembers": "Fjern medlemmer",
     "deleteGroup": "Slett Gruppe",
     "deleteGroupMsg": "Fjerne denne gruppen? Medlemmer slettes ikke.",
     "deleteWithChildrenMsg": "Inneholder {{count}} nestede elementer. Behold dem og flytt dem opp ett nivå, eller slett alt?"

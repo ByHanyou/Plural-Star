@@ -474,6 +474,7 @@
     "rolePlaceholder": "Host, Beschützer, Torwächter…",
     "color": "Farbe",
     "hue": "Farbton",
+    "colorLock": "Farbsperre",
     "invalidHex": "Ungültige Hex-Farbe",
     "transparentColor": "Transparent",
     "removeImageMsg": "Dieses Bild entfernen?",
@@ -623,6 +624,8 @@
     "manage": "Gruppen",
     "allGroups": "Alle Gruppen",
     "addPlaceholder": "Gruppenname…",
+    "addMembers": "Mitglieder hinzufügen",
+    "removeMembers": "Mitglieder entfernen",
     "deleteGroup": "Gruppe Löschen",
     "deleteGroupMsg": "Diese Gruppe entfernen? Mitglieder werden nicht gelöscht.",
     "deleteWithChildrenMsg": "Enthält {{count}} verschachtelte Elemente. Behalten und eine Ebene nach oben verschieben, oder alles löschen?"

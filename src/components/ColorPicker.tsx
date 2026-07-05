@@ -1,5 +1,5 @@
 import React, {memo, useEffect, useRef, useState} from 'react';
-import {View, PanResponder} from 'react-native';
+import {View, PanResponder, TouchableOpacity} from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import {Text, TextInput} from './AppText';
 import {useTranslation} from 'react-i18next';
@@ -68,13 +68,15 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
   const [hexText, setHexText] = useState(safe.toUpperCase());
   const [sqSize, setSqSize] = useState({w: 0, h: 0});
   const [hueW, setHueW] = useState(0);
+  const [locked, setLocked] = useState(true);
+  const lockedRef = useRef(locked); lockedRef.current = locked;
 
   const hsvRef = useRef(hsv); hsvRef.current = hsv;
   const sqRef = useRef({w: 0, h: 0});
   const hueRef = useRef(0);
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
-  // the exact hex we last emitted, so we can ignore the parent echoing it back to us
-  const lastHexRef = useRef(safe.toUpperCase());
+  // the hexes we've emitted that the parent may still echo back to us
+  const emittedRef = useRef<string[]>([safe.toUpperCase()]);
 
   // Adopt an external/typed hex while preserving hue (and saturation for black),
   // which a grayscale/white/black hex cannot represent on its own.
@@ -88,13 +90,17 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
     };
     hsvRef.current = merged;
     setHsv(merged);
-    lastHexRef.current = n.toUpperCase();
+    emittedRef.current = [n.toUpperCase()];
   };
 
   useEffect(() => {
     const n = normalizeHex(value || '');
     if (!isValidHex(n)) return;
-    if (n.toUpperCase() === lastHexRef.current) return; // our own echo — ignore
+    const idx = emittedRef.current.indexOf(n.toUpperCase());
+    if (idx >= 0) {
+      emittedRef.current.splice(0, idx); // our own echo (possibly stale) — ignore
+      return;
+    }
     adopt(n);
     setHexText(n.toUpperCase());
   }, [value]);
@@ -103,7 +109,8 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
     hsvRef.current = next;
     setHsv(next);
     const hex = hsvToHex(next.h, next.s, next.v);
-    lastHexRef.current = hex.toUpperCase();
+    emittedRef.current.push(hex.toUpperCase());
+    if (emittedRef.current.length > 64) emittedRef.current.splice(0, emittedRef.current.length - 64);
     setHexText(hex);
     onChangeRef.current(hex);
   };
@@ -120,19 +127,19 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
   };
 
   const sqPan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => !lockedRef.current,
+    onMoveShouldSetPanResponder: () => !lockedRef.current,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: e => applySq(e.nativeEvent.locationX, e.nativeEvent.locationY),
-    onPanResponderMove: e => applySq(e.nativeEvent.locationX, e.nativeEvent.locationY),
+    onPanResponderGrant: e => { if (!lockedRef.current) applySq(e.nativeEvent.locationX, e.nativeEvent.locationY); },
+    onPanResponderMove: e => { if (!lockedRef.current) applySq(e.nativeEvent.locationX, e.nativeEvent.locationY); },
   })).current;
 
   const huePan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponder: () => !lockedRef.current,
+    onMoveShouldSetPanResponder: () => !lockedRef.current,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: e => applyHue(e.nativeEvent.locationX),
-    onPanResponderMove: e => applyHue(e.nativeEvent.locationX),
+    onPanResponderGrant: e => { if (!lockedRef.current) applyHue(e.nativeEvent.locationX); },
+    onPanResponderMove: e => { if (!lockedRef.current) applyHue(e.nativeEvent.locationX); },
   })).current;
 
   const onHexChange = (val: string) => {
@@ -149,26 +156,30 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
 
   return (
     <View>
-      <View
-        onLayout={e => { const {width, height} = e.nativeEvent.layout; sqRef.current = {w: width, h: height}; setSqSize({w: width, h: height}); }}
-        {...sqPan.panHandlers}
-        accessibilityRole="adjustable"
-        accessibilityLabel={t('modal.color')}
-        accessibilityValue={{text: curHex}}
-        style={{width: '100%', height: 160, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: T.border}}>
-        <SatValGradient hueHex={hueHex} />
-        <View pointerEvents="none" style={{position: 'absolute', left: hsv.s * sqSize.w - 9, top: (1 - hsv.v) * sqSize.h - 9, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: curHex}} />
-      </View>
+      <View style={{opacity: locked ? 0.45 : 1}}>
+        <View
+          onLayout={e => { const {width, height} = e.nativeEvent.layout; sqRef.current = {w: width, h: height}; setSqSize({w: width, h: height}); }}
+          {...sqPan.panHandlers}
+          accessibilityRole="adjustable"
+          accessibilityLabel={t('modal.color')}
+          accessibilityValue={{text: curHex}}
+          accessibilityState={{disabled: locked}}
+          style={{width: '100%', height: 160, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: T.border}}>
+          <SatValGradient hueHex={hueHex} />
+          <View pointerEvents="none" style={{position: 'absolute', left: hsv.s * sqSize.w - 9, top: (1 - hsv.v) * sqSize.h - 9, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: curHex}} />
+        </View>
 
-      <View
-        onLayout={e => { const {width} = e.nativeEvent.layout; hueRef.current = width; setHueW(width); }}
-        {...huePan.panHandlers}
-        accessibilityRole="adjustable" accessibilityLabel={t('modal.hue')} accessibilityValue={{text: `${Math.round(hsv.h)}°`}}
-        accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
-        onAccessibilityAction={e => { const cur = hsvRef.current; const step = e.nativeEvent.actionName === 'increment' ? 10 : -10; commit({...cur, h: (cur.h + step + 360) % 360}); }}
-        style={{height: 18, borderRadius: 9, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: T.border}}>
-        <HueGradient />
-        <View pointerEvents="none" style={{position: 'absolute', left: (hsv.h / 360) * hueW - 9, top: -1, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: hueHex}} />
+        <View
+          onLayout={e => { const {width} = e.nativeEvent.layout; hueRef.current = width; setHueW(width); }}
+          {...huePan.panHandlers}
+          accessibilityRole="adjustable" accessibilityLabel={t('modal.hue')} accessibilityValue={{text: `${Math.round(hsv.h)}°`}}
+          accessibilityState={{disabled: locked}}
+          accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+          onAccessibilityAction={e => { if (lockedRef.current) return; const cur = hsvRef.current; const step = e.nativeEvent.actionName === 'increment' ? 10 : -10; commit({...cur, h: (cur.h + step + 360) % 360}); }}
+          style={{height: 18, borderRadius: 9, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: T.border}}>
+          <HueGradient />
+          <View pointerEvents="none" style={{position: 'absolute', left: (hsv.h / 360) * hueW - 9, top: -1, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: hueHex}} />
+        </View>
       </View>
 
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14}}>
@@ -176,6 +187,14 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         <TextInput value={hexText} onChangeText={onHexChange} placeholder="#000000" placeholderTextColor={T.muted} maxLength={7} autoCapitalize="characters" autoCorrect={false}
           accessibilityLabel={t('modal.color')}
           style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: isValidHex(normalizeHex(hexText)) || hexText.length < 2 ? T.border : T.danger, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: 'monospace'}} />
+        <TouchableOpacity
+          onPress={() => setLocked(l => !l)}
+          accessibilityRole="switch"
+          accessibilityLabel={t('modal.colorLock')}
+          accessibilityState={{checked: locked}}
+          style={{width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: locked ? T.accent : T.border, backgroundColor: T.surface}}>
+          <Text style={{fontSize: 16}}>{locked ? '🔒' : '🔓'}</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

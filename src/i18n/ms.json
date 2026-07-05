@@ -481,6 +481,7 @@
     "rolePlaceholder": "Hos, Pelindung, Penjaga pintu…",
     "color": "Warna",
     "hue": "Rona",
+    "colorLock": "Kunci warna",
     "invalidHex": "Warna hex tidak sah",
     "transparentColor": "Lutsinar",
     "removeImageMsg": "Buang imej ini?",
@@ -628,6 +629,8 @@
     "manage": "Kumpulan",
     "allGroups": "Semua Kumpulan",
     "addPlaceholder": "Nama kumpulan baharu…",
+    "addMembers": "Tambah ahli",
+    "removeMembers": "Keluarkan ahli",
     "deleteGroup": "Padam Kumpulan",
     "deleteGroupMsg": "Buang kumpulan ini? Ahli tidak akan dipadam.",
     "deleteWithChildrenMsg": "Ini mengandungi {{count}} item bersarang. Kekalkan dan naikkan satu peringkat, atau padam semuanya?"

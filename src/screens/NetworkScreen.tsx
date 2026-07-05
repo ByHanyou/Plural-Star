@@ -136,7 +136,12 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
     if (!code) return;
     Clipboard.setString(code);
     setCopiedKind(kind);
-    AccessibilityInfo.announceForAccessibility(t('network.codeCopied'));
+    setTimeout(() => {
+      const msg = t('network.codeCopied');
+      const AI: any = AccessibilityInfo;
+      if (AI.announceForAccessibilityWithOptions) AI.announceForAccessibilityWithOptions(msg, {queue: true});
+      else AccessibilityInfo.announceForAccessibility(msg);
+    }, 400);
     setTimeout(() => setCopiedKind(c => (c === kind ? null : c)), 1500);
   };
 

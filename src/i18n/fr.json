@@ -474,6 +474,7 @@
     "rolePlaceholder": "Hôte, Protecteur, Gardien…",
     "color": "Couleur",
     "hue": "Teinte",
+    "colorLock": "Verrouillage de la couleur",
     "invalidHex": "Couleur hex invalide",
     "transparentColor": "Transparent",
     "removeImageMsg": "Supprimer cette image ?",
@@ -623,6 +624,8 @@
     "manage": "Groupes",
     "allGroups": "Tous les Groupes",
     "addPlaceholder": "Nom du groupe…",
+    "addMembers": "Ajouter des membres",
+    "removeMembers": "Retirer des membres",
     "deleteGroup": "Supprimer le Groupe",
     "deleteGroupMsg": "Supprimer ce groupe ? Les membres ne seront pas supprimés.",
     "deleteWithChildrenMsg": "Ceci contient {{count}} élément(s) imbriqué(s). Les conserver en les remontant d'un niveau, ou tout supprimer ?"

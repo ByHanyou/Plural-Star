@@ -15,6 +15,9 @@ RCT_EXTERN_METHOD(getFriendsPushToken:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(endFriendsActivity:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
+RCT_EXTERN_METHOD(waitForProtectedData:(RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+
 + (BOOL)requiresMainQueueSetup
 {
   return NO;
