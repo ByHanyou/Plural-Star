@@ -17,6 +17,7 @@ import i18n from '../i18n/i18n';
 
 export const NOTIF_CHANNEL_ID = 'plural-space-front';
 export const NOTIF_ID = 'ps-front-status';
+export const FRIEND_NOTIF_PREFIX = 'ps-friend-';
 
 export const REMINDER_CHANNEL_ID = 'plural-space-reminders';
 export const FRONT_CHECK_NOTIF_ID = 'ps-front-check';
@@ -162,6 +163,67 @@ const buildFriendLines = (): string[] => {
   return lines;
 };
 
+const buildFriendNotifs = (): {id: string; title: string; body: string; big: string}[] => {
+  const st = NetworkManager.getState();
+  if (!st.enabled) return [];
+  const out: {id: string; title: string; body: string; big: string}[] = [];
+  for (const f of st.friends) {
+    if (out.length >= MAX_NOTIF_FRIENDS) break;
+    if (!f.showInNotification || f.status !== 'accepted') continue;
+    const s = f.lastStatus;
+    if (!s || !s.fronters) continue;
+    const dur = s.startTime ? fmtDur(s.startTime) : '';
+    const lines: string[] = [s.fronters];
+    if (s.mood) lines.push(i18n.t('notification.mood', {mood: s.mood, defaultValue: `Mood: ${s.mood}`}));
+    if (s.location) lines.push(i18n.t('notification.at', {location: s.location, defaultValue: `At: ${s.location}`}));
+    if (s.note) lines.push(i18n.t('notification.note', {note: s.note, defaultValue: `Note: ${s.note}`}));
+    if (s.startTime) lines.push(i18n.t('notification.since', {time: fmtTime(s.startTime), defaultValue: `Since ${fmtTime(s.startTime)}`}));
+    out.push({
+      id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
+      title: f.displayName,
+      body: `${s.fronters}${dur ? `  ·  ${dur}` : ''}`,
+      big: lines.join('\n'),
+    });
+  }
+  return out;
+};
+
+const cancelStaleFriendNotifs = async (keepIds: Set<string>) => {
+  try {
+    const displayed = await notifee.getDisplayedNotifications();
+    for (const d of displayed) {
+      const nid = (d as any).notification?.id || (d as any).id;
+      if (nid && typeof nid === 'string' && nid.startsWith(FRIEND_NOTIF_PREFIX) && !keepIds.has(nid)) {
+        try { await notifee.cancelNotification(nid); } catch {}
+      }
+    }
+  } catch {}
+};
+
+const syncFriendNotifications = async () => {
+  const desired = buildFriendNotifs();
+  await cancelStaleFriendNotifs(new Set(desired.map(d => d.id)));
+  for (const d of desired) {
+    await notifee.displayNotification({
+      id: d.id,
+      title: d.title,
+      body: d.body,
+      android: {
+        channelId: NOTIF_CHANNEL_ID,
+        ongoing: true,
+        onlyAlertOnce: true,
+        autoCancel: false,
+        smallIcon: 'ic_stat_notification',
+        importance: AndroidImportance.LOW,
+        visibility: AndroidVisibility.PUBLIC,
+        pressAction: {id: 'default'},
+        color: '#DAA520',
+        style: {type: AndroidStyle.BIGTEXT as const, text: d.big || d.body},
+      },
+    });
+  }
+};
+
 export const showFrontNotification = async (
   front: FrontState | null,
   members: Member[],
@@ -176,9 +238,8 @@ export const showFrontNotification = async (
 
     const netOn = NetworkManager.getState().enabled;
     const content = front ? buildFrontContent(front, members) : null;
-    const friendLines = buildFriendLines();
 
-    if (!content && !netOn) {
+    if (!content && !netOn && !emergencyLine) {
       await clearFrontNotification();
       return;
     }
@@ -192,16 +253,18 @@ export const showFrontNotification = async (
 
     const onlineLabel = i18n.t('network.status.online', {defaultValue: 'Online'});
     const title = content ? content.title : systemName;
-    const body = content ? content.body : friendLines.length > 0 ? friendLines[0].replace(/^◈ /, '') : onlineLabel;
-    const ownBig = content ? content.bigText : '';
+    const body = content ? content.body : (emergencyLine || onlineLabel);
+    const ownBig = content ? content.bigText : (emergencyLine || '');
 
     await notifee.displayNotification({
       id: NOTIF_ID,
       title,
       body,
-      android: {...frontAndroidConfig(ownBig, friendLines, onlineLabel), asForegroundService: netOn},
+      android: {...frontAndroidConfig(ownBig, [], onlineLabel), asForegroundService: netOn},
     });
     if (netOn) fgsBound = true;
+
+    await syncFriendNotifications();
   } catch (e) {
     console.error('[PluralSpace] Notification error:', e);
   }
@@ -229,7 +292,7 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
-        android: {...frontAndroidConfig(content.bigText, buildFriendLines(), content.body), asForegroundService: NetworkManager.getState().enabled},
+        android: {...frontAndroidConfig(content.bigText, [], content.body), asForegroundService: NetworkManager.getState().enabled},
       },
       trigger,
     );
@@ -254,6 +317,7 @@ export const clearFrontNotification = async () => {
     }
     try { await notifee.cancelTriggerNotification(NOTIF_ID); } catch {}
     await notifee.cancelNotification(NOTIF_ID);
+    await cancelStaleFriendNotifs(new Set());
     try { await notifee.stopForegroundService(); } catch {}
     fgsBound = false;
   } catch (e) {

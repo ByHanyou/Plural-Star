@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "ขาว",
+    "black": "ดำ",
+    "red": "แดง",
+    "orange": "ส้ม",
+    "yellow": "เหลือง",
+    "green": "เขียว",
+    "blue": "น้ำเงิน",
+    "indigo": "คราม",
+    "brown": "น้ำตาล",
+    "gray": "เทา",
+    "slate": "เทาหินชนวน",
+    "goldenrod": "เหลืองทอง",
+    "periwinkle": "ฟ้าอมม่วง",
+    "pink": "ชมพู",
+    "mint": "เขียวมิ้นต์",
+    "lavender": "ลาเวนเดอร์",
+    "peach": "พีช",
+    "seaGreen": "เขียวทะเล",
+    "coral": "คอรัล",
+    "skyBlue": "ฟ้า",
+    "orchid": "ม่วงกล้วยไม้",
+    "lime": "เขียวมะนาว",
+    "sand": "ทราย"
+  },
+  "editor": {
+    "markdownPlaceholder": "เขียนด้วย markdown…",
+    "urlPlaceholder": "URL ที่นี่",
+    "textPlaceholder": "ข้อความ",
+    "body": "ตัวแก้ไข"
+  },
+  "markdown": {
+    "imageUnavailable": "[รูปภาพไม่พร้อมใช้งาน]",
+    "brokenImage": "[รูปภาพเสีย]",
+    "brokenImageUrl": "[รูปภาพเสีย: {{url}}]"
+  },
   "common": {
     "movedToTop": "ตอนนี้อยู่ลำดับแรก",
     "movedToBottom": "ตอนนี้อยู่ลำดับสุดท้าย",
@@ -121,6 +157,9 @@
     "clearFrontTitle": "ล้างฟรอนต์?"
   },
   "members": {
+    "fieldCount": "จำนวนสมาชิก",
+    "clone": "โคลน",
+    "cloneFields": "คัดลอกฟิลด์ใดบ้าง?",
     "frontingLockTitle": "กำลังฟรอนต์อยู่",
     "frontingLockMsg": "ไม่สามารถเก็บถาวรหรือลบสมาชิกขณะกำลังฟรอนต์ได้ นำออกจากฟรอนต์ก่อน",
     "addCustomFront": "เพิ่มฟรอนต์กำหนดเอง",
@@ -254,6 +293,23 @@
     "templateBody": "เนื้อหาบันทึก (ตั้งล่วงหน้า)"
   },
   "share": {
+    "jsonHint": "ZIP และ JSON เป็นข้อมูลสำรองแบบเต็มที่คุณสามารถนำเข้ากลับสู่ Plural Star ได้",
+    "invalidJsonBackup": "ไฟล์ไม่ใช่ JSON ที่ถูกต้อง โปรดเลือกไฟล์สำรอง Plural Star หรือ Simply Plural (.json)",
+    "unrecognizedBackup": "ไฟล์นี้ดูไม่เหมือนข้อมูลสำรองของ Plural Star, Simply Plural, Octocon, Ourcana หรือ HiveMind เลือกไฟล์ .json ที่ส่งออกจากแอปเหล่านั้น (หรือใช้แท็บ Ampersand สำหรับไฟล์ .ampar)",
+    "couldNotImportFile": "ไม่สามารถนำเข้าไฟล์ได้",
+    "couldNotReadFile": "ไม่สามารถอ่านไฟล์ได้",
+    "restoreFailedGeneric": "การกู้คืนล้มเหลว",
+    "couldNotConnect": "ไม่สามารถเชื่อมต่อได้",
+    "importFailedGeneric": "การนำเข้าล้มเหลว",
+    "couldNotImportAvatars": "ไม่สามารถนำเข้ารูปประจำตัวได้",
+    "couldNotReadAmpar": "ไม่สามารถอ่านไฟล์ .ampar ได้",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "ฟิลด์กำหนดเอง — นำเข้าบางส่วน",
+    "cfMatched": "สมาชิกที่จับคู่ตาม ID: {{matched}} / {{total}}",
+    "cfWithInfo": "สมาชิกที่มีข้อมูลฟิลด์กำหนดเองแนบมา: {{count}}",
+    "cfKeys": "คีย์ฟิลด์กำหนดเองที่พบ: {{seen}}, เขียนแล้ว: {{written}}",
+    "cfNoData": "SimplyPlural ไม่ได้ส่งคืนข้อมูลฟิลด์กำหนดเองรายสมาชิกใด ๆ โทเคนอาจไม่มีสิทธิ์อ่านเนื้อหาสมาชิก หรือบัญชี SP ของคุณจัดเก็บข้อมูลฟิลด์กำหนดเองในรูปแบบที่เราไม่รู้จัก",
+    "cfUnmatched": "{{count}} คีย์ไม่ตรงกับ ID/ชื่อฟิลด์ของเราเลย ตัวอย่างคีย์ที่ไม่ตรงกัน: {{samples}}",
     "banners": "แบนเนอร์",
     "groups": "กลุ่ม",
     "ampersand": "Ampersand",
@@ -416,6 +472,7 @@
     "spMergeDesc": "รวมข้อมูลสำรอง Simply Plural เข้ากับระบบปัจจุบันของคุณ"
   },
   "hub": {
+    "overlapMore": "+{{count}} เพิ่มเติม",
     "front": "ฟรอนต์",
     "title": "ศูนย์กลาง",
     "shareExport": "แชร์และส่งออก",
@@ -451,6 +508,7 @@
     "supportPS": "สนับสนุน PS"
   },
   "modal": {
+    "read": "ดู",
     "linkPfp": "ลิงก์รูปภาพ",
     "appFont": "ฟอนต์แอป",
     "appFontDesc": "ฟอนต์ที่ใช้สำหรับข้อความทั่วทั้งแอป",
@@ -556,6 +614,8 @@
     "dyslexicFontDesc": "เปลี่ยนข้อความเนื้อหาเป็น OpenDyslexic หัวเรื่องยังใช้ฟอนต์ตามสไตล์เดิม"
   },
   "notification": {
+    "filePermTitle": "การเข้าถึงไฟล์",
+    "filePermMsg": "อนุญาตให้ Plural Star นำเข้าและส่งออกไฟล์",
     "locationPermTitle": "สิทธิ์ตำแหน่ง",
     "locationPermMsg": "Plural Star ต้องการแท็กตำแหน่งโดยประมาณของคุณเมื่อฟรอนต์",
     "allow": "อนุญาต",
@@ -614,6 +674,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "ชื่อกลุ่ม",
     "changeColor": "เปลี่ยนสี",
     "deleteSubtree": "ลบทั้งหมด",
     "group": "กลุ่ม",
@@ -677,6 +738,7 @@
     "uniqueFronters": "จำนวนฟรอนเตอร์ที่ต่างกัน"
   },
   "chat": {
+    "imageUnavailable": "[รูปภาพไม่พร้อมใช้งาน]",
     "addReaction": "เพิ่มรีแอคชัน",
     "attachFile": "แนบไฟล์",
     "formatting": "การจัดรูปแบบ",
@@ -899,7 +961,38 @@
     "clearTitle": "ล้างไวท์บอร์ด?",
     "clearMsg": "การดำเนินการนี้จะลบทุกอย่างบนกระดานอย่างถาวร",
     "brushSize": "ขนาดพู่กัน",
-    "penColor": "สีปากกา"
+    "penColor": "สีปากกา",
+    "voHint": "ปัดขึ้นหรือลงเพื่อกำหนดขนาดขั้น เปิดเมนูการทำงานเพื่อวาด เลื่อนปากกา หรือตรวจสอบตำแหน่ง",
+    "voLearnHint": "ปัดขึ้นหรือลงเพื่อเปลี่ยนขนาดขั้น เปิดเมนูการทำงานแล้วเลือกรายการคำสั่งเพื่อเรียนรู้การควบคุม",
+    "voStepValue": "ขั้น {{px}} พิกเซล",
+    "voDrawUp": "วาดขึ้น",
+    "voDrawDown": "วาดลง",
+    "voDrawLeft": "วาดซ้าย",
+    "voDrawRight": "วาดขวา",
+    "voMoveUp": "เลื่อนขึ้น",
+    "voMoveDown": "เลื่อนลง",
+    "voMoveLeft": "เลื่อนซ้าย",
+    "voMoveRight": "เลื่อนขวา",
+    "voPenLift": "ยกปากกา",
+    "voPenLower": "วางปากกา",
+    "voWhere": "ฉันอยู่ที่ไหน?",
+    "voRecenter": "จัดปากกาให้อยู่ตรงกลาง",
+    "voCommands": "รายการคำสั่ง",
+    "voUp": "ขึ้น",
+    "voDown": "ลง",
+    "voLeft": "ซ้าย",
+    "voRight": "ขวา",
+    "voDrew": "วาด{{dir}} {{dist}}",
+    "voMoved": "เลื่อน{{dir}} {{dist}}",
+    "voAt": "ที่ {{h}}, {{v}}",
+    "voPosRight": "{{n}} ขวา",
+    "voPosLeft": "{{n}} ซ้าย",
+    "voPosDown": "{{n}} ลง",
+    "voPosUp": "{{n}} ขึ้น",
+    "voEdges": "{{left}} ถึงขอบซ้าย, {{right}} ถึงขวา, {{top}} ถึงบน, {{bottom}} ถึงล่าง",
+    "voPenNowDown": "ปากกาลง กำลังวาด",
+    "voPenNowUp": "ปากกาขึ้น เลื่อนอย่างเดียว",
+    "voRecentered": "ปากกากลับมาอยู่ตรงกลางแล้ว"
   },
   "systemMap": {
     "connections": "การเชื่อมต่อ",
@@ -951,6 +1044,9 @@
   },
   "medical": {
     "title": "การแพทย์",
+    "remind30m": "30 นาที",
+    "remind1h": "1 ชม.",
+    "remind1d": "1 วัน",
     "medications": "ยา",
     "addMedication": "+ เพิ่มยา",
     "namePlaceholder": "ชื่อยา…",

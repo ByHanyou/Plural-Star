@@ -1,16 +1,3 @@
-// NetworkManager — the single coordinator for the app's network client.
-//
-// Friend/Sync model (mutual, no one-way): tapping "Add Friend" generates a short
-// code that lives 30 minutes and can be used by several people in that window.
-// You enter their code and they enter yours; the link only becomes connected
-// once BOTH sides have entered the other's code.
-//
-// Mechanism: while a code is active the app publishes its signed identity to the
-// node's rendezvous under hash(code). Entering someone's code looks up their
-// record, then sends a signed "connect" over the E2E channel. Each side flips to
-// 'accepted' only once it has both entered the other's code AND received their
-// connect — so neither can be added one-way.
-
 import { Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
@@ -48,15 +35,12 @@ import {
   MAX_NOTIF_FRIENDS,
 } from './types';
 
-// Live-sync tuning. A large initial sync must trickle out, not fire all at once:
-// messages are kept small, large single values are split into parts, and every
-// message is paced apart so a big sync spreads over time instead of bursting.
-const SYNC_DEBOUNCE_MS = 8000; // coalesce bursts of edits
-const SYNC_MIN_INTERVAL_MS = 8000; // floor between push cycles
-const SYNC_MSG_BUDGET = 64 * 1024; // max value bytes packed into one 'sync' message
-const SYNC_CHUNK_SIZE = 48 * 1024; // a value larger than the budget streams in parts this big
-const SYNC_PACE_MS = 300; // delay between consecutive messages (the anti-burst throttle)
-const SYNC_MAX_PARTS = 4096; // reject absurd part counts on receive
+const SYNC_DEBOUNCE_MS = 8000;
+const SYNC_MIN_INTERVAL_MS = 8000;
+const SYNC_MSG_BUDGET = 64 * 1024;
+const SYNC_CHUNK_SIZE = 48 * 1024;
+const SYNC_PACE_MS = 300;
+const SYNC_MAX_PARTS = 4096;
 
 const SYNC_EXCLUDE = new Set(SYNC_EXCLUDE_KEYS);
 
@@ -77,7 +61,6 @@ const deviceLabel = (): string => {
   }
 };
 
-// Fast non-cryptographic content hash for change detection (FNV-1a, 32-bit).
 const contentHash = (s: string): string => {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
@@ -147,11 +130,10 @@ class NetworkManagerImpl {
   private myFront: FrontShare | null = null;
   private myFrontKnown = false;
 
-  // ---- sync engine state ----
   private lastHashes: Record<string, string> = {};
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPushAt = 0;
-  private syncing = false; // guard against overlapping push cycles
+  private syncing = false;
   private chunkBuffers: Map<string, {parts: string[]; total: number; seqs: Set<number>; init: boolean}> = new Map();
   private pendingConflicts: Map<string, {key: string; remoteValue: string; remoteHash: string}[]> = new Map();
   private syncAppliedListeners: Set<() => void> = new Set();
@@ -229,6 +211,12 @@ class NetworkManagerImpl {
     AppState.addEventListener('change', s => {
       if (s === 'active') {
         this.expireStaleClones();
+        store
+          .get<{ name?: string }>(KEYS.system, null)
+          .then(sys => {
+            if (sys && sys.name) this.systemName = sys.name;
+          })
+          .catch(() => {});
         if (this.settings.enabled && this.client) this.client.ensureConnected();
       }
     });
@@ -262,8 +250,6 @@ class NetworkManagerImpl {
         this.republishActiveCode();
         this.resendPendingConnects();
         this.restartPendingClones();
-        // Reconcile with linked devices: edits made while either side was
-        // offline are otherwise lost (the relay has no store-and-forward).
         this.sendSyncReqs();
         this.sendFrontsToFriends();
         this.registerWithGateway().catch(() => {});
@@ -321,9 +307,6 @@ class NetworkManagerImpl {
     else this.notify();
   }
 
-  // ---- code lifecycle ----
-
-  // Generate (or regenerate) my shareable code and publish my identity under it.
   async generateCode(kind: LinkKind = 'friend'): Promise<string> {
     if (!this.identity) this.identity = await loadOrCreateIdentity();
     const client = this.client;
@@ -331,7 +314,7 @@ class NetworkManagerImpl {
     const code = kind === 'device' ? generateSyncCode() : generateFriendCode();
     const namespace = rendezvousNamespace(code, kind === 'device' ? 'sync' : 'friend');
     const record = makeRendezvousRecord(this.identity);
-    await client.rendezvousRegister(namespace, record, RENDEZVOUS_TTL_SECONDS); // throws -> UI alert
+    await client.rendezvousRegister(namespace, record, RENDEZVOUS_TTL_SECONDS);
     this.active[kind] = { code, namespace, expiresAt: Date.now() + RENDEZVOUS_TTL_SECONDS * 1000 };
     const prev = this.codeTimers[kind];
     if (prev) clearTimeout(prev);
@@ -386,8 +369,6 @@ class NetworkManagerImpl {
     this.notify();
   }
 
-  // ---- entering a friend's code ----
-
   async enterCode(theirCode: string, kind: LinkKind, role?: 'source' | 'target'): Promise<void> {
     const self = this.identity;
     const client = this.client;
@@ -403,7 +384,6 @@ class NetworkManagerImpl {
     if (id.peerId === self.peerId) throw new Error('that is your own code');
 
     const existing = this.friends.find(f => f.peerId === id.peerId);
-    // If they already entered my code, both sides have now acted -> accepted.
     const status: Friend['status'] =
       existing?.status === 'accepted' || existing?.status === 'entered_mine' ? 'accepted' : 'entered_theirs';
     const fallbackName = kind === 'device' ? 'Device' : 'Friend';
@@ -414,9 +394,7 @@ class NetworkManagerImpl {
     await this.persistFriends();
     this.notify();
 
-    // Tell them I entered their code (rides the E2E channel).
     await this.sendConnectTo(id.peerId, kind, false);
-    // If this completed the link, kick off the right initial exchange.
     if (status === 'accepted') {
       if (kind === 'friend') await this.sendMyFrontTo(id.peerId);
       else {
@@ -433,8 +411,6 @@ class NetworkManagerImpl {
   async enterDeviceCode(code: string, role: 'source' | 'target'): Promise<void> {
     return this.enterCode(code, 'device', role);
   }
-
-  // ---- inbound ----
 
   private handlePacket(p: PacketReceived): void {
     const self = this.identity;
@@ -492,7 +468,6 @@ class NetworkManagerImpl {
         } else if (msg.ack) {
           break;
         } else {
-          // They entered my code first; wait until I enter theirs.
           const kind = msg.kind || 'friend';
           this.upsertFriend({
             ...this.friendFrom(sender, msg.name || (kind === 'device' ? 'Device' : 'Friend'), 'entered_mine', kind),
@@ -554,8 +529,6 @@ class NetworkManagerImpl {
     }
   }
 
-  // ---- outbound ----
-
   private async sendTo(recipientPeerId: string, msg: NetMessage): Promise<void> {
     const self = this.identity;
     const client = this.client;
@@ -583,8 +556,12 @@ class NetworkManagerImpl {
     for (const f of this.friends) {
       const pending = f.status === 'entered_theirs';
       const deviceRefresh = f.kind === 'device' && f.status === 'accepted';
-      if (!pending && !deviceRefresh) continue;
-      this.sendConnectTo(f.peerId, f.kind, false).catch(() => {});
+      const friendRefresh = f.kind !== 'device' && f.status === 'accepted';
+      if (pending || deviceRefresh) {
+        this.sendConnectTo(f.peerId, f.kind, false).catch(() => {});
+      } else if (friendRefresh) {
+        this.sendConnectTo(f.peerId, f.kind, true).catch(() => {});
+      }
     }
   }
 
@@ -600,7 +577,6 @@ class NetworkManagerImpl {
     try {
       await this.sendTo(peerId, { t: 'disconnect' });
     } catch {
-      // best-effort; remove locally regardless
     }
     this.friends = this.friends.filter(f => f.peerId !== peerId);
     await this.persistFriends();
@@ -692,8 +668,6 @@ class NetworkManagerImpl {
     } catch {}
   }
 
-  // Called by the app whenever the local front (or members) change. Caches the
-  // resolved status and broadcasts it to all accepted friends (best-effort).
   async updateMyFront(front: any, members: Member[]): Promise<void> {
     this.myFront = buildFrontShare(front, members);
     this.myFrontKnown = true;
@@ -719,8 +693,6 @@ class NetworkManagerImpl {
       this.sendMyFrontTo(f.peerId);
     }
   }
-
-  // ---- live data sync (between your own linked devices) ----
 
   private onDeviceLinkAccepted(f: Friend): void {
     if (f.kind !== 'device') return;
@@ -791,8 +763,6 @@ class NetworkManagerImpl {
     return this.friends.filter(f => f.kind === 'device' && f.status === 'accepted' && !f.initPending);
   }
 
-  // Poke from the app whenever local data changes. Debounced + rate-limited so a
-  // burst of edits results in at most one push per interval (no relay flooding).
   notifyDataChanged(): void {
     if (this.friends.some(f => f.kind === 'device' && f.initRole === 'target' && f.initPending)) return;
     if (!this.settings.enabled || this.acceptedDevices().length === 0) return;
@@ -807,8 +777,6 @@ class NetworkManagerImpl {
     const keys = (await AsyncStorage.getAllKeys()).filter(
       k => k.startsWith('ps:') && !SYNC_EXCLUDE.has(k),
     );
-    // async-storage v3 renamed multiGet -> getMany (returns a Record). One
-    // batched native call rather than N round-trips for a large snapshot.
     const got = await AsyncStorage.getMany(keys);
     const out: Record<string, string> = {};
     for (const k in got) {
@@ -819,9 +787,6 @@ class NetworkManagerImpl {
     return out;
   }
 
-  // Virtual media entries: avatars/banners as data URIs under ps:media:* keys.
-  // File paths are meaningless on another device; the bytes ride the normal
-  // sync/chunk machinery and the receiver writes them to its own storage.
   private mediaCache: Map<string, string> = new Map();
   private async mediaEntries(membersRaw: string | undefined): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
@@ -864,8 +829,6 @@ class NetworkManagerImpl {
     return out;
   }
 
-  // Write an incoming media entry to THIS device's storage and point the
-  // member's field at the new local file.
   private async applyMedia(key: string, dataUri: string): Promise<void> {
     const m = key.match(/^ps:media:(av|bn):(.+)$/);
     if (!m) return;
@@ -891,9 +854,6 @@ class NetworkManagerImpl {
     } catch {}
   }
 
-  // Media never travels inside ps:members (paths are device-local): when a
-  // members value arrives, keep this device's avatar/banner for each member;
-  // the ps:media entries carry the actual image updates.
   private preserveLocalMedia(incomingRaw: string, localRaw: string | null): string {
     try {
       const inc = JSON.parse(incomingRaw);
@@ -912,16 +872,6 @@ class NetworkManagerImpl {
     }
   }
 
-  // The target's outbound mute (initPending) must never outlive the clone: if
-  // the source's initDone marker was lost, the flag would wedge the link one-way
-  // forever — and freeze the device out of reconnect reconciliation too. Any
-  // target-side pending clone older than 10 minutes (or with no timestamp, i.e.
-  // wedged by an older build) reverts to normal bidirectional sync; the
-  // reconciliation pass converges whatever the clone didn't finish.
-  // initStartedAt doubles as the clone activity watermark (refreshed on every
-  // incoming init message), so this is an INACTIVITY timeout: a legitimately
-  // long clone on a slow link stays pending while data flows; a dead one
-  // (lost initDone) clears after 5 quiet minutes.
   private expireStaleClones(): void {
     const CLONE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
     let changed = false;
@@ -951,18 +901,12 @@ class NetworkManagerImpl {
     await this.sendTo(peerId, {t: 'sync_req', hashes});
   }
 
-  // Reply to a reconciliation request: push every key whose content differs
-  // from what they reported. Receiver applies with normal conflict checks.
   private async handleSyncReq(sender: FriendIdentity, theirs: Record<string, string>): Promise<void> {
-    // A sync_req only comes from a device that considers the link fully live —
-    // if we're still muted as a clone target, the clone era is over: unmute.
     const pending = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device' && f.status === 'accepted' && f.initRole === 'target' && f.initPending);
     if (pending) {
       this.upsertFriend({ ...pending, initPending: false });
       await this.persistFriends();
       this.notify();
-      // A freshly-healed clone target may hold partial data — it must PULL from
-      // the source, never diff-push its own skeleton back over it.
       this.sendSyncReqTo(sender.peerId).catch(() => {});
       return;
     }
@@ -1023,14 +967,14 @@ class NetworkManagerImpl {
 
   private async doSyncPush(): Promise<void> {
     if (this.syncing) {
-      this.notifyDataChanged(); // busy (clone/reconciliation in flight) — retry, never drop
+      this.notifyDataChanged();
       return;
     }
     const devices = this.acceptedDevices();
     if (devices.length === 0) return;
     const now = Date.now();
     if (now - this.lastPushAt < SYNC_MIN_INTERVAL_MS) {
-      this.notifyDataChanged(); // too soon — try again after the floor
+      this.notifyDataChanged();
       return;
     }
 
@@ -1045,8 +989,6 @@ class NetworkManagerImpl {
     this.syncing = true;
     this.lastPushAt = now;
     try {
-      // Send one message to every linked device, then pace before the next so a
-      // large sync trickles out instead of bursting all at once.
       const sendOne = async (msg: NetMessage) => {
         for (const d of devices) {
           try {
@@ -1068,8 +1010,6 @@ class NetworkManagerImpl {
 
       for (const c of changed) {
         if (c.v.length > SYNC_MSG_BUDGET) {
-          // Oversized single value (e.g. a big image): flush the pending batch,
-          // then stream it in paced parts the receiver reassembles.
           await flush();
           const total = Math.ceil(c.v.length / SYNC_CHUNK_SIZE);
           for (let seq = 0; seq < total; seq++) {
@@ -1081,7 +1021,7 @@ class NetworkManagerImpl {
           batch[c.k] = {v: c.v, h: c.h};
           size += c.v.length;
         }
-        this.lastHashes[c.k] = c.h; // our value becomes the new shared base
+        this.lastHashes[c.k] = c.h;
       }
       await flush();
       await store.set(SYNC_STATE_KEY, this.lastHashes);
@@ -1152,7 +1092,6 @@ class NetworkManagerImpl {
     }
   }
 
-  // Reassemble a streamed oversized value, then apply it like any synced key.
   private handleSyncChunk(sender: FriendIdentity, m: {key: string; h: string; seq: number; total: number; data: string; init?: boolean}): void {
     if (!m.key || m.total <= 0 || m.total > SYNC_MAX_PARTS || m.seq < 0 || m.seq >= m.total) return;
     const id = `${sender.peerId}:${m.key}:${m.h}`;
@@ -1173,7 +1112,7 @@ class NetworkManagerImpl {
 
   private async applySync(sender: FriendIdentity, keys: Record<string, {v: string; h: string}>, init = false, initDone = false): Promise<void> {
     let dev = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device');
-    if (!dev || dev.status === 'entered_mine') return; // only sync with linked devices
+    if (!dev || dev.status === 'entered_mine') return;
     if (dev.status === 'entered_theirs') {
       dev = { ...dev, status: 'accepted' };
       this.upsertFriend(dev);
@@ -1208,7 +1147,7 @@ class NetworkManagerImpl {
       const base = this.lastHashes[k];
       if (localHash === incoming.h) {
         this.lastHashes[k] = incoming.h;
-        continue; // already identical
+        continue;
       }
       if (localRaw != null && canonicalForSync(localRaw) === canonicalForSync(incoming.v)) {
         this.lastHashes[k] = localHash;
@@ -1230,8 +1169,6 @@ class NetworkManagerImpl {
         continue;
       }
       if (k === KEYS.members && localRaw != null && realMemberCount(incoming.v) === 0 && realMemberCount(localRaw) > 0) {
-        // An incoming roster with zero real members never silently replaces a
-        // populated one — the user decides, no matter what the hashes say.
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
         continue;
       }
@@ -1239,7 +1176,6 @@ class NetworkManagerImpl {
       if (noConflict) {
         await writeValue();
       } else {
-        // Local changed since last sync (or no shared base, both populated) -> ask.
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
       }
     }
@@ -1263,7 +1199,6 @@ class NetworkManagerImpl {
     }
   }
 
-  // Resolve a pending conflict batch: keep this device's data or the other's.
   async resolveConflict(peerId: string, keep: 'mine' | 'theirs'): Promise<void> {
     const conflicts = this.pendingConflicts.get(peerId);
     if (!conflicts) return;

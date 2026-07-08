@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "白",
+    "black": "黒",
+    "red": "赤",
+    "orange": "オレンジ",
+    "yellow": "黄",
+    "green": "緑",
+    "blue": "青",
+    "indigo": "インディゴ",
+    "brown": "ブラウン",
+    "gray": "グレー",
+    "slate": "スレート",
+    "goldenrod": "ゴールデンロッド",
+    "periwinkle": "ペリウィンクル",
+    "pink": "ピンク",
+    "mint": "ミント",
+    "lavender": "ラベンダー",
+    "peach": "ピーチ",
+    "seaGreen": "シーグリーン",
+    "coral": "コーラル",
+    "skyBlue": "スカイブルー",
+    "orchid": "オーキッド",
+    "lime": "ライム",
+    "sand": "サンド"
+  },
+  "editor": {
+    "markdownPlaceholder": "マークダウンで記述…",
+    "urlPlaceholder": "URL をここに",
+    "textPlaceholder": "テキスト",
+    "body": "エディター"
+  },
+  "markdown": {
+    "imageUnavailable": "[画像を表示できません]",
+    "brokenImage": "[画像が壊れています]",
+    "brokenImageUrl": "[画像が壊れています: {{url}}]"
+  },
   "a11y": {
     "settings": "設定",
     "lockApp": "アプリをロック",
@@ -144,6 +180,9 @@
     "clearFrontMsg": "すべての階層がクリアされ、現在のセッションの終了が記録されます。続行しますか？"
   },
   "members": {
+    "fieldCount": "メンバー数",
+    "clone": "複製",
+    "cloneFields": "どのフィールドをコピーしますか？",
     "select": "選択",
     "selectAll": "すべて",
     "selectNone": "なし",
@@ -277,6 +316,23 @@
     "templateBody": "エントリー本文（プリセット）"
   },
   "share": {
+    "jsonHint": "ZIP と JSON は Plural Star に再インポートできる完全なバックアップです。",
+    "invalidJsonBackup": "ファイルが有効な JSON ではありません。Plural Star または Simply Plural のバックアップ（.json）ファイルを選択してください。",
+    "unrecognizedBackup": "これは Plural Star、Simply Plural、Octocon、Ourcana、HiveMind のバックアップではないようです。これらのアプリからエクスポートした .json ファイルを選択してください（.ampar ファイルは Ampersand タブを使用）。",
+    "couldNotImportFile": "ファイルをインポートできませんでした。",
+    "couldNotReadFile": "ファイルを読み取れませんでした。",
+    "restoreFailedGeneric": "復元に失敗しました",
+    "couldNotConnect": "接続できませんでした。",
+    "importFailedGeneric": "インポートに失敗しました。",
+    "couldNotImportAvatars": "アバターをインポートできませんでした。",
+    "couldNotReadAmpar": ".ampar ファイルを読み取れませんでした。",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "カスタムフィールド — 部分インポート",
+    "cfMatched": "ID で一致したメンバー：{{matched}} / {{total}}",
+    "cfWithInfo": "カスタムフィールドのデータが付いたメンバー：{{count}}",
+    "cfKeys": "検出されたカスタムフィールドのキー：{{seen}}、書き込み：{{written}}",
+    "cfNoData": "SimplyPlural はメンバーごとのカスタムフィールドのデータを返しませんでした。トークンにメンバーコンテンツへの読み取りアクセス権がないか、SP アカウントが認識できない形式で CF データを保存している可能性があります。",
+    "cfUnmatched": "{{count}} 個のキーがフィールドの ID や名前のいずれにも一致しませんでした。一致しなかったキーの例：{{samples}}",
     "groupsCount": "{{count}} グループ",
     "progressAvatars": "アバターを復元中…",
     "progressAvatarsN": "アバターを復元中… {{done}}/{{total}}",
@@ -444,6 +500,7 @@
     "exportCategories": "エクスポートカテゴリ"
   },
   "hub": {
+    "overlapMore": "+{{count}} 件",
     "editEntry": "エントリを編集",
     "front": "フロント",
     "title": "ハブ",
@@ -479,6 +536,7 @@
     "supportPS": "PSを応援"
   },
   "modal": {
+    "read": "読む",
     "linkPfp": "画像をリンク",
     "appFont": "アプリのフォント",
     "appFontDesc": "アプリ全体のテキストに使用されるフォント。",
@@ -586,6 +644,8 @@
     "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
   },
   "notification": {
+    "filePermTitle": "ファイルアクセス",
+    "filePermMsg": "Plural Star にファイルのインポートとエクスポートを許可します。",
     "chatPingTitle": "◆ {{speaker}} が #{{channel}} であなたにピンしました",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "タップしてメッセージを表示します。",
@@ -644,6 +704,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "グループ名",
     "changeColor": "色を変更",
     "deleteSubtree": "すべて削除",
     "group": "グループ",
@@ -707,6 +768,7 @@
     "sessionsSuffix": "セッション"
   },
   "chat": {
+    "imageUnavailable": "[画像を表示できません]",
     "ping": "ピン",
     "pingSent": "ピンしました",
     "pingSentMsg": "バックグラウンド通知は現在 Android のみ対応しています。ただし、メッセージはチャット内でハイライト表示されます。",
@@ -906,7 +968,38 @@
     "clearTitle": "ホワイトボードをクリアしますか？",
     "clearMsg": "ボード上のすべてが完全に消去されます。",
     "brushSize": "ブラシサイズ",
-    "penColor": "ペンの色"
+    "penColor": "ペンの色",
+    "voHint": "上下にスワイプしてステップサイズを設定します。操作ローターを開いて、描画、ペンの移動、位置の確認ができます。",
+    "voLearnHint": "上下にスワイプしてステップサイズを変更します。操作ローターを開いて「コマンド一覧」を選ぶと、操作方法を学べます。",
+    "voStepValue": "ステップ {{px}} ピクセル",
+    "voDrawUp": "上に描く",
+    "voDrawDown": "下に描く",
+    "voDrawLeft": "左に描く",
+    "voDrawRight": "右に描く",
+    "voMoveUp": "上に移動",
+    "voMoveDown": "下に移動",
+    "voMoveLeft": "左に移動",
+    "voMoveRight": "右に移動",
+    "voPenLift": "ペンを上げる",
+    "voPenLower": "ペンを下げる",
+    "voWhere": "現在位置は？",
+    "voRecenter": "ペンを中央に戻す",
+    "voCommands": "コマンド一覧",
+    "voUp": "上",
+    "voDown": "下",
+    "voLeft": "左",
+    "voRight": "右",
+    "voDrew": "{{dir}}に{{dist}}描画",
+    "voMoved": "{{dir}}に{{dist}}移動",
+    "voAt": "位置 {{h}}、{{v}}",
+    "voPosRight": "{{n}} 右",
+    "voPosLeft": "{{n}} 左",
+    "voPosDown": "{{n}} 下",
+    "voPosUp": "{{n}} 上",
+    "voEdges": "左端まで{{left}}、右まで{{right}}、上まで{{top}}、下まで{{bottom}}",
+    "voPenNowDown": "ペンを下ろしました、描画中",
+    "voPenNowUp": "ペンを上げました、移動のみ",
+    "voRecentered": "ペンを中央に戻しました"
   },
   "systemMap": {
     "connections": "つながり",
@@ -957,6 +1050,9 @@
     "rival": "ライバル"
   },
   "medical": {
+    "remind30m": "30分",
+    "remind1h": "1時間",
+    "remind1d": "1日",
     "title": "メディカル",
     "medications": "服薬",
     "addMedication": "+ 薬を追加",

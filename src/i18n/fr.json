@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "Blanc",
+    "black": "Noir",
+    "red": "Rouge",
+    "orange": "Orange",
+    "yellow": "Jaune",
+    "green": "Vert",
+    "blue": "Bleu",
+    "indigo": "Indigo",
+    "brown": "Marron",
+    "gray": "Gris",
+    "slate": "Ardoise",
+    "goldenrod": "Jaune doré",
+    "periwinkle": "Pervenche",
+    "pink": "Rose",
+    "mint": "Menthe",
+    "lavender": "Lavande",
+    "peach": "Pêche",
+    "seaGreen": "Vert marin",
+    "coral": "Corail",
+    "skyBlue": "Bleu ciel",
+    "orchid": "Orchidée",
+    "lime": "Vert citron",
+    "sand": "Sable"
+  },
+  "editor": {
+    "markdownPlaceholder": "Écrire en markdown…",
+    "urlPlaceholder": "URL ici",
+    "textPlaceholder": "texte",
+    "body": "Éditeur"
+  },
+  "markdown": {
+    "imageUnavailable": "[image indisponible]",
+    "brokenImage": "[image corrompue]",
+    "brokenImageUrl": "[image corrompue : {{url}}]"
+  },
   "a11y": {
     "settings": "Réglages",
     "lockApp": "Verrouiller l'app",
@@ -144,6 +180,9 @@
     "clearFrontTitle": "Effacer le front ?"
   },
   "members": {
+    "fieldCount": "Nombre de membres",
+    "clone": "Cloner",
+    "cloneFields": "Copier quels champs ?",
     "select": "Sélectionner",
     "selectAll": "Tous",
     "selectNone": "Aucun",
@@ -277,6 +316,23 @@
     "templateBody": "Contenu de l'Entrée (prédéfini)"
   },
   "share": {
+    "jsonHint": "Les fichiers ZIP et JSON sont des sauvegardes complètes que vous pouvez réimporter dans Plural Star.",
+    "invalidJsonBackup": "Le fichier n'est pas un JSON valide. Veuillez choisir un fichier de sauvegarde Plural Star ou Simply Plural (.json).",
+    "unrecognizedBackup": "Cela ne ressemble pas à une sauvegarde Plural Star, Simply Plural, Octocon, Ourcana ou HiveMind. Choisissez un fichier .json exporté depuis l'une de ces applications (ou utilisez l'onglet Ampersand pour les fichiers .ampar).",
+    "couldNotImportFile": "Impossible d'importer le fichier.",
+    "couldNotReadFile": "Impossible de lire le fichier.",
+    "restoreFailedGeneric": "Échec de la restauration",
+    "couldNotConnect": "Connexion impossible.",
+    "importFailedGeneric": "Échec de l'importation.",
+    "couldNotImportAvatars": "Impossible d'importer les avatars.",
+    "couldNotReadAmpar": "Impossible de lire le fichier .ampar.",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "Champs personnalisés — importation partielle",
+    "cfMatched": "Membres associés par ID : {{matched}} / {{total}}",
+    "cfWithInfo": "Membres avec des données de champs personnalisés : {{count}}",
+    "cfKeys": "Clés de champs personnalisés détectées : {{seen}}, écrites : {{written}}",
+    "cfNoData": "SimplyPlural n'a renvoyé aucune donnée de champ personnalisé par membre. Le jeton n'a peut-être pas d'accès en lecture au contenu des membres, ou votre compte SP stocke les données CF sous une forme que nous ne reconnaissons pas.",
+    "cfUnmatched": "{{count}} clés ne correspondent à aucun de nos ID/noms de champ. Exemples de clés non associées : {{samples}}",
     "groupsCount": "{{count}} groupes",
     "progressAvatars": "Restauration des avatars…",
     "progressAvatarsN": "Restauration des avatars… {{done}}/{{total}}",
@@ -444,6 +500,7 @@
     "exportCategories": "Catégories d'exportation"
   },
   "modal": {
+    "read": "Lire",
     "linkPfp": "Lier une image",
     "appFont": "Police de l'app",
     "appFontDesc": "Police utilisée pour le texte dans toute l'app.",
@@ -551,6 +608,8 @@
     "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
   },
   "notification": {
+    "filePermTitle": "Accès aux fichiers",
+    "filePermMsg": "Autoriser Plural Star à importer et exporter des fichiers.",
     "chatPingTitle": "◆ {{speaker}} t'a notifié dans #{{channel}}",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "Touche pour voir le message.",
@@ -609,6 +668,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "Nom du groupe",
     "changeColor": "Changer la couleur",
     "deleteSubtree": "Tout supprimer",
     "group": "Groupe",
@@ -631,6 +691,7 @@
     "deleteWithChildrenMsg": "Ceci contient {{count}} élément(s) imbriqué(s). Les conserver en les remontant d'un niveau, ou tout supprimer ?"
   },
   "hub": {
+    "overlapMore": "+{{count}} de plus",
     "editEntry": "Modifier l'entrée",
     "front": "Front",
     "title": "Centre",
@@ -707,6 +768,7 @@
     "uniqueFronters": "Membres uniques au front"
   },
   "chat": {
+    "imageUnavailable": "[image indisponible]",
     "ping": "Notifier",
     "pingSent": "Notifié",
     "pingSentMsg": "Les notifications en arrière-plan ne sont disponibles que sur Android pour l'instant, mais le message est mis en évidence dans ton chat.",
@@ -906,7 +968,38 @@
     "clearTitle": "Vider le tableau blanc ?",
     "clearMsg": "Cela efface définitivement tout le contenu du tableau.",
     "brushSize": "Taille du pinceau",
-    "penColor": "Couleur du stylo"
+    "penColor": "Couleur du stylo",
+    "voHint": "Balayez vers le haut ou le bas pour régler le pas. Ouvrez le menu des actions pour dessiner, déplacer le stylo ou vérifier votre position.",
+    "voLearnHint": "Balayez vers le haut ou le bas pour changer le pas. Ouvrez le menu des actions et choisissez Liste des commandes pour découvrir les commandes.",
+    "voStepValue": "Pas {{px}} pixels",
+    "voDrawUp": "Dessiner vers le haut",
+    "voDrawDown": "Dessiner vers le bas",
+    "voDrawLeft": "Dessiner vers la gauche",
+    "voDrawRight": "Dessiner vers la droite",
+    "voMoveUp": "Déplacer vers le haut",
+    "voMoveDown": "Déplacer vers le bas",
+    "voMoveLeft": "Déplacer vers la gauche",
+    "voMoveRight": "Déplacer vers la droite",
+    "voPenLift": "Lever le stylo",
+    "voPenLower": "Abaisser le stylo",
+    "voWhere": "Où suis-je ?",
+    "voRecenter": "Recentrer le stylo",
+    "voCommands": "Liste des commandes",
+    "voUp": "vers le haut",
+    "voDown": "vers le bas",
+    "voLeft": "vers la gauche",
+    "voRight": "vers la droite",
+    "voDrew": "Dessiné {{dir}} {{dist}}",
+    "voMoved": "Déplacé {{dir}} {{dist}}",
+    "voAt": "à {{h}}, {{v}}",
+    "voPosRight": "{{n}} à droite",
+    "voPosLeft": "{{n}} à gauche",
+    "voPosDown": "{{n}} en bas",
+    "voPosUp": "{{n}} en haut",
+    "voEdges": "{{left}} jusqu'au bord gauche, {{right}} jusqu'à droite, {{top}} jusqu'en haut, {{bottom}} jusqu'en bas",
+    "voPenNowDown": "Stylo abaissé, dessine",
+    "voPenNowUp": "Stylo levé, déplacement uniquement",
+    "voRecentered": "Stylo recentré au milieu"
   },
   "systemMap": {
     "connections": "Connexions",
@@ -957,6 +1050,9 @@
     "rival": "Rival·e"
   },
   "medical": {
+    "remind30m": "30 min",
+    "remind1h": "1 h",
+    "remind1d": "1 j",
     "title": "Médical",
     "medications": "Médicaments",
     "addMedication": "+ Ajouter un médicament",

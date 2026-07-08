@@ -67,7 +67,6 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
     return () => clearInterval(id);
   }, []);
 
-  // Screen-reader announcements.
   const prevStatus = useRef(net.status);
   useEffect(() => {
     if (prevStatus.current !== net.status) {
@@ -121,7 +120,6 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
     }
   };
 
-  // ---- handlers ----
   const onToggle = (v: boolean) => guard(() => NetworkManager.setEnabled(v));
   const onSaveRelay = () => guard(() => NetworkManager.setRelayOverride(relayUrl.trim() || undefined, relayToken.trim() || undefined));
   const onGenerate = (kind: Kind) => guard(async () => {
@@ -191,8 +189,6 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
     return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   };
 
-  // Shared pairing block: their-code input + (Generate Code button OR your live,
-  // tap-to-copy code with countdown).
   const renderPairing = (kind: Kind, code: string | null, expiresAt: number | null, theirVal: string, setTheirVal: (s: string) => void) => (
     <>
       <TextInput
@@ -416,7 +412,6 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
           </>
         ) : (
           <>
-            {/* Connection */}
             <View style={card}>
               <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                 <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, flex: 1, marginRight: 12}}>{t('network.enable')}</Text>
@@ -429,7 +424,6 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
               </View>
             </View>
 
-            {/* Sync (your own devices) */}
             <View style={card}>
               <Text accessibilityRole="header" style={labelStyle}>{t('network.syncTitle')}</Text>
               <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 12}}>{t('network.syncDesc')}</Text>
@@ -444,7 +438,6 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
               </View>
             </View>
 
-            {/* Other / custom network — optional. The toggle uses the default network automatically. */}
             <View style={card}>
               <Text accessibilityRole="header" style={labelStyle}>{t('network.customNetwork')}</Text>
               <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 12}}>{t('network.customNetworkDesc')}</Text>

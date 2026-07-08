@@ -1,13 +1,3 @@
-// Pure-JS base64 + UTF-8 helpers for the network client.
-//
-// We deliberately do NOT use tweetnacl-util: its base64 relies on atob/btoa or
-// Node's Buffer, none of which Hermes (React Native's JS engine) provides, so it
-// can crash on-device. These implementations use only Uint8Array and basic
-// String operations, so they run identically on Hermes and Node.
-//
-// Base64 here is standard (RFC 4648) with '+', '/' and '=' padding, matching the
-// node's Go base64.StdEncoding on the /send payload.
-
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 const B64_REV: Int16Array = (() => {
@@ -32,7 +22,6 @@ export const encodeBase64 = (bytes: Uint8Array): string => {
 };
 
 export const decodeBase64 = (str: string): Uint8Array => {
-  // Tolerate whitespace and trailing padding.
   const s = str.replace(/[^A-Za-z0-9+/]/g, '');
   const len = s.length;
   const out: number[] = [];
@@ -55,7 +44,6 @@ export const decodeBase64 = (str: string): Uint8Array => {
   return Uint8Array.from(out);
 };
 
-// String -> UTF-8 bytes. Handles the full BMP and surrogate pairs (emoji).
 export const decodeUTF8 = (str: string): Uint8Array => {
   const out: number[] = [];
   for (let i = 0; i < str.length; i++) {
@@ -80,7 +68,6 @@ export const decodeUTF8 = (str: string): Uint8Array => {
   return Uint8Array.from(out);
 };
 
-// UTF-8 bytes -> string.
 export const encodeUTF8 = (bytes: Uint8Array): string => {
   let out = '';
   let i = 0;

@@ -1,10 +1,3 @@
-// Rendezvous helpers: turn a short code into a lookup namespace, and build /
-// verify the signed identity record stored under it.
-//
-// The relay only ever sees `namespace = hash("psf:" + code)` and an opaque,
-// signed record. It never sees the code, and a tampered record fails signature
-// verification, so a hostile relay cannot substitute a different identity.
-
 import './secureRandom';
 import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64, decodeUTF8, encodeUTF8 } from './bytes';
@@ -32,8 +25,6 @@ const concat = (...parts: Uint8Array[]): Uint8Array => {
   return out;
 };
 
-// Namespace = first 32 bytes of SHA-512(prefix + code), hex-encoded. The code
-// itself never leaves the device.
 export const rendezvousNamespace = (code: string, kind: 'friend' | 'sync' = 'friend'): string => {
   const prefix = kind === 'sync' ? NS_PREFIX_SYNC : NS_PREFIX_FRIEND;
   const digest = nacl.hash(decodeUTF8(prefix + code.trim().toUpperCase()));
@@ -43,7 +34,6 @@ export const rendezvousNamespace = (code: string, kind: 'friend' | 'sync' = 'fri
 const recordSigInput = (peerId: string, edPub: Uint8Array, boxPub: Uint8Array): Uint8Array =>
   concat(decodeUTF8(peerId), edPub, boxPub);
 
-// Build the base64 signed record to publish under our namespace.
 export const makeRendezvousRecord = (id: Identity): string => {
   const sig = nacl.sign.detached(
     recordSigInput(id.peerId, id.edPublicKey, id.boxPublicKey),
@@ -58,7 +48,6 @@ export const makeRendezvousRecord = (id: Identity): string => {
   return encodeBase64(decodeUTF8(JSON.stringify(record)));
 };
 
-// Parse + verify a looked-up record. Returns the peer's identity or null.
 export const openRendezvousRecord = (recordBase64: string): FriendIdentity | null => {
   let parsed: any;
   try {

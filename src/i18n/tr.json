@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "Beyaz",
+    "black": "Siyah",
+    "red": "Kırmızı",
+    "orange": "Turuncu",
+    "yellow": "Sarı",
+    "green": "Yeşil",
+    "blue": "Mavi",
+    "indigo": "İndigo",
+    "brown": "Kahverengi",
+    "gray": "Gri",
+    "slate": "Arduvaz",
+    "goldenrod": "Altın sarısı",
+    "periwinkle": "Menekşe mavisi",
+    "pink": "Pembe",
+    "mint": "Nane yeşili",
+    "lavender": "Lavanta",
+    "peach": "Şeftali",
+    "seaGreen": "Deniz yeşili",
+    "coral": "Mercan",
+    "skyBlue": "Gök mavisi",
+    "orchid": "Orkide",
+    "lime": "Limon yeşili",
+    "sand": "Kum"
+  },
+  "editor": {
+    "markdownPlaceholder": "Markdown ile yazın…",
+    "urlPlaceholder": "URL buraya",
+    "textPlaceholder": "metin",
+    "body": "Düzenleyici"
+  },
+  "markdown": {
+    "imageUnavailable": "[görsel kullanılamıyor]",
+    "brokenImage": "[bozuk görsel]",
+    "brokenImageUrl": "[bozuk görsel: {{url}}]"
+  },
   "common": {
     "movedToTop": "Artık ilk sırada",
     "movedToBottom": "Artık son sırada",
@@ -121,6 +157,9 @@
     "clearFrontTitle": "Front temizlensin mi?"
   },
   "members": {
+    "fieldCount": "Üye sayısı",
+    "clone": "Çoğalt",
+    "cloneFields": "Hangi alanlar kopyalansın?",
     "frontingLockTitle": "Şu anda frontta",
     "frontingLockMsg": "Bir üye fronttayken arşivlenemez veya silinemez. Önce onu fronttan çıkarın.",
     "addCustomFront": "Özel Front Ekle",
@@ -254,6 +293,23 @@
     "templateBody": "Girdi Gövdesi (ön ayar)"
   },
   "share": {
+    "jsonHint": "ZIP ve JSON, Plural Star'a yeniden içe aktarabileceğiniz tam yedeklerdir.",
+    "invalidJsonBackup": "Dosya geçerli JSON değil. Lütfen bir Plural Star veya Simply Plural yedek (.json) dosyası seçin.",
+    "unrecognizedBackup": "Bu bir Plural Star, Simply Plural, Octocon, Ourcana veya HiveMind yedeğine benzemiyor. Bu uygulamalardan birinden dışa aktarılmış bir .json dosyası seçin (veya .ampar dosyaları için Ampersand sekmesini kullanın).",
+    "couldNotImportFile": "Dosya içe aktarılamadı.",
+    "couldNotReadFile": "Dosya okunamadı.",
+    "restoreFailedGeneric": "Geri yükleme başarısız",
+    "couldNotConnect": "Bağlanılamadı.",
+    "importFailedGeneric": "İçe aktarma başarısız.",
+    "couldNotImportAvatars": "Avatarlar içe aktarılamadı.",
+    "couldNotReadAmpar": ".ampar dosyası okunamadı.",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "Özel Alanlar — kısmi içe aktarma",
+    "cfMatched": "Kimliğe göre eşleşen üyeler: {{matched}} / {{total}}",
+    "cfWithInfo": "Özel alan verisi eklenen üyeler: {{count}}",
+    "cfKeys": "Görülen özel alan anahtarları: {{seen}}, yazılan: {{written}}",
+    "cfNoData": "SimplyPlural, üye başına özel alan verisi döndürmedi. Token, üye içeriğine okuma erişimine sahip olmayabilir ya da SP hesabınız özel alan verilerini tanımadığımız bir yapıda saklıyor olabilir.",
+    "cfUnmatched": "{{count}} anahtar, alan kimliklerimizin/adlarımızın hiçbiriyle eşleşmedi. Örnek eşleşmeyen anahtarlar: {{samples}}",
     "banners": "Afişler",
     "groups": "Gruplar",
     "ampersand": "Ampersand",
@@ -416,6 +472,7 @@
     "spMergeDesc": "Simply Plural yedek verilerini mevcut sisteminize birleştirin."
   },
   "hub": {
+    "overlapMore": "+{{count}} daha",
     "front": "Front",
     "title": "Merkez",
     "shareExport": "Paylaş ve Dışa Aktar",
@@ -451,6 +508,7 @@
     "supportPS": "PS'yi Destekle"
   },
   "modal": {
+    "read": "Görüntüle",
     "linkPfp": "Görsel bağla",
     "appFont": "Uygulama Yazı Tipi",
     "appFontDesc": "Uygulama genelinde metin için kullanılan yazı tipi.",
@@ -556,6 +614,8 @@
     "dyslexicFontDesc": "Gövde metnini OpenDyslexic'e geçirir. Başlıklar stilize yazı tiplerini korur."
   },
   "notification": {
+    "filePermTitle": "Dosya Erişimi",
+    "filePermMsg": "Plural Star'ın dosyaları içe ve dışa aktarmasına izin verin.",
     "locationPermTitle": "Konum İzni",
     "locationPermMsg": "Plural Star, fronttayken yaklaşık konumunuzu etiketlemek istiyor.",
     "allow": "İzin Ver",
@@ -614,6 +674,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "Grup adı",
     "changeColor": "Rengi değiştir",
     "deleteSubtree": "Tümünü sil",
     "group": "Grup",
@@ -677,6 +738,7 @@
     "uniqueFronters": "Benzersiz Fronter"
   },
   "chat": {
+    "imageUnavailable": "[görsel kullanılamıyor]",
     "addReaction": "Tepki ekle",
     "attachFile": "Dosya ekle",
     "formatting": "Biçimlendirme",
@@ -899,7 +961,38 @@
     "clearTitle": "Beyaz tahta temizlensin mi?",
     "clearMsg": "Bu, tahtadaki her şeyi kalıcı olarak siler.",
     "brushSize": "Fırça boyutu",
-    "penColor": "Kalem rengi"
+    "penColor": "Kalem rengi",
+    "voHint": "Adım boyutunu ayarlamak için yukarı veya aşağı kaydırın. Çizmek, kalemi taşımak veya konumunuzu kontrol etmek için eylemler menüsünü açın.",
+    "voLearnHint": "Adım boyutunu değiştirmek için yukarı veya aşağı kaydırın. Kontrolleri öğrenmek için eylemler menüsünü açın ve “Komut listesi” öğesini seçin.",
+    "voStepValue": "Adım {{px}} piksel",
+    "voDrawUp": "Yukarı çiz",
+    "voDrawDown": "Aşağı çiz",
+    "voDrawLeft": "Sola çiz",
+    "voDrawRight": "Sağa çiz",
+    "voMoveUp": "Yukarı taşı",
+    "voMoveDown": "Aşağı taşı",
+    "voMoveLeft": "Sola taşı",
+    "voMoveRight": "Sağa taşı",
+    "voPenLift": "Kalemi kaldır",
+    "voPenLower": "Kalemi indir",
+    "voWhere": "Neredeyim?",
+    "voRecenter": "Kalemi ortala",
+    "voCommands": "Komut listesi",
+    "voUp": "yukarı",
+    "voDown": "aşağı",
+    "voLeft": "sola",
+    "voRight": "sağa",
+    "voDrew": "{{dir}} {{dist}} çizildi",
+    "voMoved": "{{dir}} {{dist}} taşındı",
+    "voAt": "Konum {{h}}, {{v}}",
+    "voPosRight": "{{n}} sağ",
+    "voPosLeft": "{{n}} sol",
+    "voPosDown": "{{n}} aşağı",
+    "voPosUp": "{{n}} yukarı",
+    "voEdges": "{{left}} sol kenara, {{right}} sağa, {{top}} üste, {{bottom}} alta",
+    "voPenNowDown": "Kalem indi, çiziliyor",
+    "voPenNowUp": "Kalem kalktı, yalnızca taşınıyor",
+    "voRecentered": "Kalem yeniden ortalandı"
   },
   "systemMap": {
     "connections": "Bağlantılar",
@@ -951,6 +1044,9 @@
   },
   "medical": {
     "title": "Tıbbi",
+    "remind30m": "30 dk",
+    "remind1h": "1 sa",
+    "remind1d": "1 gün",
     "medications": "İlaçlar",
     "addMedication": "+ İlaç Ekle",
     "namePlaceholder": "İlaç adı…",

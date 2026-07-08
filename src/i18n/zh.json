@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "白色",
+    "black": "黑色",
+    "red": "红色",
+    "orange": "橙色",
+    "yellow": "黄色",
+    "green": "绿色",
+    "blue": "蓝色",
+    "indigo": "靛蓝",
+    "brown": "棕色",
+    "gray": "灰色",
+    "slate": "石板灰",
+    "goldenrod": "金菊黄",
+    "periwinkle": "长春花蓝",
+    "pink": "粉色",
+    "mint": "薄荷绿",
+    "lavender": "薰衣草紫",
+    "peach": "桃色",
+    "seaGreen": "海绿色",
+    "coral": "珊瑚色",
+    "skyBlue": "天蓝色",
+    "orchid": "兰花紫",
+    "lime": "青柠色",
+    "sand": "沙色"
+  },
+  "editor": {
+    "markdownPlaceholder": "用 Markdown 书写…",
+    "urlPlaceholder": "在此输入 URL",
+    "textPlaceholder": "文本",
+    "body": "编辑器"
+  },
+  "markdown": {
+    "imageUnavailable": "[图片不可用]",
+    "brokenImage": "[图片损坏]",
+    "brokenImageUrl": "[图片损坏: {{url}}]"
+  },
   "a11y": {
     "settings": "设置",
     "lockApp": "锁定应用",
@@ -144,6 +180,9 @@
     "clearFrontMsg": "这将清除所有层级并记录当前会话的结束。继续吗？"
   },
   "members": {
+    "fieldCount": "成员数量",
+    "clone": "克隆",
+    "cloneFields": "复制哪些字段？",
     "select": "选择",
     "selectAll": "全部",
     "selectNone": "无",
@@ -277,6 +316,23 @@
     "templateBody": "条目正文（预设）"
   },
   "share": {
+    "jsonHint": "ZIP 和 JSON 是完整备份，可重新导入 Plural Star。",
+    "invalidJsonBackup": "文件不是有效的 JSON。请选择 Plural Star 或 Simply Plural 备份（.json）文件。",
+    "unrecognizedBackup": "这看起来不是 Plural Star、Simply Plural、Octocon、Ourcana 或 HiveMind 备份。请选择从这些应用之一导出的 .json 文件（.ampar 文件请使用 Ampersand 标签页）。",
+    "couldNotImportFile": "无法导入文件。",
+    "couldNotReadFile": "无法读取文件。",
+    "restoreFailedGeneric": "恢复失败",
+    "couldNotConnect": "无法连接。",
+    "importFailedGeneric": "导入失败。",
+    "couldNotImportAvatars": "无法导入头像。",
+    "couldNotReadAmpar": "无法读取 .ampar 文件。",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "自定义字段 — 部分导入",
+    "cfMatched": "按 ID 匹配的成员：{{matched}} / {{total}}",
+    "cfWithInfo": "附带自定义字段数据的成员：{{count}}",
+    "cfKeys": "检测到的自定义字段键：{{seen}}，已写入：{{written}}",
+    "cfNoData": "SimplyPlural 未返回任何按成员的自定义字段数据。令牌可能缺少对成员内容的读取权限，或你的 SP 账户以我们无法识别的结构存储 CF 数据。",
+    "cfUnmatched": "{{count}} 个键与我们的任何字段 ID/名称都不匹配。未匹配键示例：{{samples}}",
     "groupsCount": "{{count}} 个分组",
     "progressAvatars": "正在恢复头像…",
     "progressAvatarsN": "正在恢复头像… {{done}}/{{total}}",
@@ -439,6 +495,7 @@
     "exportCategories": "导出类别"
   },
   "hub": {
+    "overlapMore": "+{{count}} 更多",
     "editEntry": "编辑条目",
     "front": "前台",
     "title": "中心",
@@ -474,6 +531,7 @@
     "supportPS": "支持 PS"
   },
   "modal": {
+    "read": "阅读",
     "linkPfp": "链接图片",
     "appFont": "应用字体",
     "appFontDesc": "整个应用中文本使用的字体。",
@@ -579,6 +637,8 @@
     "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
   },
   "notification": {
+    "filePermTitle": "文件访问",
+    "filePermMsg": "允许 Plural Star 导入和导出文件。",
     "chatPingTitle": "◆ {{speaker}} 在 #{{channel}} 提醒了你",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "点按查看消息。",
@@ -637,6 +697,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "组名称",
     "changeColor": "更改颜色",
     "deleteSubtree": "全部删除",
     "group": "组",
@@ -700,6 +761,7 @@
     "sessionsSuffix": "次会话"
   },
   "chat": {
+    "imageUnavailable": "[图片不可用]",
     "ping": "提醒",
     "pingSent": "已提醒",
     "pingSentMsg": "后台通知目前仅支持 Android，但该消息会在聊天中高亮显示。",
@@ -899,7 +961,38 @@
     "clearTitle": "清空白板？",
     "clearMsg": "这将永久删除白板上的所有内容。",
     "brushSize": "画笔大小",
-    "penColor": "画笔颜色"
+    "penColor": "画笔颜色",
+    "voHint": "向上或向下滑动以设置步长。打开操作转子即可绘画、移动画笔或查看当前位置。",
+    "voLearnHint": "向上或向下滑动以更改步长。打开操作转子并选择“命令列表”即可了解操作方式。",
+    "voStepValue": "步长 {{px}} 像素",
+    "voDrawUp": "向上绘画",
+    "voDrawDown": "向下绘画",
+    "voDrawLeft": "向左绘画",
+    "voDrawRight": "向右绘画",
+    "voMoveUp": "向上移动",
+    "voMoveDown": "向下移动",
+    "voMoveLeft": "向左移动",
+    "voMoveRight": "向右移动",
+    "voPenLift": "抬起画笔",
+    "voPenLower": "放下画笔",
+    "voWhere": "我在哪里？",
+    "voRecenter": "画笔回到中心",
+    "voCommands": "命令列表",
+    "voUp": "上",
+    "voDown": "下",
+    "voLeft": "左",
+    "voRight": "右",
+    "voDrew": "向{{dir}}绘画{{dist}}",
+    "voMoved": "向{{dir}}移动{{dist}}",
+    "voAt": "位于 {{h}}，{{v}}",
+    "voPosRight": "右 {{n}}",
+    "voPosLeft": "左 {{n}}",
+    "voPosDown": "下 {{n}}",
+    "voPosUp": "上 {{n}}",
+    "voEdges": "距左边缘 {{left}}，距右 {{right}}，距上 {{top}}，距下 {{bottom}}",
+    "voPenNowDown": "画笔落下，正在绘画",
+    "voPenNowUp": "画笔抬起，仅移动",
+    "voRecentered": "画笔已回到中心"
   },
   "systemMap": {
     "connections": "连接",
@@ -950,6 +1043,9 @@
     "rival": "对手"
   },
   "medical": {
+    "remind30m": "30分钟",
+    "remind1h": "1小时",
+    "remind1d": "1天",
     "title": "医疗",
     "medications": "药物",
     "addMedication": "+ 添加药物",

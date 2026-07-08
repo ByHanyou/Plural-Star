@@ -269,7 +269,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       }).join('\n');
       Alert.alert(
         t('hub.overlapDetected'),
-        `${t('hub.overlapMsg')}\n\n${overlapNames}${overlaps.length > 3 ? `\n+${overlaps.length - 3} more` : ''}`,
+        `${t('hub.overlapMsg')}\n\n${overlapNames}${overlaps.length > 3 ? `\n${t('hub.overlapMore', {count: overlaps.length - 3})}` : ''}`,
         [
           {text: t('common.cancel'), style: 'cancel'},
           {text: t('hub.keepBoth'), onPress: () => {

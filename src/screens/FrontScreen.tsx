@@ -136,7 +136,7 @@ const TierCard = ({
           </View>
         )}
 
-        <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('front.frontNote')}, ${t('common.edit')}`} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
+        <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('tier.editTier', {tier: label})} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
           <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
             <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim}}>
               {t('front.frontNote')}

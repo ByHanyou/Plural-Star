@@ -75,11 +75,8 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
   const sqRef = useRef({w: 0, h: 0});
   const hueRef = useRef(0);
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
-  // the hexes we've emitted that the parent may still echo back to us
   const emittedRef = useRef<string[]>([safe.toUpperCase()]);
 
-  // Adopt an external/typed hex while preserving hue (and saturation for black),
-  // which a grayscale/white/black hex cannot represent on its own.
   const adopt = (n: string) => {
     const nh = hexToHsv(n);
     const prev = hsvRef.current;
@@ -98,7 +95,7 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
     if (!isValidHex(n)) return;
     const idx = emittedRef.current.indexOf(n.toUpperCase());
     if (idx >= 0) {
-      emittedRef.current.splice(0, idx); // our own echo (possibly stale) — ignore
+      emittedRef.current.splice(0, idx);
       return;
     }
     adopt(n);

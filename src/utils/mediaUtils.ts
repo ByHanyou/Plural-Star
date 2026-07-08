@@ -1,4 +1,5 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import ImageResizer from '@bam.tech/react-native-image-resizer';
 
 const AVATAR_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars`;
 const CHAT_MEDIA_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_chat_media`;
@@ -7,6 +8,28 @@ const BIO_IMAGE_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_bio_images`
 const ensureDir = async (dir: string) => {
   const exists = await ReactNativeBlobUtil.fs.exists(dir);
   if (!exists) await ReactNativeBlobUtil.fs.mkdir(dir);
+};
+
+const AVATAR_MAX = 256;
+
+const downscaleOrCopy = async (sourceUri: string, destPath: string, max = AVATAR_MAX): Promise<string> => {
+  const readPath = sourceUri.replace('file://', '').split('#')[0].split('?')[0];
+  const original = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
+  if (original.startsWith('R0lGO')) {
+    await ReactNativeBlobUtil.fs.writeFile(destPath, original, 'base64');
+    return `file://${destPath}?t=${Date.now()}`;
+  }
+  try {
+    const resized = await ImageResizer.createResizedImage(`file://${readPath}`, max, max, 'PNG', 100, 0);
+    const resizedPath = resized.uri.replace('file://', '');
+    const bytes = await ReactNativeBlobUtil.fs.readFile(resizedPath, 'base64');
+    await ReactNativeBlobUtil.fs.writeFile(destPath, bytes, 'base64');
+    try { await ReactNativeBlobUtil.fs.unlink(resizedPath); } catch {}
+    return `file://${destPath}?t=${Date.now()}`;
+  } catch {
+    await ReactNativeBlobUtil.fs.writeFile(destPath, original, 'base64');
+    return `file://${destPath}?t=${Date.now()}`;
+  }
 };
 
 export const saveAvatar = async (memberId: string, base64: string): Promise<string> => {
@@ -157,8 +180,12 @@ const downloadImageWithExtSniff = async (
   return downloadViaFetchFallback(baseDir, id, url);
 };
 
-export const saveAvatarFromUrl = (memberId: string, url: string): Promise<string | undefined> =>
-  downloadImageWithExtSniff(AVATAR_DIR, memberId, url);
+export const saveAvatarFromUrl = async (memberId: string, url: string): Promise<string | undefined> => {
+  const uri = await downloadImageWithExtSniff(AVATAR_DIR, memberId, url);
+  if (!uri) return uri;
+  const path = uri.replace('file://', '').split('?')[0];
+  try { return await downscaleOrCopy(`file://${path}`, path); } catch { return uri; }
+};
 
 export const saveBannerFromUrl = (memberId: string, url: string): Promise<string | undefined> =>
   downloadImageWithExtSniff(BANNER_DIR, memberId, url);
@@ -229,7 +256,7 @@ export const saveAvatarFromUri = async (memberId: string, sourceUri: string): Pr
     const p = `${AVATAR_DIR}/${memberId}.${ext}`;
     try { if (await ReactNativeBlobUtil.fs.exists(p)) await ReactNativeBlobUtil.fs.unlink(p); } catch {}
   }
-  return persistImage(sourceUri, `${AVATAR_DIR}/${memberId}.png`);
+  return downscaleOrCopy(sourceUri, `${AVATAR_DIR}/${memberId}.png`);
 };
 
 export const saveBioImageFromUri = async (imageId: string, sourceUri: string): Promise<string> => {
@@ -306,6 +333,28 @@ export const migrateInlineAvatars = async (members: any[]): Promise<{members: an
     } else {
       updated.push(m);
     }
+  }
+  return {members: updated, changed};
+};
+
+export const downsizeExistingAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
+  let changed = false;
+  const updated: any[] = [];
+  await ensureDir(AVATAR_DIR);
+  for (const m of members) {
+    const av = m?.avatar;
+    if (av && typeof av === 'string' && av.startsWith('file://')) {
+      const path = av.replace('file://', '').split('?')[0];
+      try {
+        if (await ReactNativeBlobUtil.fs.exists(path)) {
+          const next = await downscaleOrCopy(`file://${path}`, path);
+          updated.push({...m, avatar: next});
+          changed = true;
+          continue;
+        }
+      } catch {}
+    }
+    updated.push(m);
   }
   return {members: updated, changed};
 };

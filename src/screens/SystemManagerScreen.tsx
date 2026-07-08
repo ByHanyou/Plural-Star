@@ -6,7 +6,7 @@ import {PALETTE} from '../theme';
 import {ColorPicker} from '../components/ColorPicker';
 import {Avatar} from '../components/Avatar';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, colorName} from '../utils';
 
 interface Props {
   theme: any;
@@ -217,14 +217,14 @@ export const SystemManagerScreen = ({theme: T, members, groups, onSaveGroups, on
             </TouchableOpacity>
           )}
           {isEditing ? (
-            <TouchableOpacity onPress={() => { const idx = PALETTE.indexOf(editColor); setEditColor(PALETTE[(idx + 1) % PALETTE.length]); }} accessibilityRole="button" accessibilityLabel={t('memberGroups.changeColor')}
+            <TouchableOpacity onPress={() => { const idx = PALETTE.indexOf(editColor); setEditColor(PALETTE[(idx + 1) % PALETTE.length]); }} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.changeColor')}, ${colorName(editColor, t)}`}
               style={{width: 18, height: 18, borderRadius: isSub ? 4 : 9, backgroundColor: editColor, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}} />
           ) : (
             <View style={{width: 12, height: 12, borderRadius: isSub ? 3 : 6, backgroundColor: g.color || T.accent}} />
           )}
           {isEditing ? (
             <View style={{flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center'}}>
-              <TextInput value={editName} onChangeText={setEditName} autoFocus style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, fontSize: fs(13)}} onSubmitEditing={() => renameNode(g.id)} returnKeyType="done" />
+              <TextInput value={editName} onChangeText={setEditName} autoFocus accessibilityLabel={t('memberGroups.groupName')} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, fontSize: fs(13)}} onSubmitEditing={() => renameNode(g.id)} returnKeyType="done" />
               <TouchableOpacity onPress={() => renameNode(g.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text style={{color: T.success, fontSize: fs(14)}}>✓</Text></TouchableOpacity>
               <TouchableOpacity onPress={() => setEditId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{color: T.dim, fontSize: fs(12)}}>✕</Text></TouchableOpacity>
             </View>
@@ -511,7 +511,7 @@ export const SystemManagerScreen = ({theme: T, members, groups, onSaveGroups, on
       {groups.length === 0 && <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', marginBottom: 10}}>{t('memberGroups.none')}</Text>}
       <View style={{flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 8}}>
         <TouchableOpacity onPress={() => setShowNewColor(s => !s)}
-          accessibilityRole="button" accessibilityState={{expanded: showNewColor}} accessibilityLabel={t('memberGroups.changeColor')}
+          accessibilityRole="button" accessibilityState={{expanded: showNewColor}} accessibilityLabel={`${t('memberGroups.changeColor')}, ${colorName(newColor, t)}`}
           style={{width: 28, height: 28, borderRadius: newKind === 'subsystem' ? 6 : 14, backgroundColor: newColor, borderWidth: 2, borderColor: showNewColor ? '#fff' : 'rgba(255,255,255,0.15)'}} />
         <TextInput value={newName} onChangeText={setNewName} placeholder={t('memberGroups.addPlaceholder')} placeholderTextColor={T.muted}
           style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: fs(13)}} onSubmitEditing={addNode} returnKeyType="done" />

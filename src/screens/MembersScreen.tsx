@@ -117,11 +117,6 @@ const MemberCard = React.memo(function MemberCard({
                 <Text style={{fontSize: fs(15), fontWeight: '600', color: isFronting ? T.danger : T.accent}} importantForAccessibility="no">{isFronting ? '−' : '＋'}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => onEditMember(m)} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-              accessibilityRole="button" accessibilityLabel={`${t('common.edit')}, ${m.name}`}
-              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>{t('common.edit')}</Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -164,8 +159,8 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
   const [groupAssignSel, setGroupAssignSel] = useState<Set<string>>(new Set());
   const [showDisplayOptions, setShowDisplayOptions] = useState(false);
   const [quickFrontFor, setQuickFrontFor] = useState<Member | null>(null);
-  const [listFields, setListFields] = useState({groups: true, descriptions: true, pronouns: true, roles: true, ...(memberListFields || {})});
-  const toggleListField = (k: 'groups' | 'descriptions' | 'pronouns' | 'roles') => {
+  const [listFields, setListFields] = useState({groups: true, descriptions: true, pronouns: true, roles: true, count: true, ...(memberListFields || {})});
+  const toggleListField = (k: 'groups' | 'descriptions' | 'pronouns' | 'roles' | 'count') => {
     const next = {...listFields, [k]: !listFields[k]};
     setListFields(next);
     onSaveListFields && onSaveListFields(next);
@@ -382,11 +377,13 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
               {t('members.title')}
             </Text>
           )}
+          {listFields.count !== false && (
           <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2, marginBottom: 10}} numberOfLines={1} maxFontSizeMultiplier={1.2}>
             {(query || activeGroup || activeTag)
               ? t('members.countFiltered', {filtered: filtered.length, total: tabMembers.length})
               : t('members.count', {count: tabMembers.length})}
           </Text>
+          )}
           <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
             <TouchableOpacity onPress={() => enterSelection()} activeOpacity={0.7} accessibilityRole="button"
               style={[s.addBtn, {backgroundColor: T.surface, borderColor: T.border}]}>
@@ -471,7 +468,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
               style={[s.chip, {backgroundColor: !activeGroup ? `${T.accent}18` : T.surface, borderColor: !activeGroup ? `${T.accent}50` : T.border}]}>
               <Text style={{fontSize: fs(11), color: !activeGroup ? T.accent : T.dim, fontWeight: !activeGroup ? '600' : '400'}}>{t('memberGroups.allGroups')}</Text>
             </TouchableOpacity>
-            {groups.map(g => (
+            {sortGroupsForDisplay(groups, groups).map(g => (
               <TouchableOpacity key={g.id} onPress={() => setActiveGroup(activeGroup === g.id ? null : g.id)} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityState={{selected: activeGroup === g.id}} accessibilityLabel={g.name}
                 style={[s.chip, {backgroundColor: activeGroup === g.id ? `${g.color || T.accent}18` : T.surface, borderColor: activeGroup === g.id ? `${g.color || T.accent}50` : T.border}]}>
@@ -563,7 +560,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
         <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
           <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>{t('members.addToGroups')}</Text>
           <ScrollView style={{maxHeight: 320}}>
-            {groups.map(g => { const on = groupAssignSel.has(g.id); return (
+            {sortGroupsForDisplay(groups, groups).map(g => { const on = groupAssignSel.has(g.id); return (
               <TouchableOpacity key={g.id} onPress={() => toggleGroupAssign(g.id)} activeOpacity={0.7}
                 accessibilityRole="checkbox" accessibilityState={{checked: on}} accessibilityLabel={g.name}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: T.border}}>
@@ -624,7 +621,7 @@ export const MembersScreen = ({theme: T, members, front, groups, initialSortMode
       <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
         <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
           <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>{t('members.displayFields')}</Text>
-          {([['groups', t('members.fieldGroups')], ['descriptions', t('members.fieldDescriptions')], ['pronouns', t('members.fieldPronouns')], ['roles', t('members.fieldRoles')]] as ['groups' | 'descriptions' | 'pronouns' | 'roles', string][]).map(([k, label]) => {
+          {([['groups', t('members.fieldGroups')], ['descriptions', t('members.fieldDescriptions')], ['pronouns', t('members.fieldPronouns')], ['roles', t('members.fieldRoles')], ['count', t('members.fieldCount')]] as ['groups' | 'descriptions' | 'pronouns' | 'roles' | 'count', string][]).map(([k, label]) => {
             const on = listFields[k] !== false;
             return (
               <TouchableOpacity key={k} onPress={() => toggleListField(k)} activeOpacity={0.7}

@@ -13,9 +13,6 @@ interface Props {
   onSetMailboxPassword?: (memberId: string, password?: string) => void;
 }
 
-// The mailbox reuses the existing noteboard store: each message's `memberId` is the
-// recipient's inbox and `authorId` is the sender, so notes written before this feature
-// existed automatically appear as mail in that member's mailbox — no migration needed.
 export const MailboxScreen = ({theme: T, members, onBack, onSetMailboxPassword}: Props) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
@@ -176,7 +173,6 @@ export const MailboxScreen = ({theme: T, members, onBack, onSetMailboxPassword}:
     );
   };
 
-  // ---- Inbox detail view ----
   if (openId) {
     const owner = byId(openId);
     const msgs = inboxMsgs(openId);
@@ -204,7 +200,7 @@ export const MailboxScreen = ({theme: T, members, onBack, onSetMailboxPassword}:
             <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('mailbox.replyFrom', {name: owner?.name || '?'})}</Text>
             <MemberChips selected={fromId} onSelect={setFromId} />
             <View style={{flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 8}}>
-              <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} multiline
+              <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('mailbox.messagePlaceholder')} multiline
                 style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 48, textAlignVertical: 'top'}} />
               <TouchableOpacity onPress={() => send(openId, fromId)} activeOpacity={0.7} disabled={!fromId || !text.trim()}
                 accessibilityRole="button" accessibilityLabel={t('mailbox.send')}
@@ -239,7 +235,6 @@ export const MailboxScreen = ({theme: T, members, onBack, onSetMailboxPassword}:
     );
   }
 
-  // ---- Inbox list view ----
   return (
     <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={behavior} keyboardVerticalOffset={90}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8}}>
@@ -259,7 +254,7 @@ export const MailboxScreen = ({theme: T, members, onBack, onSetMailboxPassword}:
             <MemberChips selected={fromId} onSelect={setFromId} />
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 10, marginBottom: 6}}>{t('mailbox.to')}</Text>
             <MemberChips selected={toId} onSelect={setToId} />
-            <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} multiline
+            <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('mailbox.messagePlaceholder')} multiline
               style={{backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 56, textAlignVertical: 'top', marginTop: 10}} />
             <TouchableOpacity onPress={() => send(toId, fromId)} activeOpacity={0.7} disabled={!fromId || !toId || !text.trim()}
               accessibilityRole="button" accessibilityLabel={t('mailbox.send')}

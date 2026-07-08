@@ -27,7 +27,7 @@ const lastDayOfMonth = (year: number, monthZeroIndexed: number) =>
   new Date(year, monthZeroIndexed + 1, 0).getDate();
 
 const EditableCell = ({
-  value, pad, min, max, onCommit, onStep, width, T,
+  value, pad, min, max, onCommit, onStep, width, label, T,
 }: {
   value: number;
   pad: number;
@@ -36,6 +36,7 @@ const EditableCell = ({
   onCommit: (n: number) => void;
   onStep: (delta: number) => void;
   width: number;
+  label?: string;
   T: any;
 }) => {
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
@@ -77,6 +78,7 @@ const EditableCell = ({
       <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel="Decrease" hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
         <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▼</Text>
       </TouchableOpacity>
+      {label ? <Text style={{fontSize: fs(9), color: T.muted, marginTop: 2, letterSpacing: 0.5}} accessibilityElementsHidden importantForAccessibility="no">{label}</Text> : null}
     </View>
   );
 };
@@ -182,21 +184,21 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
               <EditableCell
                 value={month + 1} pad={2} min={1} max={12}
                 onCommit={commitMonth} onStep={d => stepBy('month', d)}
-                width={44} T={T}
+                width={44} label="MM" T={T}
               />
             )}
             {showDay && (
               <EditableCell
                 value={day} pad={2} min={1} max={lastDayOfMonth(year, month)}
                 onCommit={commitDay} onStep={d => stepBy('day', d)}
-                width={44} T={T}
+                width={44} label="DD" T={T}
               />
             )}
             {showYear && (
               <EditableCell
                 value={year} pad={4} min={MIN_YEAR} max={MAX_YEAR}
                 onCommit={commitYear} onStep={d => stepBy('year', d)}
-                width={60} T={T}
+                width={60} label="YYYY" T={T}
               />
             )}
             {showTime && (
@@ -205,13 +207,13 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                 <EditableCell
                   value={displayHour} pad={2} min={1} max={12}
                   onCommit={commitHour12} onStep={d => stepBy('hour', d)}
-                  width={44} T={T}
+                  width={44} label="HH" T={T}
                 />
                 <Text style={{fontSize: fs(18), color: T.dim, fontWeight: '700', marginHorizontal: 2}}>:</Text>
                 <EditableCell
                   value={minutes} pad={2} min={0} max={59}
                   onCommit={commitMinute} onStep={d => stepBy('minute', d)}
-                  width={44} T={T}
+                  width={44} label="MIN" T={T}
                 />
                 <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}
                   accessibilityRole="button" accessibilityLabel={isPM ? 'PM, switch to AM' : 'AM, switch to PM'}
@@ -221,14 +223,6 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
               </>
             )}
           </View>
-          {(showMonth && showDay && showYear) && (
-            <Text style={{fontSize: fs(9), color: T.muted, marginTop: 8, textAlign: 'center', letterSpacing: 0.5}}>MM &nbsp;&nbsp; DD &nbsp;&nbsp; YYYY{showTime ? '   ·   HH : MM' : ''}</Text>
-          )}
-          {(mode === 'monthYear' || mode === 'monthDay') && (
-            <Text style={{fontSize: fs(9), color: T.muted, marginTop: 8, textAlign: 'center', letterSpacing: 0.5}}>
-              {mode === 'monthYear' ? 'MM     YYYY' : 'MM     DD'}
-            </Text>
-          )}
         </View>
       )}
     </View>

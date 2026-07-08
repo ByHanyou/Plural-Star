@@ -2,6 +2,7 @@ import React from 'react';
 import {View, Image, Linking} from 'react-native';
 import {Text} from './AppText';
 import type {Member} from '../utils';
+import i18n from '../i18n/i18n';
 
 const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\S*)?/gi;
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/;
@@ -16,14 +17,11 @@ const isValidImageUri = (u: unknown): u is string => {
   return /^https?:\/\//i.test(s) || /^file:\/\//i.test(s) || /^content:\/\//i.test(s) || s.startsWith('data:image/');
 };
 
-// Renders a remote/local image but, if the load fails (dead link, host blocking
-// React Native's image loader, expired URL, etc.), shows a visible placeholder
-// instead of silently rendering nothing.
 const UriImage = ({uri, style, T}: {uri: string; style: any; T: any}) => {
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => { setFailed(false); }, [uri]);
   if (failed) {
-    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>[image unavailable]</Text>;
+    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
   return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" onError={() => setFailed(true)} />;
 };
@@ -40,7 +38,7 @@ const AutoImage = ({uri, T, hintRatio}: {uri: string; T: any; hintRatio?: number
     return () => { live = false; };
   }, [uri, hintRatio]);
   if (failed) {
-    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>[image unavailable]</Text>;
+    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
   const r = ratio || 1.5;
   const sizing = r >= 1 ? {width: '100%' as const, aspectRatio: r} : {width: '100%' as const, height: 280};
@@ -129,7 +127,7 @@ const renderInlineHTML = (html: string, T: any, members?: Member[], onMentionPre
         if (isValidUrl) {
           parts.push(<Image key={key++} source={{uri: url}} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" />);
         } else {
-          parts.push(<Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image: {url}]</Text>);
+          parts.push(<Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImageUrl', {url})}</Text>);
         }
       }
       remaining = remaining.slice(imgM.index + imgM[0].length);
@@ -280,7 +278,7 @@ const renderInline = (text: string, T: any, members?: Member[], onMentionPress?:
     [/`(.+?)`/, m => <Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, paddingHorizontal: 4, borderRadius: 3, fontSize: fs(12, T)}}>{m[1]}</Text>],
     [/!\[([^\]]*)\]\(([^)]+)\)/, m => {
       const url = m[2].replace(/[)]+$/, '').trim();
-      if (!isValidImageUri(url)) return <Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image]</Text>;
+      if (!isValidImageUri(url)) return <Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>;
       return <UriImage key={key++} uri={url} style={{width: 200, height: 200, borderRadius: 8}} T={T} />;
     }],
     [/\[(.+?)\]\((.+?)\)/, m => <Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => Linking.openURL(m[2])}>{m[1]}</Text>],
@@ -362,7 +360,7 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
         const hintRatio = sizeHint ? Number(sizeHint[1]) / Number(sizeHint[2]) : undefined;
         elements.push(<AutoImage key={i * 3 + 1} uri={url} T={T} hintRatio={hintRatio && hintRatio > 0 ? hintRatio : undefined} />);
       } else {
-        elements.push(<Text key={i * 3 + 1} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>[broken image]</Text>);
+        elements.push(<Text key={i * 3 + 1} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>);
       }
       if (after) elements.push(renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress));
       return;

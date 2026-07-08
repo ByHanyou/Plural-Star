@@ -93,12 +93,6 @@ export const safePick = async (
     Keyboard.dismiss();
 
     const launch = () => {
-      // Android's Storage Access Framework only honors the FIRST entry in the
-      // MIME `type` array — any additional types (e.g. application/zip after
-      // application/json) get greyed out and can't be selected. Many providers
-      // also report .zip as application/octet-stream. So when more than one type
-      // is requested on Android, fall back to allFiles and let the caller
-      // validate by extension/content after the pick (which Share/import already do).
       const wantsMultipleTypes =
         Array.isArray(options.type) && options.type.length > 1;
       const pickerOptions =

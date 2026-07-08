@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "Blanco",
+    "black": "Negro",
+    "red": "Rojo",
+    "orange": "Naranja",
+    "yellow": "Amarillo",
+    "green": "Verde",
+    "blue": "Azul",
+    "indigo": "Índigo",
+    "brown": "Marrón",
+    "gray": "Gris",
+    "slate": "Pizarra",
+    "goldenrod": "Amarillo dorado",
+    "periwinkle": "Pervinca",
+    "pink": "Rosa",
+    "mint": "Menta",
+    "lavender": "Lavanda",
+    "peach": "Melocotón",
+    "seaGreen": "Verde mar",
+    "coral": "Coral",
+    "skyBlue": "Azul cielo",
+    "orchid": "Orquídea",
+    "lime": "Verde lima",
+    "sand": "Arena"
+  },
+  "editor": {
+    "markdownPlaceholder": "Escribe en markdown…",
+    "urlPlaceholder": "URL aquí",
+    "textPlaceholder": "texto",
+    "body": "Editor"
+  },
+  "markdown": {
+    "imageUnavailable": "[imagen no disponible]",
+    "brokenImage": "[imagen dañada]",
+    "brokenImageUrl": "[imagen dañada: {{url}}]"
+  },
   "a11y": {
     "settings": "Ajustes",
     "lockApp": "Bloquear app",
@@ -144,6 +180,9 @@
     "clearFrontTitle": "¿Limpiar front?"
   },
   "members": {
+    "fieldCount": "Número de miembros",
+    "clone": "Clonar",
+    "cloneFields": "¿Qué campos copiar?",
     "select": "Seleccionar",
     "selectAll": "Todos",
     "selectNone": "Ninguno",
@@ -277,6 +316,23 @@
     "templateBody": "Cuerpo de Entrada (predefinido)"
   },
   "share": {
+    "jsonHint": "Los archivos ZIP y JSON son copias de seguridad completas que puedes reimportar en Plural Star.",
+    "invalidJsonBackup": "El archivo no es un JSON válido. Elige un archivo de copia de seguridad de Plural Star o Simply Plural (.json).",
+    "unrecognizedBackup": "Esto no parece una copia de seguridad de Plural Star, Simply Plural, Octocon, Ourcana o HiveMind. Elige un archivo .json exportado desde una de esas apps (o usa la pestaña Ampersand para archivos .ampar).",
+    "couldNotImportFile": "No se pudo importar el archivo.",
+    "couldNotReadFile": "No se pudo leer el archivo.",
+    "restoreFailedGeneric": "Error al restaurar",
+    "couldNotConnect": "No se pudo conectar.",
+    "importFailedGeneric": "Error al importar.",
+    "couldNotImportAvatars": "No se pudieron importar los avatares.",
+    "couldNotReadAmpar": "No se pudo leer el archivo .ampar.",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "Campos personalizados — importación parcial",
+    "cfMatched": "Miembros emparejados por ID: {{matched}} / {{total}}",
+    "cfWithInfo": "Miembros con datos de campos personalizados adjuntos: {{count}}",
+    "cfKeys": "Claves de campos personalizados detectadas: {{seen}}, escritas: {{written}}",
+    "cfNoData": "SimplyPlural no devolvió datos de campos personalizados por miembro. Puede que el token no tenga acceso de lectura al contenido de los miembros, o que tu cuenta de SP almacene los datos de CF en un formato que no reconocemos.",
+    "cfUnmatched": "{{count}} claves no coincidieron con ninguno de nuestros ID/nombres de campo. Ejemplos de claves sin coincidencia: {{samples}}",
     "groupsCount": "{{count}} grupos",
     "progressAvatars": "Restaurando avatares…",
     "progressAvatarsN": "Restaurando avatares… {{done}}/{{total}}",
@@ -444,6 +500,7 @@
     "exportCategories": "Categorías de exportación"
   },
   "hub": {
+    "overlapMore": "+{{count}} más",
     "editEntry": "Editar entrada",
     "front": "Frente",
     "title": "Centro",
@@ -479,6 +536,7 @@
     "supportPS": "Apoyar PS"
   },
   "modal": {
+    "read": "Leer",
     "linkPfp": "Enlazar imagen",
     "appFont": "Fuente de la app",
     "appFontDesc": "Fuente usada para el texto en toda la app.",
@@ -586,6 +644,8 @@
     "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
   },
   "notification": {
+    "filePermTitle": "Acceso a archivos",
+    "filePermMsg": "Permitir que Plural Star importe y exporte archivos.",
     "chatPingTitle": "◆ {{speaker}} te avisó en #{{channel}}",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "Toca para ver el mensaje.",
@@ -644,6 +704,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "Nombre del grupo",
     "changeColor": "Cambiar color",
     "deleteSubtree": "Eliminar todo",
     "group": "Grupo",
@@ -707,6 +768,7 @@
     "uniqueFronters": "Miembros únicos al frente"
   },
   "chat": {
+    "imageUnavailable": "[imagen no disponible]",
     "ping": "Avisar",
     "pingSent": "Avisado",
     "pingSentMsg": "Las notificaciones en segundo plano solo están disponibles en Android por ahora, pero el mensaje queda resaltado en tu chat.",
@@ -906,7 +968,38 @@
     "clearTitle": "¿Vaciar la pizarra?",
     "clearMsg": "Esto borra todo el contenido de la pizarra para siempre.",
     "brushSize": "Tamaño del pincel",
-    "penColor": "Color del lápiz"
+    "penColor": "Color del lápiz",
+    "voHint": "Desliza hacia arriba o abajo para ajustar el paso. Abre el menú de acciones para dibujar, mover el lápiz o comprobar tu posición.",
+    "voLearnHint": "Desliza hacia arriba o abajo para cambiar el paso. Abre el menú de acciones y elige Lista de comandos para aprender los controles.",
+    "voStepValue": "Paso {{px}} píxeles",
+    "voDrawUp": "Dibujar hacia arriba",
+    "voDrawDown": "Dibujar hacia abajo",
+    "voDrawLeft": "Dibujar hacia la izquierda",
+    "voDrawRight": "Dibujar hacia la derecha",
+    "voMoveUp": "Mover hacia arriba",
+    "voMoveDown": "Mover hacia abajo",
+    "voMoveLeft": "Mover hacia la izquierda",
+    "voMoveRight": "Mover hacia la derecha",
+    "voPenLift": "Levantar el lápiz",
+    "voPenLower": "Bajar el lápiz",
+    "voWhere": "¿Dónde estoy?",
+    "voRecenter": "Recentrar el lápiz",
+    "voCommands": "Lista de comandos",
+    "voUp": "hacia arriba",
+    "voDown": "hacia abajo",
+    "voLeft": "hacia la izquierda",
+    "voRight": "hacia la derecha",
+    "voDrew": "Dibujado {{dir}} {{dist}}",
+    "voMoved": "Movido {{dir}} {{dist}}",
+    "voAt": "en {{h}}, {{v}}",
+    "voPosRight": "{{n}} a la derecha",
+    "voPosLeft": "{{n}} a la izquierda",
+    "voPosDown": "{{n}} abajo",
+    "voPosUp": "{{n}} arriba",
+    "voEdges": "{{left}} hasta el borde izquierdo, {{right}} hasta la derecha, {{top}} hasta arriba, {{bottom}} hasta abajo",
+    "voPenNowDown": "Lápiz abajo, dibujando",
+    "voPenNowUp": "Lápiz arriba, solo movimiento",
+    "voRecentered": "Lápiz recentrado en el medio"
   },
   "systemMap": {
     "connections": "Conexiones",
@@ -957,6 +1050,9 @@
     "rival": "Rival"
   },
   "medical": {
+    "remind30m": "30 min",
+    "remind1h": "1 h",
+    "remind1d": "1 d",
     "title": "Médico",
     "medications": "Medicamentos",
     "addMedication": "+ Añadir medicamento",

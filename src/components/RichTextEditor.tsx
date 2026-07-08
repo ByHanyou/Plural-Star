@@ -112,9 +112,6 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   const insets = useSafeAreaInsets();
   const [text, setText] = useState(initialContent || '');
   const [showMentionPicker, setShowMentionPicker] = useState(false);
-  // Pad the scroll area by the keyboard height so the lower part of a long bio /
-  // description stays reachable instead of being trapped behind the keyboard
-  // (KeyboardAvoidingView alone doesn't shift a multiline TextInput — RN #16826).
   const [kbHeight, setKbHeight] = useState(0);
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -125,7 +122,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   }, []);
 
   const insertFormat = (before: string, after: string) => {
-    const placeholder = before.includes('<img') ? 'URL Here' : (after ? 'text' : '');
+    const placeholder = before.includes('<img') ? i18n.t('editor.urlPlaceholder') : (after ? i18n.t('editor.textPlaceholder') : '');
     setText(prev => prev + before + placeholder + after);
   };
 
@@ -169,8 +166,9 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Write in markdown…"
+          placeholder={i18n.t('editor.markdownPlaceholder')}
           placeholderTextColor={T.muted}
+          accessibilityLabel={i18n.t('editor.body')}
           multiline
           autoFocus
           style={{fontSize: fs(15), color: T.text, lineHeight: 22, fontFamily: 'monospace', minHeight: 300, textAlignVertical: 'top'}}

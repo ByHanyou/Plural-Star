@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "Білий",
+    "black": "Чорний",
+    "red": "Червоний",
+    "orange": "Помаранчевий",
+    "yellow": "Жовтий",
+    "green": "Зелений",
+    "blue": "Синій",
+    "indigo": "Індиго",
+    "brown": "Коричневий",
+    "gray": "Сірий",
+    "slate": "Сланцевий",
+    "goldenrod": "Золотарник",
+    "periwinkle": "Барвінковий",
+    "pink": "Рожевий",
+    "mint": "М'ятний",
+    "lavender": "Лавандовий",
+    "peach": "Персиковий",
+    "seaGreen": "Морська зелень",
+    "coral": "Кораловий",
+    "skyBlue": "Небесно-блакитний",
+    "orchid": "Орхідея",
+    "lime": "Лаймовий",
+    "sand": "Пісочний"
+  },
+  "editor": {
+    "markdownPlaceholder": "Пишіть у markdown…",
+    "urlPlaceholder": "URL тут",
+    "textPlaceholder": "текст",
+    "body": "Редактор"
+  },
+  "markdown": {
+    "imageUnavailable": "[зображення недоступне]",
+    "brokenImage": "[пошкоджене зображення]",
+    "brokenImageUrl": "[пошкоджене зображення: {{url}}]"
+  },
   "a11y": {
     "settings": "Налаштування",
     "lockApp": "Заблокувати застосунок",
@@ -144,6 +180,9 @@
     "clearFrontTitle": "Очистити фронт?"
   },
   "members": {
+    "fieldCount": "Кількість учасників",
+    "clone": "Клонувати",
+    "cloneFields": "Які поля скопіювати?",
     "select": "Вибрати",
     "selectAll": "Усі",
     "selectNone": "Жодного",
@@ -277,6 +316,23 @@
     "templateBody": "Текст Запису (попередньо встановлений)"
   },
   "share": {
+    "jsonHint": "ZIP і JSON — це повні резервні копії, які можна повторно імпортувати в Plural Star.",
+    "invalidJsonBackup": "Файл не є дійсним JSON. Виберіть файл резервної копії Plural Star або Simply Plural (.json).",
+    "unrecognizedBackup": "Це не схоже на резервну копію Plural Star, Simply Plural, Octocon, Ourcana чи HiveMind. Виберіть файл .json, експортований з одного з цих застосунків (або скористайтеся вкладкою Ampersand для файлів .ampar).",
+    "couldNotImportFile": "Не вдалося імпортувати файл.",
+    "couldNotReadFile": "Не вдалося прочитати файл.",
+    "restoreFailedGeneric": "Помилка відновлення",
+    "couldNotConnect": "Не вдалося з'єднатися.",
+    "importFailedGeneric": "Помилка імпорту.",
+    "couldNotImportAvatars": "Не вдалося імпортувати аватари.",
+    "couldNotReadAmpar": "Не вдалося прочитати файл .ampar.",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "Користувацькі поля — частковий імпорт",
+    "cfMatched": "Учасників зіставлено за ID: {{matched}} / {{total}}",
+    "cfWithInfo": "Учасників з даними користувацьких полів: {{count}}",
+    "cfKeys": "Виявлено ключів користувацьких полів: {{seen}}, записано: {{written}}",
+    "cfNoData": "SimplyPlural не повернув жодних даних користувацьких полів для учасників. Можливо, токен не має доступу на читання вмісту учасників, або ваш акаунт SP зберігає дані користувацьких полів у форматі, який ми не розпізнаємо.",
+    "cfUnmatched": "{{count}} ключів не збіглися з жодним нашим ID/назвою поля. Приклади незіставлених ключів: {{samples}}",
     "groupsCount": "{{count}} груп",
     "progressAvatars": "Відновлення аватарів…",
     "progressAvatarsN": "Відновлення аватарів… {{done}}/{{total}}",
@@ -439,6 +495,7 @@
     "spMergeDesc": "Об'єднати дані Simply Plural з поточною системою."
   },
   "hub": {
+    "overlapMore": "+{{count}} ще",
     "editEntry": "Редагувати запис",
     "front": "Фронт",
     "title": "Хаб",
@@ -474,6 +531,7 @@
     "supportPS": "Підтримати PS"
   },
   "modal": {
+    "read": "Перегляд",
     "linkPfp": "Посилання на зображення",
     "appFont": "Шрифт застосунку",
     "appFontDesc": "Шрифт, який використовується для тексту в усьому застосунку.",
@@ -579,6 +637,8 @@
     "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
   },
   "notification": {
+    "filePermTitle": "Доступ до файлів",
+    "filePermMsg": "Дозволити Plural Star імпортувати та експортувати файли.",
     "chatPingTitle": "◆ {{speaker}} пінгнув(ла) вас у #{{channel}}",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "Торкніться, щоб переглянути повідомлення.",
@@ -637,6 +697,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "Назва групи",
     "changeColor": "Змінити колір",
     "deleteSubtree": "Видалити все",
     "group": "Група",
@@ -700,6 +761,7 @@
     "uniqueFronters": "Унікальних фронтерів"
   },
   "chat": {
+    "imageUnavailable": "[зображення недоступне]",
     "ping": "Пінг",
     "pingSent": "Пінг надіслано",
     "pingSentMsg": "Фонові сповіщення наразі доступні лише на Android, але повідомлення виділено у вашому чаті.",
@@ -899,7 +961,38 @@
     "clearTitle": "Очистити дошку?",
     "clearMsg": "Це назавжди видалить усе з дошки.",
     "brushSize": "Розмір пензля",
-    "penColor": "Колір пера"
+    "penColor": "Колір пера",
+    "voHint": "Проведіть вгору або вниз, щоб задати розмір кроку. Відкрийте меню дій, щоб малювати, переміщати перо або перевірити своє положення.",
+    "voLearnHint": "Проведіть вгору або вниз, щоб змінити розмір кроку. Відкрийте меню дій і виберіть «Список команд», щоб вивчити керування.",
+    "voStepValue": "Крок {{px}} пікселів",
+    "voDrawUp": "Малювати вгору",
+    "voDrawDown": "Малювати вниз",
+    "voDrawLeft": "Малювати вліво",
+    "voDrawRight": "Малювати вправо",
+    "voMoveUp": "Переміщати вгору",
+    "voMoveDown": "Переміщати вниз",
+    "voMoveLeft": "Переміщати вліво",
+    "voMoveRight": "Переміщати вправо",
+    "voPenLift": "Підняти перо",
+    "voPenLower": "Опустити перо",
+    "voWhere": "Де я?",
+    "voRecenter": "Центрувати перо",
+    "voCommands": "Список команд",
+    "voUp": "вгору",
+    "voDown": "вниз",
+    "voLeft": "вліво",
+    "voRight": "вправо",
+    "voDrew": "Намальовано {{dir}} {{dist}}",
+    "voMoved": "Переміщено {{dir}} {{dist}}",
+    "voAt": "на {{h}}, {{v}}",
+    "voPosRight": "{{n}} вправо",
+    "voPosLeft": "{{n}} вліво",
+    "voPosDown": "{{n}} вниз",
+    "voPosUp": "{{n}} вгору",
+    "voEdges": "{{left}} до лівого краю, {{right}} до правого, {{top}} до верху, {{bottom}} до низу",
+    "voPenNowDown": "Перо опущено, малювання",
+    "voPenNowUp": "Перо піднято, лише переміщення",
+    "voRecentered": "Перо повернуто в центр"
   },
   "systemMap": {
     "connections": "З'єднання",
@@ -951,6 +1044,9 @@
   },
   "medical": {
     "title": "Медичне",
+    "remind30m": "30 хв",
+    "remind1h": "1 год",
+    "remind1d": "1 дн",
     "medications": "Ліки",
     "addMedication": "+ Додати ліки",
     "namePlaceholder": "Назва ліків…",

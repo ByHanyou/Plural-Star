@@ -142,7 +142,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
               <View style={{flex: 1}}>
                 {editId === fd.id ? (
                   <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
-                    <TextInput value={editName} onChangeText={setEditName} autoFocus
+                    <TextInput value={editName} onChangeText={setEditName} autoFocus accessibilityLabel={t('customFields.fieldName')}
                       style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: fs(14)}}
                       onSubmitEditing={() => renameField(fd.id)} />
                     <TouchableOpacity onPress={() => renameField(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}>

@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "Trắng",
+    "black": "Đen",
+    "red": "Đỏ",
+    "orange": "Cam",
+    "yellow": "Vàng",
+    "green": "Xanh lá",
+    "blue": "Xanh dương",
+    "indigo": "Chàm",
+    "brown": "Nâu",
+    "gray": "Xám",
+    "slate": "Xám đá",
+    "goldenrod": "Vàng nghệ",
+    "periwinkle": "Xanh tím",
+    "pink": "Hồng",
+    "mint": "Xanh bạc hà",
+    "lavender": "Oải hương",
+    "peach": "Đào",
+    "seaGreen": "Xanh lục biển",
+    "coral": "San hô",
+    "skyBlue": "Xanh da trời",
+    "orchid": "Tím phong lan",
+    "lime": "Xanh chanh",
+    "sand": "Cát"
+  },
+  "editor": {
+    "markdownPlaceholder": "Viết bằng markdown…",
+    "urlPlaceholder": "URL ở đây",
+    "textPlaceholder": "văn bản",
+    "body": "Trình soạn thảo"
+  },
+  "markdown": {
+    "imageUnavailable": "[ảnh không khả dụng]",
+    "brokenImage": "[ảnh hỏng]",
+    "brokenImageUrl": "[ảnh hỏng: {{url}}]"
+  },
   "common": {
     "movedToTop": "Bây giờ ở vị trí đầu tiên",
     "movedToBottom": "Bây giờ ở vị trí cuối cùng",
@@ -121,6 +157,9 @@
     "clearFrontTitle": "Xóa Front?"
   },
   "members": {
+    "fieldCount": "Số thành viên",
+    "clone": "Nhân bản",
+    "cloneFields": "Sao chép những trường nào?",
     "frontingLockTitle": "Đang front",
     "frontingLockMsg": "Không thể lưu trữ hoặc xóa thành viên khi họ đang front. Hãy gỡ họ khỏi front trước.",
     "addCustomFront": "Thêm Front Tùy chỉnh",
@@ -254,6 +293,23 @@
     "templateBody": "Nội dung Bài (đặt sẵn)"
   },
   "share": {
+    "jsonHint": "ZIP và JSON là các bản sao lưu đầy đủ mà bạn có thể nhập lại vào Plural Star.",
+    "invalidJsonBackup": "Tệp không phải JSON hợp lệ. Vui lòng chọn tệp sao lưu Plural Star hoặc Simply Plural (.json).",
+    "unrecognizedBackup": "Đây không giống bản sao lưu của Plural Star, Simply Plural, Octocon, Ourcana hay HiveMind. Hãy chọn tệp .json được xuất từ một trong các ứng dụng đó (hoặc dùng thẻ Ampersand cho tệp .ampar).",
+    "couldNotImportFile": "Không thể nhập tệp.",
+    "couldNotReadFile": "Không thể đọc tệp.",
+    "restoreFailedGeneric": "Khôi phục thất bại",
+    "couldNotConnect": "Không thể kết nối.",
+    "importFailedGeneric": "Nhập thất bại.",
+    "couldNotImportAvatars": "Không thể nhập ảnh đại diện.",
+    "couldNotReadAmpar": "Không thể đọc tệp .ampar.",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "Trường tùy chỉnh — nhập một phần",
+    "cfMatched": "Thành viên khớp theo ID: {{matched}} / {{total}}",
+    "cfWithInfo": "Thành viên có dữ liệu trường tùy chỉnh đính kèm: {{count}}",
+    "cfKeys": "Số khóa trường tùy chỉnh đã thấy: {{seen}}, đã ghi: {{written}}",
+    "cfNoData": "SimplyPlural không trả về bất kỳ dữ liệu trường tùy chỉnh nào theo từng thành viên. Token có thể không có quyền đọc nội dung thành viên, hoặc tài khoản SP của bạn lưu dữ liệu trường tùy chỉnh theo một dạng mà chúng tôi không nhận ra.",
+    "cfUnmatched": "{{count}} khóa không khớp với bất kỳ ID/tên trường nào của chúng tôi. Ví dụ các khóa không khớp: {{samples}}",
     "banners": "Ảnh bìa",
     "groups": "Nhóm",
     "ampersand": "Ampersand",
@@ -416,6 +472,7 @@
     "spMergeDesc": "Gộp dữ liệu sao lưu Simply Plural vào hệ thống hiện tại của bạn."
   },
   "hub": {
+    "overlapMore": "+{{count}} nữa",
     "front": "Front",
     "title": "Trung tâm",
     "shareExport": "Chia sẻ và Xuất",
@@ -451,6 +508,7 @@
     "supportPS": "Ủng hộ PS"
   },
   "modal": {
+    "read": "Xem",
     "linkPfp": "Liên kết ảnh",
     "appFont": "Phông chữ Ứng dụng",
     "appFontDesc": "Phông chữ dùng cho văn bản trong toàn ứng dụng.",
@@ -556,6 +614,8 @@
     "dyslexicFontDesc": "Chuyển chữ nội dung sang OpenDyslexic. Tiêu đề giữ phông chữ tạo kiểu."
   },
   "notification": {
+    "filePermTitle": "Truy cập Tệp",
+    "filePermMsg": "Cho phép Plural Star nhập và xuất tệp.",
     "locationPermTitle": "Quyền Vị trí",
     "locationPermMsg": "Plural Star muốn gắn vị trí gần đúng của bạn khi front.",
     "allow": "Cho phép",
@@ -614,6 +674,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "Tên nhóm",
     "changeColor": "Đổi màu",
     "deleteSubtree": "Xóa tất cả",
     "group": "Nhóm",
@@ -677,6 +738,7 @@
     "uniqueFronters": "Số Fronter Riêng biệt"
   },
   "chat": {
+    "imageUnavailable": "[ảnh không khả dụng]",
     "addReaction": "Thêm cảm xúc",
     "attachFile": "Đính kèm tệp",
     "formatting": "Định dạng",
@@ -899,7 +961,38 @@
     "clearTitle": "Xóa bảng trắng?",
     "clearMsg": "Thao tác này xóa vĩnh viễn mọi thứ trên bảng.",
     "brushSize": "Cỡ cọ",
-    "penColor": "Màu bút"
+    "penColor": "Màu bút",
+    "voHint": "Vuốt lên hoặc xuống để đặt kích thước bước. Mở menu thao tác để vẽ, di chuyển bút hoặc kiểm tra vị trí của bạn.",
+    "voLearnHint": "Vuốt lên hoặc xuống để thay đổi kích thước bước. Mở menu thao tác và chọn Danh sách lệnh để tìm hiểu các điều khiển.",
+    "voStepValue": "Bước {{px}} điểm ảnh",
+    "voDrawUp": "Vẽ lên",
+    "voDrawDown": "Vẽ xuống",
+    "voDrawLeft": "Vẽ sang trái",
+    "voDrawRight": "Vẽ sang phải",
+    "voMoveUp": "Di chuyển lên",
+    "voMoveDown": "Di chuyển xuống",
+    "voMoveLeft": "Di chuyển sang trái",
+    "voMoveRight": "Di chuyển sang phải",
+    "voPenLift": "Nhấc bút",
+    "voPenLower": "Hạ bút",
+    "voWhere": "Tôi đang ở đâu?",
+    "voRecenter": "Đưa bút về giữa",
+    "voCommands": "Danh sách lệnh",
+    "voUp": "lên",
+    "voDown": "xuống",
+    "voLeft": "sang trái",
+    "voRight": "sang phải",
+    "voDrew": "Đã vẽ {{dir}} {{dist}}",
+    "voMoved": "Đã di chuyển {{dir}} {{dist}}",
+    "voAt": "tại {{h}}, {{v}}",
+    "voPosRight": "{{n}} bên phải",
+    "voPosLeft": "{{n}} bên trái",
+    "voPosDown": "{{n}} bên dưới",
+    "voPosUp": "{{n}} bên trên",
+    "voEdges": "{{left}} đến mép trái, {{right}} đến phải, {{top}} đến trên, {{bottom}} đến dưới",
+    "voPenNowDown": "Hạ bút, đang vẽ",
+    "voPenNowUp": "Nhấc bút, chỉ di chuyển",
+    "voRecentered": "Bút đã về chính giữa"
   },
   "systemMap": {
     "connections": "Kết nối",
@@ -951,6 +1044,9 @@
   },
   "medical": {
     "title": "Y tế",
+    "remind30m": "30 phút",
+    "remind1h": "1 giờ",
+    "remind1d": "1 ngày",
     "medications": "Thuốc",
     "addMedication": "+ Thêm thuốc",
     "namePlaceholder": "Tên thuốc…",

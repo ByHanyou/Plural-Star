@@ -1,22 +1,3 @@
-// End-to-end encryption for Plural Star network messages.
-//
-// The relay is treated as hostile: it sees only the sender/recipient PeerIDs and
-// an opaque base64 blob. This module turns a NetMessage into that blob and back.
-//
-// Envelope (JSON, then base64 for /send.payload):
-//   {
-//     v:   1,
-//     from:{ ed: <b64 ed25519 pub>, box: <b64 x25519 pub> },
-//     n:   <b64 24-byte nonce>,
-//     ct:  <b64 nacl.box ciphertext>,
-//     sig: <b64 ed25519 signature over (nonce || ct)>
-//   }
-//
-// On receipt we (1) derive the sender's PeerID from from.ed and require it to
-// equal the peer_id the relay reported — binding identity to routing so a relay
-// cannot spoof a sender — (2) verify the Ed25519 signature, and (3) open the
-// nacl.box. Any failure rejects the packet.
-
 import './secureRandom';
 import nacl from 'tweetnacl';
 import { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } from './bytes';
@@ -39,7 +20,6 @@ const concat = (a: Uint8Array, b: Uint8Array): Uint8Array => {
   return out;
 };
 
-// Encrypt+sign a message to a recipient. Returns the base64 payload for /send.
 export const sealMessage = (
   self: Identity,
   recipientBoxPublicKey: Uint8Array,
@@ -64,8 +44,6 @@ export interface OpenedMessage {
   message: NetMessage;
 }
 
-// Decrypt+verify a payload received from the relay. `senderPeerId` is what the
-// relay reported. Returns null on any malformation or verification failure.
 export const openMessage = (
   self: Identity,
   senderPeerId: string,
@@ -95,7 +73,6 @@ export const openMessage = (
   }
   if (edPub.length !== 32 || boxPub.length !== 32) return null;
 
-  // Bind claimed identity to the relay's routing identity.
   let derivedPeerId: string;
   try {
     derivedPeerId = peerIdFromEd25519PublicKey(edPub);
@@ -107,7 +84,6 @@ export const openMessage = (
     return null;
   }
 
-  // Authenticate the ciphertext against the sender's Ed25519 key.
   if (!nacl.sign.detached.verify(concat(nonce, ct), sig, edPub)) {
     console.warn('[NETWORK] envelope signature invalid — dropping');
     return null;

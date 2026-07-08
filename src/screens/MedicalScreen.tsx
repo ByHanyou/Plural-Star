@@ -348,7 +348,7 @@ export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
                       style={{flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 8, borderWidth: 1,
                         backgroundColor: apptRemind === mins ? `${T.accent}20` : T.surface, borderColor: apptRemind === mins ? `${T.accent}60` : T.border}}>
                       <Text style={{fontSize: fs(11), color: apptRemind === mins ? T.accent : T.dim, fontWeight: apptRemind === mins ? '600' : '400'}}>
-                        {mins === 0 ? t('medical.atTime') : mins === 30 ? '30m' : mins === 60 ? '1h' : '1d'}
+                        {mins === 0 ? t('medical.atTime') : mins === 30 ? t('medical.remind30m') : mins === 60 ? t('medical.remind1h') : t('medical.remind1d')}
                       </Text>
                     </TouchableOpacity>
                   ))}

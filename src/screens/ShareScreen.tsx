@@ -4,7 +4,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {exportJSON, exportZipBundle, exportHTML, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8} from '../export/exportUtils';
+import {exportJSON, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8} from '../export/exportUtils';
 import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
 import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
 
@@ -117,7 +117,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
 
   const handleJSON = async () => {try {await exportZipBundle(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
-  const handleHTML = async () => {try {await exportHTML(system, members, history, journal);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
+  const handleJSONFile = async () => {try {await exportJSON(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleEmail = () => {
     if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
     exportEmail(system, members, history, journal, emailAddr);
@@ -143,7 +143,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       } else {setImportStatus('error'); setImportMsg(t('share.unsupportedFormat', {ext})); return;}
       onAddJournalEntry({id: uid(), title: titleBase, body, authorIds: [], hashtags: [], timestamp: Date.now()});
       setImportStatus('success'); setImportMsg(t('share.importedAsEntry', {title: titleBase}));
-    } catch (e: any) {if (!isPickerCancel(e)) {setImportStatus('error'); setImportMsg(e.message || 'Could not import file.');}}
+    } catch (e: any) {if (!isPickerCancel(e)) {setImportStatus('error'); setImportMsg(e.message || t('share.couldNotImportFile'));}}
   };
 
   const handlePickBackup = async () => {
@@ -152,7 +152,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const [res] = await safePick({type: ['application/json', 'application/zip', 'text/plain']});
       if (!res) return;
       const pickedPath = getPickedFilePath(res);
-      const isZip = /\.zip$/i.test(res.name || '') || /\.zip$/i.test(pickedPath);
+      const isZip = /\.zip$/i.test(res.name || '') || /\.zip$/i.test(pickedPath) || ((res as any).type || '').toLowerCase().includes('zip');
       if (isZip) {
         let bundle: {files: Record<string, Uint8Array>; data: any | null; manifest: any | null} | null = null;
         try { bundle = await readZipBundle(pickedPath); }
@@ -189,7 +189,21 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       }
       let parsed: any;
       try { parsed = JSON.parse(content); } catch {
-        setRestoreError('File is not valid JSON. Please pick a Plural Star or Simply Plural backup (.json) file.');
+        let zb: {files: Record<string, Uint8Array>; data: any | null; manifest: any | null} | null = null;
+        try { zb = await readZipBundle(pickedPath); } catch { try { zb = await readZipBundle(res.uri || pickedPath); } catch {} }
+        const zapp = zb?.data?._meta?.app || zb?.manifest?.app;
+        if (zb && (zapp === 'Plural Star' || zapp === 'Plural Space')) {
+          let safeZipPath = pickedPath;
+          try {
+            const dest = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_restore_pending.zip`;
+            try { await ReactNativeBlobUtil.fs.unlink(dest); } catch {}
+            await ReactNativeBlobUtil.fs.cp(pickedPath, dest);
+            safeZipPath = dest;
+          } catch {}
+          setRestorePath(safeZipPath); setRestoreIsBundle(true); setRestoreFile(res.name || 'backup.zip'); setRestorePreview(true);
+          return;
+        }
+        setRestoreError(t('share.invalidJsonBackup'));
         return;
       }
       const isPluralSpaceApp = !parsed._meta && parsed.system && typeof parsed.system === 'object' && Array.isArray(parsed.members) && Array.isArray(parsed.fronts);
@@ -201,7 +215,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const isOurcana = (parsed.format === 'ourcana') || (!parsed._meta && Array.isArray(parsed.members) && Array.isArray(parsed.frontHistory) && parsed.members[0]?.id !== undefined);
       const isMultiplicity = (parsed.app === 'multiplicity') || (Array.isArray(parsed.alters) && Array.isArray(parsed.front_entries));
       if (!isNativePS && !isSPExport && !isOctocon && !isOurcana && !isMultiplicity) {
-        setRestoreError('This does not look like a Plural Star, Simply Plural, Octocon, Ourcana, or HiveMind backup. Pick a .json file exported from one of those apps (or use the Ampersand tab for .ampar files).');
+        setRestoreError(t('share.unrecognizedBackup'));
         return;
       }
       const safeTempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_restore_pending.json`;
@@ -209,13 +223,9 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       setRestorePath(safeTempPath);
       setRestoreFile(res.name || 'backup.json');
       setRestorePreview(true);
-    } catch (e: any) {if (!isPickerCancel(e)) setRestoreError(e.message || 'Could not read file.');}
+    } catch (e: any) {if (!isPickerCancel(e)) setRestoreError(e.message || t('share.couldNotReadFile'));}
   };
 
-  // Dedicated .zip (full bundle) import — force EVERY category on, including
-  // avatars + banners, so a zip restore always brings the whole system and its
-  // media, then reuse the shared pick/validate flow (which routes .zip through
-  // readZipBundle and sets restoreIsBundle).
   const handlePickZipBackup = () => {
     setRestoreSel({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true, medical: true});
     handlePickBackup();
@@ -590,7 +600,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           await restoreSharedPayload(data);
           setRestoreDone(true); setTimeout(() => onDataImported(), 800);
         } catch (e: any) {
-          setRestoreError(e.message || 'Restore failed');
+          setRestoreError(e.message || t('share.restoreFailedGeneric'));
         } finally {
           setRestoring(false);
           setRestoreProgress('');
@@ -635,7 +645,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         return m;
       });
       setExtPreview({system: meData, members: sanitized, switches: switchList, customFields: customFieldList, groups: groupList});
-    } catch (e: any) {Alert.alert(t('share.importFailed'), e.message || 'Could not connect.');}
+    } catch (e: any) {Alert.alert(t('share.importFailed'), e.message || t('share.couldNotConnect'));}
     finally {setExtLoading(false);}
   };
 
@@ -663,7 +673,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         return m;
       });
       setExtPreview({system: sData, members: sanitized, switches: Array.isArray(swData) ? swData : [], groups: Array.isArray(gData) ? gData : []});
-    } catch (e: any) {Alert.alert(t('share.importFailed'), e.message || 'Could not connect.');}
+    } catch (e: any) {Alert.alert(t('share.importFailed'), e.message || t('share.couldNotConnect'));}
     finally {setExtLoading(false);}
   };
 
@@ -700,10 +710,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const notes = group.map(e => e.note).filter(Boolean);
       return {memberIds: allIds, startTime, endTime, note: notes.join(' | '), mood: undefined, location: undefined} as HistoryEntry;
     }).filter(h => h.memberIds.length > 0);
-    // Simply Plural exports frequently contain many stale frontHistory entries with no
-    // endTime. Importing them all as "open" stacks multiple current fronts, leaves
-    // phantom/empty fronts, and breaks the front notification. Close every open entry
-    // that has a later switch after it, so only the single most-recent front stays current.
     built.sort((a, b) => a.startTime - b.startTime);
     for (let i = 0; i < built.length; i++) {
       if (built[i].endTime != null) continue;
@@ -965,9 +971,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       const startTime = psTime(f.started_at);
       const live = !!f.is_live;
       const parsedEnd = f.ended_at ? psTime(f.ended_at) : 0;
-      // endTime null = "open": either genuinely live (is_live), or a past front whose
-      // ended_at the export omitted (older PluralSpace exports). The latter are closed
-      // at the next switch below so they don't all read as the current front.
       const endTime = live ? null : (parsedEnd > 0 ? parsedEnd : null);
       const tier: PsEntry['tier'] = f.type === 'co_front' ? 'co_front' : f.type === 'co_con' ? 'co_con' : 'front';
       return {mid, tier, startTime, endTime, live, note: String(f.comment || '')};
@@ -1003,8 +1006,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         coConsciousIds: coC.length > 0 ? coC : undefined,
       } as HistoryEntry};
     }).filter(g => g.h.memberIds.length > 0);
-    // Close any non-live, still-open entry at the start of the next switch — only
-    // genuinely-live fronts (is_live) stay "current", even when the export omits end times.
     built.sort((a, b) => a.h.startTime - b.h.startTime);
     for (let i = 0; i < built.length; i++) {
       if (built[i].h.endTime != null || built[i].live) continue;
@@ -1048,7 +1049,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
         chat: Array.isArray(parsed.chat_channels) ? parsed.chat_channels : [],
         polls: Array.isArray(parsed.polls) ? parsed.polls : [],
       });
-    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || 'Could not read file.'); }
+    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || t('share.couldNotReadFile')); }
   };
 
   const handlePluralSpaceConfirm = () => {
@@ -1292,7 +1293,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           setImportStatus('success'); setImportMsg(t('share.importComplete'));
           setExtPreview(null);
           setTimeout(() => onDataImported(), 800);
-        } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || 'Import failed.'); }
+        } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric')); }
       }},
     ]);
   };
@@ -1326,7 +1327,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       } else {
         setImportStatus('error'); setImportMsg(t('share.psAvatarsNoMatch'));
       }
-    } catch (e: any) { if (!isPickerCancel(e)) { setRestoreProgress(''); setImportStatus('error'); setImportMsg(e.message || 'Could not import avatars.'); } }
+    } catch (e: any) { if (!isPickerCancel(e)) { setRestoreProgress(''); setImportStatus('error'); setImportMsg(e.message || t('share.couldNotImportAvatars')); } }
   };
 
   const handleAmpersandPick = async () => {
@@ -1348,7 +1349,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
       }
       setExtPreview({system: systemRow, members: amMembers, switches: fronting, customFields: fieldDefs});
       setImportSource('ampersand');
-    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || 'Could not read .ampar file.'); }
+    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || t('share.couldNotReadAmpar')); }
   };
 
   const handleAmpersandConfirm = () => {
@@ -1400,7 +1401,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             });
             await store.set(KEYS.members, newMembers);
           } else {
-            // Members not being replaced — map archive uuids onto existing amp: members so history still resolves.
             const existing = await store.get<Member[]>(KEYS.members, []) || [];
             amMembers.forEach((a: any) => { const ex = existing.find(m => m.sourceId === 'amp:' + String(a.uuid)); if (ex) idMap[String(a.uuid)] = ex.id; });
           }
@@ -1414,7 +1414,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           setImportStatus('success'); setImportMsg(t('share.importComplete'));
           setExtPreview(null);
           setTimeout(() => onDataImported(), 800);
-        } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || 'Import failed.'); }
+        } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric')); }
       }},
     ]);
   };
@@ -1643,14 +1643,14 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             if (suspicious) {
               const sampleStr = [...unmatchedKeySamples].slice(0, 5).join(', ');
               const lines = [
-                `Members matched by ID: ${membersMatched} / ${currentMembers.length}`,
-                `Members with custom-field data attached: ${membersWithInfo}`,
-                `Custom-field keys seen: ${totalInfoKeys}, written: ${matchedKeys}`,
+                t('share.cfMatched', {matched: membersMatched, total: currentMembers.length}),
+                t('share.cfWithInfo', {count: membersWithInfo}),
+                t('share.cfKeys', {seen: totalInfoKeys, written: matchedKeys}),
                 membersWithInfo === 0
-                  ? 'SimplyPlural did not return any per-member custom field data. The token may lack read access to member content, or your SP account stores CF data under a shape we do not recognize.'
-                  : `${totalInfoKeys - matchedKeys} keys did not match any of our field IDs/names. Sample unmatched keys: ${sampleStr || '(none)'}`,
+                  ? t('share.cfNoData')
+                  : t('share.cfUnmatched', {count: totalInfoKeys - matchedKeys, samples: sampleStr || '—'}),
               ];
-              Alert.alert('Custom Fields — partial import', lines.join('\n\n'));
+              Alert.alert(t('share.cfPartialTitle'), lines.join('\n\n'));
             }
           }
           if (extSel.groups && extPreview.groups && extPreview.groups.length > 0) {
@@ -1668,8 +1668,6 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
                 : (Array.isArray(g.content?.members) ? g.content.members : (Array.isArray(g.members) ? g.members : []));
               if (!gName || !externalId) return;
               const srcId = `${isPK ? 'pk' : 'ext'}:${externalId}`;
-              // Match by external identity first so a group renamed at the source
-              // follows the rename here instead of duplicating; name is fallback.
               const bySource = mergedGroups.findIndex(eg => eg.sourceId === srcId);
               const byName = bySource < 0 ? mergedGroups.findIndex(eg => !eg.sourceId && eg.name.toLowerCase() === gName.toLowerCase()) : -1;
               const idx = bySource >= 0 ? bySource : byName;
@@ -2112,13 +2110,13 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           </View>
 
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
-            {[['↓ ZIP', handleJSON, T.accentBg, T.accent, `${T.accent}40`], ['↓ HTML', handleHTML, T.infoBg, T.info, `${T.info}40`]].map(([label, fn, bg, color, border]: any) => (
+            {[['↓ ZIP', handleJSON, T.accentBg, T.accent, `${T.accent}40`], ['↓ JSON', handleJSONFile, T.infoBg, T.info, `${T.info}40`]].map(([label, fn, bg, color, border]: any) => (
               <TouchableOpacity key={label} onPress={fn} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color}}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={[s.hint, {color: T.muted}]}>{t('share.htmlHint')}</Text>
+          <Text style={[s.hint, {color: T.muted}]}>{t('share.jsonHint')}</Text>
           <Divider label={t('share.journalExport')} />
           <Text style={[s.para, {color: T.dim}]}>{t('share.exportJournalOnly')}</Text>
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
@@ -2130,7 +2128,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
           </View>
           <Text style={[s.hint, {color: T.muted}]}>{t('share.perEntryHint')}</Text>
           <Divider label={t('share.sendEmail')} />
-          <TextInput value={emailAddr} onChangeText={setEmailAddr} placeholder="recipient@email.com" placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
+          <TextInput value={emailAddr} onChangeText={setEmailAddr} placeholder={t('share.emailPlaceholder')} placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10}} />
           <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.openInMail')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
             <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.openInMail')}</Text>

@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "白色",
+    "black": "黑色",
+    "red": "紅色",
+    "orange": "橙色",
+    "yellow": "黃色",
+    "green": "綠色",
+    "blue": "藍色",
+    "indigo": "靛藍",
+    "brown": "棕色",
+    "gray": "灰色",
+    "slate": "石板灰",
+    "goldenrod": "金菊黃",
+    "periwinkle": "長春花藍",
+    "pink": "粉紅色",
+    "mint": "薄荷綠",
+    "lavender": "薰衣草紫",
+    "peach": "桃色",
+    "seaGreen": "海綠色",
+    "coral": "珊瑚色",
+    "skyBlue": "天藍色",
+    "orchid": "蘭花紫",
+    "lime": "青檸色",
+    "sand": "沙色"
+  },
+  "editor": {
+    "markdownPlaceholder": "以 Markdown 書寫…",
+    "urlPlaceholder": "在此輸入 URL",
+    "textPlaceholder": "文字",
+    "body": "編輯器"
+  },
+  "markdown": {
+    "imageUnavailable": "[圖片不可用]",
+    "brokenImage": "[圖片損毀]",
+    "brokenImageUrl": "[圖片損毀: {{url}}]"
+  },
   "common": {
     "movedToTop": "已移到首位",
     "movedToBottom": "已移到末位",
@@ -121,6 +157,9 @@
     "clearFrontTitle": "清除前台？"
   },
   "members": {
+    "fieldCount": "成員數量",
+    "clone": "複製",
+    "cloneFields": "要複製哪些欄位？",
     "frontingLockTitle": "目前在前台",
     "frontingLockMsg": "成員在前台時無法封存或刪除。請先將其從前台移除。",
     "addCustomFront": "新增自訂前台",
@@ -254,6 +293,23 @@
     "templateBody": "條目內容（預設）"
   },
   "share": {
+    "jsonHint": "ZIP 和 JSON 是完整備份，可重新匯入 Plural Star。",
+    "invalidJsonBackup": "檔案不是有效的 JSON。請選擇 Plural Star 或 Simply Plural 備份（.json）檔案。",
+    "unrecognizedBackup": "這看起來不是 Plural Star、Simply Plural、Octocon、Ourcana 或 HiveMind 備份。請選擇從這些應用程式之一匯出的 .json 檔案（.ampar 檔案請使用 Ampersand 分頁）。",
+    "couldNotImportFile": "無法匯入檔案。",
+    "couldNotReadFile": "無法讀取檔案。",
+    "restoreFailedGeneric": "還原失敗",
+    "couldNotConnect": "無法連線。",
+    "importFailedGeneric": "匯入失敗。",
+    "couldNotImportAvatars": "無法匯入頭像。",
+    "couldNotReadAmpar": "無法讀取 .ampar 檔案。",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "自訂欄位 — 部分匯入",
+    "cfMatched": "依 ID 比對的成員：{{matched}} / {{total}}",
+    "cfWithInfo": "附有自訂欄位資料的成員：{{count}}",
+    "cfKeys": "偵測到的自訂欄位鍵：{{seen}}，已寫入：{{written}}",
+    "cfNoData": "SimplyPlural 未回傳任何各成員的自訂欄位資料。權杖可能缺少對成員內容的讀取權限，或你的 SP 帳號以我們無法辨識的結構儲存 CF 資料。",
+    "cfUnmatched": "{{count}} 個鍵與我們的任何欄位 ID／名稱都不相符。未相符鍵範例：{{samples}}",
     "banners": "橫幅",
     "groups": "群組",
     "ampersand": "Ampersand",
@@ -416,6 +472,7 @@
     "spMergeDesc": "將 Simply Plural 備份資料合併到你目前的系統。"
   },
   "hub": {
+    "overlapMore": "+{{count}} 個",
     "front": "前台",
     "title": "中心",
     "shareExport": "分享與匯出",
@@ -451,6 +508,7 @@
     "supportPS": "支持 PS"
   },
   "modal": {
+    "read": "閱讀",
     "linkPfp": "連結圖片",
     "appFont": "應用程式字型",
     "appFontDesc": "整個應用程式文字所使用的字型。",
@@ -556,6 +614,8 @@
     "dyslexicFontDesc": "將內文切換為 OpenDyslexic。標題保留其風格字型。"
   },
   "notification": {
+    "filePermTitle": "檔案存取",
+    "filePermMsg": "允許 Plural Star 匯入和匯出檔案。",
     "locationPermTitle": "位置權限",
     "locationPermMsg": "Plural Star 想在前台時標記你的大致位置。",
     "allow": "允許",
@@ -614,6 +674,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "群組名稱",
     "changeColor": "變更顏色",
     "deleteSubtree": "全部刪除",
     "group": "群組",
@@ -677,6 +738,7 @@
     "uniqueFronters": "不同前台成員數"
   },
   "chat": {
+    "imageUnavailable": "[圖片不可用]",
     "addReaction": "新增反應",
     "attachFile": "附加檔案",
     "formatting": "格式",
@@ -899,7 +961,38 @@
     "clearTitle": "清空白板？",
     "clearMsg": "這將永久刪除白板上的所有內容。",
     "brushSize": "畫筆大小",
-    "penColor": "畫筆顏色"
+    "penColor": "畫筆顏色",
+    "voHint": "向上或向下滑動以設定步長。開啟動作轉子即可繪製、移動畫筆或查看目前位置。",
+    "voLearnHint": "向上或向下滑動以變更步長。開啟動作轉子並選擇「指令清單」即可了解操作方式。",
+    "voStepValue": "步長 {{px}} 像素",
+    "voDrawUp": "向上繪製",
+    "voDrawDown": "向下繪製",
+    "voDrawLeft": "向左繪製",
+    "voDrawRight": "向右繪製",
+    "voMoveUp": "向上移動",
+    "voMoveDown": "向下移動",
+    "voMoveLeft": "向左移動",
+    "voMoveRight": "向右移動",
+    "voPenLift": "抬起畫筆",
+    "voPenLower": "放下畫筆",
+    "voWhere": "我在哪裡？",
+    "voRecenter": "畫筆回到中心",
+    "voCommands": "指令清單",
+    "voUp": "上",
+    "voDown": "下",
+    "voLeft": "左",
+    "voRight": "右",
+    "voDrew": "向{{dir}}繪製{{dist}}",
+    "voMoved": "向{{dir}}移動{{dist}}",
+    "voAt": "位於 {{h}}，{{v}}",
+    "voPosRight": "右 {{n}}",
+    "voPosLeft": "左 {{n}}",
+    "voPosDown": "下 {{n}}",
+    "voPosUp": "上 {{n}}",
+    "voEdges": "距左邊緣 {{left}}，距右 {{right}}，距上 {{top}}，距下 {{bottom}}",
+    "voPenNowDown": "畫筆落下，正在繪製",
+    "voPenNowUp": "畫筆抬起，僅移動",
+    "voRecentered": "畫筆已回到中心"
   },
   "systemMap": {
     "connections": "連結",
@@ -950,6 +1043,9 @@
     "rival": "對手"
   },
   "medical": {
+    "remind30m": "30分鐘",
+    "remind1h": "1小時",
+    "remind1d": "1天",
     "title": "醫療",
     "medications": "藥物",
     "addMedication": "+ 新增藥物",

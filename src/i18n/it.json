@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "Bianco",
+    "black": "Nero",
+    "red": "Rosso",
+    "orange": "Arancione",
+    "yellow": "Giallo",
+    "green": "Verde",
+    "blue": "Blu",
+    "indigo": "Indaco",
+    "brown": "Marrone",
+    "gray": "Grigio",
+    "slate": "Ardesia",
+    "goldenrod": "Giallo dorato",
+    "periwinkle": "Pervinca",
+    "pink": "Rosa",
+    "mint": "Menta",
+    "lavender": "Lavanda",
+    "peach": "Pesca",
+    "seaGreen": "Verde mare",
+    "coral": "Corallo",
+    "skyBlue": "Azzurro cielo",
+    "orchid": "Orchidea",
+    "lime": "Verde lime",
+    "sand": "Sabbia"
+  },
+  "editor": {
+    "markdownPlaceholder": "Scrivi in markdown…",
+    "urlPlaceholder": "URL qui",
+    "textPlaceholder": "testo",
+    "body": "Editor"
+  },
+  "markdown": {
+    "imageUnavailable": "[immagine non disponibile]",
+    "brokenImage": "[immagine danneggiata]",
+    "brokenImageUrl": "[immagine danneggiata: {{url}}]"
+  },
   "common": {
     "movedToTop": "Ora in prima posizione",
     "movedToBottom": "Ora in ultima posizione",
@@ -121,6 +157,9 @@
     "clearFrontTitle": "Svuotare il Front?"
   },
   "members": {
+    "fieldCount": "Numero di membri",
+    "clone": "Clona",
+    "cloneFields": "Quali campi copiare?",
     "frontingLockTitle": "Attualmente al front",
     "frontingLockMsg": "Non puoi archiviare o eliminare un membro mentre è al front. Prima rimuovilo dal front.",
     "addCustomFront": "Aggiungi Front Personalizzato",
@@ -254,6 +293,23 @@
     "templateBody": "Corpo Voce (preimpostato)"
   },
   "share": {
+    "jsonHint": "I file ZIP e JSON sono backup completi che puoi reimportare in Plural Star.",
+    "invalidJsonBackup": "Il file non è un JSON valido. Scegli un file di backup di Plural Star o Simply Plural (.json).",
+    "unrecognizedBackup": "Questo non sembra un backup di Plural Star, Simply Plural, Octocon, Ourcana o HiveMind. Scegli un file .json esportato da una di queste app (o usa la scheda Ampersand per i file .ampar).",
+    "couldNotImportFile": "Impossibile importare il file.",
+    "couldNotReadFile": "Impossibile leggere il file.",
+    "restoreFailedGeneric": "Ripristino non riuscito",
+    "couldNotConnect": "Impossibile connettersi.",
+    "importFailedGeneric": "Importazione non riuscita.",
+    "couldNotImportAvatars": "Impossibile importare gli avatar.",
+    "couldNotReadAmpar": "Impossibile leggere il file .ampar.",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "Campi personalizzati — importazione parziale",
+    "cfMatched": "Membri abbinati per ID: {{matched}} / {{total}}",
+    "cfWithInfo": "Membri con dati di campi personalizzati allegati: {{count}}",
+    "cfKeys": "Chiavi di campi personalizzati rilevate: {{seen}}, scritte: {{written}}",
+    "cfNoData": "SimplyPlural non ha restituito dati di campi personalizzati per membro. Il token potrebbe non avere accesso in lettura ai contenuti dei membri, oppure il tuo account SP memorizza i dati CF in un formato che non riconosciamo.",
+    "cfUnmatched": "{{count}} chiavi non corrispondono a nessuno dei nostri ID/nomi di campo. Esempi di chiavi non abbinate: {{samples}}",
     "banners": "Banner",
     "groups": "Gruppi",
     "ampersand": "Ampersand",
@@ -421,6 +477,7 @@
     "spMergeDesc": "Unisci i dati di backup di Simply Plural al tuo sistema attuale."
   },
   "hub": {
+    "overlapMore": "+{{count}} altri",
     "front": "Front",
     "title": "Hub",
     "shareExport": "Condividi ed Esporta",
@@ -456,6 +513,7 @@
     "supportPS": "Sostieni PS"
   },
   "modal": {
+    "read": "Leggi",
     "linkPfp": "Collega immagine",
     "appFont": "Font dell'App",
     "appFontDesc": "Font usato per il testo in tutta l'app.",
@@ -563,6 +621,8 @@
     "dyslexicFontDesc": "Passa il testo del corpo a OpenDyslexic. I titoli mantengono il loro font stilizzato."
   },
   "notification": {
+    "filePermTitle": "Accesso ai file",
+    "filePermMsg": "Consenti a Plural Star di importare ed esportare file.",
     "locationPermTitle": "Permesso di Posizione",
     "locationPermMsg": "Plural Star vuole registrare la tua posizione approssimativa quando sei al front.",
     "allow": "Consenti",
@@ -621,6 +681,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "Nome del gruppo",
     "changeColor": "Cambia colore",
     "deleteSubtree": "Elimina tutto",
     "group": "Gruppo",
@@ -684,6 +745,7 @@
     "uniqueFronters": "Fronter Unici"
   },
   "chat": {
+    "imageUnavailable": "[immagine non disponibile]",
     "addReaction": "Aggiungi reazione",
     "attachFile": "Allega file",
     "formatting": "Formattazione",
@@ -906,7 +968,38 @@
     "clearTitle": "Svuotare la lavagna?",
     "clearMsg": "Questo cancella per sempre tutto il contenuto della lavagna.",
     "brushSize": "Dimensione pennello",
-    "penColor": "Colore penna"
+    "penColor": "Colore penna",
+    "voHint": "Scorri su o giù per impostare il passo. Apri il menu azioni per disegnare, spostare la penna o controllare la tua posizione.",
+    "voLearnHint": "Scorri su o giù per cambiare il passo. Apri il menu azioni e scegli Elenco dei comandi per imparare i comandi.",
+    "voStepValue": "Passo {{px}} pixel",
+    "voDrawUp": "Disegna verso l'alto",
+    "voDrawDown": "Disegna verso il basso",
+    "voDrawLeft": "Disegna verso sinistra",
+    "voDrawRight": "Disegna verso destra",
+    "voMoveUp": "Sposta verso l'alto",
+    "voMoveDown": "Sposta verso il basso",
+    "voMoveLeft": "Sposta verso sinistra",
+    "voMoveRight": "Sposta verso destra",
+    "voPenLift": "Solleva la penna",
+    "voPenLower": "Abbassa la penna",
+    "voWhere": "Dove sono?",
+    "voRecenter": "Ricentra la penna",
+    "voCommands": "Elenco dei comandi",
+    "voUp": "verso l'alto",
+    "voDown": "verso il basso",
+    "voLeft": "verso sinistra",
+    "voRight": "verso destra",
+    "voDrew": "Disegnato {{dir}} {{dist}}",
+    "voMoved": "Spostato {{dir}} {{dist}}",
+    "voAt": "a {{h}}, {{v}}",
+    "voPosRight": "{{n}} a destra",
+    "voPosLeft": "{{n}} a sinistra",
+    "voPosDown": "{{n}} in basso",
+    "voPosUp": "{{n}} in alto",
+    "voEdges": "{{left}} fino al bordo sinistro, {{right}} fino a destra, {{top}} fino in alto, {{bottom}} fino in basso",
+    "voPenNowDown": "Penna abbassata, disegna",
+    "voPenNowUp": "Penna sollevata, solo spostamento",
+    "voRecentered": "Penna ricentrata al centro"
   },
   "systemMap": {
     "connections": "Connessioni",
@@ -957,6 +1050,9 @@
     "rival": "Rivale"
   },
   "medical": {
+    "remind30m": "30 min",
+    "remind1h": "1 h",
+    "remind1d": "1 g",
     "title": "Medico",
     "medications": "Farmaci",
     "addMedication": "+ Aggiungi farmaco",

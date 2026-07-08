@@ -14,8 +14,6 @@ export interface PacketReceived {
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
-// Timeouts use Promise.race, NOT AbortController/signal — RN's AbortController
-// is unreliable on device and passing a signal breaks fetch outright.
 const FETCH_TIMEOUT_MS = 10000;
 
 const fetchWithTimeout = (url: string, init?: any): Promise<any> => {
@@ -201,7 +199,6 @@ export class NodeClient {
     }, delay);
   }
 
-  // Immediate reconnect (skips any pending backoff) if the socket is down.
   ensureConnected(): void {
     if (!this.wantOpen || this.ws) return;
     if (this.reconnectTimer) {

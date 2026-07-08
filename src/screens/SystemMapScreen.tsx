@@ -3,7 +3,7 @@ import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, Style
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useTranslation} from 'react-i18next';
-import {Member, Relationship, RelationshipTypeDef, allRelationshipTypes, relationshipDegrees, uid, sortMembersBySearch, DEFAULT_REL_COLOR, RELATIONSHIP_COLOR_CHOICES, PRESET_RELATIONSHIP_TYPES, isValidHex, normalizeHex} from '../utils';
+import {Member, Relationship, RelationshipTypeDef, allRelationshipTypes, relationshipDegrees, uid, sortMembersBySearch, DEFAULT_REL_COLOR, RELATIONSHIP_COLOR_CHOICES, PRESET_RELATIONSHIP_TYPES, isValidHex, normalizeHex, colorName} from '../utils';
 import {PALETTE} from '../theme';
 import {store, KEYS} from '../storage';
 import {ColorPicker} from '../components/ColorPicker';
@@ -217,7 +217,7 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10}}>
         {swatches.map(c => (
           <TouchableOpacity key={c} onPress={() => {setColor(c); setHexInput(c); setHexError(false);}} activeOpacity={0.8}
-            accessibilityRole="button" accessibilityState={{selected: color === c}} accessibilityLabel={`${t('systemMap.typeColor')} ${c}`}
+            accessibilityRole="button" accessibilityState={{selected: color === c}} accessibilityLabel={`${t('systemMap.typeColor')} ${colorName(c, t)}`}
             style={{width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 2, borderColor: color === c ? '#fff' : 'transparent'}} />
         ))}
       </View>
@@ -445,7 +445,7 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
 
   const responder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: (_evt, gs) => Math.abs(gs.dx) > 6 || Math.abs(gs.dy) > 6,
     onPanResponderGrant: (evt) => {
       const p = panRef.current;
       p.startTx = p.tx;

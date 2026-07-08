@@ -8,7 +8,7 @@ import {Avatar} from '../components/Avatar';
 import {ColorPicker} from '../components/ColorPicker';
 import {PALETTE, BUILTIN_PALETTES, deriveTheme, FONT_OPTIONS, Fonts} from '../theme';
 import type {CustomPalette, FontChoice} from '../theme';
-import {Member, MemberGroup, JournalEntry, JournalTemplate, FrontState, FrontTier, FrontTierKey, SystemInfo, AppSettings, TextScale, TEXT_SCALE_OPTIONS, CustomFieldDef, CustomFieldValue, NoteboardEntry, uid, isValidHex, normalizeHex, DEFAULT_MOODS, EMPTY_TIER, TIER_LABELS, fmtTime, getInitials, translateMood, parseMoodList, toggleMoodInList, serializeMoodList, sortMembersBySearch, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, sortGroupsForDisplay} from '../utils';
+import {Member, MemberGroup, JournalEntry, JournalTemplate, FrontState, FrontTier, FrontTierKey, SystemInfo, AppSettings, TextScale, TEXT_SCALE_OPTIONS, CustomFieldDef, CustomFieldValue, NoteboardEntry, uid, isValidHex, normalizeHex, DEFAULT_MOODS, EMPTY_TIER, TIER_LABELS, fmtTime, getInitials, translateMood, parseMoodList, toggleMoodInList, serializeMoodList, sortMembersBySearch, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, sortGroupsForDisplay, colorName} from '../utils';
 import {store, KEYS} from '../storage';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
@@ -129,9 +129,9 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
                   accessibilityRole="button" accessibilityLabel={m.name}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherTier ? 0.45 : 1}}>
                   <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
-                  <Text style={{flex: 1, fontSize: 13, color: T.text}} numberOfLines={1}>{m.name}</Text>
-                  {m.pronouns ? <Text style={{fontSize: 11, color: T.muted}}>{m.pronouns}</Text> : null}
-                  {otherTier && otherLabel ? <Text style={{fontSize: 10, color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
+                  <Text style={{flex: 1, minWidth: 0, fontSize: 13, color: T.text}} numberOfLines={1}>{m.name}</Text>
+                  {m.pronouns ? <Text style={{flexShrink: 1, maxWidth: '45%', fontSize: 11, color: T.muted}} numberOfLines={1}>{m.pronouns}</Text> : null}
+                  {otherTier && otherLabel ? <Text style={{flexShrink: 0, fontSize: 10, color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
                 </TouchableOpacity>
               );
             })}
@@ -448,10 +448,14 @@ export const EditFrontDetailModal = ({visible, theme: T, front, tier, settings, 
 };
 
 
-export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap}: any) => {
+export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap}: any) => {
   const {t} = useTranslation();
   const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const isNew = !member;
+  const [readMode, setReadMode] = useState<boolean>(!!readOnlyProp);
+  const readOnly = readMode;
+  const [showClone, setShowClone] = useState(false);
+  const [cloneSel, setCloneSel] = useState({name: true, pronouns: true, role: true, color: true, description: true});
   const [f, setF] = useState<Member>(member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []});
   const [confirmDel, setConfirmDel] = useState(false);
   const [tagInput, setTagInput] = useState('');
@@ -472,10 +476,25 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || []));
   }, []);
 
-  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setMemberTab('main'); } }, [visible, member?.id]);
+  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setMemberTab('main'); setReadMode(readOnlyProp); } }, [visible, member?.id]);
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
+  const doClone = async () => {
+    const rnd = String(Math.floor(10000 + Math.random() * 90000));
+    const clone: Member = {
+      id: uid(),
+      name: cloneSel.name && (f.name || '').trim() ? f.name : rnd,
+      pronouns: cloneSel.pronouns ? (f.pronouns || '') : '',
+      role: cloneSel.role ? (f.role || '') : '',
+      color: cloneSel.color ? f.color : PALETTE[0],
+      description: cloneSel.description ? (f.description || '') : '',
+      tags: [],
+      groupIds: [],
+    };
+    setShowClone(false);
+    try { await onSave(clone); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); }
+  };
 
   const pickAvatar = async () => {
     try {
@@ -544,16 +563,17 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
   return (
     <Sheet visible={visible} title={readOnly ? (f.name || t('modal.member')) : (isNew ? t('modal.addMember') : t('modal.editMember'))} theme={T} onClose={onClose}
-      headerAction={readOnly && onRequestEdit ? (
-        <TouchableOpacity onPressIn={Platform.OS === 'ios' ? onRequestEdit : undefined} onPress={Platform.OS === 'ios' ? undefined : onRequestEdit} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.edit')}
+      headerAction={!isNew ? (
+        <TouchableOpacity onPress={() => setReadMode(m => !m)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={readMode ? t('common.edit') : t('modal.read')} accessibilityState={{selected: readMode}}
           style={{paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginRight: 10}}>
-          <Text style={{fontSize: 13, fontWeight: '500', color: T.accent}}>{t('common.edit')}</Text>
+          <Text style={{fontSize: 13, fontWeight: '500', color: T.accent}}>{readMode ? t('common.edit') : t('modal.read')}</Text>
         </TouchableOpacity>
       ) : undefined}
       footer={readOnly ? (
       <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.close')}</Btn>
     ) : (<>
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
+      {!isNew && !confirmDel && <Btn instant variant="ghost" T={T} onPress={() => setShowClone(true)}>{t('members.clone')}</Btn>}
       {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.cancel')}</Btn>}
       {!confirmDel && <Btn instant T={T} onPress={async () => {const nm = (f.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...f, name: nm}); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
@@ -641,7 +661,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 style={{width: 30, height: 30, borderRadius: 15, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
                 <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
               </TouchableOpacity>
-              {PALETTE.map((c: string) => (<TouchableOpacity key={c} onPress={() => set('color', c)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{selected: f.color === c}} accessibilityLabel={`${t('memberProfile.color')} ${c}`} style={{width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 2, borderColor: f.color === c ? '#fff' : 'transparent'}} />))}
+              {PALETTE.map((c: string) => (<TouchableOpacity key={c} onPress={() => set('color', c)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{selected: f.color === c}} accessibilityLabel={`${t('memberProfile.color')} ${colorName(c, t)}`} style={{width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 2, borderColor: f.color === c ? '#fff' : 'transparent'}} />))}
             </View>
           </View>
         ) : (
@@ -756,11 +776,16 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 month: 'month', year: 'year', monthDay: 'monthDay',
               };
               let dateVal: Date;
-              if (typeof val === 'number' && Number.isFinite(val)) {
+              const bareNum = typeof val === 'number'
+                ? val
+                : (typeof val === 'string' && val.trim() && Number.isFinite(Number(val)) ? Number(val) : NaN);
+              if (!Number.isNaN(bareNum) && Number.isInteger(bareNum) && bareNum >= 1000 && bareNum <= 9999) {
+                dateVal = new Date(bareNum, 0, 1);
+              } else if (typeof val === 'number' && Number.isFinite(val)) {
                 dateVal = new Date(val);
               } else if (typeof val === 'string' && val) {
                 const asNum = Number(val);
-                if (Number.isFinite(asNum) && asNum > 0) {
+                if (Number.isFinite(asNum) && asNum !== 0) {
                   dateVal = new Date(asNum);
                 } else {
                   const parsed = Date.parse(val);
@@ -924,7 +949,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                   </View>
                 ) : (
                   <Field label={fd.name} value={String(val || '')} onChange={(v: string) => setFieldVal(fd.id, v)}
-                    placeholder={fd.name} readOnly={readOnly} T={T} />
+                    placeholder={fd.name} readOnly={readOnly} multiline T={T} />
                 )}
               </View>
             );
@@ -971,6 +996,37 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         </View>
       )}
 
+      <Modal visible={showClone} transparent animationType="fade" onRequestClose={() => setShowClone(false)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
+          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 4}}>{t('members.clone')}</Text>
+            <Text style={{fontSize: fs(12), color: T.dim, paddingHorizontal: 16, paddingBottom: 8}}>{t('members.cloneFields')}</Text>
+            {([['name', t('modal.name')], ['pronouns', t('modal.pronouns')], ['role', t('modal.role')], ['color', t('memberProfile.color')], ['description', t('modal.descriptionLabel')]] as ['name' | 'pronouns' | 'role' | 'color' | 'description', string][]).map(([k, label]) => {
+              const on = cloneSel[k];
+              return (
+                <TouchableOpacity key={k} onPress={() => setCloneSel(s => ({...s, [k]: !s[k]}))} activeOpacity={0.7}
+                  accessibilityRole="switch" accessibilityState={{checked: on}} accessibilityLabel={label}
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 11, borderTopWidth: 1, borderTopColor: T.border}}>
+                  <View style={{width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: on ? T.accent : T.border, backgroundColor: on ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
+                    {on ? <Text style={{fontSize: fs(12), color: T.bg, fontWeight: '700'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text> : null}
+                  </View>
+                  <Text style={{flex: 1, fontSize: fs(14), color: T.text}} numberOfLines={1}>{label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            <View style={{flexDirection: 'row', borderTopWidth: 1, borderTopColor: T.border}}>
+              <TouchableOpacity onPress={() => setShowClone(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+                style={{flex: 1, alignItems: 'center', paddingVertical: 13, borderRightWidth: 1, borderRightColor: T.border}}>
+                <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={doClone} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('members.clone')}
+                style={{flex: 1, alignItems: 'center', paddingVertical: 13}}>
+                <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('members.clone')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Sheet>
   );
 };
@@ -1705,7 +1761,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
           style={{width: 30, height: 30, borderRadius: 8, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
           <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
         </TouchableOpacity>
-        {PALETTE.map((c: string) => (<TouchableOpacity key={c} onPress={() => {set('color', c); setHexInput(c); setHexError(false);}} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{selected: f.color === c}} accessibilityLabel={c} style={{width: 30, height: 30, borderRadius: 8, backgroundColor: c, borderWidth: 2, borderColor: f.color === c ? '#fff' : 'transparent'}} />))}
+        {PALETTE.map((c: string) => (<TouchableOpacity key={c} onPress={() => {set('color', c); setHexInput(c); setHexError(false);}} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{selected: f.color === c}} accessibilityLabel={colorName(c, t)} style={{width: 30, height: 30, borderRadius: 8, backgroundColor: c, borderWidth: 2, borderColor: f.color === c ? '#fff' : 'transparent'}} />))}
       </View>
       {isFronting && <Text style={{fontSize: fs(11), color: T.danger, lineHeight: 15, marginTop: 4}}>{t('members.frontingLockMsg')}</Text>}
     </Sheet>

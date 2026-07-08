@@ -1,4 +1,40 @@
 {
+  "colors": {
+    "white": "Putih",
+    "black": "Hitam",
+    "red": "Merah",
+    "orange": "Jingga",
+    "yellow": "Kuning",
+    "green": "Hijau",
+    "blue": "Biru",
+    "indigo": "Indigo",
+    "brown": "Coklat",
+    "gray": "Kelabu",
+    "slate": "Kelabu batu",
+    "goldenrod": "Kuning emas",
+    "periwinkle": "Lembayung",
+    "pink": "Merah jambu",
+    "mint": "Hijau pudina",
+    "lavender": "Lavender",
+    "peach": "Pic",
+    "seaGreen": "Hijau laut",
+    "coral": "Merah karang",
+    "skyBlue": "Biru langit",
+    "orchid": "Ungu orkid",
+    "lime": "Hijau limau",
+    "sand": "Pasir"
+  },
+  "editor": {
+    "markdownPlaceholder": "Tulis dalam Markdown…",
+    "urlPlaceholder": "URL di sini",
+    "textPlaceholder": "teks",
+    "body": "Penyunting"
+  },
+  "markdown": {
+    "imageUnavailable": "[imej tidak tersedia]",
+    "brokenImage": "[imej rosak]",
+    "brokenImageUrl": "[imej rosak: {{url}}]"
+  },
   "common": {
     "movedToTop": "Kini pertama",
     "movedToBottom": "Kini terakhir",
@@ -121,6 +157,9 @@
     "clearFrontTitle": "Kosongkan Front?"
   },
   "members": {
+    "fieldCount": "Bilangan ahli",
+    "clone": "Klon",
+    "cloneFields": "Salin medan yang mana?",
     "frontingLockTitle": "Sedang front",
     "frontingLockMsg": "Anda tidak boleh mengarkib atau memadam ahli semasa mereka front. Keluarkan mereka dari front dahulu.",
     "addCustomFront": "Tambah Front Tersuai",
@@ -254,6 +293,23 @@
     "templateBody": "Isi Entri (praset)"
   },
   "share": {
+    "jsonHint": "ZIP dan JSON ialah sandaran penuh yang boleh anda import semula ke Plural Star.",
+    "invalidJsonBackup": "Fail bukan JSON yang sah. Sila pilih fail sandaran Plural Star atau Simply Plural (.json).",
+    "unrecognizedBackup": "Ini tidak kelihatan seperti sandaran Plural Star, Simply Plural, Octocon, Ourcana atau HiveMind. Pilih fail .json yang dieksport daripada salah satu aplikasi tersebut (atau gunakan tab Ampersand untuk fail .ampar).",
+    "couldNotImportFile": "Tidak dapat mengimport fail.",
+    "couldNotReadFile": "Tidak dapat membaca fail.",
+    "restoreFailedGeneric": "Pemulihan gagal",
+    "couldNotConnect": "Tidak dapat menyambung.",
+    "importFailedGeneric": "Import gagal.",
+    "couldNotImportAvatars": "Tidak dapat mengimport avatar.",
+    "couldNotReadAmpar": "Tidak dapat membaca fail .ampar.",
+    "emailPlaceholder": "recipient@email.com",
+    "cfPartialTitle": "Medan Tersuai — import separa",
+    "cfMatched": "Ahli dipadankan mengikut ID: {{matched}} / {{total}}",
+    "cfWithInfo": "Ahli dengan data medan tersuai dilampirkan: {{count}}",
+    "cfKeys": "Kunci medan tersuai dilihat: {{seen}}, ditulis: {{written}}",
+    "cfNoData": "SimplyPlural tidak memulangkan sebarang data medan tersuai bagi setiap ahli. Token mungkin tiada akses baca kepada kandungan ahli, atau akaun SP anda menyimpan data CF dalam bentuk yang kami tidak kenali.",
+    "cfUnmatched": "{{count}} kunci tidak sepadan dengan mana-mana ID/nama medan kami. Contoh kunci tidak sepadan: {{samples}}",
     "banners": "Sepanduk",
     "groups": "Kumpulan",
     "ampersand": "Ampersand",
@@ -416,6 +472,7 @@
     "spMergeDesc": "Gabungkan data sandaran Simply Plural ke dalam sistem semasa anda."
   },
   "hub": {
+    "overlapMore": "+{{count}} lagi",
     "front": "Front",
     "title": "Hab",
     "shareExport": "Kongsi & Eksport",
@@ -451,6 +508,7 @@
     "supportPS": "Sokong PS"
   },
   "modal": {
+    "read": "Baca",
     "linkPfp": "Pautkan imej",
     "appFont": "Fon Aplikasi",
     "appFontDesc": "Fon yang digunakan untuk teks di seluruh aplikasi.",
@@ -556,6 +614,8 @@
     "dyslexicFontDesc": "Menukar teks badan kepada OpenDyslexic. Tajuk mengekalkan fon bergaya mereka."
   },
   "notification": {
+    "filePermTitle": "Akses Fail",
+    "filePermMsg": "Benarkan Plural Star mengimport dan mengeksport fail.",
     "locationPermTitle": "Kebenaran Lokasi",
     "locationPermMsg": "Plural Star mahu menanda lokasi anggaran anda semasa front.",
     "allow": "Benarkan",
@@ -614,6 +674,7 @@
     "ms": "Bahasa Melayu"
   },
   "memberGroups": {
+    "groupName": "Nama kumpulan",
     "changeColor": "Tukar warna",
     "deleteSubtree": "Padam semua",
     "group": "Kumpulan",
@@ -677,6 +738,7 @@
     "uniqueFronters": "Fronter Unik"
   },
   "chat": {
+    "imageUnavailable": "[imej tidak tersedia]",
     "addReaction": "Tambah reaksi",
     "attachFile": "Lampirkan fail",
     "formatting": "Pemformatan",
@@ -899,7 +961,38 @@
     "clearTitle": "Kosongkan papan putih?",
     "clearMsg": "Ini memadam segala-galanya di papan secara kekal.",
     "brushSize": "Saiz berus",
-    "penColor": "Warna pen"
+    "penColor": "Warna pen",
+    "voHint": "Leret ke atas atau ke bawah untuk menetapkan saiz langkah. Buka rotor tindakan untuk melukis, mengalihkan pen, atau menyemak kedudukan anda.",
+    "voLearnHint": "Leret ke atas atau ke bawah untuk menukar saiz langkah. Buka rotor tindakan dan pilih Senarai arahan untuk mempelajari kawalan.",
+    "voStepValue": "Langkah {{px}} piksel",
+    "voDrawUp": "Lukis ke atas",
+    "voDrawDown": "Lukis ke bawah",
+    "voDrawLeft": "Lukis ke kiri",
+    "voDrawRight": "Lukis ke kanan",
+    "voMoveUp": "Alih ke atas",
+    "voMoveDown": "Alih ke bawah",
+    "voMoveLeft": "Alih ke kiri",
+    "voMoveRight": "Alih ke kanan",
+    "voPenLift": "Angkat pen",
+    "voPenLower": "Turunkan pen",
+    "voWhere": "Di mana saya?",
+    "voRecenter": "Tengahkan semula pen",
+    "voCommands": "Senarai arahan",
+    "voUp": "atas",
+    "voDown": "bawah",
+    "voLeft": "kiri",
+    "voRight": "kanan",
+    "voDrew": "Melukis ke {{dir}} {{dist}}",
+    "voMoved": "Beralih ke {{dir}} {{dist}}",
+    "voAt": "pada {{h}}, {{v}}",
+    "voPosRight": "{{n}} kanan",
+    "voPosLeft": "{{n}} kiri",
+    "voPosDown": "{{n}} bawah",
+    "voPosUp": "{{n}} atas",
+    "voEdges": "{{left}} ke tepi kiri, {{right}} ke kanan, {{top}} ke atas, {{bottom}} ke bawah",
+    "voPenNowDown": "Pen turun, melukis",
+    "voPenNowUp": "Pen naik, beralih sahaja",
+    "voRecentered": "Pen ditengahkan semula di tengah"
   },
   "systemMap": {
     "connections": "Sambungan",
@@ -950,6 +1043,9 @@
     "rival": "Saingan"
   },
   "medical": {
+    "remind30m": "30 min",
+    "remind1h": "1 jam",
+    "remind1d": "1 hari",
     "title": "Perubatan",
     "medications": "Ubat",
     "addMedication": "+ Tambah Ubat",

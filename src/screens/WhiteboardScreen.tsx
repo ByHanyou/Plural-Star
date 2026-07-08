@@ -1,10 +1,10 @@
 import React, {useState, useEffect, useMemo, useRef, useCallback} from 'react';
-import {View, TouchableOpacity, Alert, PanResponder} from 'react-native';
+import {View, TouchableOpacity, Alert, PanResponder, AccessibilityInfo, Modal, ScrollView} from 'react-native';
 import Svg, {G, Path} from 'react-native-svg';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {store, KEYS} from '../storage';
-import {uid} from '../utils';
+import {uid, colorName} from '../utils';
 
 const WORLD = 8000;
 const HALF = WORLD / 2;
@@ -24,7 +24,7 @@ interface Props {
 }
 
 const COLORS = ['#FFFFFF', '#111111', '#E05B5B', '#E8933A', '#D9B84A', '#5BBF7A', '#4AA8D9', '#7B6BE8', '#E87BA8', '#8B5A2B', '#9AA5B1', '#DAA520'];
-const WIDTHS = [3, 6, 12];
+const WIDTHS = [1, 3, 6, 12, 15];
 
 type Tool = 'draw' | 'move' | 'erase';
 
@@ -43,7 +43,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [current, setCurrent] = useState<Stroke | null>(null);
   const [color, setColor] = useState(COLORS[0]);
-  const [width, setWidth] = useState(WIDTHS[1]);
+  const [width, setWidth] = useState(WIDTHS[2]);
   const [tool, setTool] = useState<Tool>('draw');
   const [view, setView] = useState({tx: 0, ty: 0, scale: 1});
 
@@ -57,8 +57,18 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const widthRef = useRef(width);
   widthRef.current = width;
   const viewportRef = useRef({x: 0, y: 0, w: 0, h: 0});
-  const panRef = useRef({tx: 0, ty: 0, scale: 1, startTx: 0, startTy: 0, startScale: 1, startDist: 0});
+  const panRef = useRef({tx: 0, ty: 0, scale: 1, startTx: 0, startTy: 0, startScale: 1, startDist: 0, originX: 0, originY: 0});
   const dirtyRef = useRef(false);
+
+  const [voStep, setVoStep] = useState(40);
+  const [voCursor, setVoCursor] = useState({x: 0, y: 0});
+  const [srEnabled, setSrEnabled] = useState(false);
+  const [voHelpOpen, setVoHelpOpen] = useState(false);
+  const voStepRef = useRef(40);
+  const voCursorRef = useRef({x: 0, y: 0});
+  const voStrokeIdRef = useRef<string | null>(null);
+  const setStep = (n: number) => { voStepRef.current = n; setVoStep(n); };
+  const setCursor = (c: {x: number; y: number}) => { voCursorRef.current = c; setVoCursor(c); };
 
   useEffect(() => {
     (async () => {
@@ -76,6 +86,13 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     if (dirtyRef.current) store.set(KEYS.whiteboard, strokesRef.current).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    let on = true;
+    AccessibilityInfo.isScreenReaderEnabled().then(v => { if (on) setSrEnabled(v); });
+    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', (v: boolean) => setSrEnabled(v));
+    return () => { on = false; (sub as any)?.remove?.(); };
+  }, []);
+
   const toWorld = (localX: number, localY: number): [number, number] => {
     const vp = viewportRef.current;
     const p = panRef.current;
@@ -88,8 +105,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const clampWorld = (v: number) => Math.max(-HALF + 20, Math.min(HALF - 20, Math.round(v)));
 
   const eraseAt = (wx: number, wy: number) => {
-    const p = panRef.current;
-    const radius = Math.max(18, 18 / p.scale);
+    const radius = widthRef.current;
     const survivors = strokesRef.current.filter(s => {
       for (let i = 0; i < s.pts.length; i += 2) {
         if (Math.hypot(s.pts[i] - wx, s.pts[i + 1] - wy) < radius + s.w / 2) return false;
@@ -111,7 +127,10 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       p.startTy = p.ty;
       p.startScale = p.scale;
       p.startDist = 0;
-      const [wx, wy] = toWorld(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+      const ne = evt.nativeEvent;
+      p.originX = ne.pageX - ne.locationX;
+      p.originY = ne.pageY - ne.locationY;
+      const [wx, wy] = toWorld(ne.locationX, ne.locationY);
       if (toolRef.current === 'draw') {
         currentRef.current = {id: uid(), c: colorRef.current, w: widthRef.current, pts: [clampWorld(wx), clampWorld(wy)]};
         setCurrent(currentRef.current);
@@ -145,7 +164,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         setView({tx: p.tx, ty: p.ty, scale: p.scale});
         return;
       }
-      const [wx, wy] = toWorld(evt.nativeEvent.locationX, evt.nativeEvent.locationY);
+      const [wx, wy] = toWorld(evt.nativeEvent.pageX - p.originX, evt.nativeEvent.pageY - p.originY);
       if (toolRef.current === 'erase') {
         eraseAt(wx, wy);
         return;
@@ -197,6 +216,65 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     ]);
   };
 
+  const voClampX = (v: number) => { const h = (viewportRef.current.w || 360) / 2; return Math.max(-h, Math.min(h, Math.round(v))); };
+  const voClampY = (v: number) => { const h = (viewportRef.current.h || 640) / 2; return Math.max(-h, Math.min(h, Math.round(v))); };
+
+  const voAnnounce = (msg: string) => { setTimeout(() => AccessibilityInfo.announceForAccessibility(msg), 50); };
+
+  const voPosText = (c: {x: number; y: number}) => {
+    const h = c.x >= 0 ? t('whiteboard.voPosRight', {n: c.x}) : t('whiteboard.voPosLeft', {n: -c.x});
+    const v = c.y >= 0 ? t('whiteboard.voPosDown', {n: c.y}) : t('whiteboard.voPosUp', {n: -c.y});
+    return t('whiteboard.voAt', {h, v});
+  };
+
+  const voMove = (dx: number, dy: number, dirKey: string, draw: boolean) => {
+    const step = voStepRef.current;
+    const prev = voCursorRef.current;
+    const nx = voClampX(prev.x + dx * step);
+    const ny = voClampY(prev.y + dy * step);
+    setCursor({x: nx, y: ny});
+    const dir = t(dirKey);
+    if (draw) {
+      if (voStrokeIdRef.current == null) {
+        const s: Stroke = {id: uid(), c: color, w: width, pts: [prev.x, prev.y, nx, ny]};
+        voStrokeIdRef.current = s.id;
+        const next = [...strokesRef.current, s];
+        setStrokes(next); persist(next);
+      } else {
+        const id = voStrokeIdRef.current;
+        const next = strokesRef.current.map(s => s.id === id ? {...s, pts: [...s.pts, nx, ny]} : s);
+        setStrokes(next); persist(next);
+      }
+      voAnnounce(`${t('whiteboard.voDrew', {dir, dist: step})}. ${voPosText({x: nx, y: ny})}`);
+    } else {
+      voStrokeIdRef.current = null;
+      voAnnounce(`${t('whiteboard.voMoved', {dir, dist: step})}. ${voPosText({x: nx, y: ny})}`);
+    }
+  };
+
+  const voWhere = () => {
+    const c = voCursorRef.current;
+    const hw = (viewportRef.current.w || 360) / 2;
+    const hh = (viewportRef.current.h || 640) / 2;
+    const edges = t('whiteboard.voEdges', {
+      left: Math.round(hw + c.x), right: Math.round(hw - c.x),
+      top: Math.round(hh + c.y), bottom: Math.round(hh - c.y),
+    });
+    voAnnounce(`${voPosText(c)}. ${edges}`);
+  };
+
+  const voRecenter = () => {
+    setCursor({x: 0, y: 0});
+    voStrokeIdRef.current = null;
+    voAnnounce(t('whiteboard.voRecentered'));
+  };
+
+  const voStepChange = (delta: number) => {
+    const n = Math.max(10, Math.min(200, voStepRef.current + delta));
+    setStep(n);
+    voAnnounce(t('whiteboard.voStepValue', {px: n}));
+  };
+
   const zoomBy = (f: number) => {
     const p = panRef.current;
     p.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, p.scale * f));
@@ -236,7 +314,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         </TouchableOpacity>
       </View>
 
-      <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
+      <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: T.border, flexWrap: 'wrap'}}>
         {toolBtn('draw', '✎', t('whiteboard.draw'))}
         {toolBtn('move', '✥', t('whiteboard.move'))}
         {toolBtn('erase', '⌫', t('whiteboard.erase'))}
@@ -253,15 +331,52 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderBottomWidth: 1, borderBottomColor: T.border, flexWrap: 'wrap'}}>
         {COLORS.map(c => (
           <TouchableOpacity key={c} onPress={() => setColor(c)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{selected: color === c}} accessibilityLabel={`${t('whiteboard.penColor')} ${c}`}
+            accessibilityRole="button" accessibilityState={{selected: color === c}} accessibilityLabel={`${t('whiteboard.penColor')} ${colorName(c, t)}`}
             style={{width: 24, height: 24, borderRadius: 12, backgroundColor: c, borderWidth: color === c ? 3 : 1, borderColor: color === c ? T.accent : T.border}} />
         ))}
       </View>
 
       <View
         accessible
-        accessibilityRole="image"
+        accessibilityRole="adjustable"
         accessibilityLabel={t('whiteboard.title')}
+        accessibilityValue={{text: t('whiteboard.voStepValue', {px: voStep})}}
+        accessibilityHint={t('whiteboard.voLearnHint')}
+        onAccessibilityTap={voWhere}
+        accessibilityActions={[
+          {name: 'draw_up', label: t('whiteboard.voDrawUp')},
+          {name: 'draw_down', label: t('whiteboard.voDrawDown')},
+          {name: 'draw_left', label: t('whiteboard.voDrawLeft')},
+          {name: 'draw_right', label: t('whiteboard.voDrawRight')},
+          {name: 'move_up', label: t('whiteboard.voMoveUp')},
+          {name: 'move_down', label: t('whiteboard.voMoveDown')},
+          {name: 'move_left', label: t('whiteboard.voMoveLeft')},
+          {name: 'move_right', label: t('whiteboard.voMoveRight')},
+          {name: 'where', label: t('whiteboard.voWhere')},
+          {name: 'recenter', label: t('whiteboard.voRecenter')},
+          {name: 'commands', label: t('whiteboard.voCommands')},
+          {name: 'undo', label: t('whiteboard.undo')},
+          {name: 'clear', label: t('whiteboard.clear')},
+        ]}
+        onAccessibilityAction={(e) => {
+          switch (e.nativeEvent.actionName) {
+            case 'increment': voStepChange(10); break;
+            case 'decrement': voStepChange(-10); break;
+            case 'draw_up': voMove(0, -1, 'whiteboard.voUp', true); break;
+            case 'draw_down': voMove(0, 1, 'whiteboard.voDown', true); break;
+            case 'draw_left': voMove(-1, 0, 'whiteboard.voLeft', true); break;
+            case 'draw_right': voMove(1, 0, 'whiteboard.voRight', true); break;
+            case 'move_up': voMove(0, -1, 'whiteboard.voUp', false); break;
+            case 'move_down': voMove(0, 1, 'whiteboard.voDown', false); break;
+            case 'move_left': voMove(-1, 0, 'whiteboard.voLeft', false); break;
+            case 'move_right': voMove(1, 0, 'whiteboard.voRight', false); break;
+            case 'where': voWhere(); break;
+            case 'recenter': voRecenter(); break;
+            case 'commands': setVoHelpOpen(true); break;
+            case 'undo': voStrokeIdRef.current = null; undo(); break;
+            case 'clear': voStrokeIdRef.current = null; clearAll(); break;
+          }
+        }}
         style={{flex: 1, overflow: 'hidden', backgroundColor: T.card}}
         onLayout={(e) => {
           const {width: w, height: h} = e.nativeEvent.layout;
@@ -277,9 +392,33 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
             {currentPath ? (
               <Path d={currentPath} stroke={current!.c} strokeWidth={current!.w} strokeLinecap="round" strokeLinejoin="round" fill="none" />
             ) : null}
+            {srEnabled ? (
+              <Path d={`M ${voCursor.x - 14} ${voCursor.y} H ${voCursor.x + 14} M ${voCursor.x} ${voCursor.y - 14} V ${voCursor.y + 14}`} stroke={T.accent} strokeWidth={2 / view.scale} strokeLinecap="round" />
+            ) : null}
           </G>
         </Svg>
       </View>
+      <Modal visible={voHelpOpen} transparent animationType="fade" onRequestClose={() => setVoHelpOpen(false)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24}}>
+          <View style={{backgroundColor: T.card, borderRadius: 12, padding: 16, maxHeight: '80%'}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(17), fontWeight: '700', color: T.text, marginBottom: 8}}>{t('whiteboard.voCommands')}</Text>
+            <ScrollView>
+              <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 12}}>{t('whiteboard.voHint')}</Text>
+              {[
+                t('whiteboard.voDrawUp'), t('whiteboard.voDrawDown'), t('whiteboard.voDrawLeft'), t('whiteboard.voDrawRight'),
+                t('whiteboard.voMoveUp'), t('whiteboard.voMoveDown'), t('whiteboard.voMoveLeft'), t('whiteboard.voMoveRight'),
+                t('whiteboard.voWhere'), t('whiteboard.voRecenter'),
+                t('whiteboard.undo'), t('whiteboard.clear'),
+              ].map((c, i) => (
+                <Text key={i} style={{fontSize: fs(15), color: T.text, paddingVertical: 6}}>{`• ${c}`}</Text>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setVoHelpOpen(false)} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{marginTop: 12, alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 12}}>
+              <Text style={{fontSize: fs(15), color: T.accent, fontWeight: '600'}}>{t('common.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };

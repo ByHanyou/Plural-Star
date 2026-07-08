@@ -305,7 +305,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
               (typeof msg.content === 'string' && msg.content.trim().length > 0) ? (
                 <Image source={{uri: msg.content.trim()}} accessibilityRole="image" accessibilityLabel="Image" style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
               ) : (
-                <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginTop: 4}}>[image unavailable]</Text>
+                <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginTop: 4}}>{t('chat.imageUnavailable')}</Text>
               )
             ) : msg.type === 'file' ? (
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, marginTop: 4}}>
@@ -371,7 +371,7 @@ export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMenti
           <View key={ch.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
             {editChannelId === ch.id ? (
               <View style={{flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center'}}>
-                <TextInput value={editChannelName} onChangeText={setEditChannelName} autoFocus
+                <TextInput value={editChannelName} onChangeText={setEditChannelName} autoFocus accessibilityLabel={t('chat.channelName')}
                   style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: fs(13)}}
                   onSubmitEditing={() => renameChannel(ch.id)} returnKeyType="done" />
                 <TouchableOpacity onPress={() => renameChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text style={{fontSize: fs(14), color: T.success}}>✓</Text></TouchableOpacity>

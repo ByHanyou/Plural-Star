@@ -1,5 +1,6 @@
 import React, {ReactNode, useEffect, useRef, useState} from 'react';
-import {View, TouchableOpacity, ScrollView, StyleSheet, LayoutChangeEvent, Platform, Keyboard} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrueSheet} from '@lodev09/react-native-true-sheet';
@@ -23,7 +24,7 @@ const ANDROID_NAV_BAR_FLOOR = 24;
 export const Sheet = ({visible, title, theme: T, onClose, children, footer, headerAction}: SheetProps) => {
   const {t} = useTranslation();
   const sheetRef = useRef<TrueSheet>(null);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
   const rawBottomInset = isIPad ? 0 : insets.bottom;
   const bottomInset = Platform.OS === 'android'
@@ -31,13 +32,6 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
     : rawBottomInset;
   const [footerHeight, setFooterHeight] = useState(0);
   const onFooterLayout = (e: LayoutChangeEvent) => setFooterHeight(e.nativeEvent.layout.height);
-
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-  useEffect(() => {
-    const show = Keyboard.addListener('keyboardDidShow', e => setKeyboardHeight(e.endCoordinates.height));
-    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
-    return () => { show.remove(); hide.remove(); };
-  }, []);
 
   const wasVisible = useRef(false);
   useEffect(() => {
@@ -53,7 +47,7 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
   const basePaddingBottom = footer
     ? (footerHeight > 0 ? footerHeight + 24 : 96)
     : 56 + bottomInset;
-  const scrollPaddingBottom = basePaddingBottom + keyboardHeight;
+  const scrollPaddingBottom = basePaddingBottom;
 
   return (
     <TrueSheet
@@ -83,16 +77,17 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
         ) : undefined
       }
     >
-      <ScrollView
+      <KeyboardAwareScrollView
         ref={scrollRef}
         style={s.body}
         contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
         showsVerticalScrollIndicator
         keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
         nestedScrollEnabled
       >
         {children}
-      </ScrollView>
+      </KeyboardAwareScrollView>
     </TrueSheet>
   );
 };

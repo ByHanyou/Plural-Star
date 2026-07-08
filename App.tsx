@@ -3,6 +3,7 @@ import {View, Image, TouchableOpacity, StyleSheet, StatusBar, Platform, Permissi
 import {Text, TextInput, setAppTextDyslexicEnabled, setAppTextFont} from './src/components/AppText';
 import {fontFamilyForChoice} from './src/theme';
 import {SafeAreaProvider, useSafeAreaInsets} from 'react-native-safe-area-context';
+import {KeyboardProvider} from 'react-native-keyboard-controller';
 import {useTranslation} from 'react-i18next';
 import notifee from '@notifee/react-native';
 
@@ -15,7 +16,7 @@ import type {CustomPalette, ThemeColors} from './src/theme';
 import {AccentText} from './src/components/AccentText';
 import {store, KEYS, storageLooksWiped, restoreAllBackups} from './src/storage';
 import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, NoteboardEntry, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, frontToHistoryEntry, uid, makeDefaultCustomFronts, isFrontEmpty, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode, emergencyNotificationLine} from './src/utils';
-import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia, migrateStaleMediaPaths, rebaseChatMessageMedia} from './src/utils/mediaUtils';
+import {migrateInlineAvatars, migrateInlineChatMedia, clearAllMedia, migrateStaleMediaPaths, rebaseChatMessageMedia, downsizeExistingAvatars} from './src/utils/mediaUtils';
 import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, showNoteboardNotification, clearNoteboardNotification, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders} from './src/services/NotificationService';
 import {waitForProtectedData} from './src/services/LiveActivityService';
 
@@ -237,6 +238,19 @@ function MainAppContent() {
       } catch (e) {
         console.error('[PS] media path rebase error:', e);
       }
+      try {
+        const alreadyDownsized = await store.get<boolean>('ps.avatarsDownsizedV1', false);
+        if (!alreadyDownsized && !storageSuspect) {
+          const {members: downsizedMembers, changed: downsizedChanged} = await downsizeExistingAvatars(loadedMembers);
+          if (downsizedChanged) {
+            loadedMembers = downsizedMembers;
+            await store.set(KEYS.members, loadedMembers);
+          }
+          await store.set('ps.avatarsDownsizedV1', true);
+        }
+      } catch (e) {
+        console.error('[PS] avatar downsize migration error:', e);
+      }
       let loadedSettingsObj: AppSettings = {...DEFAULT_SETTINGS, ...(settings || {})};
       if (!loadedSettingsObj.customFrontsSeeded && !storageSuspect) {
         const existingCustomNames = new Set(loadedMembers.filter(m => m.isCustomFront).map(m => (m.name || '').toLowerCase()));
@@ -250,10 +264,6 @@ function MainAppContent() {
         const realMemberCount = (loadedMembers || []).filter(m => !m.isCustomFront).length;
         const hasUserData = realMemberCount > 0 || (hist && hist.length > 0) || (jour && jour.length > 0) || (grps && grps.length > 0);
         if (hasUserData) {
-          // The system record was lost (e.g. AsyncStorage didn't flush before a
-          // power-off — a known iOS issue) but the user's members/history survived.
-          // Reconstruct a minimal system and persist it instead of dropping into
-          // first-run Setup, which would strand their data and look like a full wipe.
           console.warn(`[STARTUP] System missing but ${realMemberCount} members + data present — reconstructing system, NOT entering first-run.`);
           const recovered: SystemInfo = {name: '', description: ''};
           loadedSystem = recovered;
@@ -312,7 +322,6 @@ function MainAppContent() {
 
       try {
         const savedCodes = await store.get<DeviceCodes>(KEYS.deviceCodes);
-        // Suspect loads must not rotate identity codes off a blank read.
         if ((!savedCodes || !savedCodes.friendCode || !savedCodes.syncCode) && !storageSuspect) {
           const fresh: DeviceCodes = {friendCode: generateFriendCode(), syncCode: generateSyncCode(), createdAt: Date.now()};
           await store.set(KEYS.deviceCodes, fresh);
@@ -325,9 +334,6 @@ function MainAppContent() {
     } catch (e) {
       console.error('[PS] startup load error:', e);
       storageSuspectRef.current = true;
-      // A transient load error must NOT look like a wipe. Try a focused recovery of
-      // the user's members/system (store.get self-heals from the file backup) before
-      // deciding to show first-run Setup. Only enter first-run if nothing is recoverable.
       let recoveredMembers: Member[] = [];
       let recoveredSystem: SystemInfo | null = null;
       try { recoveredMembers = (await store.get<Member[]>(KEYS.members, [])) || []; } catch {}
@@ -404,7 +410,7 @@ function MainAppContent() {
     try {
       if (Platform.Version < 33) {
         const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          {title: 'File Access', message: 'Allow Plural Star to import and export files.', buttonPositive: 'Allow', buttonNegative: 'Not now'});
+          {title: t('notification.filePermTitle'), message: t('notification.filePermMsg'), buttonPositive: t('notification.allow'), buttonNegative: t('notification.notNow')});
         if (result !== PermissionsAndroid.RESULTS.GRANTED) {
           console.warn('[PS] File permission denied:', result);
         }
@@ -424,11 +430,8 @@ function MainAppContent() {
   }, [loadAll]);
   useEffect(() => { NetworkManager.init().catch(e => console.error('[NETWORK] init failed:', e)); }, []);
   useEffect(() => { if (loaded) NetworkManager.updateMyFront(front, members).catch(() => {}); }, [loaded, front, members]);
-  // Poke the sync engine when any synced data changes (it debounces + rate-limits).
   useEffect(() => { NetworkManager.notifyDataChanged(); }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
-  // Apply incoming device-sync writes by reloading app state.
   useEffect(() => NetworkManager.onSyncApplied(() => { loadAll(); }), [loadAll]);
-  // Prompt to resolve a device-sync conflict (which device's data wins).
   useEffect(() => NetworkManager.onSyncConflict(c => {
     Alert.alert(
       t('network.syncConflictTitle'),
@@ -683,9 +686,6 @@ function MainAppContent() {
         const segment = tierTracked(nf.primary, front!.primary) || tierTracked(nf.coFront, front!.coFront)
           || tierTracked(nf.coConscious, front!.coConscious) || locChanged;
         if (segment) {
-          // Tracked state changed mid-session: close the open entry as it was
-          // and start a new segment, so history keeps the timeline instead of
-          // overwriting it.
           finalFront = {...nf, startTime: now};
           const segEntry = frontToHistoryEntry(finalFront, null, 'front');
           newHistory = newHistory.map(e =>
@@ -804,8 +804,6 @@ function MainAppContent() {
     const u = members.find(x => x.id === m.id) ? members.map(x => (x.id === m.id ? m : x)) : [...members, m];
     await saveMembers(u);
   };
-  // Soft-delete: keep a hidden tombstone (archived + deleted) so front history & stats
-  // still resolve the member's name instead of showing the raw ID ("scary symbols").
   const deleteMember = async (id: string) => saveMembers(members.map(m => m.id === id ? {...m, archived: true, deleted: true} : m));
   const bulkSetArchived = async (ids: string[], archived: boolean) => {
     const idSet = new Set(ids);
@@ -987,11 +985,6 @@ function MainAppContent() {
           onSaveGroups={saveGroups} onSaveSortMode={async (mode) => {const next = {...appSettings, memberSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);}} onReorderMember={async (id, direction) => {
           const active = members.filter(m => !m.archived);
           const archived = members.filter(m => m.archived);
-          // Order exactly the way the Members list shows manual sort: by sortOrder,
-          // with members that have none (e.g. freshly imported) falling to the end in
-          // a stable order. Then reindex so those get real positions — previously this
-          // re-seeded from the raw members-array index, which didn't match the on-screen
-          // order, so ▲/▼ moved the wrong neighbours for imported members.
           const ordered = [...active].sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
           const idx = ordered.findIndex(m => m.id === id);
           if (idx === -1) return;
@@ -1017,15 +1010,17 @@ function MainAppContent() {
 
   return (
     <View style={[styles.root, {backgroundColor: C.bg}]}>
-      <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor={C.bg} translucent={false} />
+      <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor="transparent" translucent />
       <View style={{backgroundColor: C.bg, paddingTop: Platform.OS === 'ios' ? Math.max(insets.top - 6, 0) : Math.max(StatusBar.currentHeight || 0, insets.top || 0, 28)}}>
         <View style={[styles.header, {borderBottomColor: C.border, backgroundColor: C.bg}]}>
-          <AccentText
-            T={C}
-            style={[styles.headerTitle, {color: C.accent, flex: 1, marginRight: 8}]}
-            numberOfLines={1}
-            accessibilityRole="header"
-            maxFontSizeMultiplier={1.2}>{system.name}</AccentText>
+          <View style={{flex: 1, minWidth: 0, marginRight: 8, overflow: 'hidden'}}>
+            <AccentText
+              T={C}
+              style={[styles.headerTitle, {color: C.accent, flex: 1}]}
+              numberOfLines={1}
+              accessibilityRole="header"
+              maxFontSizeMultiplier={1.2}>{system.name}</AccentText>
+          </View>
           <View style={styles.headerRight} accessibilityRole="toolbar" accessibilityLabel={t('a11y.toolbar')}>
             <TouchableOpacity
               onPress={() => { if (appSettings.appLockPassword) setLocked(true); }}
@@ -1158,9 +1153,11 @@ class AppErrorBoundary extends React.Component<{children: React.ReactNode}, {err
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppErrorBoundary>
-        <MainAppContent />
-      </AppErrorBoundary>
+      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+        <AppErrorBoundary>
+          <MainAppContent />
+        </AppErrorBoundary>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }
