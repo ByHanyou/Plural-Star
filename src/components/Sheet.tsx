@@ -1,5 +1,5 @@
 import React, {ReactNode, useEffect, useRef, useState} from 'react';
-import {View, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform, Keyboard} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -31,6 +31,7 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
     ? Math.max(rawBottomInset, ANDROID_NAV_BAR_FLOOR)
     : rawBottomInset;
   const [footerHeight, setFooterHeight] = useState(0);
+  const [kbVisible, setKbVisible] = useState(false);
   const onFooterLayout = (e: LayoutChangeEvent) => setFooterHeight(e.nativeEvent.layout.height);
 
   const wasVisible = useRef(false);
@@ -43,6 +44,12 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
       wasVisible.current = false;
     }
   }, [visible]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKbVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKbVisible(false));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []);
 
   const basePaddingBottom = footer
     ? (footerHeight > 0 ? footerHeight + 24 : 96)
@@ -67,7 +74,7 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
         </View>
       }
       footer={
-        footer ? (
+        footer && !kbVisible ? (
           <View
             onLayout={onFooterLayout}
             style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}

@@ -359,6 +359,83 @@ export const exportJSON = async (
   });
 };
 
+// ── PluralKit-format export (importable into PluralKit `pk;import` and Tupperbox `tul!import`) ──
+// Field names mirror what we already read on PK import (see ShareScreen handlePluralKitFetch) and
+// PluralKit's published Member/System/Switch models. PluralKit does NOT support group import, so
+// groups are intentionally omitted. Avatars/banners must be publicly-accessible URLs — locally
+// stored images (data:/file:) can't transfer, so they're dropped. Proxy tags are left blank for
+// the user to set up in-bot.
+const pkHexColor = (c?: string): string | null => {
+  const h = String(c || '').replace(/^#/, '').trim().toLowerCase();
+  return /^[0-9a-f]{6}$/.test(h) ? h : null;
+};
+
+const pkPublicUrl = (u?: string): string | null =>
+  (u && /^https?:\/\//i.test(u) && u.length <= 256) ? u : null;
+
+const pkShortId = (i: number): string => {
+  let s = '';
+  let n = i;
+  for (let k = 0; k < 5; k++) { s = String.fromCharCode(97 + (n % 26)) + s; n = Math.floor(n / 26); }
+  return s;
+};
+
+export const buildPluralKitExport = (
+  system: SystemInfo,
+  members: Member[],
+  history: HistoryEntry[],
+): Record<string, any> => {
+  const realMembers = members.filter(m => !m.isCustomFront && !m.deleted);
+  const idMap: Record<string, string> = {};
+  realMembers.forEach((m, i) => { idMap[m.id] = pkShortId(i); });
+
+  const pkMembers = realMembers.map(m => ({
+    id: idMap[m.id],
+    name: (m.name || 'Member').slice(0, 100),
+    display_name: null,
+    color: pkHexColor(m.color),
+    birthday: null,
+    pronouns: m.pronouns ? m.pronouns.slice(0, 100) : null,
+    avatar_url: pkPublicUrl(m.avatar),
+    banner: pkPublicUrl(m.banner),
+    description: m.description ? m.description.slice(0, 1000) : null,
+    proxy_tags: [],
+    keep_proxy: false,
+  }));
+
+  const pkSwitches = (history || [])
+    .map(h => ({
+      t: new Date(h.startTime).getTime(),
+      members: (h.memberIds || []).map(id => idMap[id]).filter(Boolean),
+    }))
+    .filter(sw => sw.members.length > 0 && !isNaN(sw.t))
+    .sort((a, b) => b.t - a.t)
+    .map(sw => ({timestamp: new Date(sw.t).toISOString(), members: sw.members}));
+
+  return {
+    version: 1,
+    name: system?.name ? system.name.slice(0, 100) : null,
+    description: system?.description ? system.description.slice(0, 1000) : null,
+    tag: null,
+    pronouns: null,
+    color: null,
+    avatar_url: null,
+    banner: null,
+    members: pkMembers,
+    switches: pkSwitches,
+  };
+};
+
+export const exportPluralKit = async (
+  system: SystemInfo,
+  members: Member[],
+  history: HistoryEntry[],
+): Promise<void> => {
+  const obj = buildPluralKitExport(system, members, history);
+  const slug = system.name.replace(/\s+/g, '-').toLowerCase();
+  await saveToDownloads(JSON.stringify(obj, null, 2), `${slug}-pluralkit-${dateSlug()}.json`);
+};
+
 const B64C = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const B64INV = (() => {
   const a = new Int16Array(256);

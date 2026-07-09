@@ -18,7 +18,7 @@ interface Props {
 
 type NetTab = 'friends' | 'settings' | 'privacy';
 type Kind = 'friend' | 'device';
-type BucketFeature = 'members' | 'groups' | 'journal' | 'history';
+type BucketFeature = 'members' | 'groups' | 'journal' | 'history' | 'customFields' | 'medical' | 'connections';
 
 const emptyScope = (): PrivacyScope => ({mode: 'none', ids: []});
 const newBucket = (name: string): PrivacyBucket => ({
@@ -28,8 +28,22 @@ const newBucket = (name: string): PrivacyBucket => ({
   groups: emptyScope(),
   journal: emptyScope(),
   history: emptyScope(),
+  customFields: emptyScope(),
+  medical: emptyScope(),
+  connections: emptyScope(),
   friendPeerIds: [],
   createdAt: Date.now(),
+});
+
+const normalizeBucket = (b: PrivacyBucket): PrivacyBucket => ({
+  ...b,
+  members: b.members || emptyScope(),
+  groups: b.groups || emptyScope(),
+  journal: b.journal || emptyScope(),
+  history: b.history || emptyScope(),
+  customFields: b.customFields || emptyScope(),
+  medical: b.medical || emptyScope(),
+  connections: b.connections || emptyScope(),
 });
 
 export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []}: Props) => {
@@ -52,7 +66,7 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
 
   useEffect(() => {
     store.get<PrivacyBucket[]>(PRIVACY_BUCKETS_KEY, []).then(saved => {
-      if (saved && Array.isArray(saved)) setBuckets(saved);
+      if (saved && Array.isArray(saved)) setBuckets(saved.map(normalizeBucket));
     }).catch(() => {});
   }, []);
 
@@ -264,7 +278,7 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
   };
 
   const featureLabel = (f: BucketFeature): string =>
-    f === 'members' ? t('tabs.members') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : t('tabs.history');
+    f === 'members' ? t('tabs.members') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : f === 'medical' ? t('medical.title') : t('systemMap.title');
   const scopeSummary = (s: PrivacyScope): string =>
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
   const setScopeMode = (f: BucketFeature, mode: PrivacyScopeMode) => {
@@ -295,6 +309,9 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
       groups: {mode: b.groups.mode, ids: [...b.groups.ids]},
       journal: {mode: b.journal.mode, ids: [...b.journal.ids]},
       history: {mode: b.history.mode, ids: [...b.history.ids]},
+      customFields: {mode: b.customFields.mode, ids: [...b.customFields.ids]},
+      medical: {mode: b.medical.mode, ids: [...b.medical.ids]},
+      connections: {mode: b.connections.mode, ids: [...b.connections.ids]},
       friendPeerIds: [],
       createdAt: Date.now(),
     });
@@ -394,10 +411,10 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
                 <View key={b.id} style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
                   <TouchableOpacity style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket({...b})} activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel={`${b.name}. ${(['members', 'groups', 'journal', 'history'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
+                    accessibilityLabel={`${b.name}. ${(['members', 'groups', 'journal', 'history', 'customFields', 'medical', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
                     <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} importantForAccessibility="no">{b.name}</Text>
                     <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2} importantForAccessibility="no">
-                      {(['members', 'groups', 'journal', 'history'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
+                      {(['members', 'groups', 'journal', 'history', 'customFields', 'medical', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => cloneBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.cloneBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
@@ -466,7 +483,7 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
                 placeholder={t('network.bucketName')} placeholderTextColor={T.muted} style={inputStyle}
                 accessibilityLabel={t('network.bucketName')} accessibilityLabelledBy="lblBucketName" />
             </View>
-            {editBucket && (['members', 'groups', 'journal', 'history'] as BucketFeature[]).map(f => (
+            {editBucket && (['members', 'groups', 'journal', 'history', 'customFields', 'medical', 'connections'] as BucketFeature[]).map(f => (
               <View key={f} style={{paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.text}}>{featureLabel(f)}</Text>

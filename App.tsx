@@ -370,6 +370,7 @@ function MainAppContent() {
       await notifee.requestPermission();
     } catch (e) { console.error('[PS] notification permission error:', e); }
     if (Platform.OS !== 'android') return;
+    if (AppState.currentState !== 'active') return;
     try {
       if (Platform.Version >= 33) {
         const result = await PermissionsAndroid.request(
@@ -448,7 +449,23 @@ function MainAppContent() {
       t('network.syncRoleMismatchMsg', {device: c.deviceName, defaultValue: `You and ${c.deviceName} both chose the same direction, so the initial copy was skipped. New changes will still sync. To copy everything, remove the link and pair again — choose "send" on one device and "receive" on the other.`}),
     );
   }), [t]);
-  useEffect(() => { if (loaded && !firstRun) requestPermissions(); }, [loaded, firstRun]);
+  const permsRequestedRef = useRef(false);
+  useEffect(() => {
+    if (!loaded || firstRun || permsRequestedRef.current) return;
+    if (AppState.currentState === 'active') {
+      permsRequestedRef.current = true;
+      requestPermissions();
+      return;
+    }
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active' && !permsRequestedRef.current) {
+        permsRequestedRef.current = true;
+        requestPermissions();
+        sub.remove();
+      }
+    });
+    return () => sub.remove();
+  }, [loaded, firstRun]);
 
   useEffect(() => {
     const choice = appSettings.fontChoice ?? (appSettings.useDyslexicFont === true ? 'opendyslexic' : 'default');
@@ -480,6 +497,17 @@ function MainAppContent() {
     const interval = setInterval(() => { showFrontNotification(front, members, system.name).catch(e => console.error('[PS] notif refresh error:', e)); }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [front, members, appSettings.notificationsEnabled, system.name]);
+
+  const frontNotifRef = useRef({front, members, systemName: system.name, enabled: appSettings.notificationsEnabled});
+  frontNotifRef.current = {front, members, systemName: system.name, enabled: appSettings.notificationsEnabled};
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', s => {
+      if (s !== 'active' || !frontNotifRef.current.enabled) return;
+      const {front: f, members: m, systemName: n} = frontNotifRef.current;
+      showFrontNotification(f, m, n).catch(() => {});
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     const interval = appSettings.frontCheckInterval || 0;

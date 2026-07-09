@@ -642,15 +642,9 @@ export const HubScreen = ({theme: T, singlet = false, selfId, members, history, 
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'flex-start'}}>
         {tiles.map(tile => (
           <TouchableOpacity key={tile.id} onPress={() => handleTilePress(tile)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={tile.label}
-            style={{width: '31%', aspectRatio: 1, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, alignItems: 'center', justifyContent: 'center', padding: 10}}>
-            <View style={{flex: 1, alignSelf: 'stretch'}}>
-              <View style={{flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4}}>
-                <Text style={{fontSize: fs(26), lineHeight: fs(28), color: T.accent, textAlign: 'center', includeFontPadding: false}}>{tile.icon}</Text>
-              </View>
-              <View style={{flex: 1, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 4}}>
-                <Text style={{fontSize: fs(11), lineHeight: fs(14), fontWeight: '600', color: T.text, textAlign: 'center', includeFontPadding: false}} numberOfLines={2}>{tile.label}</Text>
-              </View>
-            </View>
+            style={{width: '31%', minHeight: 104, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, alignItems: 'center', justifyContent: 'center', padding: 10, gap: 6}}>
+            <Text style={{fontSize: fs(26), lineHeight: fs(32), color: T.accent, textAlign: 'center', includeFontPadding: false}}>{tile.icon}</Text>
+            <Text style={{fontSize: fs(11), lineHeight: fs(15), fontWeight: '600', color: T.text, textAlign: 'center', includeFontPadding: false}} numberOfLines={2}>{tile.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

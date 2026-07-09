@@ -29,7 +29,7 @@ export const buildFrontShare = (front: any, members: Member[]): FrontShare | nul
   if (!primary && !coFront && !coConscious) return null;
 
   return {
-    fronters: primary || coFront || coConscious,
+    fronters: [primary, coFront, coConscious].filter(Boolean).join(', '),
     primary: primary || undefined,
     coFront: coFront || undefined,
     coConscious: coConscious || undefined,

@@ -344,6 +344,8 @@
     "downloadsDirectly": "Downloads directly to your Downloads folder.",
     "htmlHint": "HTML opens natively in Google Docs when uploaded to Drive.",
     "jsonHint": "ZIP and JSON are full backups you can re-import into Plural Star.",
+    "exportPluralKit": "↓ PluralKit / Tupperbox",
+    "pkExportHint": "Exports members and front history as a PluralKit-format file for pk;import (PluralKit) or tul!import (Tupperbox). Avatars only carry over if they're image links — PluralKit can't read locally saved pictures — and proxy tags are left blank to set up in the bot.",
     "journalExport": "Journal Export",
     "exportJournalOnly": "Export only your journal entries.",
     "perEntryHint": "Per-entry export: tap the ↑ icon on any journal card.",

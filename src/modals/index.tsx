@@ -36,28 +36,35 @@ const Btn = ({children, onPress, variant = 'primary', disabled = false, style = 
   return (<TouchableOpacity onPress={useInstant ? undefined : onPress} onPressIn={useInstant ? onPress : undefined} disabled={disabled} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{disabled}} style={[{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1}, style]}><Text style={{fontSize: 14, fontWeight: '500', color: v.color}}>{children}</Text></TouchableOpacity>);
 };
 
-const Field = ({label, value, onChange, placeholder, multiline = false, numberOfLines = 4, readOnly = false, T}: any) => (
+const Field = ({label, value, onChange, placeholder, multiline = false, numberOfLines = 4, readOnly = false, T}: any) => {
+  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  return (
   <View style={{marginBottom: 14}}>
-    {label && <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{label}</Text>}
+    {label && <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{label}</Text>}
     <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={T.muted} multiline={multiline} numberOfLines={multiline ? numberOfLines : 1}
       editable={!readOnly}
-      style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, minHeight: multiline ? 100 : undefined, textAlignVertical: multiline ? 'top' : 'center'}} />
+      style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), minHeight: multiline ? 100 : undefined, textAlignVertical: multiline ? 'top' : 'center'}} />
   </View>
-);
+  );
+};
 
-const SectionDivider = ({label, color, T}: {label: string; color: string; T: any}) => (
+const SectionDivider = ({label, color, T}: {label: string; color: string; T: any}) => {
+  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  return (
   <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 12}}>
     <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: color}} />
-    <Text accessibilityRole="header" style={{fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '700'}}>{label}</Text>
+    <Text accessibilityRole="header" style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '700'}}>{label}</Text>
     <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
   </View>
-);
+  );
+};
 
 
 const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allAssigned, T, t}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
   members: Member[]; groups: MemberGroup[]; allAssigned: Record<string, FrontTierKey>; T: any; t: any;
 }) => {
+  const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const [search, setSearch] = useState('');
   const [filterTag, setFilterTag] = useState<string | null>(null);
 
@@ -91,8 +98,8 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
               accessibilityRole="button" accessibilityLabel={`${m.name}, ${t('common.remove')}`}
               style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
               <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: m.color}} />
-              <Text style={{fontSize: 12, fontWeight: '500', color: m.color}}>{m.name}</Text>
-              <Text style={{fontSize: 10, color: m.color, marginLeft: 2}}>✕</Text>
+              <Text style={{fontSize: fs(12), fontWeight: '500', color: m.color}}>{m.name}</Text>
+              <Text style={{fontSize: fs(10), color: m.color, marginLeft: 2}}>✕</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -106,7 +113,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
                 accessibilityRole="button" accessibilityState={{selected: filterTag === tag}} accessibilityLabel={tag}
                 style={{paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
                   backgroundColor: filterTag === tag ? `${T.info}18` : T.surface, borderColor: filterTag === tag ? `${T.info}50` : T.border}}>
-                <Text style={{fontSize: 10, color: filterTag === tag ? T.info : T.dim}}>{tag}</Text>
+                <Text style={{fontSize: fs(10), color: filterTag === tag ? T.info : T.dim}}>{tag}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -115,7 +122,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
 
       <TextInput value={search} onChangeText={setSearch} placeholder={t('members.searchToAdd')} placeholderTextColor={T.muted}
         autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
-        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, marginBottom: 6}} />
+        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 6}} />
 
       {(search || filterTag) && filtered.length > 0 && (
         <View style={{maxHeight: 180, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, overflow: 'hidden'}}>
@@ -129,9 +136,9 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
                   accessibilityRole="button" accessibilityLabel={m.name}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherTier ? 0.45 : 1}}>
                   <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
-                  <Text style={{flex: 1, minWidth: 0, fontSize: 13, color: T.text}} numberOfLines={1}>{m.name}</Text>
-                  {m.pronouns ? <Text style={{flexShrink: 1, maxWidth: '45%', fontSize: 11, color: T.muted}} numberOfLines={1}>{m.pronouns}</Text> : null}
-                  {otherTier && otherLabel ? <Text style={{flexShrink: 0, fontSize: 10, color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
+                  <Text style={{flex: 1, minWidth: 0, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
+                  {m.pronouns ? <Text style={{flexShrink: 1, maxWidth: '45%', fontSize: fs(11), color: T.muted}} numberOfLines={1}>{m.pronouns}</Text> : null}
+                  {otherTier && otherLabel ? <Text style={{flexShrink: 0, fontSize: fs(10), color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
                 </TouchableOpacity>
               );
             })}
@@ -140,7 +147,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
       )}
 
       {!search && !filterTag && members.length > 0 && selectedMembers.length === 0 && (
-        <Text style={{fontSize: 11, color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 6}}>{t('members.searchHint')}</Text>
+        <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 6}}>{t('members.searchHint')}</Text>
       )}
     </View>
   );
@@ -148,29 +155,30 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
 
 
 const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom, setShowCustom, allMoods, T, t}: any) => {
+  const fs = (s: number) => Math.round(s * (T.textScale || 1));
   const selected = parseMoodList(mood);
   const isSel = (m: string) => selected.includes(m);
   const chipMoods = [...allMoods, ...selected.filter((m: string) => !allMoods.includes(m))];
   return (
     <>
-      <Text style={{fontSize: 10, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}>
         <View style={{flexDirection: 'row', gap: 5}}>
           {chipMoods.map((m: string) => (
             <TouchableOpacity key={m} onPress={() => setMood(toggleMoodInList(mood, m))} activeOpacity={0.7}
               accessibilityRole="button" accessibilityState={{selected: isSel(m)}} accessibilityLabel={translateMood(m, t)}
               style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0, backgroundColor: isSel(m) ? `${T.accent}20` : T.surface, borderColor: isSel(m) ? `${T.accent}60` : T.border}}>
-              <Text style={{fontSize: 11, color: isSel(m) ? T.accent : T.dim, fontWeight: isSel(m) ? '600' : '400'}}>{translateMood(m, t)}</Text>
+              <Text style={{fontSize: fs(11), color: isSel(m) ? T.accent : T.dim, fontWeight: isSel(m) ? '600' : '400'}}>{translateMood(m, t)}</Text>
             </TouchableOpacity>))}
           <TouchableOpacity onPress={() => setShowCustom(!showCustom)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{expanded: showCustom}} accessibilityLabel={t('modal.custom')}
             style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0, backgroundColor: showCustom ? `${T.accent}20` : T.surface, borderColor: showCustom ? `${T.accent}60` : T.border}}>
-            <Text style={{fontSize: 11, color: showCustom ? T.accent : T.dim, fontWeight: showCustom ? '600' : '400'}}>{showCustom ? `− ${t('modal.custom')}` : `+ ${t('modal.custom')}`}</Text>
+            <Text style={{fontSize: fs(11), color: showCustom ? T.accent : T.dim, fontWeight: showCustom ? '600' : '400'}}>{showCustom ? `− ${t('modal.custom')}` : `+ ${t('modal.custom')}`}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
       {showCustom && <TextInput value={customMood} onChangeText={setCustomMood} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
-        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: 13, marginTop: 4}} />}
+        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginTop: 4}} />}
     </>
   );
 };

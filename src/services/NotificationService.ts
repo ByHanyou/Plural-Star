@@ -18,6 +18,8 @@ import i18n from '../i18n/i18n';
 export const NOTIF_CHANNEL_ID = 'plural-space-front';
 export const NOTIF_ID = 'ps-front-status';
 export const FRIEND_NOTIF_PREFIX = 'ps-friend-';
+export const FRONT_GROUP_ID = 'ps-front-group';
+export const FRONT_SUMMARY_ID = 'ps-front-summary';
 
 export const REMINDER_CHANNEL_ID = 'plural-space-reminders';
 export const FRONT_CHECK_NOTIF_ID = 'ps-front-check';
@@ -48,7 +50,7 @@ export const setEmergencyNotificationInfo = (line: string | null) => {
 };
 
 const resolveNames = (ids: string[], members: Member[]): string =>
-  ids.map(id => members.find(m => m.id === id)?.name || '?').join(', ');
+  ids.map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ');
 
 const getTierIds = (front: any, tier: string): string[] => {
   if (front?.[tier]?.memberIds && Array.isArray(front[tier].memberIds)) {
@@ -83,11 +85,11 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   const title = `◈ ${titleNames}  ·  ${duration}`;
 
   const lines: string[] = [];
-  if (primaryIds.length > 0)
+  if (primaryNames)
     lines.push(i18n.t('notification.primary', {names: primaryNames, defaultValue: `Primary: ${primaryNames}`}));
-  if (coFrontIds.length > 0)
+  if (coFrontNames)
     lines.push(i18n.t('notification.coFront', {names: coFrontNames, defaultValue: `Co-Front: ${coFrontNames}`}));
-  if (coConsciousIds.length > 0)
+  if (coConsciousNames)
     lines.push(i18n.t('notification.coConscious', {names: coConsciousNames, defaultValue: `Co-Conscious: ${coConsciousNames}`}));
 
   const primaryMood = getTierField(front, 'primary', 'mood');
@@ -106,9 +108,9 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
 
   const summaryParts: string[] = [];
   if (emergencyLine) summaryParts.push(emergencyLine);
-  if (coFrontIds.length > 0)
+  if (coFrontNames)
     summaryParts.push(i18n.t('notification.cfShort', {names: coFrontNames, defaultValue: `CF: ${coFrontNames}`}));
-  if (coConsciousIds.length > 0)
+  if (coConsciousNames)
     summaryParts.push(i18n.t('notification.ccShort', {names: coConsciousNames, defaultValue: `CC: ${coConsciousNames}`}));
   if (primaryMood)
     summaryParts.push(i18n.t('notification.mood', {mood: primaryMood, defaultValue: `Mood: ${primaryMood}`}));
@@ -128,11 +130,14 @@ const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback:
     visibility: AndroidVisibility.PUBLIC,
     pressAction: {id: 'default'},
     color: '#DAA520',
+    groupId: FRONT_GROUP_ID,
+    sortKey: '0',
   };
   if (friendLines.length === 0) {
+    const ownLines = (ownBigText ? ownBigText.split('\n') : []).slice(0, 6);
     return {
       ...base,
-      style: {type: AndroidStyle.BIGTEXT as const, text: ownBigText || fallback},
+      style: {type: AndroidStyle.INBOX as const, lines: ownLines.length ? ownLines : [fallback]},
     };
   }
   let ownLines = ownBigText ? ownBigText.split('\n') : [];
@@ -173,7 +178,14 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const dur = s.startTime ? fmtDur(s.startTime) : '';
-    const lines: string[] = [s.fronters];
+    const lines: string[] = [];
+    if (s.primary || s.coFront || s.coConscious) {
+      if (s.primary) lines.push(i18n.t('notification.primary', {names: s.primary, defaultValue: `Primary: ${s.primary}`}));
+      if (s.coFront) lines.push(i18n.t('notification.coFront', {names: s.coFront, defaultValue: `Co-Front: ${s.coFront}`}));
+      if (s.coConscious) lines.push(i18n.t('notification.coConscious', {names: s.coConscious, defaultValue: `Co-Conscious: ${s.coConscious}`}));
+    } else {
+      lines.push(s.fronters);
+    }
     if (s.mood) lines.push(i18n.t('notification.mood', {mood: s.mood, defaultValue: `Mood: ${s.mood}`}));
     if (s.location) lines.push(i18n.t('notification.at', {location: s.location, defaultValue: `At: ${s.location}`}));
     if (s.note) lines.push(i18n.t('notification.note', {note: s.note, defaultValue: `Note: ${s.note}`}));
@@ -200,10 +212,10 @@ const cancelStaleFriendNotifs = async (keepIds: Set<string>) => {
   } catch {}
 };
 
-const syncFriendNotifications = async () => {
-  const desired = buildFriendNotifs();
+const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
   await cancelStaleFriendNotifs(new Set(desired.map(d => d.id)));
-  for (const d of desired) {
+  for (let i = 0; i < desired.length; i++) {
+    const d = desired[i];
     await notifee.displayNotification({
       id: d.id,
       title: d.title,
@@ -218,7 +230,9 @@ const syncFriendNotifications = async () => {
         visibility: AndroidVisibility.PUBLIC,
         pressAction: {id: 'default'},
         color: '#DAA520',
-        style: {type: AndroidStyle.BIGTEXT as const, text: d.big || d.body},
+        groupId: FRONT_GROUP_ID,
+        sortKey: `1${String(i).padStart(4, '0')}`,
+        style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
     });
   }
@@ -264,7 +278,31 @@ export const showFrontNotification = async (
     });
     if (netOn) fgsBound = true;
 
-    await syncFriendNotifications();
+    const friendNotifs = buildFriendNotifs();
+    if (friendNotifs.length > 0) {
+      await notifee.displayNotification({
+        id: FRONT_SUMMARY_ID,
+        title: systemName,
+        body,
+        android: {
+          channelId: NOTIF_CHANNEL_ID,
+          groupId: FRONT_GROUP_ID,
+          groupSummary: true,
+          ongoing: true,
+          onlyAlertOnce: true,
+          autoCancel: false,
+          smallIcon: 'ic_stat_notification',
+          importance: AndroidImportance.LOW,
+          visibility: AndroidVisibility.PUBLIC,
+          pressAction: {id: 'default'},
+          color: '#DAA520',
+        },
+      });
+    } else {
+      try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch {}
+    }
+
+    await syncFriendNotifications(friendNotifs);
   } catch (e) {
     console.error('[PluralSpace] Notification error:', e);
   }
@@ -317,6 +355,7 @@ export const clearFrontNotification = async () => {
     }
     try { await notifee.cancelTriggerNotification(NOTIF_ID); } catch {}
     await notifee.cancelNotification(NOTIF_ID);
+    await notifee.cancelNotification(FRONT_SUMMARY_ID);
     await cancelStaleFriendNotifs(new Set());
     try { await notifee.stopForegroundService(); } catch {}
     fgsBound = false;

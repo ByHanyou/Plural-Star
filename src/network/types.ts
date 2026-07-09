@@ -88,6 +88,9 @@ export interface PrivacyBucket {
   groups: PrivacyScope;
   journal: PrivacyScope;
   history: PrivacyScope;
+  customFields: PrivacyScope;
+  medical: PrivacyScope;
+  connections: PrivacyScope;
   friendPeerIds: string[];
   createdAt: number;
 }

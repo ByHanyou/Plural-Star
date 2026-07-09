@@ -4,7 +4,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {exportJSON, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8} from '../export/exportUtils';
+import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8} from '../export/exportUtils';
 import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
 import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
 
@@ -118,6 +118,7 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
 
   const handleJSON = async () => {try {await exportZipBundle(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleJSONFile = async () => {try {await exportJSON(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
+  const handlePluralKitExport = async () => {try {await exportPluralKit(system, members, exportSel.frontHistory ? history : []);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
   const handleEmail = () => {
     if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
     exportEmail(system, members, history, journal, emailAddr);
@@ -2117,6 +2118,10 @@ export const ShareScreen = ({theme: T, system, members, front, history, journal,
             ))}
           </View>
           <Text style={[s.hint, {color: T.muted}]}>{t('share.jsonHint')}</Text>
+          <TouchableOpacity onPress={handlePluralKitExport} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.exportPluralKit')} style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`, marginTop: 4}}>
+            <Text style={{fontSize: fs(14), fontWeight: '500', color: T.info}}>{t('share.exportPluralKit')}</Text>
+          </TouchableOpacity>
+          <Text style={[s.hint, {color: T.muted}]}>{t('share.pkExportHint')}</Text>
           <Divider label={t('share.journalExport')} />
           <Text style={[s.para, {color: T.dim}]}>{t('share.exportJournalOnly')}</Text>
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
