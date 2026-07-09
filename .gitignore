@@ -1,5 +1,6 @@
 .DS_Store
 
+.env
 build/
 *.pbxuser
 !default.pbxuser

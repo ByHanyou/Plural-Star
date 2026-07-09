@@ -20,6 +20,7 @@
     "@react-native-documents/picker": "^10.1.5",
     "@react-native/gradle-plugin": "0.85.3",
     "@shopify/flash-list": "^2.3.2",
+    "dotenv-defaults": "^6.0.0",
     "fflate": "^0.8.3",
     "i18next": "^25.10.4",
     "react": "19.2.3",

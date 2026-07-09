@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+const { config } = require('dotenv-defaults');
+config()
+
 const {spawn, spawnSync} = require('child_process');
 const path = require('path');
 
@@ -10,6 +13,10 @@ const IS_WIN = process.platform === 'win32';
 const GRADLE = IS_WIN ? 'gradlew.bat' : 'bash';
 const GRADLE_ARGS = IS_WIN ? ['assembleDebug'] : ['./gradlew', 'assembleDebug'];
 const DEBUG_APK = path.join(ANDROID_DIR, 'app', 'build', 'outputs', 'apk', 'debug', 'app-debug.apk');
+
+if (process.env.JAVA_HOME) {
+  GRADLE_ARGS.push(`-Dorg.gradle.java.home=${process.env.JAVA_HOME}`);
+}
 
 const ADB = (() => {
   const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
