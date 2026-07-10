@@ -470,6 +470,8 @@ export interface AppSettings {
   frontCheckInterval?: number;
   noteboardNotifications?: boolean;
   appLockPassword?: string;
+  pkFrontSyncEnabled?: boolean;
+  pkToken?: string;
   useDyslexicFont?: boolean;
   fontChoice?: import('./theme').FontChoice;
   customFrontsSeeded?: boolean;
