@@ -2,26 +2,28 @@ import React, {useState} from 'react';
 import {View, ScrollView, StyleSheet, TouchableOpacity, Image} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
 import {AccentText} from '../components/AccentText';
 import {RichText} from '../components/MarkdownRenderer';
-import {Member, FrontState, getInitials, allFrontMemberIds} from '../utils';
+import {Member, FrontState, getInitials, allFrontMemberIds, singletStatuses} from '../utils';
+import {useAppStore} from '../store/appStore';
 
 type SubTab = 'profile' | 'statuses';
 
 interface Props {
-  theme: any;
+  theme: ThemeColors;
   member?: Member;
-  statuses: Member[];
-  front: FrontState | null;
   onEditProfile: () => void;
   onAddStatus: () => void;
   onEditStatus: (m: Member) => void;
 }
 
-export const ProfileScreen = ({theme: T, member, statuses, front, onEditProfile, onAddStatus, onEditStatus}: Props) => {
+export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onEditStatus}: Props) => {
+  const front = useAppStore(s => s.front);
+  const members = useAppStore(s => s.members);
+  const statuses = singletStatuses(members);
   const {t} = useTranslation();
-  const fs = (n: number) => Math.round(n * (T.textScale || 1));
+  const fs = fontScale(T);
   const [subTab, setSubTab] = useState<SubTab>('profile');
   const activeIds = allFrontMemberIds(front);
 

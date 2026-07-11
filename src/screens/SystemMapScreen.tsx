@@ -4,14 +4,16 @@ import {Text, TextInput} from '../components/AppText';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useTranslation} from 'react-i18next';
 import {Member, Relationship, RelationshipTypeDef, allRelationshipTypes, relationshipDegrees, uid, sortMembersBySearch, DEFAULT_REL_COLOR, RELATIONSHIP_COLOR_CHOICES, PRESET_RELATIONSHIP_TYPES, isValidHex, normalizeHex, colorName} from '../utils';
-import {PALETTE} from '../theme';
+import {PALETTE, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {TogglePill} from '../components/ToggleSwitch';
+import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
 import {ColorPicker} from '../components/ColorPicker';
 import {Avatar} from '../components/Avatar';
 
 interface Props {
-  theme: any;
-  members: Member[];
+  theme: ThemeColors;
   onViewMember?: (id: string) => void;
   onRelCountChange?: (n: number) => void;
   focus?: {id: string; n: number} | null;
@@ -133,10 +135,10 @@ const buildLayout = (ms: Member[], rels: Relationship[]): {nodes: MapNode[]; byI
 };
 
 const MemberPickerField = ({label, value, onChange, members, T}: {
-  label: string; value: string; onChange: (id: string) => void; members: Member[]; T: any;
+  label: string; value: string; onChange: (id: string) => void; members: Member[]; T: ThemeColors;
 }) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const sel = members.find(m => m.id === value);
@@ -172,11 +174,11 @@ const MemberPickerField = ({label, value, onChange, members, T}: {
 };
 
 const TypeForm = ({T, initial, saveLabel, onSave}: {
-  T: any; initial?: RelationshipTypeDef | null; saveLabel: string;
+  T: ThemeColors; initial?: RelationshipTypeDef | null; saveLabel: string;
   onSave: (d: {name: string; directional: boolean; inverseName?: string; color: string}) => void;
 }) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [name, setName] = useState(initial?.name || '');
   const [directional, setDirectional] = useState(initial?.directional || false);
   const [inverse, setInverse] = useState(initial?.inverseName || '');
@@ -201,9 +203,7 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
       <TouchableOpacity onPress={() => setDirectional(!directional)} activeOpacity={0.7}
         accessibilityRole="switch" accessibilityState={{checked: directional}} accessibilityLabel={t('systemMap.directional')}
         style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8}}>
-        <View style={{width: 40, height: 22, borderRadius: 11, backgroundColor: directional ? T.accent : T.toggleOff, justifyContent: 'center'}}>
-          <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: directional ? 20 : 3}} />
-        </View>
+        <TogglePill on={directional} T={T} />
         <Text style={{fontSize: fs(12), color: T.dim}}>{t('systemMap.directional')}</Text>
       </TouchableOpacity>
       {directional && (
@@ -230,9 +230,10 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
   );
 };
 
-export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChange, focus}: Props) => {
+export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus}: Props) => {
+  const members = useAppStore(s => s.members);
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const kb = useKeyboardHeight();
   const winH = useWindowDimensions().height;
   const editorScrollRef = useRef<ScrollView>(null);
@@ -498,7 +499,7 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
       }
       if (drag) {
         setPosOverrides(prev => {
-          store.set(KEYS.systemMapPositions, prev).catch(() => {});
+          store.set(KEYS.systemMapPositions, prev).catch(e => logError('systemMap', e));
           return prev;
         });
       }
@@ -1003,7 +1004,7 @@ export const SystemMapScreen = ({theme: T, members, onViewMember, onRelCountChan
                         style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.border}}>
                         <Avatar member={m} size={26} T={T} />
                         <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                        <Text style={{fontSize: fs(14), color: T.accent}}>＋</Text>
+                        <Text style={{fontSize: fs(14), lineHeight: fs(14), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}}>＋</Text>
                       </TouchableOpacity>
                     ))}
                     {candidates.length > PICKER_CAP && (

@@ -5,6 +5,8 @@ import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {store, KEYS} from '../storage';
 import {uid, colorName} from '../utils';
+import {fontScale, ThemeColors} from '../theme';
+import {logError} from '../utils/log';
 
 const WORLD = 8000;
 const HALF = WORLD / 2;
@@ -19,7 +21,7 @@ interface Stroke {
 }
 
 interface Props {
-  theme: any;
+  theme: ThemeColors;
   onBack: () => void;
 }
 
@@ -38,7 +40,7 @@ const strokePath = (pts: number[]): string => {
 
 export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [current, setCurrent] = useState<Stroke | null>(null);
@@ -79,11 +81,11 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
 
   const persist = useCallback((next: Stroke[]) => {
     dirtyRef.current = false;
-    store.set(KEYS.whiteboard, next).catch(() => {});
+    store.set(KEYS.whiteboard, next).catch(e => logError('whiteboard', e));
   }, []);
 
   useEffect(() => () => {
-    if (dirtyRef.current) store.set(KEYS.whiteboard, strokesRef.current).catch(() => {});
+    if (dirtyRef.current) store.set(KEYS.whiteboard, strokesRef.current).catch(e => logError('whiteboard', e));
   }, []);
 
   useEffect(() => {

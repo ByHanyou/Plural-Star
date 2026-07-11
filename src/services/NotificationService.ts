@@ -10,6 +10,7 @@ import notifee, {
 } from '@notifee/react-native';
 import {Platform} from 'react-native';
 import {FrontState, Member, Medication, MedicalAppointment, fmtDur, fmtTime} from '../utils';
+import {logError} from '../utils/log';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
 import {MAX_NOTIF_FRIENDS} from '../network/types';
@@ -206,10 +207,10 @@ const cancelStaleFriendNotifs = async (keepIds: Set<string>) => {
     for (const d of displayed) {
       const nid = (d as any).notification?.id || (d as any).id;
       if (nid && typeof nid === 'string' && nid.startsWith(FRIEND_NOTIF_PREFIX) && !keepIds.has(nid)) {
-        try { await notifee.cancelNotification(nid); } catch {}
+        try { await notifee.cancelNotification(nid); } catch (e) { logError('notif', e); }
       }
     }
-  } catch {}
+  } catch (e) { logError('notif', e); }
 };
 
 const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
@@ -299,7 +300,7 @@ export const showFrontNotification = async (
         },
       });
     } else {
-      try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch {}
+      try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
     }
 
     await syncFriendNotifications(friendNotifs);
@@ -353,11 +354,11 @@ export const clearFrontNotification = async () => {
       await endFrontLiveActivity();
       return;
     }
-    try { await notifee.cancelTriggerNotification(NOTIF_ID); } catch {}
+    try { await notifee.cancelTriggerNotification(NOTIF_ID); } catch (e) { logError('notif', e); }
     await notifee.cancelNotification(NOTIF_ID);
     await notifee.cancelNotification(FRONT_SUMMARY_ID);
     await cancelStaleFriendNotifs(new Set());
-    try { await notifee.stopForegroundService(); } catch {}
+    try { await notifee.stopForegroundService(); } catch (e) { logError('notif', e); }
     fgsBound = false;
   } catch (e) {
     console.error('[PluralSpace] Clear notification error:', e);

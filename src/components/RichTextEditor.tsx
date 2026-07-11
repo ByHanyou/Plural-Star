@@ -2,7 +2,7 @@ import React, {useState, useMemo, useEffect} from 'react';
 import {View, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, Modal, ScrollView, Keyboard} from 'react-native';
 import {Text, TextInput} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {Fonts} from '../theme';
+import {Fonts, fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {Member} from '../utils';
 import i18n from '../i18n/i18n';
@@ -34,7 +34,7 @@ const MD_TOOLS: {label: string; before: string; after: string; bold?: boolean; i
 ];
 
 const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => void; T: ThemeColors}) => {
-  const fs = (s: number) => Math.round(s * (T?.textScale || 1));
+  const fs = fontScale(T);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
       style={{maxHeight: 40, flexGrow: 0, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}
@@ -51,7 +51,7 @@ const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => 
 };
 
 const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]; theme: ThemeColors; onPick: (m: Member) => void; onCancel: () => void}) => {
-  const fs = (s: number) => Math.round(s * (T?.textScale || 1));
+  const fs = fontScale(T);
   const [search, setSearch] = useState('');
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -108,7 +108,7 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
 };
 
 const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, members}: {initialContent: string; theme: ThemeColors; onSave: (text: string) => void; onClose: () => void; title: string; members?: Member[]}) => {
-  const fs = (s: number) => Math.round(s * (T?.textScale || 1));
+  const fs = fontScale(T);
   const insets = useSafeAreaInsets();
   const [text, setText] = useState(initialContent || '');
   const [showMentionPicker, setShowMentionPicker] = useState(false);

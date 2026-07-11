@@ -1,5 +1,6 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
+import {logError} from './log';
 
 const AVATAR_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars`;
 const CHAT_MEDIA_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_chat_media`;
@@ -352,7 +353,7 @@ export const downsizeExistingAvatars = async (members: any[]): Promise<{members:
           changed = true;
           continue;
         }
-      } catch {}
+      } catch (e) { logError('media', e); }
     }
     updated.push(m);
   }

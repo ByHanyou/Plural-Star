@@ -2,12 +2,13 @@ import React, {useState, useEffect} from 'react';
 import {View, Image} from 'react-native';
 import {Text} from './AppText';
 import {Member, getInitials} from '../utils';
+import type {ThemeColors} from '../theme';
 
 interface AvatarProps {
   member?: Member | null;
   size?: number;
   pulse?: boolean;
-  T: any;
+  T: ThemeColors;
 }
 
 export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {

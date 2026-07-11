@@ -3,7 +3,9 @@ import {View, ScrollView, TouchableOpacity, StyleSheet, Alert} from 'react-nativ
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {saveHistory} from '../store/actions';
 import {AccentText} from '../components/AccentText';
 import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, TIER_LABELS, translateMood, sortMembersBySearch, singletStatuses, buildEffectiveEnd} from '../utils';
 import {store, KEYS} from '../storage';
@@ -23,20 +25,15 @@ const memberTierInEntry = (memberId: string, entry: HistoryEntry): FrontTierKey 
 type SubTab = 'front' | 'member';
 
 interface Props {
-  theme: any;
-  history: HistoryEntry[];
-  journal: JournalEntry[];
-  getMember: (id: string) => Member | undefined;
-  members: Member[];
+  theme: ThemeColors;
   singlet?: boolean;
   selfId?: string;
-  onSaveHistory: (h: HistoryEntry[]) => void;
   onEditEntry?: (originalIndex: number) => void;
 }
 
 const TierRow = React.memo(function TierRow({label, ids, color, expanded, cap, memberMap, fs, T}: {
   label: string; ids: string[] | undefined; color: string; expanded?: boolean; cap?: number;
-  memberMap: Map<string, Member>; fs: (n: number) => number; T: any;
+  memberMap: Map<string, Member>; fs: (n: number) => number; T: ThemeColors;
 }) {
   const allMembers = (ids || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
   if (allMembers.length === 0) return null;
@@ -59,7 +56,7 @@ interface FrontHistoryEntryRowProps {
   entryKey: string;
   isExpanded: boolean;
   memberMap: Map<string, Member>;
-  T: any;
+  T: ThemeColors;
   fs: (n: number) => number;
   t: (key: string, opts?: any) => string;
   selfId?: string;
@@ -182,9 +179,14 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
   );
 });
 
-export const HistoryScreen = ({theme: T, history, journal, getMember, members, singlet = false, selfId, onSaveHistory, onEditEntry}: Props) => {
+export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: Props) => {
+  const history = useAppStore(s => s.history);
+  const journal = useAppStore(s => s.journal);
+  const members = useAppStore(s => s.members);
+  const onSaveHistory = saveHistory;
+  const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
-  const fs = useCallback((s: number) => Math.round(s * (T.textScale || 1)), [T.textScale]);
+  const fs = useCallback(fontScale(T), [T.textScale]);
   const [subTab, setSubTab] = useState<SubTab>('front');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');

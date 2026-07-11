@@ -4,13 +4,13 @@ import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrueSheet} from '@lodev09/react-native-true-sheet';
-import {Fonts} from '../theme';
+import {Fonts, ThemeColors} from '../theme';
 import {useTranslation} from 'react-i18next';
 
 interface SheetProps {
   visible: boolean;
   title: string;
-  theme: any;
+  theme: ThemeColors;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;

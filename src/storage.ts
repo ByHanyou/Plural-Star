@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import {logError} from './utils/log';
 
 export const KEYS = {
   system:   'ps:system',
@@ -99,7 +100,7 @@ export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
           else preview = `${Object.keys(parsed).length} field${Object.keys(parsed).length === 1 ? '' : 's'}`;
         } else preview = String(parsed).slice(0, 40);
         out.push({key, sizeBytes: Number(f.size) || 0, mtime: Number(f.lastModified) || 0, preview});
-      } catch {}
+      } catch (e) { logError('storage', e); }
     }
     return out.sort((a, b) => b.mtime - a.mtime);
   } catch (e) {
@@ -134,7 +135,7 @@ export const restoreAllBackups = async (): Promise<number> => {
     for (const b of backups) {
       try {
         if (await restoreFromBackup(b.key)) restored++;
-      } catch {}
+      } catch (e) { logError('storage', e); }
     }
   } catch (e) {
     console.error('[STORAGE] restoreAllBackups error:', e);
@@ -178,7 +179,7 @@ export const store = {
           const backup = await readBackup<T>(key);
           if (backup !== null && Array.isArray(backup) && (backup as any[]).length > 0) {
             console.warn(`[STORAGE] Recovered ${key} from backup (was empty)`);
-            try { await AsyncStorage.setItem(key, JSON.stringify(backup)); } catch {}
+            try { await AsyncStorage.setItem(key, JSON.stringify(backup)); } catch (e) { logError('storage', e); }
             return backup;
           }
         }
@@ -191,7 +192,7 @@ export const store = {
       const backup = await readBackup<T>(key);
       if (backup !== null) {
         console.warn(`[STORAGE] Recovered ${key} from backup (AsyncStorage was ${asyncStorageOk ? 'null' : 'broken'})`);
-        try { await AsyncStorage.setItem(key, JSON.stringify(backup)); } catch {}
+        try { await AsyncStorage.setItem(key, JSON.stringify(backup)); } catch (e) { logError('storage', e); }
         return backup;
       }
     }

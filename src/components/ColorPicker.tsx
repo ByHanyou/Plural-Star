@@ -4,6 +4,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import {Text, TextInput} from './AppText';
 import {useTranslation} from 'react-i18next';
 import {isValidHex, normalizeHex} from '../utils';
+import type {ThemeColors} from '../theme';
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
 
@@ -61,7 +62,7 @@ const HueGradient = memo(() => (
   />
 ));
 
-export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex: string) => void; T: any}) => {
+export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex: string) => void; T: ThemeColors}) => {
   const {t} = useTranslation();
   const safe = isValidHex(normalizeHex(value || '')) ? normalizeHex(value) : '#FF0000';
   const [hsv, setHsv] = useState(() => hexToHsv(safe));

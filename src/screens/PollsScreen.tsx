@@ -3,18 +3,19 @@ import {View, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView} from 'r
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
 import {Member, MemberPoll, PollOption, uid, fmtTime, sortMembersBySearch} from '../utils';
 import {store, KEYS} from '../storage';
 
 interface Props {
-  theme: any;
-  members: Member[];
+  theme: ThemeColors;
 }
 
-export const PollsScreen = ({theme: T, members}: Props) => {
+export const PollsScreen = ({theme: T}: Props) => {
+  const members = useAppStore(s => s.members);
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const behavior = useKeyboardBehavior();
   const activeMembers = members.filter(m => !m.archived && !m.isCustomFront);
   const [polls, setPolls] = useState<MemberPoll[]>([]);

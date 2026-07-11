@@ -2,16 +2,16 @@ import React, {useState} from 'react';
 import {View, Image, StyleSheet, ScrollView, KeyboardAvoidingView, TouchableOpacity} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 
 interface Props {
-  theme: any;
+  theme: ThemeColors;
   onSave: (info: {name: string; description: string; singlet?: boolean}) => void;
 }
 
 export const SetupScreen = ({theme: T, onSave}: Props) => {
-  const fs = (s: number) => Math.round(s * (T?.textScale || 1));
+  const fs = fontScale(T);
   const {t} = useTranslation();
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');

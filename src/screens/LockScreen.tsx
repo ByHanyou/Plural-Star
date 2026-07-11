@@ -2,17 +2,17 @@ import React, {useState} from 'react';
 import {View, Image, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
 
 interface Props {
-  theme: any;
+  theme: ThemeColors;
   password: string;
   systemName?: string;
   onUnlock: () => void;
 }
 
 export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) => {
-  const fs = (s: number) => Math.round(s * (T?.textScale || 1));
+  const fs = fontScale(T);
   const {t} = useTranslation();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');

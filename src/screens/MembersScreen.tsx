@@ -4,7 +4,8 @@ import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {FlashList, FlashListRef} from '@shopify/flash-list';
 import {useTranslation} from 'react-i18next';
-import {Fonts, PALETTE} from '../theme';
+import {Fonts, PALETTE, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
 import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay} from '../utils';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
@@ -33,7 +34,7 @@ interface MemberCardProps {
   front: FrontState | null;
   allFrontIds: Set<string>;
   groups: MemberGroup[];
-  T: any;
+  T: ThemeColors;
   fs: (n: number) => number;
   t: (key: string, opts?: any) => string;
   onActivate: (m: Member) => void;
@@ -114,7 +115,7 @@ const MemberCard = React.memo(function MemberCard({
                 accessibilityRole="button" accessibilityLabel={`${isFronting ? t('members.removeFromFront') : t('members.addToFront')}, ${m.name}`}
                 style={{width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
                   backgroundColor: isFronting ? `${T.danger}12` : T.accentBg, borderColor: isFronting ? `${T.danger}50` : `${T.accent}40`}}>
-                <Text style={{fontSize: fs(15), fontWeight: '600', color: isFronting ? T.danger : T.accent}} importantForAccessibility="no">{isFronting ? '−' : '＋'}</Text>
+                <Text style={{fontSize: fs(15), lineHeight: fs(15), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', fontWeight: '600', color: isFronting ? T.danger : T.accent}} importantForAccessibility="no">{isFronting ? '−' : '＋'}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -125,7 +126,7 @@ const MemberCard = React.memo(function MemberCard({
 });
 
 interface Props {
-  theme: any; members: Member[]; front: FrontState | null; groups: MemberGroup[];
+  theme: ThemeColors;
   initialSortMode?: MemberSortMode;
   archiveOnly?: boolean;
   onAdd: () => void;
@@ -145,9 +146,12 @@ interface Props {
   onRemoveFromFront?: (id: string) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, members, front, groups, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
+export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
+  const members = useAppStore(s => s.members);
+  const front = useAppStore(s => s.front);
+  const groups = useAppStore(s => s.groups);
   const {t} = useTranslation();
-  const fs = useCallback((s: number) => Math.round(s * (T.textScale || 1)), [T.textScale]);
+  const fs = useCallback(fontScale(T), [T.textScale]);
   const [memberTab, setMemberTab] = useState<'active' | 'archived' | 'customFronts'>(archiveOnly ? 'archived' : 'active');
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);

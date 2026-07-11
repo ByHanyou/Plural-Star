@@ -2,22 +2,21 @@ import React, {useState, useEffect} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, Linking} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {saveHistory, applyFrontState} from '../store/actions';
 import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, singletStatuses} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
+import {EnergyRow} from '../modals/shared';
+import {TogglePill} from '../components/ToggleSwitch';
 import {Avatar} from '../components/Avatar';
 
 type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'whiteboard' | 'discord' | 'credits' | 'supportPS';
 
 interface Props {
-  theme: any;
+  theme: ThemeColors;
   singlet?: boolean;
   selfId?: string;
-  members: Member[];
-  history: HistoryEntry[];
-  front: FrontState | null;
-  onSaveHistory: (h: HistoryEntry[]) => void;
-  onSetFront: (f: FrontState | null) => void;
   renderShareScreen: () => React.ReactNode;
   renderStatsScreen: () => React.ReactNode;
   renderChatScreen: () => React.ReactNode;
@@ -39,10 +38,10 @@ interface Props {
 
 const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members, allSelected, T}: {
   tierKey: FrontTierKey; label: string; color: string; selected: string[]; setSelected: (ids: string[]) => void;
-  members: Member[]; allSelected: Record<FrontTierKey, string[]>; T: any;
+  members: Member[]; allSelected: Record<FrontTierKey, string[]>; T: ThemeColors;
 }) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [search, setSearch] = useState('');
   const otherTiers: Record<FrontTierKey, string> = {primary: t('tier.primaryShort'), coFront: t('tier.coFrontShort'), coConscious: t('tier.coConShort')};
   const filtered = sortMembersBySearch(members.filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase())), search);
@@ -106,7 +105,7 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
 };
 
 const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFront, onBack, editIndex, editEntry, singlet = false, selfId}: {
-  T: any; members: Member[]; history: HistoryEntry[]; front: FrontState | null;
+  T: ThemeColors; members: Member[]; history: HistoryEntry[]; front: FrontState | null;
   onSaveHistory: (h: HistoryEntry[]) => void; onSetFront: (f: FrontState | null) => void; onBack: () => void;
   editIndex?: number;
   editEntry?: HistoryEntry;
@@ -114,7 +113,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   selfId?: string;
 }) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const isEditing = editIndex !== undefined && editIndex >= 0 && !!editEntry;
   const regularMembers = members.filter(m => !m.isCustomFront);
   const customFronts = members.filter(m => m.isCustomFront && !m.archived);
@@ -307,9 +306,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
           accessibilityRole="switch" accessibilityState={{checked: isCurrent}} accessibilityLabel={t('hub.current')}
           style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
           <Text style={{fontSize: fs(12), color: isCurrent ? T.accent : T.dim}}>{t('hub.current')}</Text>
-          <View style={{width: 40, height: 22, borderRadius: 11, backgroundColor: isCurrent ? T.accent : T.toggleOff, justifyContent: 'center'}}>
-            <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: isCurrent ? 20 : 3}} />
-          </View>
+          <TogglePill on={isCurrent} T={T} />
         </TouchableOpacity>
       </View>
       {!isCurrent && <DateTimeEditor date={endDate} onChange={setEndDate} label="" T={T} />}
@@ -342,17 +339,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14}} />
 
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
-      <View style={{flexDirection: 'row', gap: 3, marginBottom: 14, alignItems: 'center'}}>
-        {[1,2,3,4,5,6,7,8,9,10].map(n => (
-          <TouchableOpacity key={n} onPress={() => setEnergy(energy === n ? undefined : n)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{selected: energy === n}} accessibilityLabel={`${t('energy.level')} ${n}`}
-            style={{flex: 1, paddingVertical: 6, borderRadius: 6, borderWidth: 1, alignItems: 'center',
-              backgroundColor: energy === n ? `${T.accent}30` : T.surface,
-              borderColor: energy !== undefined && n <= energy ? T.accent : T.border}}>
-            <Text style={{fontSize: fs(10), color: energy !== undefined && n <= energy ? T.accent : T.dim, fontWeight: '600'}}>{n}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <EnergyRow value={energy} onChange={setEnergy} color={T.accent} T={T} t={t} style={{marginBottom: 14}} />
 
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.note')}</Text>
       <TextInput value={note} onChangeText={setNote} placeholder={t('modal.whatHappening')} placeholderTextColor={T.muted} multiline numberOfLines={3}
@@ -375,9 +362,14 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 const DISCORD_URL = 'https://discord.gg/FFQw33cu8m';
 const BMC_URL = 'https://www.buymeacoffee.com/PluralStar';
 
-export const HubScreen = ({theme: T, singlet = false, selfId, members, history, front, onSaveHistory, onSetFront, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMedicalScreen, renderMailboxScreen, renderWhiteboardScreen, renderNetworkScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
+export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMedicalScreen, renderMailboxScreen, renderWhiteboardScreen, renderNetworkScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
+  const members = useAppStore(s => s.members);
+  const history = useAppStore(s => s.history);
+  const front = useAppStore(s => s.front);
+  const onSaveHistory = saveHistory;
+  const onSetFront = applyFrontState;
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
 
   useEffect(() => { setActiveTile(null); }, [resetKey]);
@@ -644,7 +636,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, members, history, 
           <TouchableOpacity key={tile.id} onPress={() => handleTilePress(tile)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={tile.label}
             style={{width: '31%', minHeight: 104, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, alignItems: 'center', justifyContent: 'center', padding: 10, gap: 6}}>
             <Text style={{fontSize: fs(26), lineHeight: fs(32), color: T.accent, textAlign: 'center', includeFontPadding: false}}>{tile.icon}</Text>
-            <Text style={{fontSize: fs(11), lineHeight: fs(15), fontWeight: '600', color: T.text, textAlign: 'center', includeFontPadding: false}} numberOfLines={2}>{tile.label}</Text>
+            <Text style={{fontSize: fs(11), lineHeight: fs(15), minHeight: fs(30), fontWeight: '600', color: T.text, textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false}} numberOfLines={2}>{tile.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

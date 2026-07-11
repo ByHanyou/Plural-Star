@@ -4,18 +4,24 @@ import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
 import {Member, NoteboardEntry, uid, fmtTime, getInitials} from '../utils';
+import {fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {saveMember} from '../store/actions';
 import {store, KEYS} from '../storage';
 
 interface Props {
-  theme: any;
-  members: Member[];
+  theme: ThemeColors;
   onBack: () => void;
-  onSetMailboxPassword?: (memberId: string, password?: string) => void;
 }
 
-export const MailboxScreen = ({theme: T, members, onBack, onSetMailboxPassword}: Props) => {
+export const MailboxScreen = ({theme: T, onBack}: Props) => {
+  const members = useAppStore(s => s.members);
+  const onSetMailboxPassword = (memberId: string, password?: string) => {
+    const m = members.find(x => x.id === memberId);
+    if (m) saveMember({...m, mailboxPassword: password});
+  };
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const behavior = useKeyboardBehavior();
 
   const [notes, setNotes] = useState<NoteboardEntry[]>([]);

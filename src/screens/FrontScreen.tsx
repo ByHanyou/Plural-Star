@@ -8,7 +8,8 @@ import {
 import {Text} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
 import {
   FrontState,
   FrontTier,
@@ -20,9 +21,7 @@ import {
 } from '../utils';
 
 interface Props {
-  theme: any;
-  front: FrontState | null;
-  getMember: (id: string) => Member | undefined;
+  theme: ThemeColors;
   onSetFront: () => void;
   onEditDetails: (tier: FrontTierKey) => void;
 }
@@ -43,14 +42,14 @@ const TierCard = ({
 }: {
   tier: FrontTier;
   tierKey: FrontTierKey;
-  T: any;
+  T: ThemeColors;
   getMember: (id: string) => Member | undefined;
   front: FrontState;
   onEditDetails: (tier: FrontTierKey) => void;
 }) => {
   const {t} = useTranslation();
 
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
 
   const [note, setNote] = useState(tier.note || '');
 
@@ -156,13 +155,14 @@ const TierCard = ({
 
 export const FrontScreen = ({
   theme: T,
-  front,
-  getMember,
   onSetFront,
   onEditDetails,
 }: Props) => {
+  const front = useAppStore(s => s.front);
+  const members = useAppStore(s => s.members);
+  const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
 
   const empty = isFrontEmpty(front);
 

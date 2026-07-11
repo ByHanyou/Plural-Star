@@ -148,6 +148,8 @@ export const PALETTE = [
   '#85B4E8', '#C97BE8', '#B4E885', '#E8C97B',
 ];
 
+export const fontScale = (T: ThemeColors) => (s: number) => Math.round(s * (T?.textScale || 1));
+
 export const DYSLEXIC_FONT = 'OpenDyslexic';
 
 export const Fonts = {

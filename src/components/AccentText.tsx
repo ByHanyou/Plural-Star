@@ -1,11 +1,12 @@
 import React from 'react';
 import {View, StyleSheet} from 'react-native';
 import {Text} from './AppText';
+import type {ThemeColors} from '../theme';
 
 interface Props {
   children: React.ReactNode;
   style?: any;
-  T: any;
+  T: ThemeColors;
   numberOfLines?: number;
   adjustsFontSizeToFit?: boolean;
   minimumFontScale?: number;

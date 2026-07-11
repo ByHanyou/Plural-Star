@@ -37,7 +37,8 @@
     "react-native-share": "^12.3.1",
     "react-native-svg": "^15.15.5",
     "react-native-worklets": "^0.10.2",
-    "tweetnacl": "^1.0.3"
+    "tweetnacl": "^1.0.3",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

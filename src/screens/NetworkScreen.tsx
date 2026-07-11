@@ -4,16 +4,16 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {fmtDur, fmtTime, uid, Member, MemberGroup, JournalEntry} from '../utils';
+import {fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
 import {useNetwork} from '../network/useNetwork';
 import {NetworkManager} from '../network/NetworkManager';
 import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode, PRIVACY_BUCKETS_KEY} from '../network/types';
 
 interface Props {
-  theme: any;
-  members?: Member[];
-  groups?: MemberGroup[];
-  journal?: JournalEntry[];
+  theme: ThemeColors;
 }
 
 type NetTab = 'friends' | 'settings' | 'privacy';
@@ -46,9 +46,12 @@ const normalizeBucket = (b: PrivacyBucket): PrivacyBucket => ({
   connections: b.connections || emptyScope(),
 });
 
-export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []}: Props) => {
+export const NetworkScreen = ({theme: T}: Props) => {
+  const members = useAppStore(s => s.members);
+  const groups = useAppStore(s => s.groups);
+  const journal = useAppStore(s => s.journal);
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const net = useNetwork();
 
   const [tab, setTab] = useState<NetTab>('friends');
@@ -67,7 +70,7 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
   useEffect(() => {
     store.get<PrivacyBucket[]>(PRIVACY_BUCKETS_KEY, []).then(saved => {
       if (saved && Array.isArray(saved)) setBuckets(saved.map(normalizeBucket));
-    }).catch(() => {});
+    }).catch(e => logError('network', e));
   }, []);
 
   const saveBuckets = async (next: PrivacyBucket[]) => {
@@ -319,7 +322,7 @@ export const NetworkScreen = ({theme: T, members = [], groups = [], journal = []
   const confirmDeleteBucket = (b: PrivacyBucket) => {
     Alert.alert(t('network.deleteBucket'), t('network.deleteBucketMsg', {name: b.name}), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('common.delete'), style: 'destructive', onPress: () => { saveBuckets(buckets.filter(x => x.id !== b.id)).catch(() => {}); }},
+      {text: t('common.delete'), style: 'destructive', onPress: () => { saveBuckets(buckets.filter(x => x.id !== b.id)).catch(e => logError('network', e)); }},
     ]);
   };
   const pickableMembers = members.filter(m => !m.deleted && !m.isCustomFront);

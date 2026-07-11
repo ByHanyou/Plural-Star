@@ -2,21 +2,23 @@ import React from 'react';
 import {View, ScrollView, StyleSheet, TouchableOpacity} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
 import {Member, FrontState, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, translateMood} from '../utils';
 
 interface Props {
-  theme: any;
-  front: FrontState | null;
-  getMember: (id: string) => Member | undefined;
+  theme: ThemeColors;
   selfId?: string;
   onSetStatus: () => void;
   onEditDetails: (tier: FrontTierKey) => void;
 }
 
-export const StatusScreen = ({theme: T, front, getMember, selfId, onSetStatus, onEditDetails}: Props) => {
+export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Props) => {
+  const front = useAppStore(s => s.front);
+  const members = useAppStore(s => s.members);
+  const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
-  const fs = (n: number) => Math.round(n * (T.textScale || 1));
+  const fs = fontScale(T);
 
   const empty = isFrontEmpty(front);
   const tier = front?.primary;

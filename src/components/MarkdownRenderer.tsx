@@ -3,12 +3,14 @@ import {View, Image, Linking} from 'react-native';
 import {Text} from './AppText';
 import type {Member} from '../utils';
 import i18n from '../i18n/i18n';
+import {fontScale} from '../theme';
+import type {ThemeColors} from '../theme';
 
 const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\S*)?/gi;
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/;
 const MENTION_RE = /@\[([^\]]+)\]\(member:([a-zA-Z0-9_-]+)\)/g;
 
-const fs = (s: number, T: any): number => Math.round(s * (T?.textScale || 1));
+const fs = (s: number, T: ThemeColors): number => fontScale(T)(s);
 
 const isValidImageUri = (u: unknown): u is string => {
   if (typeof u !== 'string') return false;
@@ -17,7 +19,7 @@ const isValidImageUri = (u: unknown): u is string => {
   return /^https?:\/\//i.test(s) || /^file:\/\//i.test(s) || /^content:\/\//i.test(s) || s.startsWith('data:image/');
 };
 
-const UriImage = ({uri, style, T}: {uri: string; style: any; T: any}) => {
+const UriImage = ({uri, style, T}: {uri: string; style: any; T: ThemeColors}) => {
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => { setFailed(false); }, [uri]);
   if (failed) {
@@ -26,7 +28,7 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: any}) => {
   return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" onError={() => setFailed(true)} />;
 };
 
-const AutoImage = ({uri, T, hintRatio}: {uri: string; T: any; hintRatio?: number}) => {
+const AutoImage = ({uri, T, hintRatio}: {uri: string; T: ThemeColors; hintRatio?: number}) => {
   const [ratio, setRatio] = React.useState<number | null>(hintRatio || null);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
@@ -47,7 +49,7 @@ const AutoImage = ({uri, T, hintRatio}: {uri: string; T: any; hintRatio?: number
 
 const renderTextWithMentions = (
   text: string,
-  T: any,
+  T: ThemeColors,
   members?: Member[],
   onMentionPress?: (memberId: string) => void,
   baseStyle?: object,
@@ -91,7 +93,7 @@ const isHTML = (text: string): boolean => {
 
 const decodeEntities = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
 
-const renderInlineHTML = (html: string, T: any, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
   const parts: React.ReactNode[] = [];
   let remaining = html;
   let key = 0;
@@ -159,7 +161,7 @@ const renderInlineHTML = (html: string, T: any, members?: Member[], onMentionPre
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 };
 
-const renderHTMLBlocks = (html: string, T: any, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
   const blocks: React.ReactNode[] = [];
   let key = 0;
   const blockRe = /<(p|h[1-3]|blockquote|ul|ol|pre|hr|li|div)(\s[^>]*)?>|<\/(p|h[1-3]|blockquote|ul|ol|pre|li|div)>/g;
@@ -253,7 +255,7 @@ const renderHTMLBlocks = (html: string, T: any, members?: Member[], onMentionPre
   );
 };
 
-const renderInline = (text: string, T: any, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
   const parts: React.ReactNode[] = [];
   let remaining = text;
   let key = 0;
@@ -300,7 +302,7 @@ const renderInline = (text: string, T: any, members?: Member[], onMentionPress?:
   return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : <>{parts}</>;
 };
 
-const renderMarkdownLine = (line: string, T: any, i: number, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderMarkdownLine = (line: string, T: ThemeColors, i: number, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
   if (line.startsWith('### ')) return <Text key={i} style={{fontSize: fs(14, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(4), T, members, onMentionPress)}</Text>;
   if (line.startsWith('## ')) return <Text key={i} style={{fontSize: fs(16, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(3), T, members, onMentionPress)}</Text>;
   if (line.startsWith('# ')) return <Text key={i} style={{fontSize: fs(18, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text>;
@@ -314,7 +316,7 @@ const renderMarkdownLine = (line: string, T: any, i: number, members?: Member[],
 
 export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
   text: string;
-  T: any;
+  T: ThemeColors;
   numberOfLines?: number;
   members?: Member[];
   onMentionPress?: (memberId: string) => void;

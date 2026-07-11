@@ -2,7 +2,8 @@ import React, {useState, useMemo} from 'react';
 import {View, ScrollView, TouchableOpacity} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
 import {Member, HistoryEntry, ChatMessage, fmtDur, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
@@ -13,17 +14,17 @@ const MAX_BOARD = 25;
 const nextBoardLimit = (cur: number) => (cur < 10 ? 10 : MAX_BOARD);
 
 interface Props {
-  theme: any;
-  history: HistoryEntry[];
-  members: Member[];
-  chatMessages: ChatMessage[];
+  theme: ThemeColors;
   singlet?: boolean;
   selfId?: string;
 }
 
-export const StatsScreen = ({theme: T, history, members, chatMessages, singlet = false, selfId}: Props) => {
+export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
+  const history = useAppStore(s => s.history);
+  const members = useAppStore(s => s.members);
+  const chatMessages = useAppStore(s => s.allChatMessages);
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [range, setRange] = useState<TimeRange>('all');
   const [customStart, setCustomStart] = useState<number>(Date.now() - 30 * 86400000);
   const [customEnd, setCustomEnd] = useState<number>(Date.now());

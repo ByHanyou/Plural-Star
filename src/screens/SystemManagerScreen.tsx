@@ -2,28 +2,30 @@ import React, {useState, useRef} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, AccessibilityInfo, findNodeHandle} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {PALETTE} from '../theme';
+import {PALETTE, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {saveGroups, quickAddToFront, removeFromFront, bulkAddGroups, bulkRemoveFromGroup} from '../store/actions';
 import {ColorPicker} from '../components/ColorPicker';
 import {Avatar} from '../components/Avatar';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, colorName} from '../utils';
 
 interface Props {
-  theme: any;
-  members: Member[];
-  groups: MemberGroup[];
-  onSaveGroups: (g: MemberGroup[]) => void;
+  theme: ThemeColors;
   onViewMember?: (id: string) => void;
-  front?: FrontState | null;
-  onQuickFront?: (memberId: string, tier: FrontTierKey) => void;
-  onRemoveFromFront?: (memberId: string) => void;
-  onAddToGroup?: (memberIds: string[], groupId: string) => void;
-  onRemoveFromGroup?: (memberIds: string[], groupId: string) => void;
 }
 
-export const SystemManagerScreen = ({theme: T, members, groups, onSaveGroups, onViewMember, front, onQuickFront, onRemoveFromFront, onAddToGroup, onRemoveFromGroup}: Props) => {
+export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
+  const members = useAppStore(s => s.members);
+  const groups = useAppStore(s => s.groups);
+  const front = useAppStore(s => s.front);
+  const onSaveGroups = saveGroups;
+  const onQuickFront = quickAddToFront;
+  const onRemoveFromFront = removeFromFront;
+  const onAddToGroup = (memberIds: string[], groupId: string) => bulkAddGroups(memberIds, [groupId]);
+  const onRemoveFromGroup = bulkRemoveFromGroup;
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const behavior = useKeyboardBehavior();
 
   const [newName, setNewName] = useState('');
@@ -292,13 +294,13 @@ export const SystemManagerScreen = ({theme: T, members, groups, onSaveGroups, on
             </TouchableOpacity>
           )}
           <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: current?.color || T.text}} numberOfLines={1}>{current ? current.name : t('systemManager.title')}</Text>
-          {current && onAddToGroup && !removeMode && (
+          {current && !removeMode && (
             <TouchableOpacity onPress={() => { setAddPickIds([]); setAddSearch(''); setAddPickOpen(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberGroups.addMembers')}
               style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(15), color: T.accent}} allowFontScaling={false}>＋</Text>
+              <Text style={{fontSize: fs(15), lineHeight: fs(15), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}} allowFontScaling={false}>＋</Text>
             </TouchableOpacity>
           )}
-          {current && onRemoveFromGroup && folderMembers.length > 0 && !removeMode && (
+          {current && folderMembers.length > 0 && !removeMode && (
             <TouchableOpacity onPress={() => { setRemoveIds([]); setRemoveMode(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberGroups.removeMembers')}
               style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
               <Text style={{fontSize: fs(15), color: T.danger}} allowFontScaling={false}>−</Text>
@@ -365,7 +367,7 @@ export const SystemManagerScreen = ({theme: T, members, groups, onSaveGroups, on
                   {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
                 </View>
               </TouchableOpacity>
-              {onQuickFront && onRemoveFromFront && (
+              {(
                 fronting ? (
                   <TouchableOpacity
                     onPress={() => Alert.alert(t('members.removeFromFront'), t('members.removeFromFrontMsg', {name: m.name}), [
@@ -381,7 +383,7 @@ export const SystemManagerScreen = ({theme: T, members, groups, onSaveGroups, on
                     onPress={() => setQuickFrontFor(m)}
                     accessibilityRole="button" accessibilityLabel={`${t('members.addToFront')} — ${m.name}`}
                     style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-                    <Text style={{fontSize: fs(15), color: T.accent}} allowFontScaling={false}>＋</Text>
+                    <Text style={{fontSize: fs(15), lineHeight: fs(15), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}} allowFontScaling={false}>＋</Text>
                   </TouchableOpacity>
                 )
               )}

@@ -3,7 +3,7 @@ import {View, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Accessi
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
 import {CustomFieldDef, CustomFieldType, uid} from '../utils';
 import {store, KEYS} from '../storage';
 
@@ -24,13 +24,13 @@ const FIELD_TYPES: {type: CustomFieldType; label: string; icon: string}[] = [
 ];
 
 interface Props {
-  theme: any;
+  theme: ThemeColors;
   onUpdate: () => void;
 }
 
 export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const behavior = useKeyboardBehavior();
   const [fields, setFields] = useState<CustomFieldDef[]>([]);
   const [newName, setNewName] = useState('');

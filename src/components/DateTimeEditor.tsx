@@ -1,6 +1,8 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {View, TouchableOpacity} from 'react-native';
 import {Text, TextInput} from './AppText';
+import {fontScale} from '../theme';
+import type {ThemeColors} from '../theme';
 
 export type DateTimeEditorMode =
   | 'datetime'
@@ -15,7 +17,7 @@ interface Props {
   date: Date;
   onChange: (d: Date) => void;
   label?: string;
-  T: any;
+  T: ThemeColors;
   mode?: DateTimeEditorMode;
   collapsible?: boolean;
 }
@@ -37,9 +39,9 @@ const EditableCell = ({
   onStep: (delta: number) => void;
   width: number;
   label?: string;
-  T: any;
+  T: ThemeColors;
 }) => {
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const display = String(value).padStart(pad, '0');
   const [text, setText] = useState(display);
   const editing = useRef(false);
@@ -84,7 +86,7 @@ const EditableCell = ({
 };
 
 export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', collapsible = true}: Props) => {
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [expanded, setExpanded] = useState(!collapsible);
 
   const month = date.getMonth();

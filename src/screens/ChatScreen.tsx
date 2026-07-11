@@ -6,7 +6,9 @@ import {useTranslation} from 'react-i18next';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import Share from 'react-native-share';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {saveChatChannels} from '../store/actions';
 import {Member, ChatChannel, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMembersBySearch} from '../utils';
 import {store, chatMsgKey} from '../storage';
 import {RichText as RichContent} from '../components/MarkdownRenderer';
@@ -16,16 +18,16 @@ import {showChatPingNotification} from '../services/NotificationService';
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😢', '😮', '🎉', '✨', '🔥'];
 
 interface Props {
-  theme: any;
-  members: Member[];
-  channels: ChatChannel[];
-  onSaveChannels: (ch: ChatChannel[]) => void;
+  theme: ThemeColors;
   onMentionPress?: (memberId: string) => void;
 }
 
-export const ChatScreen = ({theme: T, members, channels, onSaveChannels, onMentionPress}: Props) => {
+export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
+  const members = useAppStore(s => s.members);
+  const channels = useAppStore(s => s.chatChannels);
+  const onSaveChannels = saveChatChannels;
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(channels.find(c => !c.archived)?.id || null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');

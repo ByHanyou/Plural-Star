@@ -4,21 +4,25 @@ import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
 import {MedicalData, Medication, MedicalAppointment, MedicalHistoryEntry, uid, fmtTime, fmtDate, time12to24, formatTime12} from '../utils';
+import {fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {saveMedical} from '../store/actions';
+import {ToggleSwitch, TogglePill} from '../components/ToggleSwitch';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 
 type MedSection = 'medications' | 'appointments' | 'history' | 'emergency';
 
 interface Props {
-  theme: any;
-  medical: MedicalData;
-  onSave: (m: MedicalData) => void;
+  theme: ThemeColors;
 }
 
 const REMIND_OPTIONS = [0, 30, 60, 1440];
 
-export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
+export const MedicalScreen = ({theme: T}: Props) => {
+  const medical = useAppStore(s => s.medical);
+  const onSave = saveMedical;
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const behavior = useKeyboardBehavior();
 
   const [section, setSection] = useState<MedSection>('medications');
@@ -316,11 +320,7 @@ export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
                     {med.times.length > 0 && <Text style={{fontSize: fs(11), color: T.dim, fontFamily: 'monospace'}}>{med.times.map(formatTime12).join('  ')}</Text>}
                     {med.notes ? <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{med.notes}</Text> : null}
                   </View>
-                  <TouchableOpacity onPress={() => toggleMedication(med.id)} activeOpacity={0.8}
-                    accessibilityRole="switch" accessibilityState={{checked: med.enabled}} accessibilityLabel={med.name}
-                    style={{width: 40, height: 22, borderRadius: 11, backgroundColor: med.enabled ? T.accent : T.toggleOff, justifyContent: 'center'}}>
-                    <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: med.enabled ? 20 : 3}} />
-                  </TouchableOpacity>
+                  <ToggleSwitch value={med.enabled} onToggle={() => toggleMedication(med.id)} label={med.name} T={T} />
                   <TouchableOpacity onPress={() => deleteMedication(med.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${med.name}`} style={{padding: 4}}>
                     <Text style={{fontSize: fs(12), color: T.danger}}>✕</Text>
                   </TouchableOpacity>
@@ -430,9 +430,7 @@ export const MedicalScreen = ({theme: T, medical, onSave}: Props) => {
             <TouchableOpacity onPress={() => setEmShow(!emShow)} activeOpacity={0.7}
               accessibilityRole="switch" accessibilityState={{checked: emShow}} accessibilityLabel={t('medical.showOnNotification')}
               style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, marginBottom: 16}}>
-              <View style={{width: 40, height: 22, borderRadius: 11, backgroundColor: emShow ? T.accent : T.toggleOff, justifyContent: 'center'}}>
-                <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: '#fff', position: 'absolute', left: emShow ? 20 : 3}} />
-              </View>
+              <TogglePill on={emShow} T={T} />
               <Text style={{flex: 1, fontSize: fs(12), color: T.dim}}>{t('medical.showOnNotification')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={saveEmergency} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}

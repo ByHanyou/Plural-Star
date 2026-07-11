@@ -2,31 +2,33 @@ import React, {useState} from 'react';
 import {View, ScrollView, TouchableOpacity, Modal, Alert, Image, StyleSheet} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useAppStore} from '../store/appStore';
+import {saveJournalTemplates} from '../store/actions';
 import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch} from '../utils';
 import {exportEntryTxt, exportEntryMd, exportEntryJSON} from '../export/exportUtils';
 import {RichText} from '../components/MarkdownRenderer';
 import {JournalTemplateModal} from '../modals';
 
 interface Props {
-  theme: any;
-  journal: JournalEntry[];
-  templates: JournalTemplate[];
-  members: Member[];
-  systemJournalPassword?: string;
+  theme: ThemeColors;
   onAdd: () => void;
   onEdit: (entry: JournalEntry) => void;
   onDelete: (id: string) => void;
   onTogglePin: (entry: JournalEntry) => void;
-  onSaveTemplates: (t: JournalTemplate[]) => void;
   onMentionPress?: (memberId: string) => void;
 }
 
 type JournalSubTab = 'entries' | 'templates';
 
-export const JournalScreen = ({theme: T, journal, templates, members, systemJournalPassword, onAdd, onEdit, onDelete, onTogglePin, onSaveTemplates, onMentionPress}: Props) => {
+export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, onMentionPress}: Props) => {
+  const journal = useAppStore(s => s.journal);
+  const templates = useAppStore(s => s.journalTemplates);
+  const members = useAppStore(s => s.members);
+  const systemJournalPassword = useAppStore(s => s.system.journalPassword);
+  const onSaveTemplates = saveJournalTemplates;
   const {t} = useTranslation();
-  const fs = (s: number) => Math.round(s * (T.textScale || 1));
+  const fs = fontScale(T);
   const [journalUnlocked, setJournalUnlocked] = useState(!systemJournalPassword);
   const [globalPwInput, setGlobalPwInput] = useState('');
   const [globalPwError, setGlobalPwError] = useState(false);
