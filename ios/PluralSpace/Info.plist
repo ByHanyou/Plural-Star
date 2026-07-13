@@ -100,5 +100,7 @@
 	<string>40c59397-0ef9-4ef0-b4ca-80f7701e5aaf</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
+	<key>UIDesignRequiresCompatibility</key>
+	<true/>
 </dict>
 </plist>

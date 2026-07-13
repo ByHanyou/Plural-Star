@@ -8,6 +8,7 @@ type LiveActivityModule = {
   getFriendsPushToken?(): Promise<string | null>;
   endFriendsActivity?(): Promise<unknown>;
   waitForProtectedData?(): Promise<boolean>;
+  getAPNsDeviceToken?(): Promise<string | null>;
 };
 
 const nativeModule: LiveActivityModule | null =
@@ -22,6 +23,15 @@ export const getFriendsPushToken = async (): Promise<string | null> => {
   if (!nativeModule || typeof nativeModule.getFriendsPushToken !== 'function') return null;
   try {
     return (await nativeModule.getFriendsPushToken()) || null;
+  } catch {
+    return null;
+  }
+};
+
+export const getAPNsDeviceToken = async (): Promise<string | null> => {
+  if (!nativeModule || typeof nativeModule.getAPNsDeviceToken !== 'function') return null;
+  try {
+    return (await nativeModule.getAPNsDeviceToken()) || null;
   } catch {
     return null;
   }

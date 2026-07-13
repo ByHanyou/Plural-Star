@@ -1,7 +1,10 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, AccessibilityInfo, findNodeHandle} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle} from 'react-native';
+import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
+import {useDragReorder} from '../hooks/useDragReorder';
+import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {CustomFieldDef, CustomFieldType, uid} from '../utils';
@@ -39,6 +42,21 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [reorderOn, setReorderOn] = useState(false);
+
+  const onDropField = (_key: string, from: number, to: number) => {
+    const updated = [...fields];
+    const [moved] = updated.splice(from, 1);
+    updated.splice(to, 0, moved);
+    save(updated.map((f, i) => ({...f, sortOrder: i})));
+    const msg = to === 0
+      ? t('common.movedToTop')
+      : to === updated.length - 1
+        ? t('common.movedToBottom')
+        : t('common.movedBelow', {name: updated[to - 1].name});
+    AccessibilityInfo.announceForAccessibility(msg);
+  };
+  const {drag, dragging, registerHeight, makeHandlePanHandlers} = useDragReorder({enabled: reorderOn, onDrop: onDropField});
 
   useEffect(() => {
     store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || []));
@@ -104,7 +122,12 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
 
   return (
     <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}}>
+      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} scrollEnabled={!dragging}>
+        {fields.length > 1 && (
+          <View style={{flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10}}>
+            <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
+          </View>
+        )}
         {fields.length === 0 && (
           <View style={{alignItems: 'center', paddingVertical: 48}}>
             <Text style={{fontSize: fs(13), color: T.dim}}>{t('customFields.noFields')}</Text>
@@ -112,8 +135,22 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
         )}
 
         {fields.map((fd, i) => (
-          <View key={fd.id} style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 10}}>
+          <View
+            key={fd.id}
+            onLayout={e => registerHeight(fd.id, e.nativeEvent.layout.height + 10)}
+            style={{
+              backgroundColor: T.card,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: dragging && drag.key !== fd.id && drag.target === i ? T.accent : T.border,
+              padding: 14,
+              marginBottom: 10,
+              ...(drag.key === fd.id ? {transform: [{translateY: drag.dy}], zIndex: 10, elevation: 6} : null),
+            }}>
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+              <DragHandle T={T} active={reorderOn} panHandlers={makeHandlePanHandlers(fd.id, () => fields.map(f => f.id))} name={fd.name}
+                position={i + 1} count={fields.length}
+                onStep={dir => moveField(fd.id, dir === 1 ? 'down' : 'up')} />
               <View style={{alignItems: 'center', gap: 2}}>
                 <TouchableOpacity
                   ref={(el) => { moveBtnRefs.current[fd.id] = el; }}

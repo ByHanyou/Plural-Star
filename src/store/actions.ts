@@ -397,14 +397,17 @@ export const saveMemberSortMode = async (mode: MemberSortMode) => {
 
 export const reorderMember = async (id: string, direction: 'up' | 'down') => {
   const {members} = useAppStore.getState();
-  const active = members.filter(m => !m.archived);
-  const archived = members.filter(m => m.archived);
-  const ordered = [...active].sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
+  const target = members.find(m => m.id === id);
+  if (!target) return;
+  const inSubset = (m: Member) => !m.archived && !!m.isCustomFront === !!target.isCustomFront;
+  const subset = members.filter(inSubset);
+  const rest = members.filter(m => !inSubset(m));
+  const ordered = [...subset].sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
   const idx = ordered.findIndex(m => m.id === id);
   if (idx === -1) return;
   const swapWith = direction === 'up' ? idx - 1 : idx + 1;
   if (swapWith < 0 || swapWith >= ordered.length) return;
   [ordered[idx], ordered[swapWith]] = [ordered[swapWith], ordered[idx]];
   const reindexed = ordered.map((m, i) => ({...m, sortOrder: i}));
-  await saveMembers([...reindexed, ...archived]);
+  await saveMembers([...reindexed, ...rest]);
 };

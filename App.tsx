@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
-import {View, StyleSheet, StatusBar, Alert, AppState} from 'react-native';
+import {View, StyleSheet, StatusBar, Alert, AppState, BackHandler, Platform} from 'react-native';
 import {setAppTextFont} from './src/components/AppText';
 import {fontFamilyForChoice} from './src/theme';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
@@ -67,6 +67,21 @@ function MainAppContent() {
   }, [tab]);
   const [hubResetKey, setHubResetKey] = useState(0);
   const [editHistoryIndex, setEditHistoryIndex] = useState<number | null>(null);
+  const backStateRef = useRef({tab, locked, loaded});
+  backStateRef.current = {tab, locked, loaded};
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const s = backStateRef.current;
+      if (!s.loaded || s.locked) return false;
+      if (s.tab !== 'front') {
+        setTab('front');
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, []);
   const system = useAppStore(s => s.system);
   const setSystem = useAppStore(s => s.setSystem);
   const members = useAppStore(s => s.members);
@@ -333,7 +348,6 @@ function MainAppContent() {
     return () => sub.remove();
   }, [loadAll]);
   useEffect(() => { NetworkManager.init().catch(e => console.error('[NETWORK] init failed:', e)); }, []);
-  useEffect(() => { if (loaded) NetworkManager.updateMyFront(front, members).catch(() => {}); }, [loaded, front, members]);
   useEffect(() => { NetworkManager.notifyDataChanged(); }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
   useEffect(() => NetworkManager.onSyncApplied(() => { loadAll(); }), [loadAll]);
   useEffect(() => NetworkManager.onSyncConflict(c => {
@@ -402,6 +416,16 @@ function MainAppContent() {
     ? (members.find(m => m.id === appSettings.selfMemberId && !m.isCustomFront)
       || members.find(m => !m.isCustomFront && !m.archived))
     : undefined;
+
+  const selfMemberId = selfMember?.id;
+  useEffect(() => {
+    if (!loaded) return;
+    let shareFront: any = front;
+    if (isSinglet && selfMemberId && !(front && allFrontMemberIds(front).length > 0)) {
+      shareFront = {primary: {memberIds: [selfMemberId]}, coFront: {memberIds: []}, coConscious: {memberIds: []}};
+    }
+    NetworkManager.updateMyFront(shareFront, members).catch(() => {});
+  }, [loaded, front, members, isSinglet, selfMemberId]);
 
   if (!loaded) {
     return <SplashView />;

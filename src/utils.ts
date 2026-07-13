@@ -53,9 +53,14 @@ export const sortGroupsForDisplay = (list: MemberGroup[], all: MemberGroup[]): M
 
 export const descendantsOf = (nodes: MemberGroup[], id: string): MemberGroup[] => {
   const out: MemberGroup[] = [];
+  const seen = new Set<string>([id]);
   const walk = (pid: string) => {
     for (const n of nodes) {
-      if (groupParent(n) === pid) { out.push(n); walk(n.id); }
+      if (groupParent(n) === pid && !seen.has(n.id)) {
+        seen.add(n.id);
+        out.push(n);
+        walk(n.id);
+      }
     }
   };
   walk(id);

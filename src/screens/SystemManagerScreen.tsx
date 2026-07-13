@@ -1,10 +1,14 @@
 import React, {useState, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, Modal, KeyboardAvoidingView, AccessibilityInfo, findNodeHandle} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, Modal, AccessibilityInfo, findNodeHandle} from 'react-native';
+import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {PALETTE, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveGroups, quickAddToFront, removeFromFront, bulkAddGroups, bulkRemoveFromGroup} from '../store/actions';
+import {useDragReorder} from '../hooks/useDragReorder';
+import {DragHandle, ReorderLockButton} from '../components/DragHandle';
+import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorPicker} from '../components/ColorPicker';
 import {Avatar} from '../components/Avatar';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
@@ -84,6 +88,16 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   };
 
   const moveBtnRefs = useRef<Record<string, any>>({});
+
+  const [reorderOn, setReorderOn] = useState(false);
+  const onDropNode = (_key: string, from: number, to: number, sibIds: string[]) => {
+    const ordered = [...sibIds];
+    const [moved] = ordered.splice(from, 1);
+    ordered.splice(to, 0, moved);
+    const orderMap = new Map(ordered.map((id, i) => [id, i]));
+    onSaveGroups(groups.map(g => orderMap.has(g.id) ? {...g, sortOrder: orderMap.get(g.id)!} : g));
+  };
+  const {drag, dragging, registerHeight, makeHandlePanHandlers} = useDragReorder({enabled: reorderOn, onDrop: onDropNode});
 
   const reorderNode = (id: string, direction: 'up' | 'down') => {
     const node = groups.find(g => g.id === id);
@@ -200,7 +214,9 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     setEditId(null); setEditName('');
   };
 
-  const renderNode = (g: MemberGroup, depth: number): React.ReactNode => {
+  const renderNode = (g: MemberGroup, depth: number, seen: Set<string> = new Set()): React.ReactNode => {
+    if (seen.has(g.id)) return null;
+    seen.add(g.id);
     const isEditing = editId === g.id;
     const isSub = groupKind(g) === 'subsystem';
     const memberCount = members.filter(m => (m.groupIds || []).includes(g.id)).length;
@@ -209,9 +225,20 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     const isSelected = selectedIds.includes(g.id);
     const sibs = childrenOf(groups, groupParent(g));
     const sibIdx = sibs.findIndex(s => s.id === g.id);
+    const isDropTarget = dragging && drag.key !== g.id && drag.siblings.length > 0 && drag.siblings[drag.target] === g.id;
     return (
-      <View key={g.id}>
+      <View
+        key={g.id}
+        onLayout={e => registerHeight(g.id, e.nativeEvent.layout.height)}
+        style={{
+          borderTopWidth: 2,
+          borderTopColor: isDropTarget ? T.accent : 'transparent',
+          ...(drag.key === g.id ? {transform: [{translateY: drag.dy}], zIndex: 10, elevation: 6} : null),
+        }}>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8, paddingLeft: depth * 16}}>
+          <DragHandle T={T} active={reorderOn && !selectMode && !movingIds} panHandlers={makeHandlePanHandlers(g.id, () => childrenOf(groups, groupParent(g)).map(x => x.id))} name={g.name}
+            position={sibIdx + 1} count={sibs.length}
+            onStep={dir => reorderNode(g.id, dir === 1 ? 'down' : 'up')} />
           {depth > 0 && <Text style={{color: T.muted, fontSize: fs(12)}}>└</Text>}
           {selectMode && !moving && (
             <TouchableOpacity onPress={() => toggleSelected(g.id)} accessibilityRole="checkbox" accessibilityState={{checked: isSelected}} accessibilityLabel={g.name} style={{padding: 2}}>
@@ -257,7 +284,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             <ColorPicker value={editColor} onChange={setEditColor} T={T} />
           </View>
         )}
-        {childrenOf(groups, g.id).map(c => renderNode(c, depth + 1))}
+        {childrenOf(groups, g.id).map(c => renderNode(c, depth + 1, seen))}
       </View>
     );
   };
@@ -297,7 +324,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
           {current && !removeMode && (
             <TouchableOpacity onPress={() => { setAddPickIds([]); setAddSearch(''); setAddPickOpen(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberGroups.addMembers')}
               style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(15), lineHeight: fs(15), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}} allowFontScaling={false}>＋</Text>
+              <PlusMinusIcon size={12} color={T.accent} />
             </TouchableOpacity>
           )}
           {current && folderMembers.length > 0 && !removeMode && (
@@ -383,7 +410,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                     onPress={() => setQuickFrontFor(m)}
                     accessibilityRole="button" accessibilityLabel={`${t('members.addToFront')} — ${m.name}`}
                     style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-                    <Text style={{fontSize: fs(15), lineHeight: fs(15), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}} allowFontScaling={false}>＋</Text>
+                    <PlusMinusIcon size={12} color={T.accent} />
                   </TouchableOpacity>
                 )
               )}
@@ -463,7 +490,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
 
   return (
     <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled" scrollEnabled={!dragging}>
       <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 14, lineHeight: 18}}>{t('systemManager.desc')}</Text>
       <View style={{flexDirection: 'row', marginBottom: 12}}>
         <TouchableOpacity onPress={() => { goBrowseTo(null); setBrowse(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemManager.browse')}
@@ -472,6 +499,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
           <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}}>{t('systemManager.browse')}</Text>
         </TouchableOpacity>
         <View style={{flex: 1}} />
+        {groups.length > 1 && <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />}
       </View>
       {groups.length > 0 && !movingIds && (
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12}}>

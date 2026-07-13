@@ -1,5 +1,7 @@
-import React, {useState, useEffect} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, Linking} from 'react-native';
+import React, {useState, useEffect, useRef} from 'react';
+import {View, ScrollView, TouchableOpacity, Alert, Linking, BackHandler, Platform, PanResponder, PixelRatio, AccessibilityInfo} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {ReorderLockButton} from '../components/DragHandle';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
@@ -12,6 +14,15 @@ import {TogglePill} from '../components/ToggleSwitch';
 import {Avatar} from '../components/Avatar';
 
 type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'whiteboard' | 'discord' | 'credits' | 'supportPS';
+
+const HUB_ORDER_KEY = 'ps.hubTileOrder';
+const DEFAULT_TILE_ORDER: HubTile[] = ['retroHistory', 'medical', 'statistics', 'chat', 'mailbox', 'whiteboard', 'network', 'polls', 'systemMap', 'customFields', 'systemManager', 'archive', 'share', 'credits', 'discord', 'supportPS'];
+
+const mergeTileOrder = (saved: string[], defaults: HubTile[]): HubTile[] => {
+  const valid = saved.filter(id => (defaults as string[]).includes(id)) as HubTile[];
+  const missing = defaults.filter(id => !valid.includes(id));
+  return [...valid, ...missing];
+};
 
 interface Props {
   theme: ThemeColors;
@@ -371,6 +382,37 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !activeTile) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setActiveTile(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [activeTile]);
+
+  const [tileOrder, setTileOrder] = useState<HubTile[]>(DEFAULT_TILE_ORDER);
+  const [tileReorderOn, setTileReorderOn] = useState(false);
+  const [tileDrag, setTileDrag] = useState<{id: string; dx: number; dy: number; from: number; target: number} | null>(null);
+  const tileDragRef = useRef<{id: string; dx: number; dy: number; from: number; target: number} | null>(null);
+  const tileReorderOnRef = useRef(false);
+  tileReorderOnRef.current = tileReorderOn;
+  const tileOrderRef = useRef<HubTile[]>(DEFAULT_TILE_ORDER);
+  tileOrderRef.current = tileOrder;
+  const visIdsRef = useRef<string[]>([]);
+  const tileSizeRef = useRef({w: 0, h: 0});
+  const gridWRef = useRef(0);
+  const tileColsRef = useRef(3);
+
+  useEffect(() => {
+    AsyncStorage.getItem(HUB_ORDER_KEY).then(raw => {
+      let saved: string[] = [];
+      try {
+        saved = raw ? JSON.parse(raw) : [];
+      } catch {}
+      if (Array.isArray(saved) && saved.length > 0) setTileOrder(mergeTileOrder(saved, DEFAULT_TILE_ORDER));
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => { setActiveTile(null); }, [resetKey]);
 
@@ -593,6 +635,68 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     );
   }
 
+  const setTileDragBoth = (v: {id: string; dx: number; dy: number; from: number; target: number} | null) => {
+    tileDragRef.current = v;
+    setTileDrag(v);
+  };
+
+  const commitTileDrop = (id: string, from: number, target: number) => {
+    const visIds = visIdsRef.current;
+    if (target === from || target < 0 || target >= visIds.length) return;
+    const order = tileOrderRef.current;
+    const newFull = order.filter(x => x !== id);
+    let insertAt = newFull.indexOf(visIds[target] as HubTile);
+    if (insertAt < 0) return;
+    if (target > from) insertAt += 1;
+    newFull.splice(insertAt, 0, id as HubTile);
+    setTileOrder(newFull);
+    AsyncStorage.setItem(HUB_ORDER_KEY, JSON.stringify(newFull)).catch(() => {});
+  };
+
+  const tileRespondersRef = useRef<Map<string, ReturnType<typeof PanResponder.create>['panHandlers']>>(new Map());
+  const makeTileResponder = (id: string) => {
+    let handlers = tileRespondersRef.current.get(id);
+    if (handlers) return {panHandlers: handlers};
+    const responder = PanResponder.create({
+      onStartShouldSetPanResponder: () => tileReorderOnRef.current,
+      onMoveShouldSetPanResponder: () => tileReorderOnRef.current,
+      onPanResponderGrant: () => {
+        const from = visIdsRef.current.indexOf(id);
+        if (from < 0) return;
+        setTileDragBoth({id, dx: 0, dy: 0, from, target: from});
+      },
+      onPanResponderMove: (_evt, gs) => {
+        const cur = tileDragRef.current;
+        if (!cur || cur.id !== id) return;
+        const {w, h} = tileSizeRef.current;
+        const gridW = gridWRef.current;
+        const cols = tileColsRef.current;
+        const colW = gridW > 0 ? gridW / cols : (w || 110);
+        const rowH = (h || 104) + 10;
+        const col = cur.from % cols;
+        const row = Math.floor(cur.from / cols);
+        const newCol = Math.max(0, Math.min(cols - 1, col + Math.round(gs.dx / colW)));
+        const newRow = Math.max(0, Math.min(Math.ceil(visIdsRef.current.length / cols) - 1, row + Math.round(gs.dy / rowH)));
+        const target = Math.min(newRow * cols + newCol, visIdsRef.current.length - 1);
+        setTileDragBoth({...cur, dx: gs.dx, dy: gs.dy, target});
+      },
+      onPanResponderRelease: () => {
+        const cur = tileDragRef.current;
+        if (cur && cur.id === id) commitTileDrop(id, cur.from, cur.target);
+        setTileDragBoth(null);
+      },
+      onPanResponderTerminate: () => {
+        const cur = tileDragRef.current;
+        if (cur && cur.id === id) commitTileDrop(id, cur.from, cur.target);
+        setTileDragBoth(null);
+      },
+      onPanResponderTerminationRequest: () => false,
+    });
+    handlers = responder.panHandlers;
+    tileRespondersRef.current.set(id, handlers);
+    return {panHandlers: handlers};
+  };
+
   const tiles: {id: HubTile; icon: string; label: string; external?: boolean}[] = [
     {id: 'retroHistory', icon: '◷', label: t('hub.retroHistory')},
     {id: 'medical', icon: '⚕', label: t('medical.title')},
@@ -622,23 +726,92 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     }
   };
 
+  const orderedTiles = [...tiles].sort((a, b) => tileOrder.indexOf(a.id) - tileOrder.indexOf(b.id));
+  visIdsRef.current = orderedTiles.map(x => x.id);
+
+  const moveTileStep = (id: string, dir: 1 | -1) => {
+    const visIds = visIdsRef.current;
+    const from = visIds.indexOf(id);
+    const target = from + dir;
+    if (from < 0 || target < 0 || target >= visIds.length) return;
+    const neighbor = tiles.find(x => x.id === visIds[target]);
+    commitTileDrop(id, from, target);
+    const msg = target === 0
+      ? t('common.movedToTop')
+      : target === visIds.length - 1
+        ? t('common.movedToBottom')
+        : dir === -1
+          ? t('common.movedAbove', {name: neighbor?.label || ''})
+          : t('common.movedBelow', {name: neighbor?.label || ''});
+    AccessibilityInfo.announceForAccessibility(msg);
+  };
+  const osFontCap = Math.min(PixelRatio.getFontScale() || 1, 1.3);
+  const tileCols = (T.textScale || 1) * osFontCap >= 1.4 ? 2 : 3;
+  tileColsRef.current = tileCols;
+  const tileWidth = tileCols === 2 ? '48%' : '31%';
+  const labelReserve = Math.round(fs(30) * osFontCap);
+  const iconCap = Math.min(PixelRatio.getFontScale() || 1, 1.2);
+  const tileHeight = Math.max(104, Math.round(10 + fs(32) * iconCap + 6 + labelReserve + 10 + 4));
+
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
-      <Text
-        accessibilityRole="header"
-        style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 20}}
-        numberOfLines={1}
-        maxFontSizeMultiplier={1.2}>
-        {t('hub.title')}
-      </Text>
-      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'flex-start'}}>
-        {tiles.map(tile => (
-          <TouchableOpacity key={tile.id} onPress={() => handleTilePress(tile)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={tile.label}
-            style={{width: '31%', minHeight: 104, borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, alignItems: 'center', justifyContent: 'center', padding: 10, gap: 6}}>
-            <Text style={{fontSize: fs(26), lineHeight: fs(32), color: T.accent, textAlign: 'center', includeFontPadding: false}}>{tile.icon}</Text>
-            <Text style={{fontSize: fs(11), lineHeight: fs(15), minHeight: fs(30), fontWeight: '600', color: T.text, textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false}} numberOfLines={2}>{tile.label}</Text>
-          </TouchableOpacity>
-        ))}
+    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}} scrollEnabled={!tileDrag}>
+      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 20}}>
+        <Text
+          accessibilityRole="header"
+          style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}}
+          numberOfLines={1}
+          maxFontSizeMultiplier={1.2}>
+          {t('hub.title')}
+        </Text>
+        <ReorderLockButton T={T} on={tileReorderOn} onToggle={() => setTileReorderOn(v => !v)} />
+      </View>
+      <View
+        onLayout={e => { gridWRef.current = e.nativeEvent.layout.width; }}
+        style={{flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between', alignItems: 'flex-start'}}>
+        {orderedTiles.map((tile, i) => {
+          const isDragged = tileDrag?.id === tile.id;
+          const isTarget = !!tileDrag && !isDragged && tileDrag.target === i;
+          return (
+            <TouchableOpacity
+              key={tile.id}
+              onPress={() => handleTilePress(tile)}
+              onLayout={e => { tileSizeRef.current = {w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height}; }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={tile.label}
+              style={{
+                width: tileWidth,
+                height: tileHeight,
+                borderRadius: 14,
+                borderWidth: isTarget ? 2 : 1,
+                backgroundColor: T.card,
+                borderColor: isTarget ? T.accent : T.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 10,
+                gap: 6,
+                ...(isDragged ? {transform: [{translateX: tileDrag!.dx}, {translateY: tileDrag!.dy}], zIndex: 10, elevation: 8, opacity: 0.92} : null),
+              }}>
+              {tileReorderOn && (
+                <View
+                  {...makeTileResponder(tile.id).panHandlers}
+                  accessible
+                  accessibilityRole="adjustable"
+                  accessibilityLabel={`${t('common.dragReorder')}, ${tile.label}`}
+                  accessibilityValue={{text: String(i + 1)}}
+                  accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+                  onAccessibilityAction={e => {
+                    moveTileStep(tile.id, e.nativeEvent.actionName === 'increment' ? 1 : -1);
+                  }}
+                  style={{position: 'absolute', top: 0, left: 0, paddingHorizontal: 10, paddingVertical: 8, zIndex: 2}}>
+                  <Text style={{fontSize: fs(13), color: T.accent}} importantForAccessibility="no">⠿</Text>
+                </View>
+              )}
+              <Text style={{fontSize: fs(26), lineHeight: fs(32), color: T.accent, textAlign: 'center', includeFontPadding: false}} maxFontSizeMultiplier={1.2}>{tile.icon}</Text>
+              <Text style={{fontSize: fs(11), lineHeight: fs(15), minHeight: labelReserve, fontWeight: '600', color: T.text, textAlign: 'center', textAlignVertical: 'center', includeFontPadding: false}} numberOfLines={2} maxFontSizeMultiplier={1.3}>{tile.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </ScrollView>
   );

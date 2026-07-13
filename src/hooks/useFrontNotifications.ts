@@ -1,7 +1,7 @@
 import {useEffect, useRef} from 'react';
 import {AppState} from 'react-native';
 import {FrontState, Member, AppSettings} from '../utils';
-import {showFrontNotification, clearFrontNotification, scheduleFrontCheckReminder, cancelFrontCheckReminder, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh} from '../services/NotificationService';
+import {showFrontNotification, clearFrontNotification, showFriendUpdateAlert, scheduleFrontCheckReminder, cancelFrontCheckReminder, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh} from '../services/NotificationService';
 import {NetworkManager} from '../network/NetworkManager';
 import {logError} from '../utils/log';
 
@@ -24,6 +24,30 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
     });
     return () => { if (debounce) clearTimeout(debounce); unsub(); };
   }, [front, members, appSettings.notificationsEnabled, systemName]);
+
+  useEffect(() => {
+    const lastSeen = new Map<string, string>();
+    let primed = false;
+    const unsub = NetworkManager.subscribe(s => {
+      if (!primed) {
+        for (const f of s.friends) {
+          if (f.kind !== 'device' && f.status === 'accepted') lastSeen.set(f.peerId, JSON.stringify(f.lastStatus ?? null));
+        }
+        primed = true;
+        return;
+      }
+      for (const f of s.friends) {
+        if (f.kind === 'device' || f.status !== 'accepted') continue;
+        const prev = lastSeen.get(f.peerId);
+        const cur = JSON.stringify(f.lastStatus ?? null);
+        if (cur !== prev) {
+          lastSeen.set(f.peerId, cur);
+          if (appSettings.notificationsEnabled) showFriendUpdateAlert(f).catch(e => logError('notif', e));
+        }
+      }
+    });
+    return () => unsub();
+  }, [appSettings.notificationsEnabled]);
 
   useEffect(() => {
     if (!front || !appSettings.notificationsEnabled) return;

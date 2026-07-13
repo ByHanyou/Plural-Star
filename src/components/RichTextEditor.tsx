@@ -1,5 +1,6 @@
 import React, {useState, useMemo, useEffect} from 'react';
-import {View, TouchableOpacity, StyleSheet, Platform, KeyboardAvoidingView, Modal, ScrollView, Keyboard} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Keyboard} from 'react-native';
+import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts, fontScale} from '../theme';

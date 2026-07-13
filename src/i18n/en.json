@@ -37,6 +37,8 @@
   },
   "common": {
     "movedToTop": "Now first",
+    "dragReorder": "Drag to reorder",
+    "reorderLock": "Drag reordering",
     "movedToBottom": "Now last",
     "movedAbove": "Moved above {{name}}",
     "movedBelow": "Moved below {{name}}",
@@ -66,7 +68,13 @@
     "mainNav": "Main navigation",
     "changeAvatar": "Change system picture",
     "changeBanner": "Change system banner",
-    "selected": "selected"
+    "selected": "selected",
+    "increase": "Increase",
+    "decrease": "Decrease",
+    "value": "Value",
+    "switchToAm": "PM, switch to AM",
+    "switchToPm": "AM, switch to PM",
+    "image": "Image"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -897,6 +905,13 @@
     "deleteBucket": "Delete bucket",
     "deleteBucketMsg": "Delete “{{name}}”?",
     "cloneBucket": "Clone bucket",
+    "viewShared": "View shared",
+    "mirrorNothing": "They haven't shared this with you yet.",
+    "mirrorOffline": "Friend is offline — showing the last received copy.",
+    "mirrorEmptyOffline": "Friend is offline. Nothing received yet.",
+    "mirrorUpdated": "Updated {{time}}",
+    "mirrorLoading": "Requesting…",
+    "mirrorRefresh": "Refresh",
     "accept": "Accept",
     "remove": "Remove",
     "ownCode": "That's your own friend code.",

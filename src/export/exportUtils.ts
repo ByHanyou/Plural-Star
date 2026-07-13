@@ -380,6 +380,13 @@ const pkShortId = (i: number): string => {
   return s;
 };
 
+const pkUuid = (): string =>
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+
 export const buildPluralKitExport = (
   system: SystemInfo,
   members: Member[],
@@ -391,16 +398,24 @@ export const buildPluralKitExport = (
 
   const pkMembers = realMembers.map(m => ({
     id: idMap[m.id],
+    uuid: pkUuid(),
     name: (m.name || 'Member').slice(0, 100),
     display_name: null,
     color: pkHexColor(m.color),
     birthday: null,
     pronouns: m.pronouns ? m.pronouns.slice(0, 100) : null,
     avatar_url: pkPublicUrl(m.avatar),
+    webhook_avatar_url: null,
     banner: pkPublicUrl(m.banner),
     description: m.description ? m.description.slice(0, 1000) : null,
-    proxy_tags: [],
+    created: new Date(m.createdAt || Date.now()).toISOString(),
     keep_proxy: false,
+    tts: false,
+    autoproxy_enabled: false,
+    message_count: 0,
+    last_message_timestamp: null,
+    proxy_tags: [],
+    privacy: null,
   }));
 
   const pkSwitches = (history || [])

@@ -3,6 +3,7 @@ import {View, TouchableOpacity} from 'react-native';
 import {Text, TextInput} from './AppText';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
+import i18n from '../i18n/i18n';
 
 export type DateTimeEditorMode =
   | 'datetime'
@@ -61,12 +62,12 @@ const EditableCell = ({
 
   return (
     <View style={{alignItems: 'center', width}}>
-      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel="Increase" hitSlop={{top: 4, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
+      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={i18n.t('a11y.increase')} hitSlop={{top: 4, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
         <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▲</Text>
       </TouchableOpacity>
       <TextInput
         value={text}
-        accessibilityLabel="Value"
+        accessibilityLabel={i18n.t('a11y.value')}
         onChangeText={t => { editing.current = true; setText(t.replace(/[^0-9]/g, '')); }}
         onFocus={() => { editing.current = true; }}
         onBlur={() => commit()}
@@ -77,7 +78,7 @@ const EditableCell = ({
         maxLength={Math.max(pad, String(max).length)}
         style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 4, paddingVertical: 4, minWidth: width, textAlign: 'center', fontSize: fs(14), color: T.text, fontWeight: '500', fontFamily: 'monospace'}}
       />
-      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel="Decrease" hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
+      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={i18n.t('a11y.decrease')} hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
         <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▼</Text>
       </TouchableOpacity>
       {label ? <Text style={{fontSize: fs(9), color: T.muted, marginTop: 2, letterSpacing: 0.5}} accessibilityElementsHidden importantForAccessibility="no">{label}</Text> : null}
@@ -218,7 +219,7 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                   width={44} label="MIN" T={T}
                 />
                 <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}
-                  accessibilityRole="button" accessibilityLabel={isPM ? 'PM, switch to AM' : 'AM, switch to PM'}
+                  accessibilityRole="button" accessibilityLabel={isPM ? i18n.t('a11y.switchToAm') : i18n.t('a11y.switchToPm')}
                   style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, marginLeft: 4}}>
                   <Text style={{fontSize: fs(13), color: T.accent, fontWeight: '600'}}>{isPM ? 'PM' : 'AM'}</Text>
                 </TouchableOpacity>

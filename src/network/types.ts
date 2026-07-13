@@ -50,6 +50,8 @@ export interface NetworkSettings {
   token?: string;
 }
 
+export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal';
+
 export type NetMessage =
   | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target' }
   | { t: 'disconnect' }
@@ -58,7 +60,40 @@ export type NetMessage =
   | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean }
   | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean }
   | { t: 'sync_req'; hashes: Record<string, string> }
-  | { t: 'dm'; body: string; ts: number };
+  | { t: 'dm'; body: string; ts: number }
+  | { t: 'mirror_req'; feature: MirrorFeature }
+  | { t: 'mirror'; feature: MirrorFeature; seq: number; total: number; data: string; none?: boolean }
+  | { t: 'mirror_media'; feature: MirrorFeature; memberId: string; data: string };
+
+export interface MirrorMember {
+  id: string;
+  name: string;
+  pronouns?: string;
+  role?: string;
+  color?: string;
+  description?: string;
+  archived?: boolean;
+  customFields?: {name: string; value: string | number | boolean | null; type?: string; markdown?: boolean}[];
+}
+
+export interface MirrorGroup {
+  id: string;
+  name: string;
+  color?: string;
+  kind?: string;
+  parentId?: string;
+  sortOrder?: number;
+}
+
+export interface MirrorCacheEntry {
+  feature: MirrorFeature;
+  fetchedAt: number;
+  none?: boolean;
+  data: any;
+  media?: Record<string, string>;
+}
+
+export const MIRROR_CACHE_PREFIX = 'ps:friendMirror:';
 
 export const SYNC_EXCLUDE_KEYS = [
   'ps:networkIdentity',

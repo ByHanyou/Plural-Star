@@ -7,6 +7,9 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, PALETTE, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay} from '../utils';
+import {useDragReorder} from '../hooks/useDragReorder';
+import {DragHandle, ReorderLockButton} from '../components/DragHandle';
+import {PlusMinusIcon} from '../components/Glyphs';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -47,12 +50,13 @@ interface MemberCardProps {
   fields: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean};
   prevName?: string;
   nextName?: string;
+  dragHandle?: React.ReactNode;
 }
 
 const MemberCard = React.memo(function MemberCard({
   m, index, isLast, selectionMode, isSelected, showReorder,
   front, allFrontIds, groups, T, fs, t,
-  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember, onQuickFront, onRemoveFromFront, fields, prevName, nextName,
+  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember, onQuickFront, onRemoveFromFront, fields, prevName, nextName, dragHandle,
 }: MemberCardProps) {
   const tier = getMemberTier(m.id, front);
   const isFronting = allFrontIds.has(m.id);
@@ -79,6 +83,7 @@ const MemberCard = React.memo(function MemberCard({
       accessibilityActions={[{name: 'longpress', label: t('members.selectAction')}]}
       onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'longpress') onEnterSelection(m.id); }}>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
+        {dragHandle}
         {selectionMode && (
           <View style={{width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? T.accent : T.border, backgroundColor: isSelected ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
             {isSelected && <Text style={{fontSize: fs(12), fontWeight: '700', color: T.bg}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
@@ -115,7 +120,7 @@ const MemberCard = React.memo(function MemberCard({
                 accessibilityRole="button" accessibilityLabel={`${isFronting ? t('members.removeFromFront') : t('members.addToFront')}, ${m.name}`}
                 style={{width: 28, height: 28, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
                   backgroundColor: isFronting ? `${T.danger}12` : T.accentBg, borderColor: isFronting ? `${T.danger}50` : `${T.accent}40`}}>
-                <Text style={{fontSize: fs(15), lineHeight: fs(15), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', fontWeight: '600', color: isFronting ? T.danger : T.accent}} importantForAccessibility="no">{isFronting ? '−' : '＋'}</Text>
+                <PlusMinusIcon minus={isFronting} size={12} color={isFronting ? T.danger : T.accent} />
               </TouchableOpacity>
             )}
           </View>
@@ -268,7 +273,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     return nameMatch && groupMatch && tagMatch;
   }), sortMode), [tabMembers, deferredQuery, activeGroupIds, activeTag, sortMode]);
 
-  const showReorder = sortMode === 'manual' && memberTab === 'active' && !query && !activeGroup && !activeTag;
+  const showReorder = sortMode === 'manual' && (memberTab === 'active' || memberTab === 'customFronts') && !query && !activeGroup && !activeTag;
 
   useEffect(() => {
     const id = setTimeout(() => scrollToTop(false), 0);
@@ -301,7 +306,31 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     onReorderMember && onReorderMember(id, direction);
   }, [filtered, t, onReorderMember]);
 
+  const [reorderOn, setReorderOn] = useState(false);
+  const onDropMember = useCallback((id: string, from: number, to: number) => {
+    if (!onReorderMember || to === from) return;
+    const steps = Math.abs(to - from);
+    const dir: 'up' | 'down' = to > from ? 'down' : 'up';
+    for (let i = 0; i < steps; i++) onReorderMember(id, dir);
+    const msg = to === 0
+      ? t('common.movedToTop')
+      : to === filtered.length - 1
+        ? t('common.movedToBottom')
+        : dir === 'up'
+          ? t('common.movedAbove', {name: filtered[to].name})
+          : t('common.movedBelow', {name: filtered[to].name});
+    AccessibilityInfo.announceForAccessibility(msg);
+  }, [onReorderMember, filtered, t]);
+  const {drag, dragging, registerHeight, makeHandlePanHandlers} = useDragReorder({enabled: reorderOn && showReorder && !!onReorderMember, onDrop: onDropMember});
+
   const renderMember = useCallback(({item: m, index}: {item: Member; index: number}) => (
+    <View
+      onLayout={e => registerHeight(m.id, e.nativeEvent.layout.height)}
+      style={{
+        borderTopWidth: 2,
+        borderTopColor: dragging && drag.key !== m.id && drag.siblings[drag.target] === m.id ? T.accent : 'transparent',
+        ...(drag.key === m.id ? {transform: [{translateY: drag.dy}], zIndex: 10, elevation: 6} : null),
+      }}>
     <MemberCard
       m={m}
       index={index}
@@ -330,15 +359,21 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       fields={listFields}
       prevName={index > 0 ? filtered[index - 1].name : undefined}
       nextName={index < filtered.length - 1 ? filtered[index + 1].name : undefined}
+      dragHandle={showReorder && !selectionMode ? (
+        <DragHandle T={T} active={reorderOn} panHandlers={makeHandlePanHandlers(m.id, () => filtered.map(x => x.id))} name={m.name}
+          position={index + 1} count={filtered.length}
+          onStep={dir => handleReorder(m.id, dir === 1 ? 'down' : 'up')} />
+      ) : undefined}
     />
-  ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields, onQuickAddToFront, onRemoveFromFront]);
+    </View>
+  ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields, onQuickAddToFront, onRemoveFromFront, reorderOn, drag, dragging, registerHeight, makeHandlePanHandlers]);
 
   const allVisibleIds = filtered.map(m => m.id);
   const allSelectedInView = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
 
   const flashExtraData = useMemo(
-    () => ({T, front, groups, showReorder, filteredLength: filtered.length, selectionMode, selectedCount: selectedIds.size, listFields}),
-    [T, front, groups, showReorder, filtered.length, selectionMode, selectedIds.size, listFields],
+    () => ({T, front, groups, showReorder, filteredLength: filtered.length, selectionMode, selectedCount: selectedIds.size, listFields, reorderOn, drag}),
+    [T, front, groups, showReorder, filtered.length, selectionMode, selectedIds.size, listFields, reorderOn, drag],
   );
   const toggleSelectAll = () => {
     if (allSelectedInView) {
@@ -434,18 +469,21 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       )}
 
       {!archiveOnly && (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}} contentContainerStyle={{borderBottomWidth: 1, borderBottomColor: T.border}}>
-        {(['active', 'customFronts'] as const).map(tab => (
-          <TouchableOpacity key={tab} onPress={() => switchTab(tab)} activeOpacity={0.7}
-            accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
-            style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
-            <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}} numberOfLines={1}>
-              {tab === 'active' ? t('members.active')
-                : `${t('members.customFronts')}${customFrontCount > 0 ? ` (${customFrontCount})` : ''}`}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow: 0, flex: 1}}>
+          {(['active', 'customFronts'] as const).map(tab => (
+            <TouchableOpacity key={tab} onPress={() => switchTab(tab)} activeOpacity={0.7}
+              accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
+              style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
+              <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}} numberOfLines={1}>
+                {tab === 'active' ? t('members.active')
+                  : `${t('members.customFronts')}${customFrontCount > 0 ? ` (${customFrontCount})` : ''}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        {showReorder && <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />}
+      </View>
       )}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
@@ -524,6 +562,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       maintainVisibleContentPosition={{disabled: true}}
       contentContainerStyle={{padding: 16, paddingBottom: 32, backgroundColor: T.bg}}
       keyboardShouldPersistTaps="handled"
+      scrollEnabled={!dragging}
       onScroll={e => setShowTop((e.nativeEvent.contentOffset?.y || 0) > 500)}
       scrollEventThrottle={32}
       ListHeaderComponent={ListHeader}

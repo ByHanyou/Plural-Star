@@ -5,6 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {pickImageFromGallery} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
 import {Avatar} from '../components/Avatar';
+import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorPicker} from '../components/ColorPicker';
 import {PALETTE, fontScale} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, colorName, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR} from '../utils';
@@ -434,7 +435,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                     <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
                     {val ? (
                       <View>
-                        <Image source={{uri: String(val)}} accessibilityRole="image" accessibilityLabel="Image" style={{width: '100%', height: 180, borderRadius: 8, backgroundColor: T.surface}} resizeMode="cover" />
+                        <Image source={{uri: String(val)}} accessibilityRole="image" accessibilityLabel={t('a11y.image')} style={{width: '100%', height: 180, borderRadius: 8, backgroundColor: T.surface}} resizeMode="cover" />
                         {!readOnly && (
                           <View style={{flexDirection: 'row', gap: 16, marginTop: 6}}>
                             <TouchableOpacity onPress={() => pickCfImage(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.change')}><Text style={{fontSize: fs(12), color: T.accent}}>{t('common.change')}</Text></TouchableOpacity>
@@ -445,7 +446,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                     ) : !readOnly ? (
                       <TouchableOpacity onPress={() => pickCfImage(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('customFields.addImage')}
                         style={{borderWidth: 1.5, borderStyle: 'dashed', borderColor: T.border, borderRadius: 10, paddingVertical: 22, alignItems: 'center', backgroundColor: T.surface}}>
-                        <Text style={{fontSize: fs(20), lineHeight: fs(20), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.dim}}>＋</Text>
+                        <PlusMinusIcon size={16} color={T.dim} />
                         <Text style={{fontSize: fs(12), color: T.dim, marginTop: 4}}>{t('customFields.addImage')}</Text>
                       </TouchableOpacity>
                     ) : null}

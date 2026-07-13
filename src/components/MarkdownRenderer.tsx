@@ -25,7 +25,7 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: ThemeColors}) =>
   if (failed) {
     return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
-  return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" onError={() => setFailed(true)} />;
+  return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
 const AutoImage = ({uri, T, hintRatio}: {uri: string; T: ThemeColors; hintRatio?: number}) => {
@@ -44,7 +44,7 @@ const AutoImage = ({uri, T, hintRatio}: {uri: string; T: ThemeColors; hintRatio?
   }
   const r = ratio || 1.5;
   const sizing = r >= 1 ? {width: '100%' as const, aspectRatio: r} : {width: '100%' as const, height: 280};
-  return <Image source={{uri}} style={[{borderRadius: 8, marginVertical: 2}, sizing]} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" onError={() => setFailed(true)} />;
+  return <Image source={{uri}} style={[{borderRadius: 8, marginVertical: 2}, sizing]} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
 const renderTextWithMentions = (
@@ -127,7 +127,7 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
         const w = widthMatch ? Number(widthMatch[1]) : undefined;
         const h = heightMatch ? Number(heightMatch[1]) : undefined;
         if (isValidUrl) {
-          parts.push(<Image key={key++} source={{uri: url}} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" />);
+          parts.push(<Image key={key++} source={{uri: url}} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} />);
         } else {
           parts.push(<Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImageUrl', {url})}</Text>);
         }
@@ -237,7 +237,7 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
                   const sideH = (wAttr && hAttr) ? Math.round(sideW * (Number(hAttr[1]) / Number(wAttr[1]))) : Math.round(sideW * 1.4);
                   return (
                     <View key={i} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
-                      <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" accessibilityRole="image" accessibilityLabel="Image" />
+                      <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} />
                       <Text style={{flex: 1, fontSize: fs(13, T), color: T.dim, lineHeight: 20}}>{renderInlineHTML(restHtml, T, members, onMentionPress)}</Text>
                     </View>
                   );

@@ -3,14 +3,15 @@ import {View, ScrollView, TouchableOpacity, Switch, Alert, AccessibilityInfo, Mo
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {fmtDur, fmtTime, uid, Member, MemberGroup, JournalEntry} from '../utils';
+import {fmtDur, fmtTime, uid, Member, MemberGroup, JournalEntry, CustomFieldDef, Relationship, RelationshipTypeDef, PRESET_RELATIONSHIP_TYPES} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
 import {useNetwork} from '../network/useNetwork';
 import {NetworkManager} from '../network/NetworkManager';
-import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode, PRIVACY_BUCKETS_KEY} from '../network/types';
+import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode, PRIVACY_BUCKETS_KEY, MirrorFeature} from '../network/types';
+import {MirrorScreen} from './MirrorScreen';
 
 interface Props {
   theme: ThemeColors;
@@ -44,12 +45,14 @@ const normalizeBucket = (b: PrivacyBucket): PrivacyBucket => ({
   customFields: b.customFields || emptyScope(),
   medical: b.medical || emptyScope(),
   connections: b.connections || emptyScope(),
+  friendPeerIds: b.friendPeerIds || [],
 });
 
 export const NetworkScreen = ({theme: T}: Props) => {
   const members = useAppStore(s => s.members);
   const groups = useAppStore(s => s.groups);
   const journal = useAppStore(s => s.journal);
+  const medical = useAppStore(s => s.medical);
   const {t} = useTranslation();
   const fs = fontScale(T);
   const net = useNetwork();
@@ -66,11 +69,19 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const [editBucket, setEditBucket] = useState<PrivacyBucket | null>(null);
   const [pickerFeature, setPickerFeature] = useState<BucketFeature | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
+  const [mirrorMenuFor, setMirrorMenuFor] = useState<Friend | null>(null);
+  const [mirror, setMirror] = useState<{peerId: string; name: string; feature: MirrorFeature} | null>(null);
+  const [fieldDefs, setFieldDefs] = useState<CustomFieldDef[]>([]);
+  const [relationships, setRelationships] = useState<Relationship[]>([]);
+  const [relTypes, setRelTypes] = useState<RelationshipTypeDef[]>([]);
 
   useEffect(() => {
     store.get<PrivacyBucket[]>(PRIVACY_BUCKETS_KEY, []).then(saved => {
       if (saved && Array.isArray(saved)) setBuckets(saved.map(normalizeBucket));
     }).catch(e => logError('network', e));
+    store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || [])).catch(e => logError('network', e));
+    store.get<Relationship[]>(KEYS.relationships, []).then(r => setRelationships(r || [])).catch(e => logError('network', e));
+    store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []).then(rt => setRelTypes(rt || [])).catch(e => logError('network', e));
   }, []);
 
   const saveBuckets = async (next: PrivacyBucket[]) => {
@@ -326,6 +337,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
     ]);
   };
   const pickableMembers = members.filter(m => !m.deleted && !m.isCustomFront);
+  const memberName = (id: string) => members.find(m => m.id === id)?.name || '?';
+  const relLabel = (r: Relationship): string => {
+    const rt = relTypes.find(x => x.id === r.typeId) || PRESET_RELATIONSHIP_TYPES.find(x => x.id === r.typeId);
+    const arrow = rt?.directional ? '→' : '↔';
+    return `${memberName(r.fromId)} ${arrow} ${memberName(r.toId)}${rt ? `  ·  ${rt.name}` : ''}`;
+  };
 
   const deviceStatusText = (f: Friend): string => {
     if (f.status === 'entered_theirs') return t('network.waitingThem');
@@ -345,6 +362,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
           <Text style={{fontSize: fs(14), fontWeight: '600', color: online || f.status !== 'accepted' ? T.text : T.muted}} numberOfLines={1} importantForAccessibility="no">{f.displayName}</Text>
           <View importantForAccessibility="no">{statusNode}</View>
         </View>
+        {f.kind !== 'device' && f.status === 'accepted' && (
+          <TouchableOpacity onPress={() => setMirrorMenuFor(f)} activeOpacity={0.7} accessibilityRole="button"
+            accessibilityLabel={`${t('network.viewShared')}, ${f.displayName}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            <Text style={{color: T.dim, fontSize: fs(16)}} importantForAccessibility="no">⋯</Text>
+          </TouchableOpacity>
+        )}
         {f.kind !== 'device' && f.status === 'accepted' && (() => {
           const atCap = !f.showInNotification && net.friends.filter(x => x.showInNotification).length >= MAX_NOTIF_FRIENDS;
           return (
@@ -490,7 +513,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <View key={f} style={{paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.text}}>{featureLabel(f)}</Text>
-                  {(['all', 'select', 'none'] as PrivacyScopeMode[]).map(mode => {
+                  {((f === 'history' ? ['all', 'none'] : ['all', 'select', 'none']) as PrivacyScopeMode[]).map(mode => {
                     const sel = editBucket[f].mode === mode;
                     const label = mode === 'all' ? t('network.scopeAll') : mode === 'select' ? t('network.scopeSelect') : t('network.scopeNone');
                     return (
@@ -512,6 +535,36 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 )}
               </View>
             ))}
+            {editBucket && (
+              <View style={{paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
+                <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text, marginBottom: 6}}>{t('network.friends')}</Text>
+                {net.friends.filter(f => f.kind !== 'device' && f.status === 'accepted').length === 0 ? (
+                  <Text style={{fontSize: fs(11), color: T.dim}}>{t('network.noFriends')}</Text>
+                ) : (
+                  <ScrollView style={{maxHeight: 150}}>
+                    {net.friends.filter(f => f.kind !== 'device' && f.status === 'accepted').map(f => {
+                      const checked = (editBucket.friendPeerIds || []).includes(f.peerId);
+                      return (
+                        <TouchableOpacity key={f.peerId} activeOpacity={0.7}
+                          onPress={() => setEditBucket({
+                            ...editBucket,
+                            friendPeerIds: checked
+                              ? (editBucket.friendPeerIds || []).filter(id => id !== f.peerId)
+                              : [...(editBucket.friendPeerIds || []), f.peerId],
+                          })}
+                          accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={f.displayName}
+                          style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7}}>
+                          <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} importantForAccessibility="no">
+                            {checked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
+                          </View>
+                          <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} importantForAccessibility="no">{f.displayName}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
+            )}
             <View style={{flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: T.border}}>
               <TouchableOpacity onPress={() => setEditBucket(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                 style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
@@ -545,6 +598,22 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 ? journal
                     .filter(e => !pickerSearch.trim() || (e.title || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
                     .map(e => ({id: e.id, name: `${e.password ? '🔒 ' : ''}${e.title || fmtTime(e.timestamp)}`}))
+                : pickerFeature === 'medical'
+                ? [
+                    {id: 'emergency', name: `⚕ ${t('medical.emergency')}`},
+                    ...(medical?.medications || []).map(m => ({id: m.id, name: m.name})),
+                    ...(medical?.appointments || []).map(a => ({id: a.id, name: a.title})),
+                    ...(medical?.history || []).map(h => ({id: h.id, name: h.title})),
+                  ].filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+                : pickerFeature === 'customFields'
+                ? [...fieldDefs]
+                    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+                    .map(d => ({id: d.id, name: d.name}))
+                    .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+                : pickerFeature === 'connections'
+                ? relationships
+                    .map(r => ({id: r.id, name: relLabel(r)}))
+                    .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
                 : pickableMembers
                     .filter(m => !pickerSearch.trim() || m.name.toLowerCase().includes(pickerSearch.trim().toLowerCase()))
                     .map(m => ({id: m.id, name: m.name}))
@@ -569,6 +638,48 @@ export const NetworkScreen = ({theme: T}: Props) => {
           </View>
         </View>
       </Modal>
+
+      <Modal visible={!!mirrorMenuFor} transparent animationType="fade" onRequestClose={() => setMirrorMenuFor(null)}>
+        <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}} activeOpacity={1} onPress={() => setMirrorMenuFor(null)} accessibilityRole="none">
+          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}} numberOfLines={1}>
+              {mirrorMenuFor?.displayName} — {t('network.viewShared')}
+            </Text>
+            {([
+              {feature: 'members' as MirrorFeature, label: t('tabs.members')},
+              {feature: 'groups' as MirrorFeature, label: t('members.fieldGroups')},
+              {feature: 'medical' as MirrorFeature, label: t('medical.title')},
+              {feature: 'journal' as MirrorFeature, label: t('tabs.journal')},
+            ]).map(opt => (
+              <TouchableOpacity key={opt.feature} activeOpacity={0.7}
+                onPress={() => {
+                  const f = mirrorMenuFor;
+                  setMirrorMenuFor(null);
+                  if (f) setMirror({peerId: f.peerId, name: f.displayName, feature: opt.feature});
+                }}
+                accessibilityRole="button" accessibilityLabel={opt.label}
+                style={{paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>
+                <Text style={{fontSize: fs(14), color: T.text}}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity onPress={() => setMirrorMenuFor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+              style={{alignItems: 'center', paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>
+              <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {mirror && (
+        <MirrorScreen
+          theme={T}
+          visible
+          peerId={mirror.peerId}
+          displayName={mirror.name}
+          feature={mirror.feature}
+          onClose={() => setMirror(null)}
+        />
+      )}
     </View>
   );
 };

@@ -29,7 +29,7 @@ export class AppErrorBoundary extends React.Component<{children: React.ReactNode
         <Text style={{color: '#666', fontSize: 11, marginBottom: 24, textAlign: 'center'}} numberOfLines={4}>
           {msg}
         </Text>
-        <TouchableOpacity onPress={this.reset} style={{paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, backgroundColor: '#3a7bd5'}}>
+        <TouchableOpacity onPress={this.reset} accessibilityRole="button" style={{paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, backgroundColor: '#3a7bd5'}}>
           <Text style={{color: '#fff', fontSize: 14, fontWeight: '600'}}>
             {i18n.t('errorBoundary.retry')}
           </Text>

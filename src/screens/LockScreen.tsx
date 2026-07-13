@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import {View, Image, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity} from 'react-native';
+import {View, Image, StyleSheet, ScrollView, Platform, TouchableOpacity} from 'react-native';
+import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';

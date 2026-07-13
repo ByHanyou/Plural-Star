@@ -12,7 +12,23 @@ class AppDelegate: RCTAppDelegate {
     moduleName = "PluralSpace"
     dependencyProvider = RCTAppDependencyProvider()
     initialProps = [:]
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    application.registerForRemoteNotifications()
+    return result
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+  ) {
+    PushTokenHolder.shared.set(deviceToken.map { String(format: "%02x", $0) }.joined())
+  }
+
+  override func application(
+    _ application: UIApplication,
+    didFailToRegisterForRemoteNotificationsWithError error: Error
+  ) {
+    PushTokenHolder.shared.fail()
   }
 
   override func bundleURL() -> URL? {

@@ -1,5 +1,7 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, FlatList, Image, Linking, Platform} from 'react-native';
+import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
+import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
@@ -28,6 +30,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const onSaveChannels = saveChatChannels;
   const {t} = useTranslation();
   const fs = fontScale(T);
+  const behavior = useKeyboardBehavior();
   const [activeChannelId, setActiveChannelId] = useState<string | null>(channels.find(c => !c.archived)?.id || null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -305,7 +308,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
             </View>
             {msg.type === 'image' ? (
               (typeof msg.content === 'string' && msg.content.trim().length > 0) ? (
-                <Image source={{uri: msg.content.trim()}} accessibilityRole="image" accessibilityLabel="Image" style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
+                <Image source={{uri: msg.content.trim()}} accessibilityRole="image" accessibilityLabel={t('a11y.image')} style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
               ) : (
                 <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginTop: 4}}>{t('chat.imageUnavailable')}</Text>
               )
@@ -367,6 +370,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
   if (showChannelList) {
     return (
+      <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
       <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.channels')}</Text>
         {activeChannels.map(ch => (
@@ -423,11 +427,12 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={behavior}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <TouchableOpacity onPress={() => setShowChannelList(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.channels')} style={{marginRight: 10}}>
           <Text style={{fontSize: fs(16), color: T.dim}}>☰</Text>
@@ -539,6 +544,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
           <Text style={{fontSize: fs(16), color: input.trim() ? T.bg : T.muted}}>{editingMessageId ? '✓' : '↑'}</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 };

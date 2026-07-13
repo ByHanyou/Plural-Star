@@ -13,7 +13,7 @@ import {FrontState, Member, Medication, MedicalAppointment, fmtDur, fmtTime} fro
 import {logError} from '../utils/log';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
-import {MAX_NOTIF_FRIENDS} from '../network/types';
+import {MAX_NOTIF_FRIENDS, Friend, FrontShare} from '../network/types';
 import i18n from '../i18n/i18n';
 
 export const NOTIF_CHANNEL_ID = 'plural-space-front';
@@ -25,6 +25,8 @@ export const FRONT_SUMMARY_ID = 'ps-front-summary';
 export const REMINDER_CHANNEL_ID = 'plural-space-reminders';
 export const FRONT_CHECK_NOTIF_ID = 'ps-front-check';
 export const NOTEBOARD_NOTIF_ID = 'ps-noteboard-unread';
+export const FRIEND_ALERT_CHANNEL_ID = 'plural-space-friend-alerts';
+export const FRIEND_ALERT_PREFIX = 'ps-friend-alert-';
 
 export const setupNotificationChannel = async () => {
   await notifee.createChannel({
@@ -41,6 +43,15 @@ export const setupReminderChannel = async () => {
     id: REMINDER_CHANNEL_ID,
     name: 'Reminders',
     importance: AndroidImportance.DEFAULT,
+    visibility: AndroidVisibility.PUBLIC,
+  });
+};
+
+export const setupFriendAlertChannel = async () => {
+  await notifee.createChannel({
+    id: FRIEND_ALERT_CHANNEL_ID,
+    name: 'Friend Updates',
+    importance: AndroidImportance.HIGH,
     visibility: AndroidVisibility.PUBLIC,
   });
 };
@@ -169,6 +180,22 @@ const buildFriendLines = (): string[] => {
   return lines;
 };
 
+const friendStatusLines = (s: FrontShare): string[] => {
+  const lines: string[] = [];
+  if (s.primary || s.coFront || s.coConscious) {
+    if (s.primary) lines.push(i18n.t('notification.primary', {names: s.primary, defaultValue: `Primary: ${s.primary}`}));
+    if (s.coFront) lines.push(i18n.t('notification.coFront', {names: s.coFront, defaultValue: `Co-Front: ${s.coFront}`}));
+    if (s.coConscious) lines.push(i18n.t('notification.coConscious', {names: s.coConscious, defaultValue: `Co-Conscious: ${s.coConscious}`}));
+  } else {
+    lines.push(s.fronters);
+  }
+  if (s.mood) lines.push(i18n.t('notification.mood', {mood: s.mood, defaultValue: `Mood: ${s.mood}`}));
+  if (s.location) lines.push(i18n.t('notification.at', {location: s.location, defaultValue: `At: ${s.location}`}));
+  if (s.note) lines.push(i18n.t('notification.note', {note: s.note, defaultValue: `Note: ${s.note}`}));
+  if (s.startTime) lines.push(i18n.t('notification.since', {time: fmtTime(s.startTime), defaultValue: `Since ${fmtTime(s.startTime)}`}));
+  return lines;
+};
+
 const buildFriendNotifs = (): {id: string; title: string; body: string; big: string}[] => {
   const st = NetworkManager.getState();
   if (!st.enabled) return [];
@@ -179,18 +206,7 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const dur = s.startTime ? fmtDur(s.startTime) : '';
-    const lines: string[] = [];
-    if (s.primary || s.coFront || s.coConscious) {
-      if (s.primary) lines.push(i18n.t('notification.primary', {names: s.primary, defaultValue: `Primary: ${s.primary}`}));
-      if (s.coFront) lines.push(i18n.t('notification.coFront', {names: s.coFront, defaultValue: `Co-Front: ${s.coFront}`}));
-      if (s.coConscious) lines.push(i18n.t('notification.coConscious', {names: s.coConscious, defaultValue: `Co-Conscious: ${s.coConscious}`}));
-    } else {
-      lines.push(s.fronters);
-    }
-    if (s.mood) lines.push(i18n.t('notification.mood', {mood: s.mood, defaultValue: `Mood: ${s.mood}`}));
-    if (s.location) lines.push(i18n.t('notification.at', {location: s.location, defaultValue: `At: ${s.location}`}));
-    if (s.note) lines.push(i18n.t('notification.note', {note: s.note, defaultValue: `Note: ${s.note}`}));
-    if (s.startTime) lines.push(i18n.t('notification.since', {time: fmtTime(s.startTime), defaultValue: `Since ${fmtTime(s.startTime)}`}));
+    const lines = friendStatusLines(s);
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
       title: f.displayName,
@@ -199,6 +215,33 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
     });
   }
   return out;
+};
+
+export const showFriendUpdateAlert = async (f: Friend) => {
+  if (Platform.OS !== 'android') return;
+  if (!NetworkManager.getState().enabled) return;
+  const s = f.lastStatus;
+  if (!s || !s.fronters) return;
+  await setupFriendAlertChannel();
+  const dur = s.startTime ? fmtDur(s.startTime) : '';
+  const lines = friendStatusLines(s);
+  await notifee.displayNotification({
+    id: `${FRIEND_ALERT_PREFIX}${f.peerId}`,
+    title: f.displayName,
+    body: `${s.fronters}${dur ? `  ·  ${dur}` : ''}`,
+    android: {
+      channelId: FRIEND_ALERT_CHANNEL_ID,
+      ongoing: false,
+      autoCancel: true,
+      onlyAlertOnce: false,
+      smallIcon: 'ic_stat_notification',
+      importance: AndroidImportance.HIGH,
+      visibility: AndroidVisibility.PUBLIC,
+      pressAction: {id: 'default'},
+      color: '#DAA520',
+      style: {type: AndroidStyle.INBOX as const, lines: lines.slice(0, 6)},
+    },
+  });
 };
 
 const cancelStaleFriendNotifs = async (keepIds: Set<string>) => {
@@ -271,15 +314,8 @@ export const showFrontNotification = async (
     const body = content ? content.body : (emergencyLine || onlineLabel);
     const ownBig = content ? content.bigText : (emergencyLine || '');
 
-    await notifee.displayNotification({
-      id: NOTIF_ID,
-      title,
-      body,
-      android: {...frontAndroidConfig(ownBig, [], onlineLabel), asForegroundService: netOn},
-    });
-    if (netOn) fgsBound = true;
-
     const friendNotifs = buildFriendNotifs();
+    await syncFriendNotifications(friendNotifs);
     if (friendNotifs.length > 0) {
       await notifee.displayNotification({
         id: FRONT_SUMMARY_ID,
@@ -303,7 +339,13 @@ export const showFrontNotification = async (
       try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
     }
 
-    await syncFriendNotifications(friendNotifs);
+    await notifee.displayNotification({
+      id: NOTIF_ID,
+      title,
+      body,
+      android: {...frontAndroidConfig(ownBig, [], onlineLabel), asForegroundService: netOn},
+    });
+    if (netOn) fgsBound = true;
   } catch (e) {
     console.error('[PluralSpace] Notification error:', e);
   }
