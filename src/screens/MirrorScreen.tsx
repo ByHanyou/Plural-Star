@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {View, Modal, ScrollView, FlatList, TouchableOpacity, Image, ActivityIndicator} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
@@ -31,6 +31,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const [unlockFor, setUnlockFor] = useState<JournalEntry | null>(null);
   const [pwInput, setPwInput] = useState('');
   const [pwError, setPwError] = useState(false);
+  const waitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const reload = useCallback(async () => {
     const cache = await NetworkManager.loadMirror(peerId, feature);
@@ -44,6 +45,13 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
 
   const request = useCallback(() => {
     setRequesting('sent');
+    if (waitRef.current) clearTimeout(waitRef.current);
+    // The node drops packets for offline peers — no error comes back, so an unanswered
+    // request would spin forever. Time it out and fall back to the cached copy.
+    waitRef.current = setTimeout(() => {
+      waitRef.current = null;
+      setRequesting(r => (r === 'sent' ? 'failed' : r));
+    }, 12000);
     NetworkManager.requestMirror(peerId, feature)
       .catch(() => setRequesting('failed'));
     if (feature === 'groups') {
@@ -63,11 +71,21 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     request();
     const unsub = NetworkManager.onMirrorUpdated((pid, feat) => {
       if (pid === peerId && (feat === feature || feat === 'members')) {
+        if (waitRef.current) {
+          clearTimeout(waitRef.current);
+          waitRef.current = null;
+        }
         setRequesting('idle');
         reload();
       }
     });
-    return unsub;
+    return () => {
+      unsub();
+      if (waitRef.current) {
+        clearTimeout(waitRef.current);
+        waitRef.current = null;
+      }
+    };
   }, [visible, peerId, feature, reload, request]);
 
   const featureLabel =
@@ -257,9 +275,18 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       return <View style={{padding: 24}}><Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>{t('network.mirrorNothing')}</Text></View>;
     }
     if (!entry) {
+      // Never render an empty void — either we're waiting on them, or there's nothing
+      // cached and they're unreachable. Say which.
       return (
         <View style={{padding: 32, alignItems: 'center'}}>
-          {requesting === 'sent' ? <ActivityIndicator color={T.accent} /> : null}
+          {requesting === 'sent' ? (
+            <>
+              <ActivityIndicator color={T.accent} />
+              <Text style={{fontSize: fs(12), color: T.dim, marginTop: 12, textAlign: 'center'}}>{t('network.mirrorLoading')}</Text>
+            </>
+          ) : (
+            <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>{t('network.mirrorEmptyOffline')}</Text>
+          )}
         </View>
       );
     }

@@ -33,6 +33,41 @@ const downscaleOrCopy = async (sourceUri: string, destPath: string, max = AVATAR
   }
 };
 
+// Avatar thumbnail for friend mirrors. A mirror row renders a ~36px circle, so shipping the
+// full stored avatar is pure waste — and dangerous: the node caps /send bodies at 1 MiB, and
+// a sealed+base64'd payload inflates ~1.35x, so a big PNG (or a raw GIF avatar, which we
+// store un-downscaled) either got skipped by the size guard or blew the cap. Either way the
+// icon silently never arrived. JPEG @128px lands in the low tens of KB.
+const MIRROR_THUMB_MAX = 128;
+export const mirrorThumbDataUri = async (sourceUri: string): Promise<string | null> => {
+  if (!sourceUri) return null;
+  if (sourceUri.startsWith('data:')) {
+    return sourceUri.length <= 200 * 1024 ? sourceUri : null;
+  }
+  if (!sourceUri.startsWith('file://')) return null;
+  const path = sourceUri.replace('file://', '').split('#')[0].split('?')[0];
+  try {
+    const resized = await ImageResizer.createResizedImage(`file://${path}`, MIRROR_THUMB_MAX, MIRROR_THUMB_MAX, 'JPEG', 70, 0);
+    const resizedPath = resized.uri.replace('file://', '');
+    const b64 = await ReactNativeBlobUtil.fs.readFile(resizedPath, 'base64');
+    try { await ReactNativeBlobUtil.fs.unlink(resizedPath); } catch {}
+    return `data:image/jpeg;base64,${b64}`;
+  } catch (e) {
+    // Animated GIFs and the odd malformed file land here. Send the original only if it's
+    // small enough to survive the 1 MiB body cap; otherwise no icon beats a dead request.
+    logError('media', e);
+    try {
+      const raw = await ReactNativeBlobUtil.fs.readFile(path, 'base64');
+      if (raw.length > 200 * 1024) return null;
+      const ext = (path.split('.').pop() || 'jpg').toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      return `data:${mime};base64,${raw}`;
+    } catch {
+      return null;
+    }
+  }
+};
+
 export const saveAvatar = async (memberId: string, base64: string): Promise<string> => {
   await ensureDir(AVATAR_DIR);
   const raw = base64.includes(',') ? base64.split(',')[1] : base64;

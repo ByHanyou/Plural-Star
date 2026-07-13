@@ -1,7 +1,8 @@
 import { Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import { saveAvatar, saveBannerFromBase64 } from '../utils/mediaUtils';
+import { saveAvatar, saveBannerFromBase64, mirrorThumbDataUri } from '../utils/mediaUtils';
+import { logError } from '../utils/log';
 import { store, KEYS } from '../storage';
 import {
   Identity,
@@ -37,6 +38,7 @@ import {
   MirrorMember,
   MirrorCacheEntry,
   MIRROR_CACHE_PREFIX,
+  MIRROR_SERVED_KEY,
   PrivacyBucket,
   PrivacyScope,
   PRIVACY_BUCKETS_KEY,
@@ -48,6 +50,10 @@ const SYNC_MSG_BUDGET = 64 * 1024;
 const SYNC_CHUNK_SIZE = 48 * 1024;
 const SYNC_PACE_MS = 300;
 const SYNC_MAX_PARTS = 4096;
+// The relay caps a /send body at 1 MiB (http.MaxBytesReader, 1<<20). A mirror_media message
+// is sent whole (not chunked), and sealing + base64 inflates it ~1.35x — so keep the payload
+// comfortably under that or the send is rejected and the avatar silently never lands.
+const MIRROR_MEDIA_MAX = 600 * 1024;
 
 const SYNC_EXCLUDE = new Set(SYNC_EXCLUDE_KEYS);
 
@@ -209,6 +215,7 @@ class NetworkManagerImpl {
     if (this.friends.length > 0) this.persistFriends().catch(() => {});
     this.persistSettings().catch(() => {});
     this.expireStaleClones();
+    await this.loadMirrorServed();
     this.lastHashes = (await store.get<Record<string, string>>(SYNC_STATE_KEY, null)) || {};
     this.identity = await loadOrCreateIdentity();
     try {
@@ -484,6 +491,9 @@ class NetworkManagerImpl {
         this.persistFriends();
         this.notify();
         this.registerWithGateway().catch(() => {});
+        // They're back — push the CURRENT scopes over whatever copy they still hold.
+        // Without this, a bucket narrowed while they were offline never reaches them.
+        if (msg.kind !== 'device') this.refreshMirrorsFor(sender.peerId).catch(e => logError('network', e));
         break;
       }
       case 'disconnect': {
@@ -738,6 +748,63 @@ class NetworkManagerImpl {
   private mirrorListeners: Set<(peerId: string, feature: MirrorFeature) => void> = new Set();
   private mirrorMediaTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
   private mirrorMediaPending: Map<string, Record<string, string>> = new Map();
+  // What we've served to whom. Revocation has to chase the copy we already handed out:
+  // narrowing a bucket is meaningless if the friend keeps the old wider snapshot.
+  private mirrorServed: Map<string, Set<MirrorFeature>> = new Map();
+
+  private async loadMirrorServed(): Promise<void> {
+    try {
+      const raw = await AsyncStorage.getItem(MIRROR_SERVED_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === 'object') {
+        this.mirrorServed = new Map(
+          Object.entries(parsed as Record<string, MirrorFeature[]>).map(([p, f]) => [p, new Set(f)]),
+        );
+      }
+    } catch (e) {
+      logError('network', e);
+    }
+  }
+
+  private async persistMirrorServed(): Promise<void> {
+    try {
+      const obj: Record<string, MirrorFeature[]> = {};
+      this.mirrorServed.forEach((feats, peer) => {
+        obj[peer] = [...feats];
+      });
+      await AsyncStorage.setItem(MIRROR_SERVED_KEY, JSON.stringify(obj));
+    } catch (e) {
+      logError('network', e);
+    }
+  }
+
+  private markMirrorServed(peerId: string, feature: MirrorFeature): void {
+    const set = this.mirrorServed.get(peerId) || new Set<MirrorFeature>();
+    if (set.has(feature)) return;
+    set.add(feature);
+    this.mirrorServed.set(peerId, set);
+    this.persistMirrorServed().catch(() => {});
+  }
+
+  // Re-serve every feature this friend already holds a copy of, using the CURRENT buckets.
+  // A tightened scope sends a smaller payload; a removed scope sends none:true, which the
+  // receiver stores as "nothing shared" and which drops the cached avatars.
+  async refreshMirrorsFor(peerId: string): Promise<void> {
+    const feats = this.mirrorServed.get(peerId);
+    if (!feats || feats.size === 0) return;
+    for (const feat of [...feats]) {
+      await this.handleMirrorReq(peerId, feat).catch(e => logError('network', e));
+    }
+  }
+
+  // Called after the privacy buckets are edited. Pushes the new truth to everyone we've
+  // shared with; friends who are offline get it on their next connect (see routeMessage).
+  refreshAllMirrors(): void {
+    for (const f of this.friends) {
+      if (f.kind === 'device' || f.status !== 'accepted') continue;
+      this.refreshMirrorsFor(f.peerId).catch(e => logError('network', e));
+    }
+  }
 
   onMirrorUpdated(fn: (peerId: string, feature: MirrorFeature) => void): () => void {
     this.mirrorListeners.add(fn);
@@ -756,23 +823,75 @@ class NetworkManagerImpl {
     return `${MIRROR_CACHE_PREFIX}${feature}:${peerId}`;
   }
 
+  // Avatars live in their OWN rows, never inside the cache entry. Android's SQLite
+  // CursorWindow caps a single row read at ~2MB — a system with enough friend avatars
+  // pushed the combined entry past that, getItem threw, and the whole mirror read as
+  // null (blank list). Same reason our own member avatars are files, not AsyncStorage.
+  private mirrorMediaKey(peerId: string, feature: MirrorFeature, memberId: string): string {
+    return `${MIRROR_CACHE_PREFIX}media:${feature}:${peerId}:${memberId}`;
+  }
+
+  private async loadMirrorMedia(peerId: string, feature: MirrorFeature, ids: string[]): Promise<Record<string, string>> {
+    if (ids.length === 0) return {};
+    const out: Record<string, string> = {};
+    const prefix = this.mirrorMediaKey(peerId, feature, '');
+    const keys = ids.map(id => this.mirrorMediaKey(peerId, feature, id));
+    try {
+      // async-storage v3 batch API: getMany returns a key→value record, not tuples.
+      const found = await AsyncStorage.getMany(keys);
+      for (const key in found) {
+        const val = found[key];
+        if (!val) continue;
+        out[key.slice(prefix.length)] = val;
+      }
+    } catch (e) {
+      logError('network', e);
+    }
+    return out;
+  }
+
   async loadMirror(peerId: string, feature: MirrorFeature): Promise<MirrorCacheEntry | null> {
+    let entry: MirrorCacheEntry | null = null;
     try {
       const raw = await AsyncStorage.getItem(this.mirrorCacheKey(peerId, feature));
-      return raw ? JSON.parse(raw) : null;
-    } catch {
+      entry = raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      // Rows written by <=1.13.x carry avatars inline and can exceed Android's ~2MB
+      // CursorWindow read limit — unreadable forever. Drop it so the next mirror can
+      // rewrite a clean (media-less) row instead of failing every open.
+      logError('network', e);
+      AsyncStorage.removeItem(this.mirrorCacheKey(peerId, feature)).catch(() => {});
       return null;
     }
+    if (!entry || entry.none) return entry;
+    if (feature === 'members' && Array.isArray(entry.data)) {
+      const ids = (entry.data as MirrorMember[]).map(m => m?.id).filter(Boolean) as string[];
+      entry.media = await this.loadMirrorMedia(peerId, feature, ids);
+    }
+    return entry;
   }
 
   async requestMirror(peerId: string, feature: MirrorFeature): Promise<void> {
     await this.sendTo(peerId, { t: 'mirror_req', feature });
   }
 
-  private clearMirrorCaches(peerId: string): void {
-    for (const feat of ['members', 'groups', 'medical', 'journal'] as MirrorFeature[]) {
-      AsyncStorage.removeItem(this.mirrorCacheKey(peerId, feat)).catch(() => {});
+  private async clearMirrorMedia(peerId: string, feature: MirrorFeature, keepIds?: Set<string>): Promise<void> {
+    try {
+      const prefix = this.mirrorMediaKey(peerId, feature, '');
+      const all = await AsyncStorage.getAllKeys();
+      const stale = all.filter(k => k.startsWith(prefix) && (!keepIds || !keepIds.has(k.slice(prefix.length))));
+      if (stale.length > 0) await AsyncStorage.removeMany(stale);
+    } catch (e) {
+      logError('network', e);
     }
+  }
+
+  private clearMirrorCaches(peerId: string): void {
+    for (const feat of ['members', 'groups', 'journal'] as MirrorFeature[]) {
+      AsyncStorage.removeItem(this.mirrorCacheKey(peerId, feat)).catch(() => {});
+      this.clearMirrorMedia(peerId, feat).catch(() => {});
+    }
+    if (this.mirrorServed.delete(peerId)) this.persistMirrorServed().catch(() => {});
   }
 
   private effectiveScope(buckets: PrivacyBucket[], peerId: string, feature: MirrorFeature | 'customFields'): {mode: 'all' | 'select' | 'none'; ids: Set<string>} {
@@ -818,7 +937,7 @@ class NetworkManagerImpl {
   }
 
   private async handleMirrorReq(peerId: string, feature: MirrorFeature): Promise<void> {
-    if (feature !== 'members' && feature !== 'groups' && feature !== 'medical' && feature !== 'journal') return;
+    if (feature !== 'members' && feature !== 'groups' && feature !== 'journal') return;
     const fr = this.friends.find(x => x.peerId === peerId && x.kind !== 'device' && x.status === 'accepted');
     if (!fr) return;
     let buckets: PrivacyBucket[] = [];
@@ -917,22 +1036,6 @@ class NetworkManagerImpl {
           sortOrder: g.sortOrder ?? undefined,
         }));
         payload = JSON.stringify({groups: slimGroups, membership});
-      } else if (feature === 'medical') {
-        const raw = await AsyncStorage.getItem(KEYS.medical);
-        let md: any = null;
-        try {
-          md = raw ? JSON.parse(raw) : null;
-        } catch {}
-        if (!md || typeof md !== 'object') md = {medications: [], appointments: [], history: [], emergency: {showOnNotification: false}};
-        if (scope.mode === 'select') {
-          md = {
-            medications: (md.medications || []).filter((x: any) => x && scope.ids.has(x.id)),
-            appointments: (md.appointments || []).filter((x: any) => x && scope.ids.has(x.id)),
-            history: (md.history || []).filter((x: any) => x && scope.ids.has(x.id)),
-            emergency: scope.ids.has('emergency') ? (md.emergency || {showOnNotification: false}) : {showOnNotification: false},
-          };
-        }
-        payload = JSON.stringify(md);
       } else {
         const raw = await AsyncStorage.getItem(KEYS.journal);
         const list: any[] = raw ? JSON.parse(raw) : [];
@@ -956,12 +1059,16 @@ class NetworkManagerImpl {
       }
       if (total > 1) await sleep(SYNC_PACE_MS);
     }
+    this.markMirrorServed(peerId, feature);
     for (const m of mediaMembers) {
-      const uri = await this.readImageDataUri(m.avatar);
-      if (!uri || uri.length > 600 * 1024) continue;
+      const uri = await mirrorThumbDataUri(m.avatar);
+      // The node rejects /send bodies over 1 MiB, and sealing + base64 inflates ~1.35x.
+      // Anything past this would be silently dropped on the wire, so don't bother.
+      if (!uri || uri.length > MIRROR_MEDIA_MAX) continue;
       try {
         await this.sendTo(peerId, { t: 'mirror_media', feature, memberId: m.id, data: uri });
-      } catch {
+      } catch (e) {
+        logError('network', e);
         continue;
       }
       await sleep(SYNC_PACE_MS);
@@ -990,17 +1097,21 @@ class NetworkManagerImpl {
         return;
       }
     }
-    const prev = await this.loadMirror(sender.peerId, m.feature);
-    const media: Record<string, string> = {};
-    if (m.feature === 'members' && prev?.media && Array.isArray(data)) {
-      for (const mm of data) {
-        if (mm?.id && prev.media[mm.id]) media[mm.id] = prev.media[mm.id];
-      }
-    }
-    const entry: MirrorCacheEntry = {feature: m.feature, fetchedAt: Date.now(), none: !!m.none, data, media};
+    // Entry row stays small — media never goes in it (see mirrorMediaKey).
+    const entry: MirrorCacheEntry = {feature: m.feature, fetchedAt: Date.now(), none: !!m.none, data};
     try {
       await AsyncStorage.setItem(this.mirrorCacheKey(sender.peerId, m.feature), JSON.stringify(entry));
-    } catch {}
+    } catch (e) {
+      logError('network', e);
+    }
+    // Drop avatars for anyone no longer in the payload — a narrowed bucket must not
+    // leave the revoked member's face cached on this device.
+    if (m.feature === 'members') {
+      const keep = new Set<string>(
+        m.none || !Array.isArray(data) ? [] : (data as MirrorMember[]).map(mm => mm?.id).filter(Boolean) as string[],
+      );
+      await this.clearMirrorMedia(sender.peerId, m.feature, keep);
+    }
     this.notifyMirror(sender.peerId, m.feature);
   }
 
@@ -1022,23 +1133,23 @@ class NetworkManagerImpl {
 
   private async flushMirrorMedia(peerId: string, feature: MirrorFeature, batch: Record<string, string>): Promise<void> {
     const prev = await this.loadMirror(peerId, feature);
-    if (!prev || prev.none) return;
-    const media = {...(prev.media || {})};
-    let changed = false;
-    if (Array.isArray(prev.data)) {
-      const idsPresent = new Set(prev.data.map((x: any) => x?.id));
-      for (const mid in batch) {
-        if (idsPresent.has(mid)) {
-          media[mid] = batch[mid];
-          changed = true;
-        }
-      }
+    if (!prev || prev.none || !Array.isArray(prev.data)) return;
+    const idsPresent = new Set((prev.data as MirrorMember[]).map(x => x?.id));
+    // One row per avatar — each stays well under Android's ~2MB per-row read ceiling.
+    const entries: Record<string, string> = {};
+    let count = 0;
+    for (const mid in batch) {
+      if (!idsPresent.has(mid)) continue;
+      entries[this.mirrorMediaKey(peerId, feature, mid)] = batch[mid];
+      count++;
     }
-    if (!changed) return;
-    const entry: MirrorCacheEntry = {...prev, media};
+    if (count === 0) return;
     try {
-      await AsyncStorage.setItem(this.mirrorCacheKey(peerId, feature), JSON.stringify(entry));
-    } catch {}
+      await AsyncStorage.setMany(entries);
+    } catch (e) {
+      logError('network', e);
+      return;
+    }
     this.notifyMirror(peerId, feature);
   }
 

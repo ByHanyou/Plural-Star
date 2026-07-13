@@ -87,6 +87,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
     setBuckets(next);
     await store.set(PRIVACY_BUCKETS_KEY, next);
     NetworkManager.notifyDataChanged();
+    // Push the new scopes over any copy friends already hold. Tightening a bucket has to
+    // reach them, or they keep showing the wider snapshot they were sent earlier.
+    NetworkManager.refreshAllMirrors();
   };
 
   useEffect(() => {
@@ -294,6 +297,23 @@ export const NetworkScreen = ({theme: T}: Props) => {
     f === 'members' ? t('tabs.members') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : t('systemMap.title');
   const scopeSummary = (s: PrivacyScope): string =>
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
+  // What this friend can ACTUALLY see: buckets are additive, so a friend sitting in two
+  // buckets gets the union. A second bucket set to "All" silently widens a careful
+  // "Select" in the first — this is what surfaces that.
+  const effectiveShare = (peerId: string, f: BucketFeature): PrivacyScope => {
+    const mine = buckets.filter(b => (b.friendPeerIds || []).includes(peerId));
+    const ids = new Set<string>();
+    let all = false;
+    for (const b of mine) {
+      const s = b[f];
+      if (!s || s.mode === 'none') continue;
+      if (s.mode === 'all') { all = true; continue; }
+      (s.ids || []).forEach(id => ids.add(id));
+    }
+    if (all) return {mode: 'all', ids: []};
+    if (ids.size === 0) return {mode: 'none', ids: []};
+    return {mode: 'select', ids: [...ids]};
+  };
   const setScopeMode = (f: BucketFeature, mode: PrivacyScopeMode) => {
     if (!editBucket) return;
     setEditBucket({...editBucket, [f]: {...editBucket[f], mode}});
@@ -637,6 +657,13 @@ export const NetworkScreen = ({theme: T}: Props) => {
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}} numberOfLines={1}>
               {mirrorMenuFor?.displayName} — {t('network.viewShared')}
             </Text>
+            {mirrorMenuFor && (
+              <Text style={{fontSize: fs(11), color: T.dim, paddingHorizontal: 16, paddingBottom: 12}}>
+                {(['members', 'groups', 'journal', 'history', 'customFields', 'connections'] as BucketFeature[])
+                  .map(f => `${featureLabel(f)}: ${scopeSummary(effectiveShare(mirrorMenuFor.peerId, f))}`)
+                  .join('  ·  ')}
+              </Text>
+            )}
             {([
               {feature: 'members' as MirrorFeature, label: t('tabs.members')},
               {feature: 'groups' as MirrorFeature, label: t('members.fieldGroups')},

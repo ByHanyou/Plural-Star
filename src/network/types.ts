@@ -95,12 +95,17 @@ export interface MirrorCacheEntry {
 
 export const MIRROR_CACHE_PREFIX = 'ps:friendMirror:';
 
+// Which mirror features we've served to which friend. Lives under the mirror prefix so it
+// is excluded from device sync. Needed so a bucket edit can revoke a copy already sent.
+export const MIRROR_SERVED_KEY = 'ps:friendMirror:served';
+
 export const SYNC_EXCLUDE_KEYS = [
   'ps:networkIdentity',
   'ps:networkSettings',
   'ps:networkFriends',
   'ps:networkSyncState',
   'ps:deviceCodes',
+  'ps:medical',
 ];
 
 export const SYNC_STATE_KEY = 'ps:networkSyncState';
