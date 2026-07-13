@@ -52,7 +52,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const members = useAppStore(s => s.members);
   const groups = useAppStore(s => s.groups);
   const journal = useAppStore(s => s.journal);
-  const medical = useAppStore(s => s.medical);
   const {t} = useTranslation();
   const fs = fontScale(T);
   const net = useNetwork();
@@ -292,7 +291,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
   };
 
   const featureLabel = (f: BucketFeature): string =>
-    f === 'members' ? t('tabs.members') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : f === 'medical' ? t('medical.title') : t('systemMap.title');
+    f === 'members' ? t('tabs.members') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : t('systemMap.title');
   const scopeSummary = (s: PrivacyScope): string =>
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
   const setScopeMode = (f: BucketFeature, mode: PrivacyScopeMode) => {
@@ -437,10 +436,10 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 <View key={b.id} style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
                   <TouchableOpacity style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket({...b})} activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel={`${b.name}. ${(['members', 'groups', 'journal', 'history', 'customFields', 'medical', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
+                    accessibilityLabel={`${b.name}. ${(['members', 'groups', 'journal', 'history', 'customFields', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
                     <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} importantForAccessibility="no">{b.name}</Text>
                     <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2} importantForAccessibility="no">
-                      {(['members', 'groups', 'journal', 'history', 'customFields', 'medical', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
+                      {(['members', 'groups', 'journal', 'history', 'customFields', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => cloneBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.cloneBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
@@ -509,7 +508,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 placeholder={t('network.bucketName')} placeholderTextColor={T.muted} style={inputStyle}
                 accessibilityLabel={t('network.bucketName')} accessibilityLabelledBy="lblBucketName" />
             </View>
-            {editBucket && (['members', 'groups', 'journal', 'history', 'customFields', 'medical', 'connections'] as BucketFeature[]).map(f => (
+            {editBucket && (['members', 'groups', 'journal', 'history', 'customFields', 'connections'] as BucketFeature[]).map(f => (
               <View key={f} style={{paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.text}}>{featureLabel(f)}</Text>
@@ -598,13 +597,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 ? journal
                     .filter(e => !pickerSearch.trim() || (e.title || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
                     .map(e => ({id: e.id, name: `${e.password ? '🔒 ' : ''}${e.title || fmtTime(e.timestamp)}`}))
-                : pickerFeature === 'medical'
-                ? [
-                    {id: 'emergency', name: `⚕ ${t('medical.emergency')}`},
-                    ...(medical?.medications || []).map(m => ({id: m.id, name: m.name})),
-                    ...(medical?.appointments || []).map(a => ({id: a.id, name: a.title})),
-                    ...(medical?.history || []).map(h => ({id: h.id, name: h.title})),
-                  ].filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
                 : pickerFeature === 'customFields'
                 ? [...fieldDefs]
                     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
@@ -648,7 +640,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
             {([
               {feature: 'members' as MirrorFeature, label: t('tabs.members')},
               {feature: 'groups' as MirrorFeature, label: t('members.fieldGroups')},
-              {feature: 'medical' as MirrorFeature, label: t('medical.title')},
               {feature: 'journal' as MirrorFeature, label: t('tabs.journal')},
             ]).map(opt => (
               <TouchableOpacity key={opt.feature} activeOpacity={0.7}

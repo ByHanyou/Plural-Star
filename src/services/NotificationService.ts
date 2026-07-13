@@ -534,14 +534,6 @@ export const clearNoteboardNotification = async () => {
 const MED_ID_PREFIX = 'ps-med-';
 const APPT_ID_PREFIX = 'ps-appt-';
 
-const nextDailyOccurrence = (hhmm: string): number => {
-  const [hh, mm] = hhmm.split(':').map(Number);
-  const next = new Date();
-  next.setHours(hh, mm, 0, 0);
-  if (next.getTime() <= Date.now()) next.setDate(next.getDate() + 1);
-  return next.getTime();
-};
-
 const cancelTriggersWithPrefix = async (prefix: string) => {
   try {
     const ids = await notifee.getTriggerNotificationIds();
@@ -551,72 +543,12 @@ const cancelTriggersWithPrefix = async (prefix: string) => {
   }
 };
 
-export const rescheduleMedicationReminders = async (medications: Medication[]) => {
-  try {
-    await cancelTriggersWithPrefix(MED_ID_PREFIX);
-    await setupReminderChannel();
-    for (const med of medications) {
-      if (!med.enabled) continue;
-      for (let i = 0; i < med.times.length; i++) {
-        const trigger: TimestampTrigger = {
-          type: TriggerType.TIMESTAMP,
-          timestamp: nextDailyOccurrence(med.times[i]),
-          repeatFrequency: RepeatFrequency.DAILY,
-        };
-        await notifee.createTriggerNotification(
-          {
-            id: `${MED_ID_PREFIX}${med.id}-${i}`,
-            title: `💊 ${i18n.t('medical.medReminderTitle', {defaultValue: 'Medication Reminder'})}`,
-            body: [med.name, med.dosage].filter(Boolean).join(' · '),
-            android: {
-              channelId: REMINDER_CHANNEL_ID,
-              smallIcon: 'ic_stat_notification',
-              importance: AndroidImportance.DEFAULT,
-              visibility: AndroidVisibility.PUBLIC,
-              pressAction: {id: 'default'},
-              color: '#DAA520',
-            },
-          },
-          trigger,
-        );
-      }
-    }
-  } catch (e) {
-    console.error('[PluralSpace] Medication reminder schedule error:', e);
-  }
+export const rescheduleMedicationReminders = async (_medications: Medication[]) => {
+  await cancelTriggersWithPrefix(MED_ID_PREFIX);
 };
 
-export const rescheduleAppointmentReminders = async (appointments: MedicalAppointment[]) => {
-  try {
-    await cancelTriggersWithPrefix(APPT_ID_PREFIX);
-    await setupReminderChannel();
-    for (const appt of appointments) {
-      const fireAt = appt.time - (appt.reminderMinutesBefore || 0) * 60 * 1000;
-      if (fireAt <= Date.now()) continue;
-      const trigger: TimestampTrigger = {
-        type: TriggerType.TIMESTAMP,
-        timestamp: fireAt,
-      };
-      await notifee.createTriggerNotification(
-        {
-          id: `${APPT_ID_PREFIX}${appt.id}`,
-          title: `📅 ${i18n.t('medical.apptReminderTitle', {defaultValue: 'Appointment Reminder'})}`,
-          body: [appt.title, fmtTime(appt.time), appt.location].filter(Boolean).join(' · '),
-          android: {
-            channelId: REMINDER_CHANNEL_ID,
-            smallIcon: 'ic_stat_notification',
-            importance: AndroidImportance.DEFAULT,
-            visibility: AndroidVisibility.PUBLIC,
-            pressAction: {id: 'default'},
-            color: '#DAA520',
-          },
-        },
-        trigger,
-      );
-    }
-  } catch (e) {
-    console.error('[PluralSpace] Appointment reminder schedule error:', e);
-  }
+export const rescheduleAppointmentReminders = async (_appointments: MedicalAppointment[]) => {
+  await cancelTriggersWithPrefix(APPT_ID_PREFIX);
 };
 
 export const showChatPingNotification = async (

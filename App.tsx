@@ -13,7 +13,7 @@ import type {SupportedLanguage} from './src/i18n/i18n';
 import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {store, KEYS, storageLooksWiped, restoreAllBackups} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode, emergencyNotificationLine} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
 import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars} from './src/utils/mediaUtils';
 import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders} from './src/services/NotificationService';
 import {waitForProtectedData} from './src/services/LiveActivityService';
@@ -32,7 +32,6 @@ import {ChatScreen} from './src/screens/ChatScreen';
 import {CustomFieldsScreen} from './src/screens/CustomFieldsScreen';
 import {PollsScreen} from './src/screens/PollsScreen';
 import {SystemMapScreen} from './src/screens/SystemMapScreen';
-import {MedicalScreen} from './src/screens/MedicalScreen';
 import {MailboxScreen} from './src/screens/MailboxScreen';
 import {WhiteboardScreen} from './src/screens/WhiteboardScreen';
 import {StatusScreen} from './src/screens/StatusScreen';
@@ -285,7 +284,7 @@ function MainAppContent() {
         const savedMedical = await store.get<MedicalData>(KEYS.medical);
         const med: MedicalData = {...DEFAULT_MEDICAL, ...(savedMedical || {})};
         setMedical(med);
-        setEmergencyNotificationInfo(emergencyNotificationLine(med.emergency));
+        setEmergencyNotificationInfo(null);
         await rescheduleMedicationReminders(med.medications || []);
         await rescheduleAppointmentReminders(med.appointments || []);
       } catch (e) {
@@ -483,10 +482,6 @@ function MainAppContent() {
     <SystemMapScreen theme={C} onViewMember={openMemberById} onRelCountChange={setSystemMapRelCount} focus={mapFocus} />
   );
 
-  const renderMedicalScreen = () => (
-    <MedicalScreen theme={C} />
-  );
-
   const renderNetworkScreen = () => (
     <NetworkScreen theme={C} />
   );
@@ -538,7 +533,7 @@ function MainAppContent() {
           onBulkAddGroups={bulkAddGroups}
         />;
       case 'hub':
-        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMedicalScreen={renderMedicalScreen} renderMailboxScreen={renderMailboxScreen} renderWhiteboardScreen={renderWhiteboardScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
+        return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMailboxScreen={renderMailboxScreen} renderWhiteboardScreen={renderWhiteboardScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;
       case 'journal':
         return <JournalScreen theme={C} onAdd={() => {setEditJournal(null); setShowJournal(true);}} onEdit={e => {setEditJournal(e); setShowJournal(true);}} onDelete={deleteEntry} onTogglePin={e => saveEntry({...e, pinned: !e.pinned})} onMentionPress={openMemberById} />;
       case 'history':

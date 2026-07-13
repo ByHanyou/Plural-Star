@@ -16,7 +16,7 @@ import {Avatar} from '../components/Avatar';
 type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'whiteboard' | 'discord' | 'credits' | 'supportPS';
 
 const HUB_ORDER_KEY = 'ps.hubTileOrder';
-const DEFAULT_TILE_ORDER: HubTile[] = ['retroHistory', 'medical', 'statistics', 'chat', 'mailbox', 'whiteboard', 'network', 'polls', 'systemMap', 'customFields', 'systemManager', 'archive', 'share', 'credits', 'discord', 'supportPS'];
+const DEFAULT_TILE_ORDER: HubTile[] = ['retroHistory', 'statistics', 'chat', 'mailbox', 'whiteboard', 'network', 'polls', 'systemMap', 'customFields', 'systemManager', 'archive', 'share', 'credits', 'discord', 'supportPS'];
 
 const mergeTileOrder = (saved: string[], defaults: HubTile[]): HubTile[] => {
   const valid = saved.filter(id => (defaults as string[]).includes(id)) as HubTile[];
@@ -38,7 +38,6 @@ interface Props {
   renderSystemMapScreen: () => React.ReactNode;
   systemMapRelCount?: number;
   mapFocus?: {id: string; n: number} | null;
-  renderMedicalScreen: () => React.ReactNode;
   renderMailboxScreen: (onBack: () => void) => React.ReactNode;
   renderWhiteboardScreen: (onBack: () => void) => React.ReactNode;
   renderNetworkScreen: () => React.ReactNode;
@@ -373,7 +372,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 const DISCORD_URL = 'https://discord.gg/FFQw33cu8m';
 const BMC_URL = 'https://www.buymeacoffee.com/PluralStar';
 
-export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMedicalScreen, renderMailboxScreen, renderWhiteboardScreen, renderNetworkScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
+export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMailboxScreen, renderWhiteboardScreen, renderNetworkScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
   const members = useAppStore(s => s.members);
   const history = useAppStore(s => s.history);
   const front = useAppStore(s => s.front);
@@ -562,20 +561,6 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     );
   }
 
-  if (activeTile === 'medical') {
-    return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-          <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
-            <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
-          </TouchableOpacity>
-          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(22), fontWeight: '600', fontStyle: 'italic', color: T.text, flex: 1, marginRight: 8}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('medical.title')}</Text>
-        </View>
-        {renderMedicalScreen()}
-      </View>
-    );
-  }
-
   if (activeTile === 'mailbox') {
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
@@ -699,7 +684,6 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   const tiles: {id: HubTile; icon: string; label: string; external?: boolean}[] = [
     {id: 'retroHistory', icon: '◷', label: t('hub.retroHistory')},
-    {id: 'medical', icon: '⚕', label: t('medical.title')},
     {id: 'statistics', icon: '⊞', label: t('hub.statistics')},
     {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
     {id: 'mailbox', icon: '✉', label: t('mailbox.title')},

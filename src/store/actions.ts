@@ -1,6 +1,6 @@
 import {Alert} from 'react-native';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, MedicalData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, emergencyNotificationLine, frontToHistoryEntry, uid} from '../utils';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, MedicalData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, frontToHistoryEntry, uid} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
@@ -100,7 +100,7 @@ export const saveMedical = async (d: MedicalData) => {
   const {setMedical, front, members, system, appSettings} = useAppStore.getState();
   setMedical(d);
   await store.set(KEYS.medical, d);
-  setEmergencyNotificationInfo(emergencyNotificationLine(d.emergency));
+  setEmergencyNotificationInfo(null);
   await rescheduleMedicationReminders(d.medications || []);
   await rescheduleAppointmentReminders(d.appointments || []);
   if (appSettings.notificationsEnabled) {

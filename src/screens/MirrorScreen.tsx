@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {NetworkManager} from '../network/NetworkManager';
 import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup} from '../network/types';
 import {ThemeColors, fontScale} from '../theme';
-import {Member, JournalEntry, MedicalData, fmtTime, formatTime12} from '../utils';
+import {Member, JournalEntry, fmtTime} from '../utils';
 import {RichText} from '../components/MarkdownRenderer';
 
 interface Props {
@@ -73,7 +73,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const featureLabel =
     feature === 'members' ? t('tabs.members')
     : feature === 'groups' ? t('members.fieldGroups')
-    : feature === 'medical' ? t('medical.title')
     : t('tabs.journal');
 
   const mentionSource: MirrorMember[] =
@@ -234,60 +233,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     );
   };
 
-  const renderMedical = () => {
-    const md: MedicalData = entry?.data && typeof entry.data === 'object' ? entry.data : {medications: [], appointments: [], history: [], emergency: {showOnNotification: false}};
-    const em = md.emergency || {showOnNotification: false};
-    const emLines = [
-      em.conditions ? `${t('medical.conditions')}: ${em.conditions}` : '',
-      em.allergies ? `${t('medical.allergies')}: ${em.allergies}` : '',
-      em.bloodType ? `${t('medical.bloodType')}: ${em.bloodType}` : '',
-      em.notes || '',
-    ].filter(Boolean);
-    const section = {fontSize: fs(13), fontWeight: '600' as const, color: T.dim, textTransform: 'uppercase' as const, letterSpacing: 1, marginTop: 16, marginBottom: 6};
-    const line = {fontSize: fs(13), color: T.text, marginTop: 2};
-    const dimLine = {fontSize: fs(11), color: T.dim, marginTop: 1};
-    return (
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16}}>
-        {emLines.length > 0 && (
-          <>
-            <Text accessibilityRole="header" style={section}>{t('medical.emergency')}</Text>
-            {emLines.map((l, i) => <Text key={i} style={line}>{l}</Text>)}
-          </>
-        )}
-        <Text accessibilityRole="header" style={section}>{t('medical.medications')}</Text>
-        {(md.medications || []).length === 0 ? (
-          <Text style={dimLine}>{t('medical.noMedications')}</Text>
-        ) : (md.medications || []).map(m => (
-          <View key={m.id} style={{marginBottom: 8, opacity: m.enabled ? 1 : 0.5}}>
-            <Text style={line}>{m.name}{m.dosage ? `  ·  ${m.dosage}` : ''}</Text>
-            {(m.times || []).length > 0 && <Text style={dimLine}>{(m.times || []).map(x => formatTime12(x)).join(', ')}</Text>}
-            {!!m.notes && <Text style={dimLine}>{m.notes}</Text>}
-          </View>
-        ))}
-        <Text accessibilityRole="header" style={section}>{t('medical.appointments')}</Text>
-        {(md.appointments || []).length === 0 ? (
-          <Text style={dimLine}>{t('medical.noAppointments')}</Text>
-        ) : (md.appointments || []).map(a => (
-          <View key={a.id} style={{marginBottom: 8}}>
-            <Text style={line}>{a.title}</Text>
-            <Text style={dimLine}>{fmtTime(a.time)}{a.location ? `  ·  ${a.location}` : ''}</Text>
-            {!!a.notes && <Text style={dimLine}>{a.notes}</Text>}
-          </View>
-        ))}
-        <Text accessibilityRole="header" style={section}>{t('medical.history')}</Text>
-        {(md.history || []).length === 0 ? (
-          <Text style={dimLine}>{t('medical.noHistory')}</Text>
-        ) : (md.history || []).map(h => (
-          <View key={h.id} style={{marginBottom: 8}}>
-            <Text style={line}>{h.title}</Text>
-            {!!h.date && <Text style={dimLine}>{fmtTime(h.date)}</Text>}
-            {!!h.notes && <Text style={dimLine}>{h.notes}</Text>}
-          </View>
-        ))}
-      </ScrollView>
-    );
-  };
-
   const journalEntries: JournalEntry[] = Array.isArray(entry?.data) ? [...(entry!.data as JournalEntry[])].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.timestamp || 0) - (a.timestamp || 0)) : [];
 
   const renderJournalRow = ({item}: {item: JournalEntry}) => (
@@ -331,7 +276,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       );
     }
     if (feature === 'groups') return renderGroups();
-    if (feature === 'medical') return renderMedical();
     return (
       <FlatList
         data={journalEntries}
