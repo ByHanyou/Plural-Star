@@ -950,7 +950,13 @@ class NetworkManagerImpl {
     if (scope.mode === 'none') {
       try {
         await this.sendTo(peerId, { t: 'mirror', feature, seq: 0, total: 1, data: '', none: true });
-      } catch {}
+      } catch (e) {
+        logError('network', e);
+      }
+      // Record the "nothing" answer too. They're caching it — so when a bucket is later
+      // GRANTED, this is exactly the peer that needs the push. Only marking data responses
+      // meant a friend who asked before being given access stayed stuck on "not shared".
+      this.markMirrorServed(peerId, feature);
       return;
     }
     let payload = '';

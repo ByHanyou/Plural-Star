@@ -32,6 +32,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const [pwInput, setPwInput] = useState('');
   const [pwError, setPwError] = useState(false);
   const waitRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onlineRef = useRef(false);
 
   const reload = useCallback(async () => {
     const cache = await NetworkManager.loadMirror(peerId, feature);
@@ -79,8 +80,18 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         reload();
       }
     });
+    // Ask again the moment they come online. Without this, a cached "not shared" (or an
+    // unanswered request) just sits there until the screen is reopened — which is what a
+    // freshly-granted bucket looks like from the other side.
+    const unsubNet = NetworkManager.subscribe(s => {
+      const online = s.onlinePeers.includes(peerId);
+      const was = onlineRef.current;
+      onlineRef.current = online;
+      if (online && !was) request();
+    });
     return () => {
       unsub();
+      unsubNet();
       if (waitRef.current) {
         clearTimeout(waitRef.current);
         waitRef.current = null;
@@ -105,10 +116,12 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   }));
 
   const statusLine = () => {
+    // The body already says "they haven't shared this" for a none entry — don't print it
+    // twice (it read like the app was stuttering).
+    if (entry?.none) return requesting === 'failed' ? t('network.mirrorEmptyOffline') : '';
     if (requesting === 'failed') {
-      return entry && !entry.none ? t('network.mirrorOffline') : t('network.mirrorEmptyOffline');
+      return entry ? t('network.mirrorOffline') : t('network.mirrorEmptyOffline');
     }
-    if (entry?.none) return t('network.mirrorNothing');
     if (entry?.fetchedAt) return t('network.mirrorUpdated', {time: fmtTime(entry.fetchedAt)});
     if (requesting === 'sent') return t('network.mirrorLoading');
     return '';
