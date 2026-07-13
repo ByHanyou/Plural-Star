@@ -403,6 +403,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   const tileSizeRef = useRef({w: 0, h: 0});
   const gridWRef = useRef(0);
   const tileColsRef = useRef(3);
+  const tileRespondersRef = useRef<Map<string, ReturnType<typeof PanResponder.create>['panHandlers']>>(new Map());
 
   useEffect(() => {
     AsyncStorage.getItem(HUB_ORDER_KEY).then(raw => {
@@ -653,7 +654,6 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     AsyncStorage.setItem(HUB_ORDER_KEY, JSON.stringify(newFull)).catch(() => {});
   };
 
-  const tileRespondersRef = useRef<Map<string, ReturnType<typeof PanResponder.create>['panHandlers']>>(new Map());
   const makeTileResponder = (id: string) => {
     let handlers = tileRespondersRef.current.get(id);
     if (handlers) return {panHandlers: handlers};
