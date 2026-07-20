@@ -359,12 +359,6 @@ export const exportJSON = async (
   });
 };
 
-// ── PluralKit-format export (importable into PluralKit `pk;import` and Tupperbox `tul!import`) ──
-// Field names mirror what we already read on PK import (see ShareScreen handlePluralKitFetch) and
-// PluralKit's published Member/System/Switch models. PluralKit does NOT support group import, so
-// groups are intentionally omitted. Avatars/banners must be publicly-accessible URLs — locally
-// stored images (data:/file:) can't transfer, so they're dropped. Proxy tags are left blank for
-// the user to set up in-bot.
 const pkHexColor = (c?: string): string | null => {
   const h = String(c || '').replace(/^#/, '').trim().toLowerCase();
   return /^[0-9a-f]{6}$/.test(h) ? h : null;
@@ -404,17 +398,17 @@ export const buildPluralKitExport = (
     color: pkHexColor(m.color),
     birthday: null,
     pronouns: m.pronouns ? m.pronouns.slice(0, 100) : null,
-    avatar_url: pkPublicUrl(m.avatar),
+    avatar_url: pkPublicUrl(m.avatar) || m.pkAvatarUrl || null,
     webhook_avatar_url: null,
-    banner: pkPublicUrl(m.banner),
+    banner: pkPublicUrl(m.banner) || m.pkBannerUrl || null,
     description: m.description ? m.description.slice(0, 1000) : null,
     created: new Date(m.createdAt || Date.now()).toISOString(),
-    keep_proxy: false,
+    keep_proxy: m.pkKeepProxy ?? false,
     tts: false,
     autoproxy_enabled: false,
     message_count: 0,
     last_message_timestamp: null,
-    proxy_tags: [],
+    proxy_tags: Array.isArray(m.pkProxyTags) ? m.pkProxyTags : [],
     privacy: null,
   }));
 

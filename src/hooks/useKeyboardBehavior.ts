@@ -9,6 +9,7 @@ export function useKeyboardBehavior(): KeyboardAvoidingViewProps['behavior'] {
     useState<KeyboardAvoidingViewProps['behavior']>(defaultValue);
 
   useEffect(() => {
+    if (Platform.OS === 'ios') return;
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
       setBehaviour(defaultValue);
     });

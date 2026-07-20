@@ -1,6 +1,6 @@
 import {Alert} from 'react-native';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, MedicalData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, frontToHistoryEntry, uid} from '../utils';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, MedicalData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
@@ -156,7 +156,7 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
     && sameMembers(front.coConscious.memberIds, cleanCoConscious.memberIds);
 
   const explicitLocation = cleanPrimary.location?.trim() || undefined;
-  const nf: FrontState | null = isEmpty ? null : {primary: {...cleanPrimary, location: explicitLocation}, coFront: cleanCoFront, coConscious: cleanCoConscious, startTime: continuing ? front!.startTime : now};
+  const nf: FrontState | null = isEmpty ? null : withMemberSince({primary: {...cleanPrimary, location: explicitLocation}, coFront: cleanCoFront, coConscious: cleanCoConscious, startTime: continuing ? front!.startTime : now}, front, now);
 
   let newHistory = [...history];
   if (front && !continuing) {
@@ -380,9 +380,10 @@ export const ensureSelfMember = async (): Promise<Member> => {
 };
 
 export const applyFrontState = async (f: FrontState | null) => {
-  const {setFront} = useAppStore.getState();
-  setFront(f);
-  await store.set(KEYS.front, f);
+  const {front, setFront} = useAppStore.getState();
+  const next = withMemberSince(f, front, Date.now());
+  setFront(next);
+  await store.set(KEYS.front, next);
 };
 
 export const saveMemberListFields = async (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean}) => {

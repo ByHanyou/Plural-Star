@@ -13,10 +13,10 @@ import {EnergyRow} from '../modals/shared';
 import {TogglePill} from '../components/ToggleSwitch';
 import {Avatar} from '../components/Avatar';
 
-type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'whiteboard' | 'discord' | 'credits' | 'supportPS';
+type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'whiteboard' | 'colors' | 'discord' | 'credits' | 'supportPS';
 
 const HUB_ORDER_KEY = 'ps.hubTileOrder';
-const DEFAULT_TILE_ORDER: HubTile[] = ['retroHistory', 'statistics', 'chat', 'mailbox', 'whiteboard', 'network', 'polls', 'systemMap', 'customFields', 'systemManager', 'archive', 'share', 'credits', 'discord', 'supportPS'];
+const DEFAULT_TILE_ORDER: HubTile[] = ['retroHistory', 'statistics', 'chat', 'mailbox', 'whiteboard', 'colors', 'network', 'polls', 'systemMap', 'customFields', 'systemManager', 'archive', 'share', 'credits', 'discord', 'supportPS'];
 
 const mergeTileOrder = (saved: string[], defaults: HubTile[]): HubTile[] => {
   const valid = saved.filter(id => (defaults as string[]).includes(id)) as HubTile[];
@@ -40,6 +40,7 @@ interface Props {
   mapFocus?: {id: string; n: number} | null;
   renderMailboxScreen: (onBack: () => void) => React.ReactNode;
   renderWhiteboardScreen: (onBack: () => void) => React.ReactNode;
+  renderColorsScreen: (onBack: () => void) => React.ReactNode;
   renderNetworkScreen: () => React.ReactNode;
   resetKey?: number;
   editHistoryIndex?: number | null;
@@ -372,7 +373,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 const DISCORD_URL = 'https://discord.gg/FFQw33cu8m';
 const BMC_URL = 'https://www.buymeacoffee.com/PluralStar';
 
-export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMailboxScreen, renderWhiteboardScreen, renderNetworkScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
+export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen, renderStatsScreen, renderChatScreen, renderCustomFieldsScreen, renderSystemManagerScreen, renderArchiveScreen, renderPollsScreen, renderSystemMapScreen, systemMapRelCount = 0, mapFocus, renderMailboxScreen, renderWhiteboardScreen, renderColorsScreen, renderNetworkScreen, resetKey, editHistoryIndex, onClearEditHistory}: Props) => {
   const members = useAppStore(s => s.members);
   const history = useAppStore(s => s.history);
   const front = useAppStore(s => s.front);
@@ -577,6 +578,14 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     );
   }
 
+  if (activeTile === 'colors') {
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        {renderColorsScreen(() => setActiveTile(null))}
+      </View>
+    );
+  }
+
   if (activeTile === 'network') {
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
@@ -688,6 +697,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
     {id: 'mailbox', icon: '✉', label: t('mailbox.title')},
     {id: 'whiteboard', icon: '🖌', label: t('whiteboard.title')},
+    {id: 'colors', icon: '🎨', label: t('colors.title')},
     {id: 'network', icon: '🛰', label: t('network.title')},
     {id: 'polls', icon: '📊', label: t('polls.title')},
     {id: 'systemMap', icon: '🕸', label: t('systemMap.title')},

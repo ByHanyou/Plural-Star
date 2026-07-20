@@ -25,6 +25,7 @@ export const KEYS = {
   systemMapMembers: 'ps:systemMapMembers',
   systemMapPositions: 'ps:systemMapPositions',
   whiteboard: 'ps:whiteboard',
+  customColors: 'ps:customColors',
   deviceCodes: 'ps:deviceCodes',
   medical: 'ps:medical',
 };

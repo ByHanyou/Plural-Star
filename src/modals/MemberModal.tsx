@@ -6,9 +6,9 @@ import {pickImageFromGallery} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
 import {Avatar} from '../components/Avatar';
 import {PlusMinusIcon} from '../components/Glyphs';
-import {ColorPicker} from '../components/ColorPicker';
+import {ColorCarousel} from '../components/ColorCarousel';
 import {PALETTE, fontScale} from '../theme';
-import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, colorName, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR} from '../utils';
+import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR} from '../utils';
 import {store, KEYS} from '../storage';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
@@ -49,6 +49,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
+  const [groupInfo, setGroupInfo] = useState<MemberGroup | null>(null);
   const doClone = async () => {
     const rnd = String(Math.floor(10000 + Math.random() * 90000));
     const clone: Member = {
@@ -223,14 +224,13 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{profileMode ? t('profile.favoriteColor') : t('modal.color')}</Text>
         {!readOnly ? (
           <View style={{marginBottom: 14}}>
-            <ColorPicker value={f.color} onChange={(v: string) => set('color', v)} T={T} />
+            <ColorCarousel value={f.color} onChange={(v: string) => set('color', v)} T={T} />
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12}}>
               <TouchableOpacity onPress={() => set('avatarTransparent', !f.avatarTransparent)} activeOpacity={0.8}
                 accessibilityRole="switch" accessibilityState={{checked: !!f.avatarTransparent}} accessibilityLabel={t('modal.transparentColor')}
                 style={{width: 30, height: 30, borderRadius: 15, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
                 <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
               </TouchableOpacity>
-              {PALETTE.map((c: string) => (<TouchableOpacity key={c} onPress={() => set('color', c)} activeOpacity={0.8} accessibilityRole="button" accessibilityState={{selected: f.color === c}} accessibilityLabel={`${t('memberProfile.color')} ${colorName(c, t)}`} style={{width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 2, borderColor: f.color === c ? '#fff' : 'transparent'}} />))}
             </View>
           </View>
         ) : (
@@ -255,7 +255,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 {visibleGroups.map((g: MemberGroup) => {
                   const active = (f.groupIds || []).includes(g.id);
                   return (
-                    <TouchableOpacity key={g.id} onPress={readOnly ? undefined : () => togGroup(g.id)} activeOpacity={readOnly ? 1 : 0.7}
+                    <TouchableOpacity key={g.id} onPress={readOnly ? (g.description ? () => setGroupInfo(g) : undefined) : () => togGroup(g.id)} activeOpacity={readOnly && !g.description ? 1 : 0.7}
                       accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={g.name}
                       style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                         backgroundColor: active ? `${g.color || T.accent}20` : T.surface, borderColor: active ? `${g.color || T.accent}50` : T.border}}>
@@ -350,8 +350,11 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 dateVal = new Date(val);
               } else if (typeof val === 'string' && val) {
                 const asNum = Number(val);
+                const isoDate = val.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ]00:00(?::00(?:\.\d+)?)?Z?)?$/);
                 if (Number.isFinite(asNum) && asNum !== 0) {
                   dateVal = new Date(asNum);
+                } else if (isoDate) {
+                  dateVal = new Date(Number(isoDate[1]), Number(isoDate[2]) - 1, Number(isoDate[3]));
                 } else {
                   const parsed = Date.parse(val);
                   dateVal = Number.isFinite(parsed) ? new Date(parsed) : new Date();
@@ -427,7 +430,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                         <Text style={{fontSize: fs(13), color: T.dim, fontFamily: 'monospace'}}>{String(val || '')}</Text>
                       </View>
                     ) : (
-                      <ColorPicker value={String(val || '#333333')} onChange={v => setFieldVal(fd.id, v)} T={T} />
+                      <ColorCarousel value={String(val || '#333333')} onChange={v => setFieldVal(fd.id, v)} T={T} />
                     )}
                   </View>
                 ) : fd.type === 'image' ? (
@@ -556,6 +559,24 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
           })}
         </View>
       )}
+
+      <Modal visible={!!groupInfo} transparent animationType="fade" onRequestClose={() => setGroupInfo(null)}>
+        <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 28}} activeOpacity={1} onPress={() => setGroupInfo(null)} accessibilityRole="none">
+          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10}}>
+              <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: groupInfo?.color || T.accent}} importantForAccessibility="no" />
+              <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(15), fontWeight: '600', color: T.text}} numberOfLines={1}>{groupInfo?.name}</Text>
+            </View>
+            <ScrollView style={{maxHeight: 260}}>
+              <Text style={{fontSize: fs(13), color: T.dim, lineHeight: 19}}>{groupInfo?.description}</Text>
+            </ScrollView>
+            <TouchableOpacity onPress={() => setGroupInfo(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
+              style={{alignItems: 'center', paddingVertical: 11, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+              <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={showClone} transparent animationType="fade" onRequestClose={() => setShowClone(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>

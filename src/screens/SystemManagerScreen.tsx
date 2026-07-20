@@ -9,7 +9,7 @@ import {saveGroups, quickAddToFront, removeFromFront, bulkAddGroups, bulkRemoveF
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {PlusMinusIcon} from '../components/Glyphs';
-import {ColorPicker} from '../components/ColorPicker';
+import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, colorName} from '../utils';
@@ -34,11 +34,13 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
 
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(PALETTE[0]);
+  const [newDesc, setNewDesc] = useState('');
   const [newKind, setNewKind] = useState<GroupNodeKind>('group');
   const [showNewColor, setShowNewColor] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState<string>(PALETTE[0]);
+  const [editDesc, setEditDesc] = useState('');
   const [movingIds, setMovingIds] = useState<string[] | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [browse, setBrowse] = useState(false);
@@ -70,8 +72,9 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     const name = newName.trim();
     if (!name) return;
     const siblings = childrenOf(groups, null);
-    onSaveGroups([...groups, {id: uid(), name, color: newColor, kind: newKind, parentId: null, sortOrder: siblings.length}]);
+    onSaveGroups([...groups, {id: uid(), name, color: newColor, kind: newKind, parentId: null, sortOrder: siblings.length, description: newDesc.trim() || undefined}]);
     setNewName('');
+    setNewDesc('');
   };
 
   const moveNodes = (ids: string[], newParentId: string | null) => {
@@ -210,7 +213,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const renameNode = (id: string) => {
     const name = editName.trim();
     if (!name) return;
-    onSaveGroups(groups.map(g => g.id === id ? {...g, name, color: editColor} : g));
+    onSaveGroups(groups.map(g => g.id === id ? {...g, name, color: editColor, description: editDesc.trim() || undefined} : g));
     setEditId(null); setEditName('');
   };
 
@@ -246,8 +249,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             </TouchableOpacity>
           )}
           {isEditing ? (
-            <TouchableOpacity onPress={() => { const idx = PALETTE.indexOf(editColor); setEditColor(PALETTE[(idx + 1) % PALETTE.length]); }} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.changeColor')}, ${colorName(editColor, t)}`}
-              style={{width: 18, height: 18, borderRadius: isSub ? 4 : 9, backgroundColor: editColor, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}} />
+            <View style={{width: 18, height: 18, borderRadius: isSub ? 4 : 9, backgroundColor: editColor, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}} />
           ) : (
             <View style={{width: 12, height: 12, borderRadius: isSub ? 3 : 6, backgroundColor: g.color || T.accent}} />
           )}
@@ -272,7 +274,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                   <TouchableOpacity ref={(el) => { moveBtnRefs.current[g.id] = el; }} onPress={() => reorderNode(g.id, 'up')} disabled={sibIdx <= 0} accessibilityRole="button" accessibilityState={{disabled: sibIdx <= 0}} accessibilityLabel={sibIdx <= 0 ? `${t('members.moveUp')} ${g.name}` : `${t('members.moveUp')} ${g.name}, ${t('members.moveAbove', {name: sibs[sibIdx - 1].name})}`} style={{padding: 2, opacity: sibIdx <= 0 ? 0.25 : 1}}><Text style={{fontSize: fs(13), color: T.dim}}>▲</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => reorderNode(g.id, 'down')} disabled={sibIdx === sibs.length - 1} accessibilityRole="button" accessibilityState={{disabled: sibIdx === sibs.length - 1}} accessibilityLabel={sibIdx === sibs.length - 1 ? `${t('members.moveDown')} ${g.name}` : `${t('members.moveDown')} ${g.name}, ${t('members.moveBelow', {name: sibs[sibIdx + 1].name})}`} style={{padding: 2, opacity: sibIdx === sibs.length - 1 ? 0.25 : 1}}><Text style={{fontSize: fs(13), color: T.dim}}>▼</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => setMovingIds([g.id])} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.move')} ${g.name}`}><Text style={{fontSize: fs(15), color: T.dim}}>⇄</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => {setEditId(g.id); setEditName(g.name); setEditColor(g.color || PALETTE[0]);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => {setEditId(g.id); setEditName(g.name); setEditColor(g.color || PALETTE[0]); setEditDesc(g.description || '');}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteNode(g.id)} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${g.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
                 </>
               )}
@@ -281,7 +283,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
         </View>
         {isEditing && (
           <View style={{paddingLeft: depth * 16 + 24, paddingRight: 8, marginBottom: 10}}>
-            <ColorPicker value={editColor} onChange={setEditColor} T={T} />
+            <ColorCarousel value={editColor} onChange={setEditColor} T={T} />
+            <TextInput value={editDesc} onChangeText={setEditDesc} multiline placeholder={t('modal.descriptionBio')} placeholderTextColor={T.muted}
+              accessibilityLabel={t('modal.descriptionBio')}
+              style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginTop: 8, minHeight: 60, textAlignVertical: 'top'}} />
           </View>
         )}
         {childrenOf(groups, g.id).map(c => renderNode(c, depth + 1, seen))}
@@ -555,7 +560,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
       </View>
       {showNewColor && (
         <View style={{marginTop: 10, marginBottom: 4}}>
-          <ColorPicker value={newColor} onChange={setNewColor} T={T} />
+          <ColorCarousel value={newColor} onChange={setNewColor} T={T} />
+          <TextInput value={newDesc} onChangeText={setNewDesc} multiline placeholder={t('modal.descriptionBio')} placeholderTextColor={T.muted}
+            accessibilityLabel={t('modal.descriptionBio')}
+            style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginTop: 8, minHeight: 60, textAlignVertical: 'top'}} />
         </View>
       )}
     </ScrollView>

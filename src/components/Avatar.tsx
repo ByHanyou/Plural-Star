@@ -72,7 +72,9 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
           fontWeight: '700',
           color: 'rgba(0,0,0,0.75)',
         }}
-        allowFontScaling={false}>
+        allowFontScaling={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants">
         {getInitials(member?.name || '?')}
       </Text>
     </View>

@@ -28,7 +28,7 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: ThemeColors}) =>
   return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
-const AutoImage = ({uri, T, hintRatio}: {uri: string; T: ThemeColors; hintRatio?: number}) => {
+const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hintRatio?: number; hintW?: number}) => {
   const [ratio, setRatio] = React.useState<number | null>(hintRatio || null);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
@@ -43,7 +43,9 @@ const AutoImage = ({uri, T, hintRatio}: {uri: string; T: ThemeColors; hintRatio?
     return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
   const r = ratio || 1.5;
-  const sizing = r >= 1 ? {width: '100%' as const, aspectRatio: r} : {width: '100%' as const, height: 280};
+  const sizing = hintW && hintW > 0
+    ? {width: hintW, maxWidth: '100%' as const, aspectRatio: r, alignSelf: 'flex-start' as const}
+    : r >= 1 ? {width: '100%' as const, aspectRatio: r} : {width: '100%' as const, height: 280};
   return <Image source={{uri}} style={[{borderRadius: 8, marginVertical: 2}, sizing]} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
@@ -332,7 +334,8 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
       return `![](${src}${w && h ? `#${w}x${h}` : ''})`;
     })
     .replace(/<br\s*\/?>/gi, '\n');
-  const lines = mdText.split('\n');
+  const lineSeparators = new RegExp('\\r\\n?|' + String.fromCharCode(0x2028) + '|' + String.fromCharCode(0x2029), 'g');
+  const lines = mdText.replace(lineSeparators, '\n').split('\n');
   const displayLines = numberOfLines ? lines.slice(0, numberOfLines) : lines;
   const elements: React.ReactNode[] = [];
   displayLines.forEach((line, i) => {
@@ -360,7 +363,8 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
       if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
       if (isValidImageUri(url)) {
         const hintRatio = sizeHint ? Number(sizeHint[1]) / Number(sizeHint[2]) : undefined;
-        elements.push(<AutoImage key={i * 3 + 1} uri={url} T={T} hintRatio={hintRatio && hintRatio > 0 ? hintRatio : undefined} />);
+        const hintW = sizeHint ? Number(sizeHint[1]) : undefined;
+        elements.push(<AutoImage key={i * 3 + 1} uri={url} T={T} hintRatio={hintRatio && hintRatio > 0 ? hintRatio : undefined} hintW={hintW && hintW > 0 ? hintW : undefined} />);
       } else {
         elements.push(<Text key={i * 3 + 1} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>);
       }

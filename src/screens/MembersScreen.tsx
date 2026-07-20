@@ -470,9 +470,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
       {!archiveOnly && (
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
-        {/* flex ONLY — never pair `flex: 1` with an explicit `flexGrow: 0`: Yoga honours the
-            explicit grow (0) while `flex: 1` still zeroes the basis, so the strip resolves to
-            zero width and the tabs vanish. That's exactly what killed this row. */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}} contentContainerStyle={{alignItems: 'center'}}>
           {(['active', 'customFronts'] as const).map(tab => (
             <TouchableOpacity key={tab} onPress={() => switchTab(tab)} activeOpacity={0.7}

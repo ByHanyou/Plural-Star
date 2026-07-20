@@ -43,11 +43,17 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
             const incoming: Partial<Member> = {
               name: isPK ? ((extSel.displayNames ? (m.display_name || m.name) : (m.name || m.display_name)) || 'Unknown') : (m.content?.name || m.name || 'Unknown'),
               pronouns: isPK ? (m.pronouns || '') : (m.content?.pronouns || ''),
-              role: isPK ? '' : (m.content?.role || ''),
               color: isPK ? (m.color ? `#${m.color}` : '#DAA520') : (m.content?.color || '#DAA520'),
               description: isPK ? (m.description || '') : (m.content?.desc || ''),
               archived: !isPK && !!m.content?.archived ? true : undefined,
             };
+            if (!isPK) incoming.role = m.content?.role || '';
+            if (isPK) {
+              if (Array.isArray(m.proxy_tags)) incoming.pkProxyTags = m.proxy_tags;
+              if (typeof m.avatar_url === 'string' && m.avatar_url) incoming.pkAvatarUrl = m.avatar_url;
+              if (typeof m.banner === 'string' && m.banner) incoming.pkBannerUrl = m.banner;
+              if (typeof m.keep_proxy === 'boolean') incoming.pkKeepProxy = m.keep_proxy;
+            }
             if (extId) {
               const idx = merged.findIndex(em => em.sourceId === extId);
               if (idx >= 0) {
@@ -70,7 +76,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               id: newId,
               name: incoming.name as string,
               pronouns: incoming.pronouns as string,
-              role: incoming.role as string,
+              role: (incoming.role as string) ?? '',
               color: incoming.color as string,
               description: incoming.description as string,
               archived: incoming.archived,

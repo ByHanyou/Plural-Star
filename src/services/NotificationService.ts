@@ -13,7 +13,7 @@ import {FrontState, Member, Medication, MedicalAppointment, fmtDur, fmtTime} fro
 import {logError} from '../utils/log';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
-import {MAX_NOTIF_FRIENDS, Friend, FrontShare} from '../network/types';
+import {MAX_NOTIF_FRIENDS, Friend, FrontShare, friendNotifyLevel} from '../network/types';
 import i18n from '../i18n/i18n';
 
 export const NOTIF_CHANNEL_ID = 'plural-space-front';
@@ -64,6 +64,14 @@ export const setEmergencyNotificationInfo = (line: string | null) => {
 const resolveNames = (ids: string[], members: Member[]): string =>
   ids.map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ');
 
+const resolveNamesWithSince = (ids: string[], members: Member[], front: FrontState): string =>
+  ids.map(id => {
+    const name = members.find(m => m.id === id)?.name;
+    if (!name) return null;
+    const since = front.memberSince?.[id];
+    return since ? `${name} (${fmtDur(since)})` : name;
+  }).filter(Boolean).join(', ');
+
 const getTierIds = (front: any, tier: string): string[] => {
   if (front?.[tier]?.memberIds && Array.isArray(front[tier].memberIds)) {
     return front[tier].memberIds;
@@ -96,13 +104,17 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
     i18n.t('common.unknown', {defaultValue: 'Unknown'});
   const title = `◈ ${titleNames}  ·  ${duration}`;
 
+  const primaryTimed = resolveNamesWithSince(primaryIds, members, front);
+  const coFrontTimed = resolveNamesWithSince(coFrontIds, members, front);
+  const coConsciousTimed = resolveNamesWithSince(coConsciousIds, members, front);
+
   const lines: string[] = [];
   if (primaryNames)
-    lines.push(i18n.t('notification.primary', {names: primaryNames, defaultValue: `Primary: ${primaryNames}`}));
+    lines.push(i18n.t('notification.primary', {names: primaryTimed, defaultValue: `Primary: ${primaryTimed}`}));
   if (coFrontNames)
-    lines.push(i18n.t('notification.coFront', {names: coFrontNames, defaultValue: `Co-Front: ${coFrontNames}`}));
+    lines.push(i18n.t('notification.coFront', {names: coFrontTimed, defaultValue: `Co-Front: ${coFrontTimed}`}));
   if (coConsciousNames)
-    lines.push(i18n.t('notification.coConscious', {names: coConsciousNames, defaultValue: `Co-Conscious: ${coConsciousNames}`}));
+    lines.push(i18n.t('notification.coConscious', {names: coConsciousTimed, defaultValue: `Co-Conscious: ${coConsciousTimed}`}));
 
   const primaryMood = getTierField(front, 'primary', 'mood');
   const primaryLocation = getTierField(front, 'primary', 'location');
@@ -171,7 +183,7 @@ const buildFriendLines = (): string[] => {
   const lines: string[] = [];
   for (const f of st.friends) {
     if (lines.length >= MAX_NOTIF_FRIENDS) break;
-    if (!f.showInNotification || f.status !== 'accepted') continue;
+    if (friendNotifyLevel(f) !== 'full' || f.status !== 'accepted') continue;
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const dur = s.startTime ? fmtDur(s.startTime) : '';
@@ -202,7 +214,7 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
   const out: {id: string; title: string; body: string; big: string}[] = [];
   for (const f of st.friends) {
     if (out.length >= MAX_NOTIF_FRIENDS) break;
-    if (!f.showInNotification || f.status !== 'accepted') continue;
+    if (friendNotifyLevel(f) !== 'full' || f.status !== 'accepted') continue;
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const dur = s.startTime ? fmtDur(s.startTime) : '';
@@ -220,6 +232,7 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
 export const showFriendUpdateAlert = async (f: Friend) => {
   if (Platform.OS !== 'android') return;
   if (!NetworkManager.getState().enabled) return;
+  if (friendNotifyLevel(f) === 'off') return;
   const s = f.lastStatus;
   if (!s || !s.fronters) return;
   await setupFriendAlertChannel();

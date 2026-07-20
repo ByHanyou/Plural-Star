@@ -9,6 +9,7 @@ import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveMember} from '../store/actions';
 import {store, KEYS} from '../storage';
+import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
   theme: ThemeColors;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export const MailboxScreen = ({theme: T, onBack}: Props) => {
+  const kbHeight = useKeyboardHeight();
   const members = useAppStore(s => s.members);
   const onSetMailboxPassword = (memberId: string, password?: string) => {
     const m = members.find(x => x.id === memberId);
@@ -218,7 +220,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           </View>
         </ScrollView>
         <Modal visible={lockManage} transparent animationType="fade" onRequestClose={() => setLockManage(false)}>
-          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
+          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32, paddingBottom: 32 + kbHeight}}>
             <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 6}}>{t('mailbox.lockTitle')}</Text>
               <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 10}}>{t('mailbox.lockHint')}</Text>
@@ -304,7 +306,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
         )}
       </ScrollView>
       <Modal visible={!!pwFor} transparent animationType="fade" onRequestClose={() => setPwFor(null)}>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32, paddingBottom: 32 + kbHeight}}>
           <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 6}}>
               {`🔒 ${byId(pwFor || '')?.name || '?'}`}

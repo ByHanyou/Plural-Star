@@ -15,6 +15,7 @@ import {Member, ChatChannel, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMe
 import {store, chatMsgKey} from '../storage';
 import {RichText as RichContent} from '../components/MarkdownRenderer';
 import {saveChatMedia, getChatMediaFileName} from '../utils/mediaUtils';
+import {readClipboardImage} from '../utils/clipboardImage';
 import {showChatPingNotification} from '../services/NotificationService';
 
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😢', '😮', '🎉', '✨', '🔥'];
@@ -56,7 +57,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const archivedChannels = channels.filter(c => c.archived);
 
   const insertFormat = (before: string, after: string) => {
-    setInput(prev => prev + before + (after ? 'text' : '') + after);
+    setInput(prev => prev + before + (after ? t('editor.textPlaceholder') : '') + after);
   };
 
   const loadMessages = useCallback(async (channelId: string) => {
@@ -118,6 +119,33 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
     } catch (e: any) {
       if (!isPickerCancel(e)) Alert.alert(t('chat.imageFailed'), e.message || '');
+    }
+  };
+
+  const sendClipboardImage = async () => {
+    if (!activeChannelId || !activeMemberId) return;
+    try {
+      const img = await readClipboardImage();
+      if (!img) {
+        Alert.alert(t('chat.noClipboardImage'));
+        return;
+      }
+      const msgId = uid();
+      const fileUri = await saveChatMedia(msgId, img.base64, img.ext);
+      const msg: ChatMessage = {
+        id: msgId,
+        channelId: activeChannelId,
+        authorId: activeMemberId,
+        type: 'image',
+        content: fileUri,
+        timestamp: Date.now(),
+      };
+      const updated = [...messages, msg];
+      await saveMessages(activeChannelId, updated);
+      isAtBottomRef.current = true;
+      setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
+    } catch (e: any) {
+      Alert.alert(t('chat.imageFailed'), e.message || '');
     }
   };
 
@@ -531,6 +559,9 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}>
         <TouchableOpacity onPress={sendMedia} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.attachFile')} style={{padding: 4}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>📎</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={sendClipboardImage} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.pasteImage')} style={{padding: 4}}>
+          <Text style={{fontSize: fs(18), color: T.dim}}>📋</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setShowFormatBar(!showFormatBar)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{expanded: showFormatBar}} accessibilityLabel={t('chat.formatting')} style={{padding: 4}}>
           <Text style={{fontSize: fs(14), fontWeight: '700', color: showFormatBar ? T.accent : T.dim}}>Aa</Text>

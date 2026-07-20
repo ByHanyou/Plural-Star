@@ -20,6 +20,7 @@ export interface MemberGroup {
   parentId?: string | null;
   sortOrder?: number;
   sourceId?: string;
+  description?: string;
 }
 
 export const groupKind = (g: MemberGroup): GroupNodeKind => g.kind || 'group';
@@ -154,6 +155,10 @@ export interface Member {
   sourceId?: string;
   isCustomFront?: boolean;
   mailboxPassword?: string;
+  pkProxyTags?: {prefix?: string | null; suffix?: string | null}[];
+  pkAvatarUrl?: string;
+  pkBannerUrl?: string;
+  pkKeepProxy?: boolean;
 }
 
 export const DEFAULT_CUSTOM_FRONT_NAMES = ['Chatty', 'Non-Verbal', 'IWC', 'DNI', 'Blurry', 'Blendy', 'Rapid Switching', 'Foggy', 'Grounded', 'Dissociated', 'Anxious', 'Depressed', 'Cheerful', 'Happy', 'Sad', 'Crisis', 'Melancholy', 'Stimming', 'Stressed', 'Working', 'Traveling', 'Sleeping', 'Hyperfocus'];
@@ -350,6 +355,100 @@ export const colorName = (hex: string, t: (k: string) => string): string => {
   return key ? t(`colors.${key}`) : hex;
 };
 
+export const BASE_COLORS = Object.keys(COLOR_NAMES);
+
+export type ColorSet = 'default' | 'darker' | 'pastel' | 'neon';
+export const COLOR_SETS: ColorSet[] = ['default', 'darker', 'pastel', 'neon'];
+
+const colorClamp01 = (n: number) => Math.max(0, Math.min(1, n));
+
+const colorHexToHsv = (hex: string) => {
+  const h6 = hex.replace('#', '');
+  const n = parseInt(h6.length === 3 ? h6.split('').map(c => c + c).join('') : h6, 16) || 0;
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let hh = 0;
+  if (d !== 0) {
+    if (max === r) hh = ((g - b) / d) % 6;
+    else if (max === g) hh = (b - r) / d + 2;
+    else hh = (r - g) / d + 4;
+    hh *= 60; if (hh < 0) hh += 360;
+  }
+  return {h: hh, s: max === 0 ? 0 : d / max, v: max};
+};
+
+const colorHsvToHex = (h: number, s: number, v: number) => {
+  h = ((h % 360) + 360) % 360;
+  const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) {r = c; g = x;} else if (h < 120) {r = x; g = c;} else if (h < 180) {g = c; b = x;}
+  else if (h < 240) {g = x; b = c;} else if (h < 300) {r = x; b = c;} else {r = c; b = x;}
+  const two = (val: number) => Math.max(0, Math.min(255, Math.round((val + m) * 255))).toString(16).padStart(2, '0');
+  return ('#' + two(r) + two(g) + two(b)).toUpperCase();
+};
+
+const variantHsv = (hex: string, set: ColorSet) => {
+  const {h, s, v} = colorHexToHsv(hex);
+  if (set === 'default') return {h, s, v};
+  if (s < 0.2) {
+    if (set === 'darker') return {h, s, v: colorClamp01(v * 0.6)};
+    if (set === 'pastel') return {h, s: s * 0.5, v: colorClamp01(v + 0.28)};
+    return {h, s, v: colorClamp01(v * 1.25 + 0.02)};
+  }
+  if (set === 'darker') return {h, s: colorClamp01(s * 1.05), v: colorClamp01(v * 0.58)};
+  if (set === 'pastel') return {h, s: s * 0.38, v: Math.max(v, 0.94)};
+  return {h, s: 1, v: 1};
+};
+
+export interface PresetColor {
+  hex: string;
+  baseKey: string;
+  set: ColorSet;
+}
+
+const buildPresetColors = (): PresetColor[] => {
+  const out: PresetColor[] = [];
+  const used = new Set<string>();
+  for (const set of COLOR_SETS) {
+    for (const baseHex of BASE_COLORS) {
+      const hsv = variantHsv(baseHex, set);
+      let hex = colorHsvToHex(hsv.h, hsv.s, hsv.v);
+      let v = hsv.v;
+      let guard = 0;
+      while (used.has(hex) && guard < 24) {
+        v = colorClamp01(v - 0.04);
+        hex = colorHsvToHex(hsv.h, hsv.s, v);
+        guard++;
+      }
+      used.add(hex);
+      out.push({hex, baseKey: COLOR_NAMES[baseHex], set});
+    }
+  }
+  return out;
+};
+
+export const PRESET_COLORS: PresetColor[] = buildPresetColors();
+
+export const presetColorName = (p: PresetColor, t: (k: string, o?: any) => string): string => {
+  const base = t(`colors.${p.baseKey}`);
+  if (p.set === 'default') return base;
+  if (p.set === 'darker') return t('colors.setDarker', {name: base});
+  if (p.set === 'pastel') return t('colors.setPastel', {name: base});
+  return t('colors.setNeon', {name: base});
+};
+
+export const MAX_CUSTOM_COLORS = 24;
+
+export const normalizeCustomColors = (raw: unknown): string[] => {
+  const list = Array.isArray(raw) ? raw : [];
+  const out: string[] = [];
+  for (let i = 0; i < MAX_CUSTOM_COLORS; i++) {
+    const v = typeof list[i] === 'string' ? (list[i] as string).toUpperCase() : '';
+    out.push(/^#[0-9A-F]{6}$/.test(v) ? v : '');
+  }
+  return out;
+};
+
 export interface Relationship {
   id: string;
   fromId: string;
@@ -401,6 +500,7 @@ export interface FrontState {
   coFront: FrontTier;
   coConscious: FrontTier;
   startTime: number;
+  memberSince?: Record<string, number>;
 }
 
 export interface HistoryEntry {
@@ -630,6 +730,17 @@ export const isFrontEmpty = (f: FrontState | null): boolean =>
 
 export const allFrontMemberIds = (f: FrontState | null): string[] =>
   f ? [...f.primary.memberIds, ...f.coFront.memberIds, ...f.coConscious.memberIds] : [];
+
+export const withMemberSince = (next: FrontState | null, prev: FrontState | null, now: number): FrontState | null => {
+  if (!next) return next;
+  const prevSince = prev?.memberSince || {};
+  const prevIds = new Set(prev ? allFrontMemberIds(prev) : []);
+  const since: Record<string, number> = {};
+  for (const id of allFrontMemberIds(next)) {
+    since[id] = prevSince[id] ?? (prevIds.has(id) ? (prev?.startTime ?? now) : now);
+  }
+  return {...next, memberSince: since};
+};
 
 export const frontToHistoryEntry = (f: FrontState, endTime: number | null, changeType: HistoryChangeType = 'front', changeTier?: FrontTierKey): HistoryEntry => ({
   memberIds: f.primary.memberIds,

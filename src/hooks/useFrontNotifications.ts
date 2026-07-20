@@ -3,6 +3,7 @@ import {AppState} from 'react-native';
 import {FrontState, Member, AppSettings} from '../utils';
 import {showFrontNotification, clearFrontNotification, showFriendUpdateAlert, scheduleFrontCheckReminder, cancelFrontCheckReminder, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh} from '../services/NotificationService';
 import {NetworkManager} from '../network/NetworkManager';
+import {friendNotifyLevel} from '../network/types';
 import {logError} from '../utils/log';
 
 export const useFrontNotifications = (front: FrontState | null, members: Member[], systemName: string, appSettings: AppSettings) => {
@@ -15,7 +16,7 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
     let last: string | null = null;
     let debounce: ReturnType<typeof setTimeout> | null = null;
     const unsub = NetworkManager.subscribe(s => {
-      const sig = `${s.enabled}|${s.friends.filter(f => f.showInNotification && f.status === 'accepted').map(f => `${f.peerId}:${f.statusUpdatedAt || 0}`).join(',')}`;
+      const sig = `${s.enabled}|${s.friends.filter(f => friendNotifyLevel(f) === 'full' && f.status === 'accepted').map(f => `${f.peerId}:${f.statusUpdatedAt || 0}`).join(',')}`;
       if (last !== null && sig !== last && appSettings.notificationsEnabled) {
         if (debounce) clearTimeout(debounce);
         debounce = setTimeout(() => { showFrontNotification(front, members, systemName).catch(e => logError('notif', e)); }, 2000);

@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {View, Modal, ScrollView, FlatList, TouchableOpacity, Image, ActivityIndicator} from 'react-native';
+import {View, Modal, Platform, ScrollView, FlatList, TouchableOpacity, Image, ActivityIndicator} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {NetworkManager} from '../network/NetworkManager';
@@ -7,6 +8,7 @@ import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup} from '../net
 import {ThemeColors, fontScale} from '../theme';
 import {Member, JournalEntry, fmtTime} from '../utils';
 import {RichText} from '../components/MarkdownRenderer';
+import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
   theme: ThemeColors;
@@ -20,6 +22,8 @@ interface Props {
 export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, onClose}: Props) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
+  const insets = useSafeAreaInsets();
+  const kbHeight = useKeyboardHeight();
   const [entry, setEntry] = useState<MirrorCacheEntry | null>(null);
   const [memberCache, setMemberCache] = useState<MirrorMember[]>([]);
   const [memberMedia, setMemberMedia] = useState<Record<string, string>>({});
@@ -47,8 +51,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const request = useCallback(() => {
     setRequesting('sent');
     if (waitRef.current) clearTimeout(waitRef.current);
-    // The node drops packets for offline peers — no error comes back, so an unanswered
-    // request would spin forever. Time it out and fall back to the cached copy.
     waitRef.current = setTimeout(() => {
       waitRef.current = null;
       setRequesting(r => (r === 'sent' ? 'failed' : r));
@@ -80,9 +82,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         reload();
       }
     });
-    // Ask again the moment they come online. Without this, a cached "not shared" (or an
-    // unanswered request) just sits there until the screen is reopened — which is what a
-    // freshly-granted bucket looks like from the other side.
     const unsubNet = NetworkManager.subscribe(s => {
       const online = s.onlinePeers.includes(peerId);
       const was = onlineRef.current;
@@ -116,8 +115,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   }));
 
   const statusLine = () => {
-    // The body already says "they haven't shared this" for a none entry — don't print it
-    // twice (it read like the app was stuttering).
     if (entry?.none) return requesting === 'failed' ? t('network.mirrorEmptyOffline') : '';
     if (requesting === 'failed') {
       return entry ? t('network.mirrorOffline') : t('network.mirrorEmptyOffline');
@@ -153,12 +150,25 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     return String(cf.value ?? '');
   };
 
-  const renderCustomFields = (mm: MirrorMember) => (
+  const renderCustomFields = (mm: MirrorMember, media?: Record<string, string>) => (
     <>
       {(mm.customFields || []).map((cf, i) => (
         <View key={i} style={{marginTop: 6}}>
           <Text style={{fontSize: fs(11), color: T.dim}}>{cf.name}</Text>
-          {cf.markdown && typeof cf.value === 'string' ? (
+          {cf.type === 'image' ? (() => {
+            const img = media?.[`${mm.id}#cf:${cf.fieldId || ''}`];
+            return img ? (
+              <Image
+                source={{uri: img}}
+                style={{width: '100%', height: 180, borderRadius: 8, marginTop: 4, backgroundColor: T.surface}}
+                resizeMode="cover"
+                accessibilityRole="image"
+                accessibilityLabel={t('a11y.image')}
+              />
+            ) : (
+              <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic'}}>{t('markdown.imageUnavailable')}</Text>
+            );
+          })() : cf.markdown && typeof cf.value === 'string' ? (
             <RichText text={cf.value} T={T} members={mentionMembers} />
           ) : (
             <Text style={{fontSize: fs(12), color: T.text}}>{cfDisplay(cf)}</Text>
@@ -195,7 +205,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
               <RichText text={item.description} T={T} members={mentionMembers} />
             </View>
           )}
-          {expanded && renderCustomFields(item)}
+          {expanded && renderCustomFields(item, entry?.media)}
         </View>
       </TouchableOpacity>
     );
@@ -219,7 +229,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     const groupMembers = [...(groupsData.membership[current ? current.id : ''] || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const empty = subgroups.length === 0 && groupMembers.length === 0;
     return (
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16}}>
+      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}>
         {groupPath.length > 0 && (
           <TouchableOpacity onPress={() => setGroupPath(groupPath.slice(0, -1))} activeOpacity={0.7}
             accessibilityRole="button" accessibilityLabel={t('common.back')} style={{paddingVertical: 8}}>
@@ -288,8 +298,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       return <View style={{padding: 24}}><Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>{t('network.mirrorNothing')}</Text></View>;
     }
     if (!entry) {
-      // Never render an empty void — either we're waiting on them, or there's nothing
-      // cached and they're unreachable. Say which.
       return (
         <View style={{padding: 32, alignItems: 'center'}}>
           {requesting === 'sent' ? (
@@ -310,7 +318,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           data={data}
           keyExtractor={m => m.id}
           renderItem={renderMemberRow}
-          contentContainerStyle={{padding: 16}}
+          contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}
           ListEmptyComponent={<Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>}
         />
       );
@@ -321,7 +329,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         data={journalEntries}
         keyExtractor={e => e.id}
         renderItem={renderJournalRow}
-        contentContainerStyle={{padding: 16}}
+        contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}
         ListEmptyComponent={<Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>}
       />
     );
@@ -330,7 +338,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{flex: 1, backgroundColor: T.bg}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 12 + insets.top : 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
           <View style={{flex: 1, minWidth: 0, marginRight: 8}}>
             <Text accessibilityRole="header" style={{fontSize: fs(16), fontWeight: '700', color: T.text}} numberOfLines={1}>{displayName}</Text>
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 1}}>{featureLabel}</Text>
@@ -397,7 +405,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
                       {mm ? (
                         <>
                           {!!mm.description && <RichText text={mm.description} T={T} members={mentionMembers} />}
-                          {renderCustomFields(mm)}
+                          {renderCustomFields(mm, memberMedia)}
                         </>
                       ) : (
                         <ActivityIndicator color={T.accent} />
@@ -415,7 +423,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         </Modal>
 
         <Modal visible={!!unlockFor} transparent animationType="fade" onRequestClose={() => setUnlockFor(null)}>
-          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
+          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24, paddingBottom: 24 + kbHeight}}>
             <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}}>🔒 {unlockFor?.title || t('common.untitled')}</Text>
               <TextInput

@@ -4,9 +4,10 @@ import Svg, {G, Path} from 'react-native-svg';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {store, KEYS} from '../storage';
-import {uid, colorName} from '../utils';
+import {uid} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {logError} from '../utils/log';
+import {ColorCarousel} from '../components/ColorCarousel';
 
 const WORLD = 8000;
 const HALF = WORLD / 2;
@@ -25,10 +26,20 @@ interface Props {
   onBack: () => void;
 }
 
-const COLORS = ['#FFFFFF', '#111111', '#E05B5B', '#E8933A', '#D9B84A', '#5BBF7A', '#4AA8D9', '#7B6BE8', '#E87BA8', '#8B5A2B', '#9AA5B1', '#DAA520'];
 const WIDTHS = [1, 3, 6, 12, 15];
 
-type Tool = 'draw' | 'move' | 'erase';
+type Tool = 'draw' | 'move' | 'erase' | 'bucket';
+
+const pointInPoly = (x: number, y: number, pts: number[]): boolean => {
+  let inside = false;
+  const n = pts.length / 2;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = pts[i * 2], yi = pts[i * 2 + 1];
+    const xj = pts[j * 2], yj = pts[j * 2 + 1];
+    if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+};
 
 const strokePath = (pts: number[]): string => {
   if (pts.length < 2) return '';
@@ -44,7 +55,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [current, setCurrent] = useState<Stroke | null>(null);
-  const [color, setColor] = useState(COLORS[0]);
+  const [color, setColor] = useState('#FFFFFF');
   const [width, setWidth] = useState(WIDTHS[2]);
   const [tool, setTool] = useState<Tool>('draw');
   const [view, setView] = useState({tx: 0, ty: 0, scale: 1});
@@ -61,6 +72,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const viewportRef = useRef({x: 0, y: 0, w: 0, h: 0});
   const panRef = useRef({tx: 0, ty: 0, scale: 1, startTx: 0, startTy: 0, startScale: 1, startDist: 0, originX: 0, originY: 0});
   const dirtyRef = useRef(false);
+  const bucketTapRef = useRef<{wx: number; wy: number; moved: boolean} | null>(null);
 
   const [voStep, setVoStep] = useState(40);
   const [voCursor, setVoCursor] = useState({x: 0, y: 0});
@@ -109,8 +121,9 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const eraseAt = (wx: number, wy: number) => {
     const radius = widthRef.current;
     const survivors = strokesRef.current.filter(s => {
+      if (s.w === -1) return true;
       for (let i = 0; i < s.pts.length; i += 2) {
-        if (Math.hypot(s.pts[i] - wx, s.pts[i + 1] - wy) < radius + s.w / 2) return false;
+        if (Math.hypot(s.pts[i] - wx, s.pts[i + 1] - wy) < radius + Math.max(s.w, 0) / 2) return false;
       }
       return true;
     });
@@ -138,6 +151,8 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         setCurrent(currentRef.current);
       } else if (toolRef.current === 'erase') {
         eraseAt(wx, wy);
+      } else if (toolRef.current === 'bucket') {
+        bucketTapRef.current = {wx, wy, moved: false};
       }
     },
     onPanResponderMove: (evt, gs) => {
@@ -148,6 +163,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
           currentRef.current = null;
           setCurrent(null);
         }
+        if (bucketTapRef.current) bucketTapRef.current.moved = true;
         const dx = touches[0].pageX - touches[1].pageX;
         const dy = touches[0].pageY - touches[1].pageY;
         const dist = Math.hypot(dx, dy) || 1;
@@ -171,6 +187,10 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         eraseAt(wx, wy);
         return;
       }
+      if (toolRef.current === 'bucket') {
+        if (bucketTapRef.current && (Math.abs(gs.dx) > 6 || Math.abs(gs.dy) > 6)) bucketTapRef.current.moved = true;
+        return;
+      }
       const cur = currentRef.current;
       if (!cur) return;
       const cx = clampWorld(wx);
@@ -183,6 +203,12 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       }
     },
     onPanResponderRelease: () => {
+      const tap = bucketTapRef.current;
+      bucketTapRef.current = null;
+      if (toolRef.current === 'bucket' && tap && !tap.moved) {
+        bucketFill(tap.wx, tap.wy);
+        return;
+      }
       const cur = currentRef.current;
       currentRef.current = null;
       if (cur && cur.pts.length >= 2) {
@@ -197,9 +223,20 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     },
     onPanResponderTerminate: () => {
       currentRef.current = null;
+      bucketTapRef.current = null;
       setCurrent(null);
     },
   }), [persist]);
+
+  const bucketFill = (wx: number, wy: number) => {
+    const target = [...strokesRef.current].reverse().find(s => s.w > 0 && s.pts.length >= 6 && pointInPoly(wx, wy, s.pts));
+    const fill: Stroke = target
+      ? {id: uid(), c: colorRef.current, w: -2, pts: [...target.pts]}
+      : {id: uid(), c: colorRef.current, w: -1, pts: [0, 0, 0, 0]};
+    const next = [...strokesRef.current, fill];
+    setStrokes(next);
+    persist(next);
+  };
 
   const undo = () => {
     if (strokesRef.current.length === 0) return;
@@ -212,8 +249,18 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     Alert.alert(t('whiteboard.clearTitle'), t('whiteboard.clearMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.delete'), style: 'destructive', onPress: () => {
-        setStrokes([]);
-        persist([]);
+        Alert.alert(t('whiteboard.clearConfirm2Title'), t('whiteboard.clearConfirm2Msg'), [
+          {text: t('common.cancel'), style: 'cancel'},
+          {text: t('common.delete'), style: 'destructive', onPress: () => {
+            Alert.alert(t('whiteboard.clearConfirm3Title'), t('whiteboard.clearConfirm3Msg'), [
+              {text: t('common.cancel'), style: 'cancel'},
+              {text: t('common.delete'), style: 'destructive', onPress: () => {
+                setStrokes([]);
+                persist([]);
+              }},
+            ]);
+          }},
+        ]);
       }},
     ]);
   };
@@ -316,26 +363,29 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         </TouchableOpacity>
       </View>
 
-      <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: T.border, flexWrap: 'wrap'}}>
+      <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
         {toolBtn('draw', '✎', t('whiteboard.draw'))}
         {toolBtn('move', '✥', t('whiteboard.move'))}
         {toolBtn('erase', '⌫', t('whiteboard.erase'))}
         <View style={{width: 1, height: 22, backgroundColor: T.border}} importantForAccessibility="no" accessibilityElementsHidden />
-        {WIDTHS.map(wd => (
-          <TouchableOpacity key={wd} onPress={() => setWidth(wd)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{selected: width === wd}} accessibilityLabel={`${t('whiteboard.brushSize')} ${wd}`}
-            style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: width === wd ? T.accent : T.border}}>
-            <View style={{width: wd + 4, height: wd + 4, borderRadius: (wd + 4) / 2, backgroundColor: color}} importantForAccessibility="no" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow: 1, flexShrink: 1}} contentContainerStyle={{alignItems: 'center', gap: 8}} snapToInterval={38} decelerationRate="fast">
+          {WIDTHS.map(wd => (
+            <TouchableOpacity key={wd} onPress={() => setWidth(wd)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityState={{selected: width === wd}} accessibilityLabel={`${t('whiteboard.brushSize')} ${wd}`}
+              style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: width === wd ? T.accent : T.border}}>
+              <View style={{width: wd + 4, height: wd + 4, borderRadius: (wd + 4) / 2, backgroundColor: color}} importantForAccessibility="no" />
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={() => setTool('bucket')} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityState={{selected: tool === 'bucket'}} accessibilityLabel={t('whiteboard.bucket')}
+            style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: tool === 'bucket' ? T.accentBg : 'transparent', borderColor: tool === 'bucket' ? T.accent : T.border}}>
+            <Text style={{fontSize: fs(14)}} importantForAccessibility="no">🪣</Text>
           </TouchableOpacity>
-        ))}
+        </ScrollView>
       </View>
 
-      <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 6, borderBottomWidth: 1, borderBottomColor: T.border, flexWrap: 'wrap'}}>
-        {COLORS.map(c => (
-          <TouchableOpacity key={c} onPress={() => setColor(c)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{selected: color === c}} accessibilityLabel={`${t('whiteboard.penColor')} ${colorName(c, t)}`}
-            style={{width: 24, height: 24, borderRadius: 12, backgroundColor: c, borderWidth: color === c ? 3 : 1, borderColor: color === c ? T.accent : T.border}} />
-        ))}
+      <View style={{paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
+        <ColorCarousel value={color} onChange={setColor} T={T} size={24} />
       </View>
 
       <View
@@ -354,6 +404,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
           {name: 'move_down', label: t('whiteboard.voMoveDown')},
           {name: 'move_left', label: t('whiteboard.voMoveLeft')},
           {name: 'move_right', label: t('whiteboard.voMoveRight')},
+          {name: 'fill', label: t('whiteboard.voFill')},
           {name: 'where', label: t('whiteboard.voWhere')},
           {name: 'recenter', label: t('whiteboard.voRecenter')},
           {name: 'commands', label: t('whiteboard.voCommands')},
@@ -372,6 +423,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
             case 'move_down': voMove(0, 1, 'whiteboard.voDown', false); break;
             case 'move_left': voMove(-1, 0, 'whiteboard.voLeft', false); break;
             case 'move_right': voMove(1, 0, 'whiteboard.voRight', false); break;
+            case 'fill': voStrokeIdRef.current = null; bucketFill(voCursorRef.current.x, voCursorRef.current.y); voAnnounce(t('whiteboard.voFilled')); break;
             case 'where': voWhere(); break;
             case 'recenter': voRecenter(); break;
             case 'commands': setVoHelpOpen(true); break;
@@ -387,10 +439,14 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         {...responder.panHandlers}>
         <Svg width="100%" height="100%" pointerEvents="none">
           <G transform={`translate(${viewportRef.current.w / 2 + view.tx}, ${viewportRef.current.h / 2 + view.ty}) scale(${view.scale})`}>
-            <Path d={`M ${-HALF} ${-HALF} H ${HALF} V ${HALF} H ${-HALF} Z`} fill="none" stroke={T.border} strokeWidth={2 / view.scale} />
-            {paths.map(p => (
+            {paths.map(p => p.w === -1 ? (
+              <Path key={p.id} d={`M ${-HALF} ${-HALF} H ${HALF} V ${HALF} H ${-HALF} Z`} fill={p.c} stroke="none" />
+            ) : p.w === -2 ? (
+              <Path key={p.id} d={`${p.d} Z`} fill={p.c} stroke="none" />
+            ) : (
               <Path key={p.id} d={p.d} stroke={p.c} strokeWidth={p.w} strokeLinecap="round" strokeLinejoin="round" fill="none" />
             ))}
+            <Path d={`M ${-HALF} ${-HALF} H ${HALF} V ${HALF} H ${-HALF} Z`} fill="none" stroke={T.border} strokeWidth={2 / view.scale} />
             {currentPath ? (
               <Path d={currentPath} stroke={current!.c} strokeWidth={current!.w} strokeLinecap="round" strokeLinejoin="round" fill="none" />
             ) : null}
@@ -409,7 +465,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
               {[
                 t('whiteboard.voDrawUp'), t('whiteboard.voDrawDown'), t('whiteboard.voDrawLeft'), t('whiteboard.voDrawRight'),
                 t('whiteboard.voMoveUp'), t('whiteboard.voMoveDown'), t('whiteboard.voMoveLeft'), t('whiteboard.voMoveRight'),
-                t('whiteboard.voWhere'), t('whiteboard.voRecenter'),
+                t('whiteboard.voFill'), t('whiteboard.voWhere'), t('whiteboard.voRecenter'),
                 t('whiteboard.undo'), t('whiteboard.clear'),
               ].map((c, i) => (
                 <Text key={i} style={{fontSize: fs(15), color: T.text, paddingVertical: 6}}>{`• ${c}`}</Text>

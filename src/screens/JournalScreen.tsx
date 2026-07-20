@@ -9,6 +9,7 @@ import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch} fro
 import {exportEntryTxt, exportEntryMd, exportEntryJSON} from '../export/exportUtils';
 import {RichText} from '../components/MarkdownRenderer';
 import {JournalTemplateModal} from '../modals';
+import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
   theme: ThemeColors;
@@ -22,6 +23,7 @@ interface Props {
 type JournalSubTab = 'entries' | 'templates';
 
 export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, onMentionPress}: Props) => {
+  const kbHeight = useKeyboardHeight();
   const journal = useAppStore(s => s.journal);
   const templates = useAppStore(s => s.journalTemplates);
   const members = useAppStore(s => s.members);
@@ -442,7 +444,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
       </Modal>
 
       <Modal visible={!!entryPwModal} transparent animationType="fade" onRequestClose={() => setEntryPwModal(null)}>
-        <View style={s.overlay}>
+        <View style={[s.overlay, {paddingBottom: 24 + kbHeight}]}>
           <View style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
             <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text}]}>{t('journal.entryLocked')}</Text>
             <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 16}}>

@@ -3,13 +3,13 @@ import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, Style
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useTranslation} from 'react-i18next';
-import {Member, Relationship, RelationshipTypeDef, allRelationshipTypes, relationshipDegrees, uid, sortMembersBySearch, DEFAULT_REL_COLOR, RELATIONSHIP_COLOR_CHOICES, PRESET_RELATIONSHIP_TYPES, isValidHex, normalizeHex, colorName} from '../utils';
-import {PALETTE, fontScale, ThemeColors} from '../theme';
+import {Member, Relationship, RelationshipTypeDef, allRelationshipTypes, relationshipDegrees, uid, sortMembersBySearch, DEFAULT_REL_COLOR, PRESET_RELATIONSHIP_TYPES} from '../utils';
+import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {TogglePill} from '../components/ToggleSwitch';
 import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
-import {ColorPicker} from '../components/ColorPicker';
+import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 
 interface Props {
@@ -183,19 +183,6 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
   const [directional, setDirectional] = useState(initial?.directional || false);
   const [inverse, setInverse] = useState(initial?.inverseName || '');
   const [color, setColor] = useState(initial?.color || DEFAULT_REL_COLOR);
-  const [hexInput, setHexInput] = useState(initial?.color || DEFAULT_REL_COLOR);
-  const [hexError, setHexError] = useState(false);
-  const handleHexChange = (val: string) => {
-    setHexInput(val);
-    const n = normalizeHex(val);
-    if (isValidHex(n)) {
-      setColor(n);
-      setHexError(false);
-    } else {
-      setHexError(val.length > 1);
-    }
-  };
-  const swatches = [...new Set([...RELATIONSHIP_COLOR_CHOICES, DEFAULT_REL_COLOR, ...PALETTE])];
   return (
     <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 12}}>
       <TextInput value={name} onChangeText={setName} placeholder={t('systemMap.typeName')} placeholderTextColor={T.muted}
@@ -211,16 +198,8 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
           style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginBottom: 8}} />
       )}
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.typeColor')}</Text>
-      <ColorPicker value={color} onChange={setColor} T={T} />
+      <ColorCarousel value={color} onChange={setColor} T={T} />
       <View style={{height: 12}} />
-      {hexError && <Text style={{fontSize: fs(11), color: T.danger, marginBottom: 8}}>{t('modal.invalidHex')}</Text>}
-      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10}}>
-        {swatches.map(c => (
-          <TouchableOpacity key={c} onPress={() => {setColor(c); setHexInput(c); setHexError(false);}} activeOpacity={0.8}
-            accessibilityRole="button" accessibilityState={{selected: color === c}} accessibilityLabel={`${t('systemMap.typeColor')} ${colorName(c, t)}`}
-            style={{width: 30, height: 30, borderRadius: 15, backgroundColor: c, borderWidth: 2, borderColor: color === c ? '#fff' : 'transparent'}} />
-        ))}
-      </View>
       <TouchableOpacity onPress={() => { if (name.trim()) onSave({name: name.trim(), directional, inverseName: directional ? (inverse.trim() || name.trim()) : undefined, color}); }} activeOpacity={0.7}
         accessibilityRole="button" accessibilityLabel={saveLabel}
         style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingVertical: 9, alignItems: 'center', opacity: name.trim() ? 1 : 0.45}}>
@@ -237,7 +216,9 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const kb = useKeyboardHeight();
   const winH = useWindowDimensions().height;
   const editorScrollRef = useRef<ScrollView>(null);
-  const eligibleMembers = useMemo(() => members.filter(m => !m.isCustomFront && !m.archived), [members]);
+  const [showArchived, setShowArchived] = useState(false);
+  const [colorAll, setColorAll] = useState(false);
+  const eligibleMembers = useMemo(() => members.filter(m => !m.isCustomFront && (showArchived || !m.archived)), [members, showArchived]);
   const [mapIds, setMapIds] = useState<string[]>([]);
   const mapIdSet = useMemo(() => new Set(mapIds), [mapIds]);
   const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id)), [eligibleMembers, mapIdSet]);
@@ -270,12 +251,16 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
   useEffect(() => {
     (async () => {
-      const [rels, savedTypes, savedMapIds, savedPositions] = await Promise.all([
+      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll] = await Promise.all([
         store.get<Relationship[]>(KEYS.relationships, []),
         store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []),
         store.get<string[]>(KEYS.systemMapMembers),
         store.get<Record<string, {x: number; y: number}>>(KEYS.systemMapPositions),
+        store.get<boolean>('ps.mapShowArchived', false),
+        store.get<boolean>('ps.mapColorThreads', false),
       ]);
+      setShowArchived(!!savedShowArchived);
+      setColorAll(!!savedColorAll);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
       const ids = new Set(members.map(m => m.id));
@@ -298,6 +283,17 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       }
     })();
   }, []);
+
+  const toggleShowArchived = () => {
+    const v = !showArchived;
+    setShowArchived(v);
+    store.set('ps.mapShowArchived', v).catch(() => {});
+  };
+  const toggleColorAll = () => {
+    const v = !colorAll;
+    setColorAll(v);
+    store.set('ps.mapColorThreads', v).catch(() => {});
+  };
 
   const saveMapIds = async (next: string[]) => {
     setMapIds(next);
@@ -612,6 +608,16 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
           style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: T.accent}}>{t('systemMap.addRelationship')}</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={toggleShowArchived} activeOpacity={0.7}
+          accessibilityRole="switch" accessibilityState={{checked: showArchived}} accessibilityLabel={t('members.archived')}
+          style={{borderWidth: 1, borderColor: showArchived ? `${T.accent}40` : T.border, backgroundColor: showArchived ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          <Text style={{fontSize: fs(12), fontWeight: '600', color: showArchived ? T.accent : T.dim}}>{t('members.archived')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={toggleColorAll} activeOpacity={0.7}
+          accessibilityRole="switch" accessibilityState={{checked: colorAll}} accessibilityLabel={t('systemMap.showColors')}
+          style={{borderWidth: 1, borderColor: colorAll ? `${T.accent}40` : T.border, backgroundColor: colorAll ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          <Text style={{fontSize: fs(12), fontWeight: '600', color: colorAll ? T.accent : T.dim}}>{t('systemMap.showColors')}</Text>
+        </TouchableOpacity>
       </View>
 
       <View
@@ -651,7 +657,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                   width: len,
                   height: lit ? 3 : 2,
                   borderRadius: 1.5,
-                  backgroundColor: lit ? relColor : T.dim,
+                  backgroundColor: lit || colorAll ? relColor : T.dim,
                   opacity: selectedId ? (lit ? 0.95 : 0.06) : 0.3,
                   transform: [{rotateZ: `${angle}rad`}],
                 }} />
@@ -666,7 +672,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               const showAvatar = nodeCount <= 250;
               const showLabel = nodeCount <= 600;
               return (
-                <View key={node.id} style={{position: 'absolute', left: HALF + node.x - node.r, top: HALF + node.y - node.r, opacity: dimmed ? 0.25 : 1}}>
+                <View key={node.id} style={{position: 'absolute', left: HALF + node.x - node.r, top: HALF + node.y - node.r, opacity: dimmed ? 0.25 : m.archived ? 0.55 : 1}}>
                   {showAvatar ? (
                     <View style={{
                       width: node.r * 2,

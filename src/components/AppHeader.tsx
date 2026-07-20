@@ -4,6 +4,7 @@ import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import {AccentText} from './AccentText';
+import {readableAccent} from '../theme';
 import type {ThemeColors} from '../theme';
 
 export const AppHeader = ({C, systemName, canLock, onLock, onOpenSettings}: {C: ThemeColors; systemName: string; canLock: boolean; onLock: () => void; onOpenSettings: () => void}) => {
@@ -15,7 +16,7 @@ export const AppHeader = ({C, systemName, canLock, onLock, onOpenSettings}: {C: 
         <View style={{flex: 1, minWidth: 0, marginRight: 8, overflow: 'hidden'}}>
           <AccentText
             T={C}
-            style={[styles.headerTitle, {color: C.accent, flex: 1}]}
+            style={[styles.headerTitle, {color: readableAccent(C), flex: 1}]}
             numberOfLines={1}
             accessibilityRole="header"
             maxFontSizeMultiplier={1.2}>{systemName}</AccentText>

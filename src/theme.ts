@@ -150,6 +150,27 @@ export const PALETTE = [
 
 export const fontScale = (T: ThemeColors) => (s: number) => Math.round(s * (T?.textScale || 1));
 
+export const contrastRatio = (hexA: string, hexB: string): number => {
+  const lum = (hex: string): number => {
+    const h = (hex || '').replace('#', '');
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : (h + '000000').slice(0, 6);
+    const n = parseInt(full, 16) || 0;
+    const chan = (v: number) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * chan((n >> 16) & 255) + 0.7152 * chan((n >> 8) & 255) + 0.0722 * chan(n & 255);
+  };
+  const la = lum(hexA);
+  const lb = lum(hexB);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+export const readableAccent = (T: ThemeColors): string =>
+  contrastRatio(T.accent, T.bg) >= 3 ? T.accent : T.text;
+
 export const DYSLEXIC_FONT = 'OpenDyslexic';
 
 export const Fonts = {

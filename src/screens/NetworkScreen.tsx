@@ -10,8 +10,9 @@ import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
 import {useNetwork} from '../network/useNetwork';
 import {NetworkManager} from '../network/NetworkManager';
-import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode, PRIVACY_BUCKETS_KEY, MirrorFeature} from '../network/types';
+import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode, PRIVACY_BUCKETS_KEY, MirrorFeature, friendNotifyLevel} from '../network/types';
 import {MirrorScreen} from './MirrorScreen';
+import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
   theme: ThemeColors;
@@ -49,6 +50,7 @@ const normalizeBucket = (b: PrivacyBucket): PrivacyBucket => ({
 });
 
 export const NetworkScreen = ({theme: T}: Props) => {
+  const kbHeight = useKeyboardHeight();
   const members = useAppStore(s => s.members);
   const groups = useAppStore(s => s.groups);
   const journal = useAppStore(s => s.journal);
@@ -87,8 +89,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
     setBuckets(next);
     await store.set(PRIVACY_BUCKETS_KEY, next);
     NetworkManager.notifyDataChanged();
-    // Push the new scopes over any copy friends already hold. Tightening a bucket has to
-    // reach them, or they keep showing the wider snapshot they were sent earlier.
     NetworkManager.refreshAllMirrors();
   };
 
@@ -297,9 +297,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
     f === 'members' ? t('tabs.members') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : t('systemMap.title');
   const scopeSummary = (s: PrivacyScope): string =>
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
-  // What this friend can ACTUALLY see: buckets are additive, so a friend sitting in two
-  // buckets gets the union. A second bucket set to "All" silently widens a careful
-  // "Select" in the first — this is what surfaces that.
   const effectiveShare = (peerId: string, f: BucketFeature): PrivacyScope => {
     const mine = buckets.filter(b => (b.friendPeerIds || []).includes(peerId));
     const ids = new Set<string>();
@@ -363,6 +360,33 @@ export const NetworkScreen = ({theme: T}: Props) => {
     return `${memberName(r.fromId)} ${arrow} ${memberName(r.toId)}${rt ? `  ·  ${rt.name}` : ''}`;
   };
 
+  const pickerItems: {id: string; name: string}[] = !pickerFeature ? [] : (pickerFeature === 'groups'
+    ? groups.map(g => ({id: g.id, name: g.name}))
+    : pickerFeature === 'journal'
+    ? journal
+        .filter(e => !pickerSearch.trim() || (e.title || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+        .map(e => ({id: e.id, name: `${e.password ? '🔒 ' : ''}${e.title || fmtTime(e.timestamp)}`}))
+    : pickerFeature === 'customFields'
+    ? [...fieldDefs]
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        .map(d => ({id: d.id, name: d.name}))
+        .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+    : pickerFeature === 'connections'
+    ? relationships
+        .map(r => ({id: r.id, name: relLabel(r)}))
+        .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+    : pickableMembers
+        .filter(m => !pickerSearch.trim() || m.name.toLowerCase().includes(pickerSearch.trim().toLowerCase()))
+        .map(m => ({id: m.id, name: m.name})));
+  const allPickedChecked = !!editBucket && !!pickerFeature && pickerItems.length > 0 && pickerItems.every(i => editBucket[pickerFeature].ids.includes(i.id));
+  const toggleSelectAllPicked = () => {
+    if (!editBucket || !pickerFeature) return;
+    const sc = editBucket[pickerFeature];
+    const listed = new Set(pickerItems.map(i => i.id));
+    const ids = allPickedChecked ? sc.ids.filter(x => !listed.has(x)) : [...new Set([...sc.ids, ...pickerItems.map(i => i.id)])];
+    setEditBucket({...editBucket, [pickerFeature]: {...sc, ids}});
+  };
+
   const deviceStatusText = (f: Friend): string => {
     if (f.status === 'entered_theirs') return t('network.waitingThem');
     if (f.status === 'entered_mine') return t('network.waitingYou');
@@ -388,13 +412,16 @@ export const NetworkScreen = ({theme: T}: Props) => {
           </TouchableOpacity>
         )}
         {f.kind !== 'device' && f.status === 'accepted' && (() => {
-          const atCap = !f.showInNotification && net.friends.filter(x => x.showInNotification).length >= MAX_NOTIF_FRIENDS;
+          const level = friendNotifyLevel(f);
+          const atCap = level !== 'full' && net.friends.filter(x => friendNotifyLevel(x) === 'full').length >= MAX_NOTIF_FRIENDS;
+          const nextLevel = level === 'full' ? 'alerts' : level === 'alerts' ? 'off' : atCap ? 'alerts' : 'full';
+          const levelLabel = level === 'full' ? t('network.notifFull') : level === 'alerts' ? t('network.notifAlerts') : t('network.notifOff');
           return (
-            <TouchableOpacity onPress={() => { if (!atCap) NetworkManager.setFriendShowInNotification(f.peerId, !f.showInNotification); }} activeOpacity={0.7}
-              accessibilityRole="switch" accessibilityState={{checked: !!f.showInNotification, disabled: atCap}}
-              accessibilityLabel={`${t('network.showInNotif')}, ${f.displayName}`}
-              style={{padding: 10, opacity: atCap ? 0.35 : 1}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-              <Text style={{color: f.showInNotification ? T.accent : T.dim, fontSize: fs(15)}} importantForAccessibility="no">{f.showInNotification ? '🔔' : '🔕'}</Text>
+            <TouchableOpacity onPress={() => NetworkManager.setFriendNotifyLevel(f.peerId, nextLevel)} activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`${levelLabel}, ${f.displayName}`}
+              style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+              <Text style={{color: level === 'full' ? T.accent : T.dim, fontSize: fs(15), opacity: level === 'off' ? 0.45 : 1}} importantForAccessibility="no">{level === 'off' ? '🔕' : '🔔'}</Text>
             </TouchableOpacity>
           );
         })()}
@@ -517,11 +544,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
       </ScrollView>
 
       <Modal visible={!!editBucket && !pickerFeature} transparent animationType="fade" onRequestClose={() => setEditBucket(null)}>
-        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
-          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24, paddingBottom: 24 + kbHeight}}>
+          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden', maxHeight: '85%'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>
               {editBucket && buckets.some(b => b.id === editBucket.id) ? editBucket.name : t('network.newBucket')}
             </Text>
+            <ScrollView style={{flexGrow: 0, flexShrink: 1}}>
             <View style={{paddingHorizontal: 16, paddingBottom: 4}}>
               <Text style={labelStyle} nativeID="lblBucketName">{t('network.bucketName')}</Text>
               <TextInput value={editBucket?.name || ''} onChangeText={v => editBucket && setEditBucket({...editBucket, name: v})}
@@ -560,7 +588,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 {net.friends.filter(f => f.kind !== 'device' && f.status === 'accepted').length === 0 ? (
                   <Text style={{fontSize: fs(11), color: T.dim}}>{t('network.noFriends')}</Text>
                 ) : (
-                  <ScrollView style={{maxHeight: 150}}>
+                  <View>
                     {net.friends.filter(f => f.kind !== 'device' && f.status === 'accepted').map(f => {
                       const checked = (editBucket.friendPeerIds || []).includes(f.peerId);
                       return (
@@ -580,10 +608,11 @@ export const NetworkScreen = ({theme: T}: Props) => {
                         </TouchableOpacity>
                       );
                     })}
-                  </ScrollView>
+                  </View>
                 )}
               </View>
             )}
+            </ScrollView>
             <View style={{flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: T.border}}>
               <TouchableOpacity onPress={() => setEditBucket(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                 style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
@@ -610,26 +639,20 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 <TextInput value={pickerSearch} onChangeText={setPickerSearch} placeholder={t('common.search')} placeholderTextColor={T.muted} style={inputStyle} accessibilityLabel={t('common.search')} />
               </View>
             )}
+            {pickerItems.length > 0 && (
+              <TouchableOpacity onPress={toggleSelectAllPicked} activeOpacity={0.7} accessibilityRole="checkbox"
+                accessibilityState={{checked: allPickedChecked}} accessibilityLabel={allPickedChecked ? t('network.deselectAll') : t('network.selectAll')}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
+                <View style={{width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: T.accent, backgroundColor: allPickedChecked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} importantForAccessibility="no">
+                  {allPickedChecked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
+                </View>
+                <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.accent}} numberOfLines={1} importantForAccessibility="no">
+                  {allPickedChecked ? t('network.deselectAll') : t('network.selectAll')}
+                </Text>
+              </TouchableOpacity>
+            )}
             <ScrollView style={{maxHeight: 340}}>
-              {(pickerFeature === 'groups'
-                ? groups.map(g => ({id: g.id, name: g.name}))
-                : pickerFeature === 'journal'
-                ? journal
-                    .filter(e => !pickerSearch.trim() || (e.title || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
-                    .map(e => ({id: e.id, name: `${e.password ? '🔒 ' : ''}${e.title || fmtTime(e.timestamp)}`}))
-                : pickerFeature === 'customFields'
-                ? [...fieldDefs]
-                    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-                    .map(d => ({id: d.id, name: d.name}))
-                    .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
-                : pickerFeature === 'connections'
-                ? relationships
-                    .map(r => ({id: r.id, name: relLabel(r)}))
-                    .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
-                : pickableMembers
-                    .filter(m => !pickerSearch.trim() || m.name.toLowerCase().includes(pickerSearch.trim().toLowerCase()))
-                    .map(m => ({id: m.id, name: m.name}))
-              ).map(item => {
+              {pickerItems.map(item => {
                 const checked = !!(editBucket && pickerFeature && editBucket[pickerFeature].ids.includes(item.id));
                 return (
                   <TouchableOpacity key={item.id} onPress={() => togglePickId(item.id)} activeOpacity={0.7}

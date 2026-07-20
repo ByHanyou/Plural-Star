@@ -2,7 +2,6 @@ import React, {useState, useEffect, useRef} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle} from 'react-native';
 import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
-import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {useTranslation} from 'react-i18next';
@@ -34,7 +33,6 @@ interface Props {
 export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
-  const behavior = useKeyboardBehavior();
   const [fields, setFields] = useState<CustomFieldDef[]>([]);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<CustomFieldType>('text');
@@ -121,7 +119,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const typeLabel = (type: CustomFieldType) => t(`customFields.type${type.charAt(0).toUpperCase() + type.slice(1)}` as any);
 
   return (
-    <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
+    <KeyboardAvoidingView style={{flex: 1}} behavior="padding">
       <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} scrollEnabled={!dragging}>
         {fields.length > 1 && (
           <View style={{flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10}}>

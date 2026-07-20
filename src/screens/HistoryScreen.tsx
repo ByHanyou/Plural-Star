@@ -503,7 +503,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: 
                 ListEmptyComponent={
                   <View style={{alignItems: 'center', paddingVertical: 32}}>
                     <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>
-                      {t('history.noActivity', {name: selectedMember?.name})}
+                      {selectedMember ? t('history.noActivity', {name: selectedMember.name}) : t('history.selectMember')}
                     </Text>
                   </View>
                 }

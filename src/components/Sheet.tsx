@@ -1,5 +1,5 @@
 import React, {ReactNode, useEffect, useRef, useState} from 'react';
-import {View, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform} from 'react-native';
+import {View, ScrollView, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform} from 'react-native';
 import {KeyboardAwareScrollView, KeyboardStickyView} from 'react-native-keyboard-controller';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -17,6 +17,7 @@ interface SheetProps {
   headerAction?: ReactNode;
 }
 
+const isIOS = Platform.OS === 'ios';
 const isIPad = Platform.OS === 'ios' && Platform.isPad;
 
 const ANDROID_NAV_BAR_FLOOR = 24;
@@ -68,28 +69,50 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
       }
       footer={
         footer ? (
-          <KeyboardStickyView offset={{closed: 0, opened: bottomInset}}>
+          isIOS ? (
             <View
               onLayout={onFooterLayout}
               style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}
             >
               {footer}
             </View>
-          </KeyboardStickyView>
+          ) : (
+            <KeyboardStickyView offset={{closed: 0, opened: bottomInset}}>
+              <View
+                onLayout={onFooterLayout}
+                style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}
+              >
+                {footer}
+              </View>
+            </KeyboardStickyView>
+          )
         ) : undefined
       }
     >
-      <KeyboardAwareScrollView
-        ref={scrollRef}
-        style={s.body}
-        contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
-        showsVerticalScrollIndicator
-        keyboardShouldPersistTaps="handled"
-        bottomOffset={footer ? footerHeight + 24 : 24}
-        nestedScrollEnabled
-      >
-        {children}
-      </KeyboardAwareScrollView>
+      {isIOS ? (
+        <ScrollView
+          ref={scrollRef}
+          style={s.body}
+          contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          {children}
+        </ScrollView>
+      ) : (
+        <KeyboardAwareScrollView
+          ref={scrollRef}
+          style={s.body}
+          contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+          bottomOffset={footer ? footerHeight + 24 : 24}
+          nestedScrollEnabled
+        >
+          {children}
+        </KeyboardAwareScrollView>
+      )}
     </TrueSheet>
   );
 };

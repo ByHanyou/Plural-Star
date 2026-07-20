@@ -21,7 +21,13 @@ export interface Friend {
   lastStatus?: FrontShare | null;
   statusUpdatedAt?: number;
   showInNotification?: boolean;
+  notifyLevel?: FriendNotifyLevel;
 }
+
+export type FriendNotifyLevel = 'full' | 'alerts' | 'off';
+
+export const friendNotifyLevel = (f: Friend): FriendNotifyLevel =>
+  f.notifyLevel ?? (f.showInNotification ? 'full' : 'alerts');
 
 export interface FrontShare {
   fronters: string;
@@ -73,7 +79,7 @@ export interface MirrorMember {
   color?: string;
   description?: string;
   archived?: boolean;
-  customFields?: {name: string; value: string | number | boolean | null; type?: string; markdown?: boolean}[];
+  customFields?: {name: string; value: string | number | boolean | null; type?: string; markdown?: boolean; fieldId?: string}[];
 }
 
 export interface MirrorGroup {
@@ -95,8 +101,6 @@ export interface MirrorCacheEntry {
 
 export const MIRROR_CACHE_PREFIX = 'ps:friendMirror:';
 
-// Which mirror features we've served to which friend. Lives under the mirror prefix so it
-// is excluded from device sync. Needed so a bucket edit can revoke a copy already sent.
 export const MIRROR_SERVED_KEY = 'ps:friendMirror:served';
 
 export const SYNC_EXCLUDE_KEYS = [

@@ -93,7 +93,7 @@ export const PollsScreen = ({theme: T}: Props) => {
           <TextInput
             value={voterSearch}
             onChangeText={setVoterSearch}
-            placeholder={t('common.search') || 'Search…'}
+            placeholder={t('common.search')}
             placeholderTextColor={T.muted}
             autoFocus
             style={{

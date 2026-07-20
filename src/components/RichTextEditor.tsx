@@ -1,6 +1,5 @@
-import React, {useState, useMemo, useEffect} from 'react';
+import React, {useState, useMemo, useEffect, useRef} from 'react';
 import {View, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Keyboard} from 'react-native';
-import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts, fontScale} from '../theme';
@@ -114,6 +113,8 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   const [text, setText] = useState(initialContent || '');
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const selEndRef = useRef<number>(Number.MAX_SAFE_INTEGER);
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -163,7 +164,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
           </TouchableOpacity>
         )}
       </View>
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 40 + kbHeight}} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 40 + kbHeight}} keyboardShouldPersistTaps="handled">
         <TextInput
           value={text}
           onChangeText={setText}
@@ -172,6 +173,10 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
           accessibilityLabel={i18n.t('editor.body')}
           multiline
           autoFocus
+          onSelectionChange={e => { selEndRef.current = e.nativeEvent.selection.end; }}
+          onContentSizeChange={() => {
+            if (kbHeight > 0 && selEndRef.current >= text.length - 2) scrollRef.current?.scrollToEnd({animated: false});
+          }}
           style={{fontSize: fs(15), color: T.text, lineHeight: 22, fontFamily: 'monospace', minHeight: 300, textAlignVertical: 'top'}}
         />
       </ScrollView>

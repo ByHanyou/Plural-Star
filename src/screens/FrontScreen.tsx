@@ -116,6 +116,9 @@ const TierCard = ({
                     </Text>
                   ) : null}
                 </View>
+                <Text style={{fontSize: fs(11), color: T.muted}} accessibilityLabel={`${m.name}, ${t('front.frontingFor')} ${fmtDur(front.memberSince?.[m.id] ?? front.startTime)}`}>
+                  {fmtDur(front.memberSince?.[m.id] ?? front.startTime)}
+                </Text>
               </View>
             ))
           ) : (

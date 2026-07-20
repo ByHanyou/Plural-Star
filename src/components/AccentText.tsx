@@ -30,12 +30,12 @@ export const AccentText = ({children, style, T, numberOfLines, adjustsFontSizeTo
   return (
     <View style={[s.wrap, style && {width: undefined, height: undefined}]}>
       {OFFSETS.map(([dx, dy], i) => (
-        <Text key={i} style={[style, s.abs, {color: '#0A1F2E', left: dx, top: dy}]} {...textProps}>
+        <Text key={i} style={[style, s.abs, {color: '#0A1F2E', left: dx, top: dy, right: -dx, bottom: -dy}]} {...textProps}>
           {children}
         </Text>
       ))}
       <Text style={[style, {color: 'transparent'}]} {...textProps}>{children}</Text>
-      <Text style={[style, s.abs, {top: 0, left: 0}]} {...textProps}>{children}</Text>
+      <Text style={[style, s.abs, {top: 0, left: 0, right: 0, bottom: 0}]} {...textProps}>{children}</Text>
     </View>
   );
 };
