@@ -613,7 +613,11 @@ export interface ExportPayload {
   relationships?: Relationship[];
   relationshipTypes?: RelationshipTypeDef[];
   systemMapMembers?: string[];
+  systemMapPositions?: Record<string, {x: number; y: number}>;
   medical?: MedicalData;
+  whiteboard?: any;
+  customColors?: string[];
+  shareSettings?: ShareSettings;
 }
 
 export type ChatMessageType = 'text' | 'image' | 'file' | 'reply' | 'reaction';

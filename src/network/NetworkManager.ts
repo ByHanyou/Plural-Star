@@ -8,6 +8,10 @@ import {
   Identity,
   FriendIdentity,
   loadOrCreateIdentity,
+  getDeviceSubId,
+  getDeviceIdentity,
+  resetIdentityCache,
+  IDENTITY_STORAGE_KEY,
 } from './identity';
 import nacl from 'tweetnacl';
 import { NodeClient, PacketReceived } from './NodeClient';
@@ -33,6 +37,8 @@ import {
   NETWORK_SETTINGS_KEY,
   SYNC_EXCLUDE_KEYS,
   SYNC_STATE_KEY,
+  GW_REGISTERED_KEY,
+  PROTO_VERSION,
   MAX_NOTIF_FRIENDS,
   FriendNotifyLevel,
   friendNotifyLevel,
@@ -168,6 +174,7 @@ class NetworkManagerImpl {
   private systemName = 'Plural Star user';
   private myFront: FrontShare | null = null;
   private myFrontKnown = false;
+  private subId = '';
 
   private lastHashes: Record<string, string> = {};
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -223,8 +230,74 @@ class NetworkManagerImpl {
     });
   }
 
+  private applyingSiblingFriends = false;
+
   private async persistFriends(): Promise<void> {
     await store.set(FRIENDS_STORAGE_KEY, this.friends);
+    // Echo guard: a merge from a sibling persists too, and pushing that straight
+    // back would bounce the list between the two devices forever.
+    if (!this.applyingSiblingFriends) this.pushFriendsToSiblings();
+  }
+
+  /** Devices that share our identity — after linking, we are literally the same peer. */
+  private siblingDevices(): Friend[] {
+    const self = this.identity;
+    if (!self) return [];
+    return this.friends.filter(
+      f => f.kind === 'device' && f.status === 'accepted' && !f.initPending && f.peerId === self.peerId,
+    );
+  }
+
+  private pushFriendsToSiblings(): void {
+    const sibs = this.siblingDevices();
+    if (sibs.length === 0) return;
+    const payload = this.friends.filter(f => f.kind !== 'device');
+    for (const s of sibs) {
+      this.sendTo(s.peerId, {t: 'friends_push', friends: payload}).catch(() => {});
+    }
+  }
+
+  private async mergeSiblingFriends(incoming: Friend[]): Promise<void> {
+    if (!Array.isArray(incoming)) return;
+    const byId = new Map(this.friends.map(f => [f.peerId, f]));
+    let changed = false;
+    for (const inc of incoming) {
+      if (!inc || typeof inc.peerId !== 'string' || !inc.peerId) continue;
+      if (inc.kind === 'device') continue;
+      // Our own system address is us, never a friend.
+      if (this.identity && inc.peerId === this.identity.peerId) continue;
+      const mine = byId.get(inc.peerId);
+      if (!mine) {
+        this.friends.push(inc);
+        byId.set(inc.peerId, inc);
+        changed = true;
+        continue;
+      }
+      // Device records are this device's own business; never let a sibling's
+      // copy overwrite one that happens to share a peer id.
+      if (mine.kind === 'device') continue;
+      const mineAt = mine.statusUpdatedAt ?? mine.addedAt ?? 0;
+      const incAt = inc.statusUpdatedAt ?? inc.addedAt ?? 0;
+      if (incAt <= mineAt) continue;
+      const merged: Friend = {
+        ...mine,
+        ...inc,
+        // Notification prefs are per-device on purpose: which friends show on
+        // THIS device's lock screen is a local choice.
+        showInNotification: mine.showInNotification,
+        notifyLevel: mine.notifyLevel,
+      };
+      this.upsertFriend(merged);
+      changed = true;
+    }
+    if (!changed) return;
+    this.applyingSiblingFriends = true;
+    try {
+      await this.persistFriends();
+    } finally {
+      this.applyingSiblingFriends = false;
+    }
+    this.notify();
   }
 
   private async persistSettings(): Promise<void> {
@@ -238,6 +311,7 @@ class NetworkManagerImpl {
       enabled: false,
     };
     this.friends = (await store.get<Friend[]>(FRIENDS_STORAGE_KEY, null)) || [];
+    this.subId = await getDeviceSubId();
     await this.loadPendingFronts();
     if (this.friends.length > 0) this.persistFriends().catch(() => {});
     this.persistSettings().catch(() => {});
@@ -460,6 +534,10 @@ class NetworkManagerImpl {
     if (!self || !p?.sender_peer_id || !p?.payload) return;
     const opened = openMessage(self, p.sender_peer_id, p.payload);
     if (!opened) return;
+    // Own echo: linked devices share an identity, so the relay fans a packet out
+    // to every device on the address INCLUDING the sender. Sub-id is the only
+    // thing that can tell them apart — peer id is identical across them.
+    if (opened.dev && this.subId && opened.dev === this.subId) return;
     this.routeMessage(opened.sender, opened.message);
   }
 
@@ -500,13 +578,14 @@ class NetworkManagerImpl {
             status: 'accepted',
             displayName: msg.name || existing.displayName,
             peerRole: msg.role ?? existing.peerRole,
+            peerV: msg.v ?? existing.peerV,
           };
           this.upsertFriend(accepted);
           if (!msg.ack) this.sendConnectTo(sender.peerId, existing.kind, true).catch(() => {});
           if (existing.kind === 'device') this.onDeviceLinkAccepted(accepted);
           else this.sendMyFrontTo(sender.peerId);
         } else if (existing && existing.status === 'accepted') {
-          this.upsertFriend({ ...existing, displayName: msg.name || existing.displayName, peerRole: msg.role ?? existing.peerRole });
+          this.upsertFriend({ ...existing, displayName: msg.name || existing.displayName, peerRole: msg.role ?? existing.peerRole, peerV: msg.v ?? existing.peerV });
           if (!msg.ack) this.sendConnectTo(sender.peerId, existing.kind, true).catch(() => {});
         } else if (msg.ack) {
           break;
@@ -515,6 +594,7 @@ class NetworkManagerImpl {
           this.upsertFriend({
             ...this.friendFrom(sender, msg.name || (kind === 'device' ? 'Device' : 'Friend'), 'entered_mine', kind),
             peerRole: msg.role,
+            peerV: msg.v,
           });
         }
         this.persistFriends();
@@ -557,11 +637,26 @@ class NetworkManagerImpl {
         }
         break;
       }
+      case 'device_adopt': {
+        const dev = this.friends.find(
+          f => f.peerId === sender.peerId && f.kind === 'device' && f.status === 'accepted' && f.initRole === 'target',
+        );
+        if (!dev) break;
+        this.adoptSystemIdentity(msg.identity, msg.friends).catch(e => logError('network', e));
+        break;
+      }
       case 'front_req': {
         const asker = this.friends.find(
           f => f.peerId === sender.peerId && f.kind !== 'device' && f.status === 'accepted',
         );
         if (asker && this.myFrontKnown) this.sendMyFrontTo(sender.peerId);
+        break;
+      }
+      case 'friends_push': {
+        // Only a device that shares our identity can hand us friend records:
+        // its pairings are literally ours, because we are the same peer.
+        if (!this.identity || sender.peerId !== this.identity.peerId) break;
+        this.mergeSiblingFriends(msg.friends).catch(e => logError('network', e));
         break;
       }
       case 'sync': {
@@ -604,7 +699,7 @@ class NetworkManagerImpl {
     if (!self || !client) throw new Error('network not connected');
     const friend = this.friends.find(f => f.peerId === recipientPeerId) || null;
     if (!friend) throw new Error('no public key for recipient');
-    const payload = sealMessage(self, decodeBase64(friend.boxPublicKey), msg);
+    const payload = sealMessage(self, decodeBase64(friend.boxPublicKey), msg, this.subId || undefined);
     await client.send(recipientPeerId, payload);
   }
 
@@ -615,6 +710,7 @@ class NetworkManagerImpl {
       t: 'connect',
       name,
       kind,
+      v: PROTO_VERSION,
       ...(ack ? { ack: true } : {}),
       ...(role ? { role } : {}),
     };
@@ -708,6 +804,11 @@ class NetworkManagerImpl {
   }
 
   private gatewayEverRegistered = false;
+  private gwFlagLoaded = false;
+  /** Payload the gateway has ACKED. Only set after a successful send. */
+  private gwConfirmed: string | null = null;
+  private gwRetry: ReturnType<typeof setTimeout> | null = null;
+  private gwRetryDelay = 0;
 
   private friendsActivityLive = false;
 
@@ -715,7 +816,16 @@ class NetworkManagerImpl {
     if (Platform.OS !== 'ios') return;
     const self = this.identity;
     if (!self || !this.settings.enabled) return;
-    const accepted = this.friends.filter(f => f.kind !== 'device' && f.status === 'accepted');
+    if (!this.gwFlagLoaded) {
+      this.gatewayEverRegistered = (await store.get<boolean>(GW_REGISTERED_KEY, false)) === true;
+      this.gwFlagLoaded = true;
+    }
+    // Never watch our own system address: the gateway's "don't push to the
+    // sender" check compares against the REGISTERED id, which is now this
+    // device's own, so a self-entry here would alert us about our own fronts.
+    const accepted = this.friends.filter(
+      f => f.kind !== 'device' && f.status === 'accepted' && f.peerId !== self.peerId,
+    );
     const watch = accepted.filter(f => friendNotifyLevel(f) !== 'off').map(f => f.peerId).sort();
     const pinned = accepted
       .filter(f => friendNotifyLevel(f) === 'full')
@@ -725,22 +835,33 @@ class NetworkManagerImpl {
       endFriendsActivity().catch(() => {});
       this.friendsActivityLive = false;
     }
-    if (watch.length === 0) {
-      if (!this.gatewayEverRegistered) return;
-      this.gatewayEverRegistered = false;
-    }
+    // Muting every friend leaves watch empty — and the gateway is still holding
+    // the last list we sent it. We MUST send the empty one so it stops pushing;
+    // bailing here was why muted friends kept coming through after a restart.
+    // Only a device that has never registered has nothing to clear.
+    if (watch.length === 0 && !this.gatewayEverRegistered) return;
     const token = pinned.length > 0 ? (await getFriendsPushToken()) || '' : '';
     if (token) this.friendsActivityLive = true;
     const deviceToken = watch.length > 0 ? (await getAPNsDeviceToken()) || '' : '';
-    if (watch.length > 0 && (token || deviceToken)) this.gatewayEverRegistered = true;
     const env = __DEV__ ? 'sandbox' : 'prod';
     const ts = Date.now();
-    const signed = `psgw-register|${self.peerId}|${ts}|${env}|${token}|${deviceToken}|${watch.join(',')}|${pinned.join(',')}`;
-    const sig = nacl.sign.detached(decodeUTF8(signed), self.edSecretKey);
+    // Register under THIS DEVICE's keypair, not the shared system identity. The
+    // gateway holds one token per registered peer id, so linked devices sharing
+    // the system identity would clobber each other's token. It chooses push
+    // targets by watch list, not by address, so a per-device registration still
+    // gets alerts for exactly the friends this device is watching. Our front is
+    // still announced under the system identity — that is what friends watch.
+    const gw = await getDeviceIdentity();
+    const signed = `psgw-register|${gw.peerId}|${ts}|${env}|${token}|${deviceToken}|${watch.join(',')}|${pinned.join(',')}`;
+    const sig = nacl.sign.detached(decodeUTF8(signed), gw.edSecretKey);
+    // Everything the gateway will store, minus the timestamp. If this is already
+    // what it acked, there is nothing to say.
+    const state = `${env}|${token}|${deviceToken}|${watch.join(',')}|${pinned.join(',')}`;
+    if (state === this.gwConfirmed) return;
     try {
       await this.gatewayFetch('/gw/register', {
-        peer_id: self.peerId,
-        ed_pub: encodeBase64(self.edPublicKey),
+        peer_id: gw.peerId,
+        ed_pub: encodeBase64(gw.edPublicKey),
         sig: encodeBase64(sig),
         ts,
         env,
@@ -749,7 +870,36 @@ class NetworkManagerImpl {
         watch,
         pinned,
       });
-    } catch {}
+      this.gwConfirmed = state;
+      this.clearGatewayRetry();
+      const live = watch.length > 0 && !!(token || deviceToken);
+      if (live !== this.gatewayEverRegistered) {
+        this.gatewayEverRegistered = live;
+        await store.set(GW_REGISTERED_KEY, live);
+      }
+    } catch {
+      // Mutes are the whole point of this call, so a failed send cannot be
+      // dropped: the gateway would keep pushing the friends the user just turned
+      // off until something else happened to re-register. Keep retrying.
+      this.scheduleGatewayRetry();
+    }
+  }
+
+  private clearGatewayRetry(): void {
+    if (this.gwRetry) {
+      clearTimeout(this.gwRetry);
+      this.gwRetry = null;
+    }
+    this.gwRetryDelay = 0;
+  }
+
+  private scheduleGatewayRetry(): void {
+    if (this.gwRetry) return;
+    this.gwRetryDelay = this.gwRetryDelay ? Math.min(this.gwRetryDelay * 3, 5 * 60 * 1000) : 5000;
+    this.gwRetry = setTimeout(() => {
+      this.gwRetry = null;
+      this.registerWithGateway().catch(() => {});
+    }, this.gwRetryDelay);
   }
 
   async updateMyFront(front: any, members: Member[]): Promise<void> {
@@ -761,7 +911,7 @@ class NetworkManagerImpl {
       let delivered = false;
       try {
         await this.sendTo(f.peerId, { t: 'front', status: this.myFront });
-        delivered = this.online.has(f.peerId);
+        delivered = this.isReachable(f.peerId);
       } catch {
         delivered = false;
       }
@@ -810,7 +960,7 @@ class NetworkManagerImpl {
     } catch {
       return;
     }
-    if (!this.online.has(peerId)) return;
+    if (!this.isReachable(peerId)) return;
     this.clearPendingFront(peerId);
     await this.persistPendingFronts();
   }
@@ -819,6 +969,50 @@ class NetworkManagerImpl {
     try {
       await this.sendTo(peerId, { t: 'front', status: this.myFront });
     } catch {}
+  }
+
+  /**
+   * Become the same network peer as the device that linked us. The master's keys
+   * ARE the system identity, so its friends keep working untouched — they were
+   * never told about this device at all. Our own sub-id stays local, which is
+   * what still lets the two of us tell each other apart afterwards.
+   */
+  private async adoptSystemIdentity(
+    identity: {v: number; edSecretKey: string; boxSecretKey: string},
+    friends: Friend[],
+  ): Promise<void> {
+    if (!identity?.edSecretKey || !identity?.boxSecretKey) return;
+    const previousPeerId = this.identity?.peerId;
+    // Pin this device's own keypair BEFORE the system identity is replaced, so
+    // its push registration keeps the address it already owns at the gateway
+    // instead of colliding with the master's.
+    await getDeviceIdentity();
+    await store.set(IDENTITY_STORAGE_KEY, identity);
+    resetIdentityCache();
+    const adopted = await loadOrCreateIdentity();
+    this.identity = adopted;
+
+    // Keep our own device links, take on the master's friends. A device record
+    // that now points at our own address is the master itself — that is how
+    // sibling sync works from here (send to the shared address, fan-out
+    // delivers to the others, each drops its own echo by sub-id).
+    const ownDeviceLinks = this.friends.filter(f => f.kind === 'device');
+    const incoming = (Array.isArray(friends) ? friends : []).filter(f => f && f.kind !== 'device');
+    const merged = [...incoming];
+    for (const d of ownDeviceLinks) {
+      if (!merged.some(f => f.peerId === d.peerId)) merged.push(d);
+    }
+    this.friends = merged;
+    await this.persistFriends();
+
+    // Sync state is keyed to the old pairing; drop it so the next round
+    // re-hashes rather than trusting bases from a different identity.
+    this.lastHashes = {};
+    await store.set(SYNC_STATE_KEY, this.lastHashes);
+
+    if (previousPeerId) this.online.delete(previousPeerId);
+    this.notify();
+    if (this.settings.enabled) await this.connect();
   }
 
   private async requestFrontFrom(peerId: string): Promise<void> {
@@ -1757,7 +1951,7 @@ class NetworkManagerImpl {
   private async doInitClonePush(peerId: string): Promise<void> {
     const dev = this.friends.find(f => f.peerId === peerId && f.kind === 'device' && f.status === 'accepted');
     if (!dev || dev.initRole !== 'source' || !dev.initPending) return;
-    if (!this.online.has(peerId)) return;
+    if (!this.isReachable(peerId)) return;
     if (this.syncing) {
       setTimeout(() => this.doInitClonePush(peerId).catch(() => {}), SYNC_MIN_INTERVAL_MS);
       return;
@@ -1806,6 +2000,51 @@ class NetworkManagerImpl {
       }
       await flush();
       await sendOne({t: 'sync', keys: {}, init: true, initDone: true});
+      // Hand over the system identity LAST: the target replaces its own keys and
+      // reconnects on ours, so anything sent to its old address after this point
+      // would be lost. From here on both devices are the same network peer.
+      const stored = await store.get<{v: number; edSecretKey: string; boxSecretKey: string}>(IDENTITY_STORAGE_KEY, null);
+      // Only hand the identity over to a build that knows what to do with it. An
+      // older target would ignore device_adopt while we moved our record to the
+      // shared address — killing sync between the pair. Unversioned peer means we
+      // finish exactly the way the previous build did.
+      const adoptCapable = (dev.peerV ?? 0) >= PROTO_VERSION;
+      if (adoptCapable && stored?.edSecretKey && stored?.boxSecretKey) {
+        await sendOne({
+          t: 'device_adopt',
+          identity: stored,
+          friends: this.friends.filter(f => f.kind !== 'device'),
+        });
+        // The target now answers on OUR address, so our record for it must move
+        // there too — otherwise this side would reject its syncs as coming from
+        // an unknown peer. Both ends then hold a device record at the shared
+        // address with the shared keys, and every existing sync path just works.
+        const selfNow = this.identity;
+        if (selfNow) {
+          this.friends = this.friends.filter(f => f.peerId !== peerId);
+          if (!this.friends.some(f => f.peerId === selfNow.peerId && f.kind === 'device')) {
+            this.friends.push({
+              ...dev,
+              peerId: selfNow.peerId,
+              edPublicKey: encodeBase64(selfNow.edPublicKey),
+              boxPublicKey: encodeBase64(selfNow.boxPublicKey),
+              status: 'accepted',
+              initPending: false,
+              initRole: undefined,
+              peerRole: undefined,
+            });
+          }
+          // Same baseline write the non-adopt path does below. Skipping it would
+          // leave this side with no recorded hashes after a clone, so the very
+          // next round would re-send every key and treat every one as a
+          // conflict (no base to compare against).
+          await store.set(SYNC_STATE_KEY, this.lastHashes);
+          await this.persistFriends();
+          this.notify();
+          this.emitSyncCloneDone(peerId);
+          return;
+        }
+      }
       await store.set(SYNC_STATE_KEY, this.lastHashes);
       this.upsertFriend({ ...dev, initPending: false });
       await this.persistFriends();
@@ -1857,7 +2096,8 @@ class NetworkManagerImpl {
     const applied: string[] = [];
     const conflicts: {key: string; remoteValue: string; remoteHash: string}[] = [];
     for (const k in keys) {
-      if (!k.startsWith('ps:') || SYNC_EXCLUDE.has(k)) continue;
+      if (!k.startsWith('ps:')) continue;
+      if (SYNC_EXCLUDE.has(k)) continue;
       const incoming = keys[k];
       if (k.startsWith('ps:media:')) {
         if (this.lastHashes[k] !== incoming.h) {
@@ -2059,7 +2299,17 @@ class NetworkManagerImpl {
   }
 
   isFriendOnline(peerId: string): boolean {
-    return this.online.has(peerId);
+    return this.isReachable(peerId);
+  }
+
+  /**
+   * Our own address counts as reachable: linked devices share one identity, so
+   * "send to self" is how siblings reach each other. Deliberately NOT done by
+   * adding self to `online` — `refreshOnlinePeers()` rebuilds that set from the
+   * node and filters self out, which would silently undo it moments later.
+   */
+  private isReachable(peerId: string): boolean {
+    return peerId === this.identity?.peerId || this.online.has(peerId);
   }
 }
 

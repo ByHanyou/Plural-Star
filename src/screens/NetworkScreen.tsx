@@ -421,8 +421,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
             <TouchableOpacity onPress={() => NetworkManager.setFriendNotifyLevel(f.peerId, nextLevel)} activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={`${levelLabel}, ${f.displayName}`}
+              accessibilityValue={{text: levelLabel}}
               style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-              <Text style={{color: level === 'full' ? T.accent : T.dim, fontSize: fs(15), opacity: level === 'off' ? 0.45 : 1}} importantForAccessibility="no">{level === 'off' ? '🔕' : '🔔'}</Text>
+              {/* Three states need three glyphs. 'full' and 'alerts' were both a
+                  bell — one tap off 'full' looked muted but still sent alerts,
+                  so people thought they had turned a friend off and hadn't. */}
+              <Text style={{color: level === 'full' ? T.accent : T.dim, fontSize: fs(15), opacity: level === 'off' ? 0.45 : 1}} importantForAccessibility="no">{level === 'full' ? '🔔' : level === 'alerts' ? '📳' : '🔕'}</Text>
             </TouchableOpacity>
           );
         })()}

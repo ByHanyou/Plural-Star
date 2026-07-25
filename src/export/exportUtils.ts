@@ -38,6 +38,7 @@ export interface ExportCategories {
   journalTemplates?: boolean;
   relationships?: boolean;
   medical?: boolean;
+  whiteboard?: boolean;
 }
 
 interface BundleMemberMedia {
@@ -54,7 +55,7 @@ const ALL_CATEGORIES: ExportCategories = {
   system: true, members: true, avatars: true, banners: true, frontHistory: true, journal: true,
   groups: true, chat: true, moods: true, palettes: true, settings: true,
   customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true,
-  medical: true,
+  medical: true, whiteboard: true,
 };
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -102,7 +103,7 @@ export const buildExportBase = async (
   categories: ExportCategories = ALL_CATEGORIES,
 ): Promise<Record<string, any>> => {
   const cat = { ...ALL_CATEGORIES, ...categories };
-  const [groups, channels, settings, front, palettes, customFieldDefs, noteboards, polls, journalTemplates, relationships, relationshipTypes, medical, systemMapMembers] = await Promise.all([
+  const [groups, channels, settings, front, palettes, customFieldDefs, noteboards, polls, journalTemplates, relationships, relationshipTypes, medical, systemMapMembers, systemMapPositions, whiteboard, customColors, shareSettings] = await Promise.all([
     store.get<MemberGroup[]>(KEYS.groups),
     store.get<ChatChannel[]>(KEYS.chatChannels),
     store.get<AppSettings>(KEYS.settings),
@@ -116,6 +117,10 @@ export const buildExportBase = async (
     store.get<any[]>(KEYS.relationshipTypes),
     store.get<any>(KEYS.medical),
     store.get<string[]>(KEYS.systemMapMembers),
+    store.get<any>(KEYS.systemMapPositions),
+    store.get<any>(KEYS.whiteboard),
+    store.get<string[]>(KEYS.customColors),
+    store.get<any>(KEYS.share),
   ]);
 
   const chatMessages: Record<string, ChatMessage[]> = {};
@@ -156,7 +161,11 @@ export const buildExportBase = async (
     relationships: cat.relationships ? (relationships || []) : [],
     relationshipTypes: cat.relationships ? (relationshipTypes || []) : [],
     systemMapMembers: cat.relationships ? (systemMapMembers || []) : [],
+    systemMapPositions: cat.relationships ? (systemMapPositions || undefined) : undefined,
     medical: cat.medical ? (medical || undefined) : undefined,
+    whiteboard: cat.whiteboard ? (whiteboard || undefined) : undefined,
+    customColors: cat.palettes ? (customColors || undefined) : undefined,
+    shareSettings: cat.settings ? (shareSettings || undefined) : undefined,
   };
 };
 

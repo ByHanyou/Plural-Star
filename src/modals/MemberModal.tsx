@@ -18,7 +18,7 @@ import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false}: any) => {
+export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const isNew = !member;
@@ -164,7 +164,11 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         });
 
   return (
-    <Sheet visible={visible} title={readOnly ? (f.name || t('modal.member')) : (isNew ? t('modal.addMember') : t('modal.editMember'))} theme={T} onClose={onClose}
+    <Sheet visible={visible} title={
+      facetMode
+        ? (readOnly ? (f.name || t('members.facet')) : (isNew ? t('members.addFacet') : (f.name || t('members.facet'))))
+        : (readOnly ? (f.name || t('modal.member')) : (isNew ? t('modal.addMember') : t('modal.editMember')))
+    } theme={T} onClose={onClose}
       headerAction={!isNew && !lockRead ? (
         <TouchableOpacity onPress={() => setReadMode(m => !m)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={readMode ? t('common.edit') : t('modal.read')} accessibilityState={{selected: readMode}}
           style={{paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginRight: 10}}>

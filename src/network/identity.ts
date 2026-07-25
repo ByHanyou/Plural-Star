@@ -6,6 +6,28 @@ import { base58Encode, base58Decode, peerIdFromEd25519PublicKey } from './peerid
 
 export const IDENTITY_STORAGE_KEY = 'ps:networkIdentity';
 
+/**
+ * Per-device sub-id. DOT prefix on purpose: `ps.` keys never match the sync
+ * sweep's `startsWith('ps:')`, so this stays unique to this device even when
+ * linked devices share one network identity. Generated once, silently.
+ */
+export const DEVICE_SUB_ID_KEY = 'ps.deviceSubId';
+
+let cachedSubId: string | null = null;
+
+export const getDeviceSubId = async (): Promise<string> => {
+  if (cachedSubId) return cachedSubId;
+  const existing = await store.get<string>(DEVICE_SUB_ID_KEY, '');
+  if (existing) {
+    cachedSubId = existing;
+    return existing;
+  }
+  const fresh = encodeBase64(nacl.randomBytes(8)).replace(/[^A-Za-z0-9]/g, '').slice(0, 10);
+  cachedSubId = fresh;
+  await store.set(DEVICE_SUB_ID_KEY, fresh);
+  return fresh;
+};
+
 const FRIEND_CODE_PREFIX = 'PS-';
 const FRIEND_CODE_VERSION = 0x01;
 
@@ -22,6 +44,11 @@ interface StoredIdentity {
   edSecretKey: string;
   boxSecretKey: string;
 }
+
+/** Drop the in-memory identity so the next load re-reads storage (used after adoption). */
+export const resetIdentityCache = (): void => {
+  cached = null;
+};
 
 const fromStored = (s: StoredIdentity): Identity => {
   const edSecretKey = decodeBase64(s.edSecretKey);
@@ -44,6 +71,58 @@ const toStored = (id: Identity): StoredIdentity => ({
 });
 
 let cached: Identity | null = null;
+
+/**
+ * Per-device keypair, device-local forever (DOT prefix never syncs or exports).
+ *
+ * Linked devices share one SYSTEM identity so a friend can reach any of them at
+ * a single address. The push gateway is a different story: it keys registrations
+ * by peer id and holds ONE device token per key, so registering both devices
+ * under the shared identity would make them overwrite each other's token and
+ * only the last one to open would get alerts. Registration doesn't need the
+ * system identity though — the gateway picks push targets by whose watch list
+ * contains the friend that changed, not by who the relay delivers to. So each
+ * device registers under this keypair: its own slot, own token, own watch list.
+ */
+export const DEVICE_IDENTITY_KEY = 'ps.deviceIdentity';
+
+let cachedDevice: Identity | null = null;
+
+export const getDeviceIdentity = async (): Promise<Identity> => {
+  if (cachedDevice) return cachedDevice;
+  const stored = await store.get<StoredIdentity>(DEVICE_IDENTITY_KEY, null);
+  if (stored?.edSecretKey && stored?.boxSecretKey) {
+    try {
+      cachedDevice = fromStored(stored);
+      return cachedDevice;
+    } catch (e) {
+      console.error('[NETWORK] stored device identity unreadable, reseeding:', e);
+    }
+  }
+  // Seed from whatever identity this device is using right now, so a device that
+  // has never adopted keeps the exact peer id it already registered with and its
+  // existing gateway registration carries over untouched.
+  let seed: StoredIdentity | null = null;
+  const current = await store.get<StoredIdentity>(IDENTITY_STORAGE_KEY, null);
+  if (current?.edSecretKey && current?.boxSecretKey) {
+    try {
+      fromStored(current);
+      seed = current;
+    } catch {}
+  }
+  if (!seed) {
+    const edPair = nacl.sign.keyPair();
+    const boxPair = nacl.box.keyPair();
+    seed = {
+      v: 1,
+      edSecretKey: encodeBase64(edPair.secretKey),
+      boxSecretKey: encodeBase64(boxPair.secretKey),
+    };
+  }
+  await store.set(DEVICE_IDENTITY_KEY, seed);
+  cachedDevice = fromStored(seed);
+  return cachedDevice;
+};
 
 export const loadOrCreateIdentity = async (): Promise<Identity> => {
   if (cached) return cached;

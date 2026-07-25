@@ -610,6 +610,7 @@ function MainAppContent() {
       )}
       <MemberModal key={`${editMember?.id || 'new-member'}-${viewOnlyMember ? 'view' : 'edit'}`} visible={showMember} theme={C} member={editMember} members={members} groups={groups} settings={appSettings}
         readOnly={viewOnlyMember}
+        facetMode={addFacet || !!editMember?.isFacet}
         profileMode={isSinglet && editMember?.id === selfMember?.id && !editMember?.isCustomFront}
         onRequestEdit={isSinglet && viewOnlyMember ? () => setViewOnlyMember(false) : undefined}
         isFronting={!!editMember && allFrontMemberIds(front).includes(editMember.id)}

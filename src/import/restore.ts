@@ -98,6 +98,10 @@ export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: Re
     if (restoreSel.relationships && data.relationshipTypes) await store.set(KEYS.relationshipTypes, data.relationshipTypes);
     if (restoreSel.relationships && data.systemMapMembers) await store.set(KEYS.systemMapMembers, data.systemMapMembers);
     if (restoreSel.medical && data.medical) await store.set(KEYS.medical, data.medical);
+    if (restoreSel.relationships && data.systemMapPositions) await store.set(KEYS.systemMapPositions, data.systemMapPositions);
+    if (restoreSel.whiteboard !== false && data.whiteboard) await store.set(KEYS.whiteboard, data.whiteboard);
+    if (restoreSel.palettes && data.customColors) await store.set(KEYS.customColors, data.customColors);
+    if (restoreSel.settings && data.shareSettings) await store.set(KEYS.share, data.shareSettings);
   };
 
 export const downloadAvatarsTo = async (urls: Record<string, string>, ctx: Pick<RestoreCtx, 'setRestoreProgress' | 't'>) => {
@@ -309,6 +313,10 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 groupIds: existing?.groupIds || [],
                 tags: existing?.tags || [],
                 avatar: existing?.avatar,
+                banner: existing?.banner,
+                isCustomFront: existing?.isCustomFront,
+                isFacet: existing?.isFacet,
+                sortOrder: existing?.sortOrder,
               } as Member;
             });
             if (restoreSel.members) await store.set(KEYS.members, newMembers);

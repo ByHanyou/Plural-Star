@@ -90,7 +90,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     system: true, members: true, avatars: true, banners: true, frontHistory: true, journal: true,
     groups: true, chat: true, moods: true, palettes: true, settings: true,
     customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true,
-    medical: true,
+    medical: true, whiteboard: true,
   });
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
 
@@ -359,6 +359,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
               ['polls', t('polls.title')],
               ['journalTemplates', t('journal.templatesTab')],
               ['relationships', t('systemMap.title')],
+              ['whiteboard', t('whiteboard.title')],
             ] as [keyof ExportCategories, string][]).map(([k, label]) => (
               <SectionRow key={k} label={label} value={!!exportSel[k]} onToggle={() => togExp(k)} />
             ))}

@@ -22,7 +22,16 @@ export interface Friend {
   statusUpdatedAt?: number;
   showInNotification?: boolean;
   notifyLevel?: FriendNotifyLevel;
+  /** Protocol version this peer advertised on connect. Absent = pre-versioning build. */
+  peerV?: number;
 }
+
+/**
+ * 2 = understands device_adopt / friends_push (shared system identity).
+ * A peer that does not advertise at least this stays on the older behaviour:
+ * separate identities per device, friends not shared. Never assume support.
+ */
+export const PROTO_VERSION = 2;
 
 export type FriendNotifyLevel = 'full' | 'alerts' | 'off';
 
@@ -59,11 +68,18 @@ export interface NetworkSettings {
 export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal' | 'history';
 
 export type NetMessage =
-  | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target' }
+  | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target'; v?: number }
   | { t: 'disconnect' }
   | { t: 'ping' }
   | { t: 'front'; status: FrontShare | null }
   | { t: 'front_req' }
+  | { t: 'device_adopt'; identity: {v: number; edSecretKey: string; boxSecretKey: string}; friends: Friend[] }
+  // Friend records only (never device records, never the identity). Sent to
+  // linked devices on change. Deliberately NOT part of the key sync: the friends
+  // store also holds each device's own link records and live front status, so
+  // hash-comparing it whole would churn forever between devices and re-push on
+  // every incoming friend front update.
+  | { t: 'friends_push'; friends: Friend[] }
   | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean }
   | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean }
   | { t: 'sync_req'; hashes: Record<string, string> }
@@ -116,6 +132,13 @@ export const SYNC_EXCLUDE_KEYS = [
 
 export const SYNC_STATE_KEY = 'ps:networkSyncState';
 export const PENDING_FRONTS_KEY = 'ps.pendingFronts';
+/**
+ * Whether this device currently has a live push registration at the gateway.
+ * DOT prefix: device-local, never syncs or exports — the registration belongs to
+ * this device's tokens. Persisted because it decides whether we still owe the
+ * gateway a clear-out, and that debt has to survive an app restart.
+ */
+export const GW_REGISTERED_KEY = 'ps.gwRegistered';
 
 export const RENDEZVOUS_TTL_SECONDS = 30 * 60;
 

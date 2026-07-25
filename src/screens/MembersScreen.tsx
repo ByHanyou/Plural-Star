@@ -423,8 +423,12 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
           {listFields.count !== false && (
           <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2, marginBottom: 10}} numberOfLines={1} maxFontSizeMultiplier={1.2}>
             {(query || activeGroup || activeTag)
-              ? t('members.countFiltered', {filtered: filtered.length, total: tabMembers.length})
-              : t('members.count', {count: tabMembers.length})}
+              ? t(memberTab === 'facets' ? 'members.countFilteredFacet'
+                : memberTab === 'customFronts' ? 'members.countFilteredCustomFront'
+                : 'members.countFiltered', {filtered: filtered.length, total: tabMembers.length})
+              : t(memberTab === 'facets' ? 'members.countFacet'
+                : memberTab === 'customFronts' ? 'members.countCustomFront'
+                : 'members.count', {count: tabMembers.length})}
           </Text>
           )}
           <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
