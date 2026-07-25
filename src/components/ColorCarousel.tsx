@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {View, FlatList, TouchableOpacity, AccessibilityInfo} from 'react-native';
 import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
@@ -9,7 +9,6 @@ import {store, KEYS} from '../storage';
 interface CarouselEntry {
   hex: string;
   label: string;
-  selected: boolean;
 }
 
 const ColorCarouselInner = ({value, onChange, T, size = 30}: {value: string; onChange: (hex: string) => void; T: ThemeColors; size?: number}) => {
@@ -33,29 +32,54 @@ const ColorCarouselInner = ({value, onChange, T, size = 30}: {value: string; onC
 
   const cur = (value || '').toUpperCase();
 
-  const entries = useMemo<CarouselEntry[]>(() => {
+  // Built WITHOUT the selected value in scope: tapping a swatch must not rebuild
+  // 116 entries + 92 translation lookups. Selection is applied at render time.
+  const baseEntries = useMemo<CarouselEntry[]>(() => {
     const out: CarouselEntry[] = [];
     const seen = new Set<string>();
     for (const p of PRESET_COLORS as PresetColor[]) {
-      out.push({hex: p.hex, label: presetColorName(p, t), selected: p.hex === cur});
+      out.push({hex: p.hex, label: presetColorName(p, t)});
       seen.add(p.hex);
     }
     customColors.forEach((c, i) => {
       if (!c || seen.has(c)) return;
-      out.push({hex: c, label: t('colors.customSlot', {n: i + 1}), selected: c === cur});
+      out.push({hex: c, label: t('colors.customSlot', {n: i + 1})});
       seen.add(c);
     });
-    if (cur && /^#[0-9A-F]{6}$/.test(cur) && !seen.has(cur)) {
-      out.unshift({hex: cur, label: colorName(cur, t), selected: true});
-    }
     return out;
-  }, [customColors, cur, t]);
+  }, [customColors, t]);
+
+  const knownHexes = useMemo(() => new Set(baseEntries.map(e => e.hex)), [baseEntries]);
+  const strayHex = cur && /^#[0-9A-F]{6}$/.test(cur) && !knownHexes.has(cur) ? cur : '';
+
+  const entries = useMemo<CarouselEntry[]>(
+    () => (strayHex ? [{hex: strayHex, label: colorName(strayHex, t)}, ...baseEntries] : baseEntries),
+    [strayHex, baseEntries, t],
+  );
 
   const itemW = size + 8;
   const blockW = entries.length * itemW;
   const data = useMemo(() => (srOn ? entries : [...entries, ...entries, ...entries]), [entries, srOn]);
-  const selIdx = Math.max(0, entries.findIndex(e => e.selected));
-  const selectedLabel = entries.find(e => e.selected)?.label || '';
+  const selIdx = Math.max(0, entries.findIndex(e => e.hex === cur));
+  const selectedLabel = entries.find(e => e.hex === cur)?.label || '';
+
+  const renderItem = useCallback(
+    ({item}: {item: CarouselEntry}) => {
+      const selected = item.hex === cur;
+      return (
+        <TouchableOpacity
+          onPress={() => onChangeRef.current(item.hex)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{selected}}
+          accessibilityLabel={item.label}
+          style={{width: itemW, height: size + 10, alignItems: 'center', justifyContent: 'center'}}>
+          <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: item.hex, borderWidth: 2, borderColor: selected ? '#fff' : T.border}} />
+        </TouchableOpacity>
+      );
+    },
+    [cur, itemW, size, T.border],
+  );
 
   const onScroll = (x: number) => {
     if (srOn || jumpingRef.current || blockW <= 0) return;
@@ -84,17 +108,11 @@ const ColorCarouselInner = ({value, onChange, T, size = 30}: {value: string; onC
         getItemLayout={(_, i) => ({length: itemW, offset: itemW * i, index: i})}
         onScroll={e => onScroll(e.nativeEvent.contentOffset.x)}
         scrollEventThrottle={64}
-        renderItem={({item}) => (
-          <TouchableOpacity
-            onPress={() => onChangeRef.current(item.hex)}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityState={{selected: item.selected}}
-            accessibilityLabel={item.label}
-            style={{width: itemW, height: size + 10, alignItems: 'center', justifyContent: 'center'}}>
-            <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: item.hex, borderWidth: 2, borderColor: item.selected ? '#fff' : T.border}} />
-          </TouchableOpacity>
-        )}
+        windowSize={5}
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        removeClippedSubviews
+        renderItem={renderItem}
       />
       {selectedLabel ? (
         <Text style={{fontSize: 11, color: T.muted, marginTop: 4}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{selectedLabel}</Text>

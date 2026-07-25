@@ -16,8 +16,9 @@ import {DateTimeEditor} from '../components/DateTimeEditor';
 import {deleteAvatar, saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
+import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap}: any) => {
+export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false}: any) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const isNew = !member;
@@ -38,14 +39,17 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [relList, setRelList] = useState<Relationship[]>([]);
   const [relTypes, setRelTypes] = useState<RelationshipTypeDef[]>([]);
 
-  const [fieldDefs, setFieldDefs] = useState<CustomFieldDef[]>([]);
+  const [fieldDefs, setFieldDefs] = useState<CustomFieldDef[]>(fieldDefsOverride || []);
   const [markdownEditFieldId, setMarkdownEditFieldId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (fieldDefsOverride) { setFieldDefs(fieldDefsOverride); return; }
     store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || []));
-  }, []);
+  }, [fieldDefsOverride]);
 
   React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setMemberTab('main'); setReadMode(readOnlyProp); } }, [visible, member?.id]);
+  const draftId = isNew ? 'new' : (member?.id || f.id);
+  useDraft<Member>('member', readOnly ? '' : draftId, visible, f, d => setF(d));
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
@@ -100,6 +104,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   };
 
   React.useEffect(() => {
+    if (connectionsOverride) return;
     if (visible && memberTab === 'connections' && !isNew) {
       store.get<Relationship[]>(KEYS.relationships, []).then(r => setRelList(r || []));
       store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []).then(tt => setRelTypes(tt || []));
@@ -131,9 +136,36 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const connRole = (r: Relationship) => { const td = relTypeMap.get(r.typeId); if (!td) return '?'; return r.fromId === f.id ? relTypeInverse(td) : relTypeName(td); };
   const myConnections = relList.filter((r: Relationship) => r.fromId === f.id || r.toId === f.id);
 
+  const connRows: {key: string; otherId: string; name: string; note?: string; label: string; color: string; other: Member | undefined}[] =
+    connectionsOverride
+      ? (connectionsOverride as any[]).map(c => ({
+          key: c.id,
+          otherId: c.otherId,
+          name: c.otherName,
+          note: c.note,
+          label: c.labelKey ? t(c.labelKey) : c.label,
+          color: c.color || DEFAULT_REL_COLOR,
+          other: (members || []).find((m: Member) => m.id === c.otherId) || ({id: c.otherId, name: c.otherName} as Member),
+        }))
+      : myConnections.flatMap((r: Relationship) => {
+          const otherId = r.fromId === f.id ? r.toId : r.fromId;
+          const other = (members || []).find((m: Member) => m.id === otherId);
+          if (!other) return [];
+          const td = relTypeMap.get(r.typeId);
+          return [{
+            key: r.id,
+            otherId,
+            name: other.name,
+            note: r.note,
+            label: connRole(r),
+            color: td?.color || DEFAULT_REL_COLOR,
+            other,
+          }];
+        });
+
   return (
     <Sheet visible={visible} title={readOnly ? (f.name || t('modal.member')) : (isNew ? t('modal.addMember') : t('modal.editMember'))} theme={T} onClose={onClose}
-      headerAction={!isNew ? (
+      headerAction={!isNew && !lockRead ? (
         <TouchableOpacity onPress={() => setReadMode(m => !m)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={readMode ? t('common.edit') : t('modal.read')} accessibilityState={{selected: readMode}}
           style={{paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginRight: 10}}>
           <Text style={{fontSize: 13, fontWeight: '500', color: T.accent}}>{readMode ? t('common.edit') : t('modal.read')}</Text>
@@ -145,8 +177,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
       {!isNew && !confirmDel && <Btn instant variant="ghost" T={T} onPress={() => setShowClone(true)}>{t('members.clone')}</Btn>}
       {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
-      {!confirmDel && <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={async () => {const nm = (f.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...f, name: nm}); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
+      {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('member', draftId); onClose();}}>{t('common.cancel')}</Btn>}
+      {!confirmDel && <Btn instant T={T} onPress={async () => {const nm = (f.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...f, name: nm}); clearDraft('member', draftId); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
 
       {!isNew && !profileMode && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}}
@@ -534,29 +566,22 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
               <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('systemMap.showOnMap')}</Text>
             </TouchableOpacity>
           )}
-          {myConnections.length === 0 ? (
+          {connRows.length === 0 ? (
             <Text style={{fontSize: fs(12), color: T.dim, paddingVertical: 8}}>{t('systemMap.noneForMember')}</Text>
-          ) : myConnections.map((r: Relationship) => {
-            const otherId = r.fromId === f.id ? r.toId : r.fromId;
-            const other = (members || []).find((m: Member) => m.id === otherId);
-            if (!other) return null;
-            const td = relTypeMap.get(r.typeId);
-            const c = td?.color || DEFAULT_REL_COLOR;
-            return (
-              <TouchableOpacity key={r.id} onPress={() => onMentionPress && onMentionPress(otherId)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={`${connRole(r)}: ${other.name}`}
-                style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                <Avatar member={other} size={32} T={T} />
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{other.name}</Text>
-                  {r.note ? <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{r.note}</Text> : null}
-                </View>
-                <View style={{backgroundColor: `${c}20`, borderWidth: 1, borderColor: `${c}60`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3}}>
-                  <Text style={{fontSize: fs(10), color: c}}>{connRole(r)}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          ) : connRows.map(row => (
+            <TouchableOpacity key={row.key} onPress={() => onMentionPress && onMentionPress(row.otherId)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel={`${row.label}: ${row.name}`}
+              style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
+              <Avatar member={row.other} size={32} T={T} />
+              <View style={{flex: 1}}>
+                <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{row.name}</Text>
+                {row.note ? <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{row.note}</Text> : null}
+              </View>
+              <View style={{backgroundColor: `${row.color}20`, borderWidth: 1, borderColor: `${row.color}60`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3}}>
+                <Text style={{fontSize: fs(10), color: row.color}}>{row.label}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
         </View>
       )}
 

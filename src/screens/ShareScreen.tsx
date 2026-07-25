@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, StyleSheet, ActivityIndicator} from 'react-native';
+import {View, TouchableOpacity, Alert, StyleSheet, ActivityIndicator} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
@@ -73,6 +74,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const primaryFronters = (front?.primary?.memberIds || []).map(getMember).filter(Boolean) as Member[];
   const coFronters = (front?.coFront?.memberIds || []).map(getMember).filter(Boolean) as Member[];
   const coConsciousFronters = (front?.coConscious?.memberIds || []).map(getMember).filter(Boolean) as Member[];
+
+  const previewMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
 
   const singlet = appSettings.accountMode === 'singlet';
   const catSystemLabel = singlet ? t('share.nameGoals') : t('share.systemNameDesc');
@@ -325,7 +328,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   };
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', gap: 6, marginBottom: 4}}>
         <SectionBtn id="export" label={t('share.export')} />
         <SectionBtn id="import" label={t('share.import')} />
@@ -716,23 +719,23 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   : (<><PreviewTier label={t('tier.primaryFront')} fronters={primaryFronters} color={T.accent} /><PreviewTier label={t('tier.coFront')} fronters={coFronters} color={T.info} /><PreviewTier label={t('tier.coConscious')} fronters={coConsciousFronters} color={T.success} /></>)}
               </View>
             )}
-            {!singlet && shareSettings.showMembers && members.length > 0 && (
+            {!singlet && shareSettings.showMembers && previewMembers.length > 0 && (
               <View style={{marginTop: 10}}>
-                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.membersLabel', {count: members.length})}</Text>
-                {members.slice(0, 4).map(m => (
+                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.membersLabel', {count: previewMembers.length})}</Text>
+                {previewMembers.slice(0, 4).map(m => (
                   <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5}}>
                     <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
                     <Text style={{fontSize: fs(13), color: T.text}}>{m.name}</Text>
                     {m.pronouns ? <Text style={{fontSize: fs(11), color: T.dim}}>({m.pronouns})</Text> : null}
                   </View>
                 ))}
-                {members.length > 4 && <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{t('share.more', {count: members.length - 4})}</Text>}
+                {previewMembers.length > 4 && <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{t('share.more', {count: previewMembers.length - 4})}</Text>}
               </View>
             )}
           </View>
         </View>
       )}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 

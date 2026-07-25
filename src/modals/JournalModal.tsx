@@ -8,8 +8,9 @@ import {Member, JournalEntry, JournalTemplate, uid, fmtTime, sortMembersBySearch
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {Btn, Field} from './shared';
+import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const JournalModal = ({visible, theme: T, entry, members, templates, onSave, onClose, onMentionPress}: any) => {
+export const JournalModal = ({visible, theme: T, entry, members, templates, onSave, onClose, onMentionPress, lockView = false}: any) => {
   const fs = fontScale(T);
   const {t} = useTranslation();
   const isNew = !entry;
@@ -20,6 +21,8 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [viewMode, setViewMode] = useState(!isNew);
   React.useEffect(() => { if (visible) { const fresh = entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()}; setF(fresh); setShowPwField(!!fresh.password); setTagInput(''); setAuthorSearch(''); setShowBodyEditor(false); setShowTemplatePicker(false); setViewMode(!!entry); } }, [visible, entry]);
+  const draftId = isNew ? 'new' : (entry?.id || f.id);
+  useDraft<JournalEntry>('journal', lockView || viewMode ? '' : draftId, visible, f, d => setF(d));
   const set = (k: keyof JournalEntry, v: any) => setF(x => ({...x, [k]: v}));
   const togAuthor = (id: string) => set('authorIds', (f.authorIds || []).includes(id) ? (f.authorIds || []).filter((i: string) => i !== id) : [...(f.authorIds || []), id]);
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.hashtags || []; if (!cur.includes(`#${raw}`)) set('hashtags', [...cur, `#${raw}`]); setTagInput(''); };
@@ -33,8 +36,10 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
   return (
     <Sheet visible={visible} title={viewMode ? t('modal.viewEntry') : isNew ? t('modal.newEntry') : t('modal.editEntry')} theme={T} onClose={onClose}
       footer={viewMode
-        ? <Btn instant T={T} onPress={() => setViewMode(false)}>{t('common.edit')}</Btn>
-        : <Btn instant T={T} onPress={() => {onSave({...f, timestamp: isNew ? Date.now() : f.timestamp, password: showPwField && f.password ? f.password : undefined}); onClose();}}>{t('common.save')}</Btn>}>
+        ? (lockView
+          ? <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.close')}</Btn>
+          : <Btn instant T={T} onPress={() => setViewMode(false)}>{t('common.edit')}</Btn>)
+        : <Btn instant T={T} onPress={() => {onSave({...f, timestamp: isNew ? Date.now() : f.timestamp, password: showPwField && f.password ? f.password : undefined}); clearDraft('journal', draftId); onClose();}}>{t('common.save')}</Btn>}>
       {viewMode ? (
         <>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(20), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 4}}>{f.title || t('common.untitled')}</Text>

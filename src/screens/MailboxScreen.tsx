@@ -1,8 +1,7 @@
 import React, {useEffect, useState} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, Modal} from 'react-native';
-import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
+import {View, TouchableOpacity, Alert, Modal} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
-import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
 import {Member, NoteboardEntry, uid, fmtTime, getInitials} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
@@ -25,7 +24,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
   };
   const {t} = useTranslation();
   const fs = fontScale(T);
-  const behavior = useKeyboardBehavior();
 
   const [notes, setNotes] = useState<NoteboardEntry[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -186,7 +184,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
     const owner = byId(openId);
     const msgs = inboxMsgs(openId);
     return (
-      <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={behavior} keyboardVerticalOffset={90}>
+      <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setOpenId(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
             <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -199,7 +197,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             </TouchableOpacity>
           )}
         </View>
-        <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 24}} keyboardShouldPersistTaps="handled">
+        <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 24}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
           {msgs.length > 0 ? msgs.map(n => <MessageCard key={n.id} note={n} />) : (
             <View style={{alignItems: 'center', paddingVertical: 40}}>
               <Text style={{fontSize: fs(13), color: T.muted}}>{t('mailbox.emptyInbox')}</Text>
@@ -218,7 +216,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
         <Modal visible={lockManage} transparent animationType="fade" onRequestClose={() => setLockManage(false)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32, paddingBottom: 32 + kbHeight}}>
             <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
@@ -240,12 +238,12 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             </View>
           </View>
         </Modal>
-      </KeyboardAvoidingView>
+      </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={behavior} keyboardVerticalOffset={90}>
+    <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 4}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -256,7 +254,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           <Text style={{fontSize: fs(12), fontWeight: '600', color: composing ? T.dim : T.accent}}>{composing ? t('common.cancel') : `✉ ${t('mailbox.compose')}`}</Text>
         </TouchableOpacity>
       </View>
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 24}} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 24}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
         {composing && (
           <View style={{backgroundColor: T.surface, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 16}}>
             <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('mailbox.from')}</Text>
@@ -304,7 +302,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             <Text style={{fontSize: fs(13), color: T.muted, textAlign: 'center'}}>{t('mailbox.empty')}</Text>
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
       <Modal visible={!!pwFor} transparent animationType="fade" onRequestClose={() => setPwFor(null)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32, paddingBottom: 32 + kbHeight}}>
           <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
@@ -329,6 +327,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           </View>
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </View>
   );
 };

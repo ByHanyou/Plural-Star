@@ -167,7 +167,7 @@ export const buildHtmlExport = (
   journal: JournalEntry[],
 ): string => {
   const memberRows = members
-    .filter(m => !m.isCustomFront)
+    .filter(m => !m.isCustomFront && !m.isFacet)
     .map(
       m => `<tr>
       <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:600">${m.name}</td>
@@ -222,9 +222,9 @@ export const buildHtmlExport = (
   <body>
   <h1>${system.name}</h1>
   ${system.description ? `<p style="font-size:16px;color:#555;margin-top:0">${system.description}</p>` : ''}
-  <div class="meta">Exported ${new Date().toLocaleString('en-US', {dateStyle: 'long', timeStyle: 'short'})} via Plural Star · ${members.filter(m => !m.isCustomFront).length} members · ${journal.length} journal entries · ${history.length} front history records</div>
+  <div class="meta">Exported ${new Date().toLocaleString('en-US', {dateStyle: 'long', timeStyle: 'short'})} via Plural Star · ${members.filter(m => !m.isCustomFront && !m.isFacet).length} members · ${journal.length} journal entries · ${history.length} front history records</div>
   <h2>Members</h2>
-  ${members.filter(m => !m.isCustomFront).length ? `<table><thead><tr><th>Name</th><th>Pronouns</th><th>Role</th><th>Description</th></tr></thead><tbody>${memberRows}</tbody></table>` : '<p style="color:#888">No members recorded.</p>'}
+  ${members.filter(m => !m.isCustomFront && !m.isFacet).length ? `<table><thead><tr><th>Name</th><th>Pronouns</th><th>Role</th><th>Description</th></tr></thead><tbody>${memberRows}</tbody></table>` : '<p style="color:#888">No members recorded.</p>'}
   <h2>System Journal</h2>
   ${journal.length ? journalHtml : '<p style="color:#888">No journal entries.</p>'}
   <h2>Front History</h2>
@@ -238,7 +238,8 @@ export const buildEmailBody = (
   history: HistoryEntry[],
   journal: JournalEntry[],
 ): string => {
-  const mList = members
+  const realMembers = members.filter(m => !m.isCustomFront && !m.isFacet);
+  const mList = realMembers
     .map(m => `• ${m.name}${m.pronouns ? ` (${m.pronouns})` : ''}${m.role ? ` — ${m.role}` : ''}`)
     .join('\n');
 
@@ -255,7 +256,7 @@ export const buildEmailBody = (
     })
     .join('\n');
 
-  return `SYSTEM EXPORT — ${system.name}\nExported: ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ MEMBERS (${members.length}) ━━\n${mList || 'None recorded.'}\n\n━━ JOURNAL (${journal.length} entries${journal.length > 10 ? ' — showing 10 most recent' : ''}) ━━\n${jList || 'No entries.'}\n\n━━ FRONT HISTORY (${history.length} records${history.length > 20 ? ' — showing 20 most recent' : ''}) ━━\n${hList || 'No history.'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\nFull data available by exporting JSON from Plural Star.`;
+  return `SYSTEM EXPORT — ${system.name}\nExported: ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ MEMBERS (${realMembers.length}) ━━\n${mList || 'None recorded.'}\n\n━━ JOURNAL (${journal.length} entries${journal.length > 10 ? ' — showing 10 most recent' : ''}) ━━\n${jList || 'No entries.'}\n\n━━ FRONT HISTORY (${history.length} records${history.length > 20 ? ' — showing 20 most recent' : ''}) ━━\n${hList || 'No history.'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\nFull data available by exporting JSON from Plural Star.`;
 };
 
 
@@ -386,7 +387,7 @@ export const buildPluralKitExport = (
   members: Member[],
   history: HistoryEntry[],
 ): Record<string, any> => {
-  const realMembers = members.filter(m => !m.isCustomFront && !m.deleted);
+  const realMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
   const idMap: Record<string, string> = {};
   realMembers.forEach((m, i) => { idMap[m.id] = pkShortId(i); });
 

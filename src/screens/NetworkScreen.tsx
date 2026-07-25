@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {View, ScrollView, TouchableOpacity, Switch, Alert, AccessibilityInfo, Modal} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
@@ -352,7 +353,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
       {text: t('common.delete'), style: 'destructive', onPress: () => { saveBuckets(buckets.filter(x => x.id !== b.id)).catch(e => logError('network', e)); }},
     ]);
   };
-  const pickableMembers = members.filter(m => !m.deleted && !m.isCustomFront);
+  const pickableMembers = members.filter(m => !m.deleted && !m.isCustomFront && !m.isFacet);
   const memberName = (id: string) => members.find(m => m.id === id)?.name || '?';
   const relLabel = (r: Relationship): string => {
     const rt = relTypes.find(x => x.id === r.typeId) || PRESET_RELATIONSHIP_TYPES.find(x => x.id === r.typeId);
@@ -447,7 +448,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
         <TabBtn id="settings" label={t('network.tabSettings')} />
       </View>
 
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16}} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
         {tab === 'friends' ? (
           <>
             <View style={card}>
@@ -541,7 +542,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
             </View>
           </>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <Modal visible={!!editBucket && !pickerFeature} transparent animationType="fade" onRequestClose={() => setEditBucket(null)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24, paddingBottom: 24 + kbHeight}}>
@@ -691,6 +692,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               {feature: 'members' as MirrorFeature, label: t('tabs.members')},
               {feature: 'groups' as MirrorFeature, label: t('members.fieldGroups')},
               {feature: 'journal' as MirrorFeature, label: t('tabs.journal')},
+              {feature: 'history' as MirrorFeature, label: t('tabs.history')},
             ]).map(opt => (
               <TouchableOpacity key={opt.feature} activeOpacity={0.7}
                 onPress={() => {

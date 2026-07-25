@@ -6,6 +6,7 @@ import {Sheet} from '../components/Sheet';
 import {Member, FrontState, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList} from '../utils';
 import {fontScale} from '../theme';
 import {Btn, Field, SectionDivider, MoodPicker, EnergyRow} from './shared';
+import {useDraft, clearDraft} from '../hooks/useDraft';
 
 export const SetStatusModal = ({visible, theme: T, statuses, selfId, current, settings, lastKnownLocation, onSave, onClose}: any) => {
   const fs = fontScale(T);
@@ -28,6 +29,16 @@ export const SetStatusModal = ({visible, theme: T, statuses, selfId, current, se
   const allMoods = [...DEFAULT_MOODS, ...(settings?.customMoods || [])];
   const allLocations = settings?.locations || [];
 
+  useDraft<{ids: string[]; mood: string; customMood: string; showCustom: boolean; location: string; note: string; energy?: number}>(
+    'status', 'self', visible,
+    {ids: [...statusIds], mood, customMood, showCustom, location, note, energy},
+    d => {
+      setStatusIds(new Set(d.ids || []));
+      setMood(d.mood || ''); setCustomMood(d.customMood || ''); setShowCustom(!!d.showCustom);
+      setLocation(d.location || ''); setNote(d.note || ''); setEnergy(d.energy);
+    },
+  );
+
   const handleSave = () => {
     Keyboard.dismiss();
     const moods = parseMoodList(mood);
@@ -37,6 +48,7 @@ export const SetStatusModal = ({visible, theme: T, statuses, selfId, current, se
       {memberIds, mood: serializeMoodList(moods) || undefined, note, location: location || undefined, energyLevel: energy},
       EMPTY_TIER, EMPTY_TIER,
     );
+    clearDraft('status', 'self');
     onClose();
   };
 
@@ -44,7 +56,7 @@ export const SetStatusModal = ({visible, theme: T, statuses, selfId, current, se
     <Sheet visible={visible} title={t('status.update')} theme={T} onClose={onClose} footer={<><Btn instant variant="ghost" T={T} onPress={() => {
       Alert.alert(t('status.clearTitle'), t('status.clearMsg'), [
         {text: t('common.cancel'), style: 'cancel'},
-        {text: t('common.clear'), style: 'destructive', onPress: () => {onSave(EMPTY_TIER, EMPTY_TIER, EMPTY_TIER); onClose();}},
+        {text: t('common.clear'), style: 'destructive', onPress: () => {onSave(EMPTY_TIER, EMPTY_TIER, EMPTY_TIER); clearDraft('status', 'self'); onClose();}},
       ]);
     }}>{t('common.clear')}</Btn><Btn instant T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       <SectionDivider label={t('status.statuses')} color={T.accent} T={T} />

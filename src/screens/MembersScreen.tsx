@@ -136,6 +136,7 @@ interface Props {
   archiveOnly?: boolean;
   onAdd: () => void;
   onAddCustomFront?: () => void;
+  onAddFacet?: () => void;
   onEdit: (member: Member) => void;
   onView?: (member: Member) => void;
   onSaveGroups: (groups: MemberGroup[]) => void;
@@ -151,13 +152,13 @@ interface Props {
   onRemoveFromFront?: (id: string) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
+export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
   const members = useAppStore(s => s.members);
   const front = useAppStore(s => s.front);
   const groups = useAppStore(s => s.groups);
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
-  const [memberTab, setMemberTab] = useState<'active' | 'archived' | 'customFronts'>(archiveOnly ? 'archived' : 'active');
+  const [memberTab, setMemberTab] = useState<'active' | 'archived' | 'facets' | 'customFronts'>(archiveOnly ? 'archived' : 'active');
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -195,7 +196,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       return next;
     });
   }, []);
-  const switchTab = (tab: 'active' | 'archived' | 'customFronts') => {
+  const switchTab = (tab: 'active' | 'archived' | 'facets' | 'customFronts') => {
     setMemberTab(tab);
     setQuery(''); setActiveGroup(null); setActiveTag(null);
     searchRef.current?.clear();
@@ -257,12 +258,15 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     if (m.deleted) return false;
     if (m.isCustomFront) return memberTab === 'customFronts';
     if (memberTab === 'customFronts') return false;
+    if (m.isFacet) return memberTab === 'facets';
+    if (memberTab === 'facets') return false;
     return memberTab === 'archived' ? m.archived : !m.archived;
   });
   const allFrontIds = useMemo(() => new Set(allFrontMemberIds(front)), [front]);
   const allTags = [...new Set(tabMembers.flatMap(m => m.tags || []))].sort();
-  const archivedCount = members.filter(m => m.archived && !m.isCustomFront && !m.deleted).length;
+  const archivedCount = members.filter(m => m.archived && !m.isCustomFront && !m.isFacet && !m.deleted).length;
   const customFrontCount = members.filter(m => m.isCustomFront && !m.deleted).length;
+  const facetCount = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted).length;
 
   const activeGroupIds = useMemo(() => activeGroup ? new Set([activeGroup, ...descendantsOf(groups, activeGroup).map(g => g.id)]) : null, [activeGroup, groups]);
 
@@ -273,7 +277,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     return nameMatch && groupMatch && tagMatch;
   }), sortMode), [tabMembers, deferredQuery, activeGroupIds, activeTag, sortMode]);
 
-  const showReorder = sortMode === 'manual' && (memberTab === 'active' || memberTab === 'customFronts') && !query && !activeGroup && !activeTag;
+  const showReorder = sortMode === 'manual' && (memberTab === 'active' || memberTab === 'facets' || memberTab === 'customFronts') && !query && !activeGroup && !activeTag;
 
   useEffect(() => {
     const id = setTimeout(() => scrollToTop(false), 0);
@@ -429,8 +433,14 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('members.select')}</Text>
             </TouchableOpacity>
             {!archiveOnly && (
-              <TouchableOpacity onPress={memberTab === 'customFronts' ? (onAddCustomFront || onAdd) : onAdd} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={memberTab === 'customFronts' ? t('members.addCustomFront') : t('members.add')} style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
-                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{memberTab === 'customFronts' ? `+ ${t('members.customFront')}` : t('members.add')}</Text>
+              <TouchableOpacity
+                onPress={memberTab === 'customFronts' ? (onAddCustomFront || onAdd) : memberTab === 'facets' ? (onAddFacet || onAdd) : onAdd}
+                activeOpacity={0.7} accessibilityRole="button"
+                accessibilityLabel={memberTab === 'customFronts' ? t('members.addCustomFront') : memberTab === 'facets' ? t('members.addFacet') : t('members.add')}
+                style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>
+                  {memberTab === 'customFronts' ? `+ ${t('members.customFront')}` : memberTab === 'facets' ? `+ ${t('members.facet')}` : t('members.add')}
+                </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setShowDisplayOptions(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('members.displayFields')}
@@ -471,12 +481,13 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       {!archiveOnly && (
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}} contentContainerStyle={{alignItems: 'center'}}>
-          {(['active', 'customFronts'] as const).map(tab => (
+          {(['active', 'facets', 'customFronts'] as const).map(tab => (
             <TouchableOpacity key={tab} onPress={() => switchTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
               style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
               <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}} numberOfLines={1}>
                 {tab === 'active' ? t('members.active')
+                  : tab === 'facets' ? `${t('members.facets')}${facetCount > 0 ? ` (${facetCount})` : ''}`
                   : `${t('members.customFronts')}${customFrontCount > 0 ? ` (${customFrontCount})` : ''}`}
               </Text>
             </TouchableOpacity>
@@ -569,7 +580,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       ListEmptyComponent={tabMembers.length === 0 ? (
         <View style={s.empty}>
           <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◇</Text>
-          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{memberTab === 'archived' ? t('members.noArchived') : memberTab === 'customFronts' ? t('members.noCustomFronts') : t('members.noMembers')}</Text>
+          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{memberTab === 'archived' ? t('members.noArchived') : memberTab === 'customFronts' ? t('members.noCustomFronts') : memberTab === 'facets' ? t('members.noFacets') : t('members.noMembers')}</Text>
           {memberTab === 'active' && (
             <TouchableOpacity onPress={onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addMember')}</Text>
@@ -578,6 +589,11 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
           {memberTab === 'customFronts' && (
             <TouchableOpacity onPress={onAddCustomFront || onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addCustomFront')}</Text>
+            </TouchableOpacity>
+          )}
+          {memberTab === 'facets' && (
+            <TouchableOpacity onPress={onAddFacet || onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addFacet')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -631,7 +647,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
       <TouchableOpacity activeOpacity={1} onPress={() => setQuickFrontFor(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
         style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
-        <TouchableOpacity activeOpacity={1} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+        <TouchableOpacity activeOpacity={1} accessible={false} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
           <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>
             {t('members.addToFront')}{quickFrontFor ? ` — ${quickFrontFor.name}` : ''}
           </Text>

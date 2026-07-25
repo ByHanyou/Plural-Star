@@ -1,5 +1,6 @@
 import React, {useState} from 'react';
 import {View, ScrollView, TouchableOpacity, Modal, Alert, Image, StyleSheet} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
@@ -147,7 +148,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
   }
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={s.headerRow}>
         <Text
           accessibilityRole="header"
@@ -470,7 +471,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 

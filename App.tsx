@@ -12,7 +12,7 @@ import type {SupportedLanguage} from './src/i18n/i18n';
 
 import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
-import {store, KEYS, storageLooksWiped, restoreAllBackups} from './src/storage';
+import {store, KEYS, storageLooksWiped, restoreAllBackups, storageReadFailures, anyPsKeysExist} from './src/storage';
 import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
 import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars} from './src/utils/mediaUtils';
 import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders} from './src/services/NotificationService';
@@ -57,6 +57,8 @@ function MainAppContent() {
   const setLoaded = useAppStore(s => s.setLoaded);
   const [firstRun, setFirstRun] = useState(false);
   const storageSuspectRef = useRef(false);
+  const suspectRetriesRef = useRef(0);
+  const loadAllRef = useRef<(() => Promise<void>) | null>(null);
   const [locked, setLocked] = useState(false);
   const [tab, setTab] = useState<Tab>('front');
   const [systemMapRelCount, setSystemMapRelCount] = useState(0);
@@ -118,6 +120,7 @@ function MainAppContent() {
   const [editMember, setEditMember] = useState<Member | null>(null);
   const [viewOnlyMember, setViewOnlyMember] = useState(false);
   const [addCustomFront, setAddCustomFront] = useState(false);
+  const [addFacet, setAddFacet] = useState(false);
   const [showCustomFront, setShowCustomFront] = useState(false);
   const [editCustomFront, setEditCustomFront] = useState<Member | null>(null);
   const [showJournal, setShowJournal] = useState(false);
@@ -164,6 +167,7 @@ function MainAppContent() {
       storageSuspect = true;
     }
     storageSuspectRef.current = storageSuspect;
+    const readFailuresBefore = storageReadFailures();
     try {
       const [sys, mem, fr, hist, jour, jourTemplates, share, settings, savedLang, grps, savedPalettes, savedChannels] = await Promise.all([
         store.get<SystemInfo>(KEYS.system),
@@ -182,6 +186,11 @@ function MainAppContent() {
       console.log(`[STARTUP] loadAll begin — sys:${!!sys} members:${(mem||[]).length} groups:${(grps||[]).length} journal:${(jour||[]).length} history:${(hist||[]).length} channels:${(savedChannels||[]).length}`);
       if (!storageSuspect && !sys && (mem || []).length === 0 && (hist || []).length === 0 && AppState.currentState !== 'active') {
         console.warn('[STARTUP] Blank load while app is not active — background/prewarm launch, storage may still be locked. Marking suspect; will retry on foreground.');
+        storageSuspect = true;
+        storageSuspectRef.current = true;
+      }
+      if (!storageSuspect && storageReadFailures() > readFailuresBefore) {
+        console.warn('[STARTUP] AsyncStorage read(s) FAILED during this load — marking suspect; will retry on foreground.');
         storageSuspect = true;
         storageSuspectRef.current = true;
       }
@@ -244,8 +253,13 @@ function MainAppContent() {
         } else if (storageSuspect) {
           console.warn('[STARTUP] Blank load with suspect storage — staying OUT of first-run; will retry on foreground.');
           setSystem({name: '', description: ''});
+        } else if (await anyPsKeysExist()) {
+          console.warn('[STARTUP] Blank load BUT ps: keys exist in AsyncStorage — this is not a fresh install. Staying OUT of first-run; will retry on foreground.');
+          storageSuspect = true;
+          storageSuspectRef.current = true;
+          setSystem({name: '', description: ''});
         } else {
-          console.warn('[STARTUP] No system info loaded — entering first-run state. If this is unexpected, check for AsyncStorage failures above.');
+          console.warn('[STARTUP] No system info loaded and no ps: keys present — entering first-run state.');
           setFirstRun(true);
         }
       } else {
@@ -334,8 +348,21 @@ function MainAppContent() {
       }
     } finally {
       setLoaded(true);
+      if (storageSuspectRef.current) {
+        if (suspectRetriesRef.current < 3) {
+          const attempt = ++suspectRetriesRef.current;
+          const delay = attempt * 800;
+          console.warn(`[STARTUP] suspect load — auto-retry ${attempt}/3 in ${delay}ms`);
+          setTimeout(() => { loadAllRef.current?.(); }, delay);
+        } else {
+          console.warn('[STARTUP] suspect load — auto-retry budget exhausted; waiting for foreground.');
+        }
+      } else {
+        suspectRetriesRef.current = 0;
+      }
     }
   }, []);
+  loadAllRef.current = loadAll;
 
   useEffect(() => { loadAll(); }, []);
   useEffect(() => {
@@ -343,6 +370,10 @@ function MainAppContent() {
       if (s === 'active' && storageSuspectRef.current) {
         console.warn('[STARTUP] foreground after suspect load — retrying loadAll');
         loadAll();
+      }
+      if (s === 'active') {
+        NetworkManager.requestFriendFronts();
+        NetworkManager.flushPendingFronts();
       }
     });
     return () => sub.remove();
@@ -413,8 +444,8 @@ function MainAppContent() {
 
   const isSinglet = appSettings.accountMode === 'singlet';
   const selfMember = isSinglet
-    ? (members.find(m => m.id === appSettings.selfMemberId && !m.isCustomFront)
-      || members.find(m => !m.isCustomFront && !m.archived))
+    ? (members.find(m => m.id === appSettings.selfMemberId && !m.isCustomFront && !m.isFacet)
+      || members.find(m => !m.isCustomFront && !m.isFacet && !m.archived))
     : undefined;
 
   const selfMemberId = selfMember?.id;
@@ -527,8 +558,9 @@ function MainAppContent() {
         }
         return <MembersScreen theme={C} initialSortMode={appSettings.memberSortMode} memberListFields={appSettings.memberListFields} onSaveListFields={saveMemberListFields}
           onQuickAddToFront={quickAddToFront} onRemoveFromFront={removeFromFront}
-          onAdd={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setShowMember(true);}}
+          onAdd={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setAddFacet(false); setShowMember(true);}}
           onAddCustomFront={() => {setEditCustomFront(null); setShowCustomFront(true);}}
+          onAddFacet={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setAddFacet(true); setShowMember(true);}}
           onEdit={m => { if (m.isCustomFront) {setEditCustomFront(m); setShowCustomFront(true);} else {setEditMember(m); setViewOnlyMember(false); setShowMember(true);} }}
           onView={m => { if (m.isCustomFront) {setEditCustomFront(m); setShowCustomFront(true);} else {setEditMember(m); setViewOnlyMember(true); setShowMember(true);} }}
           onSaveGroups={saveGroups} onSaveSortMode={saveMemberSortMode} onReorderMember={reorderMember}
@@ -573,7 +605,7 @@ function MainAppContent() {
       {front && (
         <EditFrontDetailModal visible={showEditFrontDetail} theme={C} front={front} tier={editTier} settings={appSettings} statusMode={isSinglet}
           lastKnownLocation={lastKnownLocation}
-          onSave={async (mood: string, location: string, note: string) => {await updateFrontDetails(editTier, mood, location, note); setShowEditFrontDetail(false);}}
+          onSave={async (mood: string, location: string, note: string, energyLevel?: number) => {await updateFrontDetails(editTier, mood, location, note, energyLevel); setShowEditFrontDetail(false);}}
           onClose={() => setShowEditFrontDetail(false)} />
       )}
       <MemberModal key={`${editMember?.id || 'new-member'}-${viewOnlyMember ? 'view' : 'edit'}`} visible={showMember} theme={C} member={editMember} members={members} groups={groups} settings={appSettings}
@@ -583,9 +615,9 @@ function MainAppContent() {
         isFronting={!!editMember && allFrontMemberIds(front).includes(editMember.id)}
         onMentionPress={openMemberById}
         onShowOnMap={showMemberOnMap}
-        onSave={async (m: Member) => {await saveMember(addCustomFront && !editMember ? {...m, isCustomFront: true} : m); setShowMember(false); setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false);}}
+        onSave={async (m: Member) => {await saveMember(addCustomFront && !editMember ? {...m, isCustomFront: true} : addFacet && !editMember ? {...m, isFacet: true} : m); setShowMember(false); setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setAddFacet(false);}}
         onDelete={async (id: string) => {await deleteMember(id); setShowMember(false); setEditMember(null); setViewOnlyMember(false);}}
-        onClose={() => {setShowMember(false); setEditMember(null); setViewOnlyMember(false);}} />
+        onClose={() => {setShowMember(false); setEditMember(null); setViewOnlyMember(false); setAddFacet(false);}} />
       <CustomFrontModal visible={showCustomFront} theme={C} customFront={editCustomFront} statusMode={isSinglet}
         isFronting={!!editCustomFront && allFrontMemberIds(front).includes(editCustomFront.id)}
         onSave={async (m: Member) => {await saveMember({...m, isCustomFront: true}); setShowCustomFront(false); setEditCustomFront(null);}}
@@ -600,8 +632,8 @@ function MainAppContent() {
         onSave={async (s: SystemInfo) => {await saveSystem(s); setShowSystem(false);}}
         onSaveSettings={async (s: AppSettings) => {
           let next = s;
-          if (s.accountMode === 'singlet' && !members.find(m => m.id === s.selfMemberId && !m.isCustomFront)) {
-            const existing = members.find(m => !m.isCustomFront && !m.archived);
+          if (s.accountMode === 'singlet' && !members.find(m => m.id === s.selfMemberId && !m.isCustomFront && !m.isFacet)) {
+            const existing = members.find(m => !m.isCustomFront && !m.isFacet && !m.archived);
             if (existing) {
               next = {...s, selfMemberId: existing.id};
             } else {

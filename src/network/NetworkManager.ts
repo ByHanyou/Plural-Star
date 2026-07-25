@@ -20,7 +20,7 @@ import {
   openRendezvousRecord,
 } from './rendezvous';
 import { decodeBase64, encodeBase64, decodeUTF8 } from './bytes';
-import { generateFriendCode, generateSyncCode, Member } from '../utils';
+import { generateFriendCode, generateSyncCode, Member, PRESET_RELATIONSHIP_TYPES } from '../utils';
 import { buildFrontShare } from './frontShare';
 import {
   Friend,
@@ -41,6 +41,7 @@ import {
   MirrorCacheEntry,
   MIRROR_CACHE_PREFIX,
   MIRROR_SERVED_KEY,
+  PENDING_FRONTS_KEY,
   PrivacyBucket,
   PrivacyScope,
   PRIVACY_BUCKETS_KEY,
@@ -118,7 +119,7 @@ const hashAllAsync = async (snap: Record<string, string>): Promise<Record<string
 const realMemberCount = (raw: string): number => {
   try {
     const list = JSON.parse(raw);
-    return Array.isArray(list) ? list.filter((m: any) => m && !m.isCustomFront && !m.deleted).length : 0;
+    return Array.isArray(list) ? list.filter((m: any) => m && !m.isCustomFront && !m.isFacet && !m.deleted).length : 0;
   } catch {
     return 0;
   }
@@ -237,6 +238,7 @@ class NetworkManagerImpl {
       enabled: false,
     };
     this.friends = (await store.get<Friend[]>(FRIENDS_STORAGE_KEY, null)) || [];
+    await this.loadPendingFronts();
     if (this.friends.length > 0) this.persistFriends().catch(() => {});
     this.persistSettings().catch(() => {});
     this.expireStaleClones();
@@ -290,7 +292,8 @@ class NetworkManagerImpl {
         this.resendPendingConnects();
         this.restartPendingClones();
         this.sendSyncReqs();
-        this.sendFrontsToFriends();
+        this.flushPendingFronts();
+        this.requestFriendFronts();
         this.registerWithGateway().catch(() => {});
       }
     });
@@ -309,7 +312,8 @@ class NetworkManagerImpl {
         );
         if (linked) this.sendSyncReqTo(linked.peerId).catch(() => {});
         const buddy = this.friends.find(f => f.peerId === e.peer_id && f.kind !== 'device' && f.status === 'accepted');
-        if (buddy && this.myFrontKnown) this.sendMyFrontTo(buddy.peerId);
+        if (buddy && this.myFrontKnown) this.deliverPendingFront(buddy.peerId).catch(() => {});
+        if (buddy) this.requestFrontFrom(buddy.peerId);
         this.notify();
       }
     });
@@ -553,6 +557,13 @@ class NetworkManagerImpl {
         }
         break;
       }
+      case 'front_req': {
+        const asker = this.friends.find(
+          f => f.peerId === sender.peerId && f.kind !== 'device' && f.status === 'accepted',
+        );
+        if (asker && this.myFrontKnown) this.sendMyFrontTo(sender.peerId);
+        break;
+      }
       case 'sync': {
         this.applySync(sender, msg.keys, !!msg.init, !!msg.initDone).catch(e => console.warn('[NETWORK] applySync failed:', e));
         break;
@@ -747,10 +758,61 @@ class NetworkManagerImpl {
     this.announceFrontToGateway().catch(() => {});
     for (const f of this.friends) {
       if (f.status !== 'accepted' || f.kind === 'device') continue;
+      let delivered = false;
       try {
         await this.sendTo(f.peerId, { t: 'front', status: this.myFront });
-      } catch {}
+        delivered = this.online.has(f.peerId);
+      } catch {
+        delivered = false;
+      }
+      if (!delivered) this.queuePendingFront(f.peerId);
+      else this.clearPendingFront(f.peerId);
     }
+    await this.persistPendingFronts();
+  }
+
+  private pendingFronts: Set<string> = new Set();
+
+  private queuePendingFront(peerId: string): void {
+    this.pendingFronts.add(peerId);
+  }
+
+  private clearPendingFront(peerId: string): void {
+    this.pendingFronts.delete(peerId);
+  }
+
+  private async persistPendingFronts(): Promise<void> {
+    try {
+      await store.set(PENDING_FRONTS_KEY, [...this.pendingFronts]);
+    } catch {}
+  }
+
+  private async loadPendingFronts(): Promise<void> {
+    try {
+      const saved = await store.get<string[]>(PENDING_FRONTS_KEY, []);
+      this.pendingFronts = new Set(Array.isArray(saved) ? saved : []);
+    } catch {}
+  }
+
+  flushPendingFronts(): void {
+    if (!this.myFrontKnown) return;
+    for (const f of this.friends) {
+      if (f.kind === 'device' || f.status !== 'accepted') continue;
+      if (!this.pendingFronts.has(f.peerId)) continue;
+      this.deliverPendingFront(f.peerId).catch(() => {});
+    }
+  }
+
+  private async deliverPendingFront(peerId: string): Promise<void> {
+    if (!this.myFrontKnown) return;
+    try {
+      await this.sendTo(peerId, { t: 'front', status: this.myFront });
+    } catch {
+      return;
+    }
+    if (!this.online.has(peerId)) return;
+    this.clearPendingFront(peerId);
+    await this.persistPendingFronts();
   }
 
   private async sendMyFrontTo(peerId: string): Promise<void> {
@@ -759,11 +821,16 @@ class NetworkManagerImpl {
     } catch {}
   }
 
-  private sendFrontsToFriends(): void {
-    if (!this.myFrontKnown) return;
+  private async requestFrontFrom(peerId: string): Promise<void> {
+    try {
+      await this.sendTo(peerId, { t: 'front_req' });
+    } catch {}
+  }
+
+  requestFriendFronts(): void {
     for (const f of this.friends) {
       if (f.kind === 'device' || f.status !== 'accepted') continue;
-      this.sendMyFrontTo(f.peerId);
+      this.requestFrontFrom(f.peerId);
     }
   }
 
@@ -902,7 +969,7 @@ class NetworkManagerImpl {
   }
 
   private clearMirrorCaches(peerId: string): void {
-    for (const feat of ['members', 'groups', 'journal'] as MirrorFeature[]) {
+    for (const feat of ['members', 'groups', 'journal', 'history'] as MirrorFeature[]) {
       AsyncStorage.removeItem(this.mirrorCacheKey(peerId, feat)).catch(() => {});
       this.clearMirrorMedia(peerId, feat).catch(() => {});
       this.mirrorSentHash.delete(`${peerId}|${feat}`);
@@ -910,7 +977,7 @@ class NetworkManagerImpl {
     if (this.mirrorServed.delete(peerId)) this.persistMirrorServed().catch(() => {});
   }
 
-  private effectiveScope(buckets: PrivacyBucket[], peerId: string, feature: MirrorFeature | 'customFields'): {mode: 'all' | 'select' | 'none'; ids: Set<string>} {
+  private effectiveScope(buckets: PrivacyBucket[], peerId: string, feature: MirrorFeature | 'customFields' | 'connections'): {mode: 'all' | 'select' | 'none'; ids: Set<string>} {
     const mine = buckets.filter(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId));
     const ids = new Set<string>();
     let all = false;
@@ -961,7 +1028,7 @@ class NetworkManagerImpl {
   private mirrorSentHash: Map<string, string> = new Map();
 
   private async handleMirrorReq(peerId: string, feature: MirrorFeature, skipIfUnchanged?: boolean): Promise<void> {
-    if (feature !== 'members' && feature !== 'groups' && feature !== 'journal') return;
+    if (feature !== 'members' && feature !== 'groups' && feature !== 'journal' && feature !== 'history') return;
     const fr = this.friends.find(x => x.peerId === peerId && x.kind !== 'device' && x.status === 'accepted');
     if (!fr) return;
     const gateKey = `${peerId}|${feature}`;
@@ -992,7 +1059,7 @@ class NetworkManagerImpl {
         const raw = await AsyncStorage.getItem(KEYS.members);
         const list: any[] = raw ? JSON.parse(raw) : [];
         const shared = (Array.isArray(list) ? list : [])
-          .filter(m => m && !m.deleted && !m.isCustomFront && (scope.mode === 'all' || scope.ids.has(m.id)))
+          .filter(m => m && !m.deleted && !m.isCustomFront && !m.isFacet && (scope.mode === 'all' || scope.ids.has(m.id)))
           .sort((a, b) => ((a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)) || String(a.name || '').localeCompare(String(b.name || '')));
         const cfScope = this.effectiveScope(buckets, peerId, 'customFields');
         let grantedDefs: any[] = [];
@@ -1006,6 +1073,56 @@ class NetworkManagerImpl {
             .filter(d => d && (cfScope.mode === 'all' || cfScope.ids.has(d.id)))
             .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
         }
+        const sharedIdSet = new Set(shared.map(m => m.id));
+        const nameById = new Map(shared.map(m => [m.id, String(m.name || '')]));
+        const connScope = this.effectiveScope(buckets, peerId, 'connections');
+        let sharedRels: any[] = [];
+        let relTypeById = new Map<string, any>();
+        if (connScope.mode !== 'none') {
+          let rels: any[] = [];
+          let types: any[] = [];
+          try {
+            const rawRel = await AsyncStorage.getItem(KEYS.relationships);
+            rels = rawRel ? JSON.parse(rawRel) : [];
+          } catch {}
+          try {
+            const rawTypes = await AsyncStorage.getItem(KEYS.relationshipTypes);
+            types = rawTypes ? JSON.parse(rawTypes) : [];
+          } catch {}
+          for (const td of [...PRESET_RELATIONSHIP_TYPES, ...(Array.isArray(types) ? types : [])]) {
+            if (td && td.id) relTypeById.set(td.id, {...(relTypeById.get(td.id) || {}), ...td});
+          }
+          sharedRels = (Array.isArray(rels) ? rels : []).filter(
+            r => r && sharedIdSet.has(r.fromId) && sharedIdSet.has(r.toId) && (connScope.mode === 'all' || connScope.ids.has(r.id)),
+          );
+        }
+        const connectionsOf = (memberId: string): MirrorMember['connections'] => {
+          const rows = sharedRels
+            .filter(r => r.fromId === memberId || r.toId === memberId)
+            .map(r => {
+              const td = relTypeById.get(r.typeId);
+              if (!td) return null;
+              const otherId = r.fromId === memberId ? r.toId : r.fromId;
+              const inverseSide = r.fromId === memberId;
+              const plain = !!td.preset && !td.overridden;
+              const useInverse = inverseSide && !!td.directional;
+              const labelKey = plain ? `relType.${td.id}${useInverse ? 'Inverse' : ''}` : undefined;
+              const label = plain
+                ? ''
+                : (useInverse ? (td.inverseName || td.name || '') : (td.name || ''));
+              return {
+                id: r.id,
+                otherId,
+                otherName: nameById.get(otherId) || '',
+                label,
+                labelKey,
+                color: td.color || undefined,
+                note: r.note || undefined,
+              };
+            })
+            .filter(Boolean) as MirrorMember['connections'];
+          return rows && rows.length > 0 ? rows : undefined;
+        };
         const slim: MirrorMember[] = shared.map(m => {
           const cfs = grantedDefs
             .map(d => {
@@ -1028,6 +1145,7 @@ class NetworkManagerImpl {
             description: m.description || undefined,
             archived: m.archived || undefined,
             customFields: cfs && cfs.length > 0 ? cfs : undefined,
+            connections: connectionsOf(m.id),
           };
         });
         payload = JSON.stringify(slim);
@@ -1051,7 +1169,7 @@ class NetworkManagerImpl {
         const sharedGroupIds = new Set(sharedGroups.map(g => g.id));
         const mScope = this.effectiveScope(buckets, peerId, 'members');
         const sharedMembers = (Array.isArray(allMembers) ? allMembers : []).filter(
-          m => m && !m.deleted && !m.isCustomFront && (mScope.mode === 'all' || mScope.ids.has(m.id)),
+          m => m && !m.deleted && !m.isCustomFront && !m.isFacet && (mScope.mode === 'all' || mScope.ids.has(m.id)),
         );
         const membership: Record<string, {id: string; name: string}[]> = {};
         for (const m of sharedMembers) {
@@ -1073,6 +1191,40 @@ class NetworkManagerImpl {
           sortOrder: g.sortOrder ?? undefined,
         }));
         payload = JSON.stringify({groups: slimGroups, membership});
+      } else if (feature === 'history') {
+        const rawH = await AsyncStorage.getItem(KEYS.history);
+        const rawM = await AsyncStorage.getItem(KEYS.members);
+        let list: any[] = [];
+        let allMembers: any[] = [];
+        try {
+          list = rawH ? JSON.parse(rawH) : [];
+        } catch {}
+        try {
+          allMembers = rawM ? JSON.parse(rawM) : [];
+        } catch {}
+        const mScope = this.effectiveScope(buckets, peerId, 'members');
+        const visibleIds = new Set(
+          (Array.isArray(allMembers) ? allMembers : [])
+            .filter(m => m && !m.deleted && (mScope.mode === 'all' || mScope.ids.has(m.id)))
+            .map(m => m.id),
+        );
+        const keep = (ids?: string[]) => (ids || []).filter(id => visibleIds.has(id));
+        const events = (Array.isArray(list) ? list : [])
+          .map(ev => {
+            if (!ev) return null;
+            const memberIds = keep(ev.memberIds);
+            const coFrontIds = keep(ev.coFrontIds);
+            const coConsciousIds = keep(ev.coConsciousIds);
+            if (memberIds.length === 0 && coFrontIds.length === 0 && coConsciousIds.length === 0) return null;
+            return {
+              ...ev,
+              memberIds,
+              coFrontIds: coFrontIds.length > 0 ? coFrontIds : undefined,
+              coConsciousIds: coConsciousIds.length > 0 ? coConsciousIds : undefined,
+            };
+          })
+          .filter(Boolean);
+        payload = JSON.stringify(events);
       } else {
         const raw = await AsyncStorage.getItem(KEYS.journal);
         const list: any[] = raw ? JSON.parse(raw) : [];

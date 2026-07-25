@@ -16,6 +16,13 @@ const memberInEntry = (memberId: string, entry: HistoryEntry): boolean =>
   (entry.coFrontIds || []).includes(memberId) ||
   (entry.coConsciousIds || []).includes(memberId);
 
+const tierDetailsFor = (memberId: string, entry: HistoryEntry): {mood?: string; note?: string; location?: string; energy?: number} => {
+  const tier = memberTierInEntry(memberId, entry);
+  if (tier === 'coFront') return {mood: entry.coFrontMood, note: entry.coFrontNote, location: entry.coFrontLocation, energy: entry.coFrontEnergy};
+  if (tier === 'coConscious') return {mood: entry.coConsciousMood, note: entry.coConsciousNote, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy};
+  return {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
+};
+
 const memberTierInEntry = (memberId: string, entry: HistoryEntry): FrontTierKey | null =>
   (entry.memberIds || []).includes(memberId) ? 'primary'
   : (entry.coFrontIds || []).includes(memberId) ? 'coFront'
@@ -29,6 +36,10 @@ interface Props {
   singlet?: boolean;
   selfId?: string;
   onEditEntry?: (originalIndex: number) => void;
+  readOnly?: boolean;
+  historyOverride?: HistoryEntry[];
+  membersOverride?: Member[];
+  journalOverride?: JournalEntry[];
 }
 
 const TierRow = React.memo(function TierRow({label, ids, color, expanded, cap, memberMap, fs, T}: {
@@ -64,7 +75,7 @@ interface FrontHistoryEntryRowProps {
   effectiveEnd: number | null;
   onToggleExpand: (key: string) => void;
   onEditEntry?: (originalIndex: number) => void;
-  onDelete: (originalIndex: number) => void;
+  onDelete?: (originalIndex: number) => void;
 }
 
 const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
@@ -128,7 +139,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
           {fmtTime(entry.startTime)}
           {isOpen ? ` → ${t('history.now')}` : displayEnd ? ` → ${fmtTime(displayEnd)}` : ''}
         </Text>
-        {(entry.mood || entry.location) && (
+        {(entry.mood || entry.location || entry.energyLevel !== undefined) && (
           <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
             {entry.mood && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
@@ -142,8 +153,49 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
                 <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.location}</Text>
               </View>
             )}
+            {entry.energyLevel !== undefined && (
+              <View style={[s.badge, {backgroundColor: T.surface}]}>
+                <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
+                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.energyLevel}/10</Text>
+              </View>
+            )}
           </View>
         )}
+        {isExpanded && ([
+          {label: t('tier.coFrontShort'), color: T.info, mood: entry.coFrontMood, location: entry.coFrontLocation, energy: entry.coFrontEnergy, note: entry.coFrontNote},
+          {label: t('tier.coConShort'), color: T.success, mood: entry.coConsciousMood, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy, note: entry.coConsciousNote},
+        ] as const).map(td => (
+          (td.mood || td.location || td.energy !== undefined || td.note) ? (
+            <View key={td.label} style={{marginBottom: 4}}>
+              <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
+                <Text style={{fontSize: fs(10), color: td.color, fontWeight: '600'}}>{td.label}</Text>
+                {td.mood ? (
+                  <View style={[s.badge, {backgroundColor: T.surface}]}>
+                    <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
+                    <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(td.mood, t)}</Text>
+                  </View>
+                ) : null}
+                {td.location ? (
+                  <View style={[s.badge, {backgroundColor: T.surface}]}>
+                    <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
+                    <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{td.location}</Text>
+                  </View>
+                ) : null}
+                {td.energy !== undefined ? (
+                  <View style={[s.badge, {backgroundColor: T.surface}]}>
+                    <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
+                    <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{td.energy}/10</Text>
+                  </View>
+                ) : null}
+              </View>
+              {td.note ? (
+                <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 7, marginTop: 4}}>
+                  <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}}>{td.note}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null
+        ))}
         {entry.note ? (
           <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 8}}>
             <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18}}>{entry.note}</Text>
@@ -167,11 +219,13 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
                 <Text style={{fontSize: fs(10), color: T.accent, opacity: 0.8}}>{t('history.editEntry')}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => onDelete(originalIndex)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={t('history.deleteEntry')}
-              style={{paddingVertical: 2, paddingHorizontal: 6}}>
-              <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
-            </TouchableOpacity>
+            {onDelete && (
+              <TouchableOpacity onPress={() => onDelete(originalIndex)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={t('history.deleteEntry')}
+                style={{paddingVertical: 2, paddingHorizontal: 6}}>
+                <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -179,10 +233,13 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
   );
 });
 
-export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: Props) => {
-  const history = useAppStore(s => s.history);
-  const journal = useAppStore(s => s.journal);
-  const members = useAppStore(s => s.members);
+export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, readOnly = false, historyOverride, membersOverride, journalOverride}: Props) => {
+  const storeHistory = useAppStore(s => s.history);
+  const storeJournal = useAppStore(s => s.journal);
+  const storeMembers = useAppStore(s => s.members);
+  const history = historyOverride ?? storeHistory;
+  const journal = journalOverride ?? storeJournal;
+  const members = membersOverride ?? storeMembers;
   const onSaveHistory = saveHistory;
   const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
@@ -284,11 +341,11 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: 
         singlet={singlet}
         effectiveEnd={item.effectiveEnd}
         onToggleExpand={toggleEntryExpanded}
-        onEditEntry={onEditEntry}
-        onDelete={startDelete}
+        onEditEntry={readOnly ? undefined : onEditEntry}
+        onDelete={readOnly ? undefined : startDelete}
       />
     );
-  }, [expandedEntries, memberMap, T, fs, t, singlet, selfId, toggleEntryExpanded, onEditEntry, startDelete]);
+  }, [expandedEntries, memberMap, T, fs, t, singlet, selfId, toggleEntryExpanded, onEditEntry, startDelete, readOnly]);
 
   const tierNames = (ids: string[] | undefined) =>
     (ids || []).map(id => memberMap.get(id)).filter(Boolean).map(m => m!.name).join(', ');
@@ -463,12 +520,15 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: 
                   return sum + Math.max(0, end - m.startTime);
                 }, 0);
                 const entryEvents = allMemberEvents.filter((e: any) => e.entry);
+                const details = entryEvents.map((e: any) => tierDetailsFor(selectedMember.id, e.entry));
                 const moodCounts: Record<string, number> = {};
-                entryEvents.forEach((e: any) => {if (e.entry.mood) moodCounts[e.entry.mood] = (moodCounts[e.entry.mood] || 0) + 1;});
+                details.forEach(d => {if (d.mood) moodCounts[d.mood] = (moodCounts[d.mood] || 0) + 1;});
                 const topMood = Object.entries(moodCounts).sort((a, b) => b[1] - a[1])[0];
                 const locCounts: Record<string, number> = {};
-                entryEvents.forEach((e: any) => {if (e.entry.location) locCounts[e.entry.location] = (locCounts[e.entry.location] || 0) + 1;});
+                details.forEach(d => {if (d.location) locCounts[d.location] = (locCounts[d.location] || 0) + 1;});
                 const topLoc = Object.entries(locCounts).sort((a, b) => b[1] - a[1])[0];
+                const energies = details.map(d => d.energy).filter((v): v is number => typeof v === 'number');
+                const avgEnergy = energies.length > 0 ? energies.reduce((a, b) => a + b, 0) / energies.length : null;
                 return (
                   <View style={{flexDirection: 'row', gap: 8, margin: 16, marginBottom: 8}}>
                     <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
@@ -489,6 +549,12 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: 
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
                         <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topLocation')}</Text>
                         <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{topLoc[0]}</Text>
+                      </View>
+                    )}
+                    {avgEnergy !== null && (
+                      <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
+                        <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('stats.avgEnergy')}</Text>
+                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{avgEnergy.toFixed(1)}/10</Text>
                       </View>
                     )}
                   </View>
@@ -533,6 +599,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: 
 
                           {'entry' in event && event.entry && (() => {
                             const e = event.entry;
+                            const d = selectedMemberId ? tierDetailsFor(selectedMemberId, e) : {mood: e.mood, note: e.note, location: e.location, energy: e.energyLevel};
                             const isOpen = e.endTime === null && event.type === 'front';
                             return (
                               <>
@@ -542,25 +609,31 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry}: 
                                     {'  '}<AccentText T={T} style={{color: T.accent}}>{fmtDur(e.startTime, e.endTime)}</AccentText>
                                   </Text>
                                 )}
-                                {(e.mood || e.location) && (
-                                  <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: e.note ? 4 : 0}}>
-                                    {e.mood && (
+                                {(d.mood || d.location || d.energy !== undefined) && (
+                                  <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: d.note ? 4 : 0}}>
+                                    {d.mood && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
                                         <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
-                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(e.mood, t)}</Text>
+                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(d.mood, t)}</Text>
                                       </View>
                                     )}
-                                    {e.location && (
+                                    {d.location && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
                                         <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{e.location}</Text>
+                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{d.location}</Text>
+                                      </View>
+                                    )}
+                                    {d.energy !== undefined && (
+                                      <View style={[s.badge, {backgroundColor: T.surface}]}>
+                                        <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
+                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{d.energy}/10</Text>
                                       </View>
                                     )}
                                   </View>
                                 )}
-                                {e.note ? (
+                                {d.note ? (
                                   <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 7}}>
-                                    <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}}>{e.note}</Text>
+                                    <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}}>{d.note}</Text>
                                   </View>
                                 ) : null}
                               </>

@@ -1,6 +1,6 @@
 import React, {useState, useRef} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, Modal, AccessibilityInfo, findNodeHandle} from 'react-native';
-import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {PALETTE, fontScale, ThemeColors} from '../theme';
@@ -11,7 +11,7 @@ import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
-import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
+import {GroupBrowser} from '../components/GroupBrowser';
 import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, colorName} from '../utils';
 
 interface Props {
@@ -30,7 +30,6 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const onRemoveFromGroup = bulkRemoveFromGroup;
   const {t} = useTranslation();
   const fs = fontScale(T);
-  const behavior = useKeyboardBehavior();
 
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(PALETTE[0]);
@@ -222,7 +221,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     seen.add(g.id);
     const isEditing = editId === g.id;
     const isSub = groupKind(g) === 'subsystem';
-    const memberCount = members.filter(m => (m.groupIds || []).includes(g.id)).length;
+    const memberCount = members.filter(m => !m.isCustomFront && !m.isFacet && (m.groupIds || []).includes(g.id)).length;
     const moving = movingIds;
     const canDrop = !!moving && !moving.includes(g.id) && !moving.some(id => isDescendant(groups, g.id, id));
     const isSelected = selectedIds.includes(g.id);
@@ -296,7 +295,6 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
 
   const browseEligible = members.filter(m => !m.archived && !m.isCustomFront);
   if (browse) {
-    const folders = childrenOf(groups, browseId);
     const folderMembers = browseId === null
       ? browseEligible.filter(m => !(m.groupIds || []).length)
       : browseEligible.filter(m => (m.groupIds || []).includes(browseId));
@@ -318,14 +316,16 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
       ]);
     };
     return (
-      <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14}}>
-          {browseId !== null && (
-            <TouchableOpacity onPress={() => goBrowseTo(current?.parentId ?? null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4}}>
-              <Text style={{fontSize: fs(18), color: T.dim}} allowFontScaling={false}>←</Text>
-            </TouchableOpacity>
-          )}
-          <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: current?.color || T.text}} numberOfLines={1}>{current ? current.name : t('systemManager.title')}</Text>
+      <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} bottomOffset={24}>
+        <GroupBrowser
+          T={T}
+          groups={groups}
+          members={browseEligible}
+          browseId={browseId}
+          onNavigate={goBrowseTo}
+          onViewMember={id => onViewMember && onViewMember(id)}
+          rootTitle={t('systemManager.title')}
+          headerRight={<>
           {current && !removeMode && (
             <TouchableOpacity onPress={() => { setAddPickIds([]); setAddSearch(''); setAddPickOpen(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberGroups.addMembers')}
               style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
@@ -344,8 +344,8 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('common.edit')}</Text>
             </TouchableOpacity>
           )}
-        </View>
-        {removeMode && current && (
+          </>}
+          banner={removeMode && current ? (
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, padding: 8, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: `${T.danger}40`}}>
             <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('members.selectedCount', {count: removeIds.length})}</Text>
             <TouchableOpacity onPress={confirmRemove} disabled={removeIds.length === 0} accessibilityRole="button" accessibilityState={{disabled: removeIds.length === 0}} accessibilityLabel={t('memberGroups.removeMembers')}
@@ -356,26 +356,11 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
-        )}
-        {folders.map(g => {
-          const cnt = browseEligible.filter(m => (m.groupIds || []).includes(g.id)).length;
-          const subs = childrenOf(groups, g.id).length;
-          return (
-            <TouchableOpacity key={g.id} onPress={() => goBrowseTo(g.id)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={`${g.name}, ${groupKind(g) === 'subsystem' ? t('memberGroups.subsystem') : t('memberGroups.group')}, ${cnt}`}
-              style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: T.border, backgroundColor: T.card, marginBottom: 8}}>
-              <View style={{width: 16, height: 16, borderRadius: groupKind(g) === 'subsystem' ? 4 : 8, backgroundColor: g.color || T.accent}} />
-              <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={1}>{g.name}</Text>
-              <Text style={{fontSize: fs(11), color: T.muted}}>{subs > 0 ? `${subs} ⊟ · ` : ''}{cnt}</Text>
-              <Text style={{fontSize: fs(16), color: T.dim}} allowFontScaling={false}>›</Text>
-            </TouchableOpacity>
-          );
-        })}
-        {folderMembers.map(m => {
-          if (removeMode) {
+          ) : undefined}
+          memberRow={removeMode ? (m => {
             const checked = removeIds.includes(m.id);
             return (
-              <TouchableOpacity key={m.id} onPress={() => toggleRemovePick(m.id)} activeOpacity={0.7}
+              <TouchableOpacity onPress={() => toggleRemovePick(m.id)} activeOpacity={0.7}
                 accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={m.name}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
                 <Text style={{fontSize: fs(16), color: checked ? T.danger : T.muted}}>{checked ? '☑' : '☐'}</Text>
@@ -386,19 +371,11 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                 </View>
               </TouchableOpacity>
             );
-          }
-          const fronting = isFronting(m.id);
-          return (
-            <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
-              <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')}
-                style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                <Avatar member={m} size={30} T={T} />
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                  {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
-                </View>
-              </TouchableOpacity>
+          }) : undefined}
+          memberAction={m => {
+            const fronting = isFronting(m.id);
+            return (
+              <>
               {(
                 fronting ? (
                   <TouchableOpacity
@@ -419,12 +396,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                   </TouchableOpacity>
                 )
               )}
-            </View>
-          );
-        })}
-        {folders.length === 0 && folderMembers.length === 0 && (
-          <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', marginTop: 8}}>{t('memberGroups.none')}</Text>
-        )}
+              </>
+            );
+          }}
+        />
 
         <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
@@ -489,13 +464,12 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             </View>
           </View>
         </Modal>
-      </ScrollView>
+      </KeyboardAwareScrollView>
     );
   }
 
   return (
-    <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled" scrollEnabled={!dragging}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled" scrollEnabled={!dragging} bottomOffset={24}>
       <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 14, lineHeight: 18}}>{t('systemManager.desc')}</Text>
       <View style={{flexDirection: 'row', marginBottom: 12}}>
         <TouchableOpacity onPress={() => { goBrowseTo(null); setBrowse(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemManager.browse')}
@@ -566,7 +540,6 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginTop: 8, minHeight: 60, textAlignVertical: 'top'}} />
         </View>
       )}
-    </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScrollView>
   );
 };

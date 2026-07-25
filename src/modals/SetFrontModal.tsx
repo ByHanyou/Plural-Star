@@ -7,7 +7,8 @@ import {Member, MemberGroup, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {TFunction} from 'i18next';
-import {Btn, Field, SectionDivider, MoodPicker, EnergyRow} from './shared';
+import {Btn, Field, SectionDivider, MoodPicker, EnergyRow, LocationPicker} from './shared';
+import {useDraft, clearDraft} from '../hooks/useDraft';
 
 const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allAssigned, T, t}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
@@ -110,8 +111,8 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
   const [coConsciousIds, setCoConsciousIds] = useState<Set<string>>(new Set());
   const [primaryMood, setPrimaryMood] = useState(''); const [primaryCustomMood, setPrimaryCustomMood] = useState(''); const [primaryShowCustom, setPrimaryShowCustom] = useState(false);
   const [primaryLocation, setPrimaryLocation] = useState(''); const [primaryNote, setPrimaryNote] = useState('');
-  const [coFrontMood, setCoFrontMood] = useState(''); const [coFrontCustomMood, setCoFrontCustomMood] = useState(''); const [coFrontShowCustom, setCoFrontShowCustom] = useState(false); const [coFrontNote, setCoFrontNote] = useState('');
-  const [coConsciousMood, setCoConsciousMood] = useState(''); const [coConsciousCustomMood, setCoConsciousCustomMood] = useState(''); const [coConsciousShowCustom, setCoConsciousShowCustom] = useState(false); const [coConsciousNote, setCoConsciousNote] = useState('');
+  const [coFrontMood, setCoFrontMood] = useState(''); const [coFrontCustomMood, setCoFrontCustomMood] = useState(''); const [coFrontShowCustom, setCoFrontShowCustom] = useState(false); const [coFrontNote, setCoFrontNote] = useState(''); const [coFrontLocation, setCoFrontLocation] = useState('');
+  const [coConsciousMood, setCoConsciousMood] = useState(''); const [coConsciousCustomMood, setCoConsciousCustomMood] = useState(''); const [coConsciousShowCustom, setCoConsciousShowCustom] = useState(false); const [coConsciousNote, setCoConsciousNote] = useState(''); const [coConsciousLocation, setCoConsciousLocation] = useState('');
   const [primaryEnergy, setPrimaryEnergy] = useState<number | undefined>(undefined);
   const [coFrontEnergy, setCoFrontEnergy] = useState<number | undefined>(undefined);
   const [coConsciousEnergy, setCoConsciousEnergy] = useState<number | undefined>(undefined);
@@ -121,15 +122,32 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       const c: FrontState | null = current;
       setPrimaryIds(new Set(c?.primary?.memberIds || [])); setCoFrontIds(new Set(c?.coFront?.memberIds || [])); setCoConsciousIds(new Set(c?.coConscious?.memberIds || []));
       setPrimaryMood(c?.primary?.mood || ''); setPrimaryCustomMood(''); setPrimaryShowCustom(false); setPrimaryLocation(c?.primary?.location || (settings?.gpsEnabled ? lastKnownLocation : '') || ''); setPrimaryNote(c?.primary?.note || '');
-      setCoFrontMood(c?.coFront?.mood || ''); setCoFrontCustomMood(''); setCoFrontShowCustom(false); setCoFrontNote(c?.coFront?.note || '');
-      setCoConsciousMood(c?.coConscious?.mood || ''); setCoConsciousCustomMood(''); setCoConsciousShowCustom(false); setCoConsciousNote(c?.coConscious?.note || '');
+      setCoFrontMood(c?.coFront?.mood || ''); setCoFrontCustomMood(''); setCoFrontShowCustom(false); setCoFrontNote(c?.coFront?.note || ''); setCoFrontLocation(c?.coFront?.location || '');
+      setCoConsciousMood(c?.coConscious?.mood || ''); setCoConsciousCustomMood(''); setCoConsciousShowCustom(false); setCoConsciousNote(c?.coConscious?.note || ''); setCoConsciousLocation(c?.coConscious?.location || '');
       setPrimaryEnergy(c?.primary?.energyLevel); setCoFrontEnergy(c?.coFront?.energyLevel); setCoConsciousEnergy(c?.coConscious?.energyLevel);
     }
   }, [visible, current, lastKnownLocation]);
 
   const allMoods = [...DEFAULT_MOODS, ...(settings?.customMoods || [])];
   const allLocations = settings?.locations || [];
-  const regularMembers = useMemo(() => members.filter((m: Member) => !m.isCustomFront), [members]);
+
+  useDraft<any>(
+    'front', 'current', visible,
+    {
+      p: [...primaryIds], cf: [...coFrontIds], cc: [...coConsciousIds],
+      pm: primaryMood, pcm: primaryCustomMood, psc: primaryShowCustom, pl: primaryLocation, pn: primaryNote, pe: primaryEnergy,
+      fm: coFrontMood, fcm: coFrontCustomMood, fsc: coFrontShowCustom, fl: coFrontLocation, fn: coFrontNote, fe: coFrontEnergy,
+      cm: coConsciousMood, ccm: coConsciousCustomMood, csc: coConsciousShowCustom, cl: coConsciousLocation, cn: coConsciousNote, ce: coConsciousEnergy,
+    },
+    d => {
+      setPrimaryIds(new Set(d.p || [])); setCoFrontIds(new Set(d.cf || [])); setCoConsciousIds(new Set(d.cc || []));
+      setPrimaryMood(d.pm || ''); setPrimaryCustomMood(d.pcm || ''); setPrimaryShowCustom(!!d.psc); setPrimaryLocation(d.pl || ''); setPrimaryNote(d.pn || ''); setPrimaryEnergy(d.pe);
+      setCoFrontMood(d.fm || ''); setCoFrontCustomMood(d.fcm || ''); setCoFrontShowCustom(!!d.fsc); setCoFrontLocation(d.fl || ''); setCoFrontNote(d.fn || ''); setCoFrontEnergy(d.fe);
+      setCoConsciousMood(d.cm || ''); setCoConsciousCustomMood(d.ccm || ''); setCoConsciousShowCustom(!!d.csc); setCoConsciousLocation(d.cl || ''); setCoConsciousNote(d.cn || ''); setCoConsciousEnergy(d.ce);
+    },
+  );
+  const regularMembers = useMemo(() => members.filter((m: Member) => !m.isCustomFront && !m.isFacet), [members]);
+  const facets = useMemo(() => members.filter((m: Member) => m.isFacet && !m.isCustomFront), [members]);
   const customFronts = useMemo(() => members.filter((m: Member) => m.isCustomFront), [members]);
 
   const allAssigned = useMemo(() => {
@@ -166,8 +184,9 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
   const handleSave = () => {
     Keyboard.dismiss();
     onSave({memberIds: [...primaryIds], mood: resolveMood(primaryMood, primaryCustomMood, primaryShowCustom), note: primaryNote, location: primaryLocation || undefined, energyLevel: primaryEnergy},
-      {memberIds: [...coFrontIds], mood: resolveMood(coFrontMood, coFrontCustomMood, coFrontShowCustom), note: coFrontNote, energyLevel: coFrontEnergy},
-      {memberIds: [...coConsciousIds], mood: resolveMood(coConsciousMood, coConsciousCustomMood, coConsciousShowCustom), note: coConsciousNote, energyLevel: coConsciousEnergy});
+      {memberIds: [...coFrontIds], mood: resolveMood(coFrontMood, coFrontCustomMood, coFrontShowCustom), note: coFrontNote, location: coFrontLocation || undefined, energyLevel: coFrontEnergy},
+      {memberIds: [...coConsciousIds], mood: resolveMood(coConsciousMood, coConsciousCustomMood, coConsciousShowCustom), note: coConsciousNote, location: coConsciousLocation || undefined, energyLevel: coConsciousEnergy});
+    clearDraft('front', 'current');
     onClose();
   };
 
@@ -175,22 +194,20 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     <Sheet visible={visible} title={t('modal.updateFront')} theme={T} onClose={onClose} footer={<><Btn instant variant="ghost" T={T} onPress={() => {
       Alert.alert(t('front.clearFrontTitle'), t('front.clearFrontMsg'), [
         {text: t('common.cancel'), style: 'cancel'},
-        {text: t('common.clear'), style: 'destructive', onPress: () => {onSave(EMPTY_TIER, EMPTY_TIER, EMPTY_TIER); onClose();}},
+        {text: t('common.clear'), style: 'destructive', onPress: () => {onSave(EMPTY_TIER, EMPTY_TIER, EMPTY_TIER); clearDraft('front', 'current'); onClose();}},
       ]);
     }}>{t('common.clear')}</Btn><Btn instant T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
       <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
+      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       {customFronts.length > 0 && (<>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
         <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       </>)}
       <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
-      {allLocations.length > 0 && (<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}><View style={{flexDirection: 'row', gap: 5}}>
-        {allLocations.map((l: string) => (<TouchableOpacity key={l} onPress={() => setPrimaryLocation(primaryLocation === l ? '' : l)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{selected: primaryLocation === l}} accessibilityLabel={l} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, backgroundColor: primaryLocation === l ? `${T.accent}20` : T.surface, borderColor: primaryLocation === l ? `${T.accent}60` : T.border}}><Text style={{fontSize: fs(11), color: primaryLocation === l ? T.accent : T.dim, fontWeight: primaryLocation === l ? '600' : '400'}}>{l}</Text></TouchableOpacity>))}
-      </View></ScrollView>)}
-      <TextInput value={primaryLocation} onChangeText={setPrimaryLocation} placeholder={t('modal.typeLocation')} placeholderTextColor={T.muted} style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginTop: 4}} />
+      <LocationPicker location={primaryLocation} setLocation={setPrimaryLocation} allLocations={allLocations} color={T.accent} T={T} t={t} />
       <View style={{height: 8}} />
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
       <EnergyRow value={primaryEnergy} onChange={setPrimaryEnergy} color={T.accent} T={T} t={t} />
@@ -198,11 +215,15 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
 
       <SectionDivider label={t('tier.coFront')} color={T.info} T={T} />
       <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
+      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       {customFronts.length > 0 && (<>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
         <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       </>)}
       <MoodPicker mood={coFrontMood} setMood={setCoFrontMood} customMood={coFrontCustomMood} setCustomMood={setCoFrontCustomMood} showCustom={coFrontShowCustom} setShowCustom={setCoFrontShowCustom} allMoods={allMoods} T={T} t={t} />
+      <View style={{height: 10}} />
+      <LocationPicker location={coFrontLocation} setLocation={setCoFrontLocation} allLocations={allLocations} color={T.info} T={T} t={t} />
       <View style={{height: 8}} />
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
       <EnergyRow value={coFrontEnergy} onChange={setCoFrontEnergy} color={T.info} T={T} t={t} />
@@ -210,11 +231,15 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
 
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
       <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
+      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       {customFronts.length > 0 && (<>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
         <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       </>)}
       <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} allMoods={allMoods} T={T} t={t} />
+      <View style={{height: 10}} />
+      <LocationPicker location={coConsciousLocation} setLocation={setCoConsciousLocation} allLocations={allLocations} color={T.success} T={T} t={t} />
       <View style={{height: 8}} />
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
       <EnergyRow value={coConsciousEnergy} onChange={setCoConsciousEnergy} color={T.success} T={T} t={t} />

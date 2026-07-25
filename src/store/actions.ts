@@ -249,15 +249,15 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
   }
 };
 
-export const updateFrontDetails = async (tier: FrontTierKey, mood?: string, location?: string, note?: string) => {
+export const updateFrontDetails = async (tier: FrontTierKey, mood?: string, location?: string, note?: string, energyLevel?: number) => {
   const {front, history, setFront} = useAppStore.getState();
   if (!front) return;
   const now = Date.now();
   const tierData = front[tier];
-  const resolvedLocation = tier === 'primary' ? await maybeGPS(location) : tierData.location;
-  const updatedTier = {...tierData, mood, location: resolvedLocation, note: note ?? tierData.note};
+  const resolvedLocation = tier === 'primary' ? await maybeGPS(location) : location;
+  const updatedTier = {...tierData, mood, location: resolvedLocation, note: note ?? tierData.note, energyLevel};
   const moodChanged = (mood || undefined) !== (tierData.mood || undefined);
-  const locChanged = tier === 'primary' && (resolvedLocation || undefined) !== (tierData.location || undefined);
+  const locChanged = (resolvedLocation || undefined) !== (tierData.location || undefined);
   const noteChanged = note !== undefined && (note || undefined) !== (tierData.note || undefined);
   const segment = moodChanged || locChanged;
   const updated = segment ? {...front, [tier]: updatedTier, startTime: now} : {...front, [tier]: updatedTier};
@@ -367,8 +367,8 @@ export const saveAppSettings = async (d: AppSettings) => {
 
 export const ensureSelfMember = async (): Promise<Member> => {
   const {members, appSettings, system} = useAppStore.getState();
-  const selfMember = members.find(m => m.id === appSettings.selfMemberId && !m.isCustomFront)
-    || members.find(m => !m.isCustomFront && !m.archived);
+  const selfMember = members.find(m => m.id === appSettings.selfMemberId && !m.isCustomFront && !m.isFacet)
+    || members.find(m => !m.isCustomFront && !m.isFacet && !m.archived);
   if (selfMember) {
     if (selfMember.id !== appSettings.selfMemberId) await saveAppSettings({...appSettings, selfMemberId: selfMember.id});
     return selfMember;
@@ -400,7 +400,7 @@ export const reorderMember = async (id: string, direction: 'up' | 'down') => {
   const {members} = useAppStore.getState();
   const target = members.find(m => m.id === id);
   if (!target) return;
-  const inSubset = (m: Member) => !m.archived && !!m.isCustomFront === !!target.isCustomFront;
+  const inSubset = (m: Member) => !m.archived && !!m.isCustomFront === !!target.isCustomFront && !!m.isFacet === !!target.isFacet;
   const subset = members.filter(inSubset);
   const rest = members.filter(m => !inSubset(m));
   const ordered = [...subset].sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));

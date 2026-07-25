@@ -8,6 +8,7 @@ import {fontScale} from '../theme';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {Btn, Field} from './shared';
+import {useDraft, clearDraft} from '../hooks/useDraft';
 
 export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDelete, onClose}: any) => {
   const fs = fontScale(T);
@@ -26,6 +27,8 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
       setConfirmDel(false);
     }
   }, [visible, template]);
+  const draftId = isNew ? 'new' : (template?.id || f.id);
+  useDraft<JournalTemplate>('journalTemplate', draftId, visible, f, d => setF(d));
   const set = (k: keyof JournalTemplate, v: any) => setF(x => ({...x, [k]: v}));
   const addTag = () => {
     const raw = tagInput.trim().replace(/^#/, '').toLowerCase();
@@ -53,6 +56,7 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
           <Btn instant T={T} onPress={() => {
             if (!f.name.trim()) return;
             onSave({...f, name: f.name.trim(), title: f.title.trim()});
+            clearDraft('journalTemplate', draftId);
             onClose();
           }}>{t('common.save')}</Btn>
         </>

@@ -110,6 +110,20 @@ export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
   }
 };
 
+let readFailures = 0;
+export const storageReadFailures = (): number => readFailures;
+
+export const anyPsKeysExist = async (): Promise<boolean> => {
+  try {
+    const all = await AsyncStorage.getAllKeys();
+    return all.some(k => k.startsWith('ps:'));
+  } catch (e) {
+    console.error('[STORAGE] getAllKeys THREW during first-run probe:', e);
+    readFailures++;
+    return false;
+  }
+};
+
 export const storageLooksWiped = async (): Promise<boolean> => {
   let psKeys: string[] = [];
   let readFailed = false;
@@ -167,6 +181,7 @@ export const store = {
       raw = await AsyncStorage.getItem(key);
     } catch (e) {
       asyncStorageOk = false;
+      readFailures++;
       console.error(`[STORAGE] AsyncStorage.getItem THREW for ${key}:`, e);
     }
     if (raw !== null) {
@@ -186,6 +201,7 @@ export const store = {
         }
         return parsed;
       } catch (e) {
+        readFailures++;
         console.error(`[STORAGE] JSON.parse failed for ${key}, trying backup:`, e);
       }
     }

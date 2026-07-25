@@ -1,7 +1,8 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle} from 'react-native';
-import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
+import {View, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
+import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {useTranslation} from 'react-i18next';
@@ -41,6 +42,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [reorderOn, setReorderOn] = useState(false);
+  const kbHeight = useKeyboardHeight();
 
   const onDropField = (_key: string, from: number, to: number) => {
     const updated = [...fields];
@@ -119,8 +121,8 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const typeLabel = (type: CustomFieldType) => t(`customFields.type${type.charAt(0).toUpperCase() + type.slice(1)}` as any);
 
   return (
-    <KeyboardAvoidingView style={{flex: 1}} behavior="padding">
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} scrollEnabled={!dragging}>
+    <View style={{flex: 1}}>
+      <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} scrollEnabled={!dragging} bottomOffset={80}>
         {fields.length > 1 && (
           <View style={{flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10}}>
             <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
@@ -210,9 +212,9 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
             )}
           </View>
         ))}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
-      <View style={{position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
+      <View style={{position: 'absolute', bottom: kbHeight, left: 0, right: 0, backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
         <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
           <TextInput value={newName} onChangeText={setNewName} placeholder={t('customFields.fieldName')} placeholderTextColor={T.muted}
             style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
@@ -243,6 +245,6 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
           </View>
         )}
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 };

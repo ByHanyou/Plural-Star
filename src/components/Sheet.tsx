@@ -1,6 +1,5 @@
 import React, {ReactNode, useEffect, useRef, useState} from 'react';
 import {View, ScrollView, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform} from 'react-native';
-import {KeyboardAwareScrollView, KeyboardStickyView} from 'react-native-keyboard-controller';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrueSheet} from '@lodev09/react-native-true-sheet';
@@ -17,10 +16,10 @@ interface SheetProps {
   headerAction?: ReactNode;
 }
 
-const isIOS = Platform.OS === 'ios';
 const isIPad = Platform.OS === 'ios' && Platform.isPad;
 
 const ANDROID_NAV_BAR_FLOOR = 24;
+const FOOTER_KEYBOARD_LOCK = -10000;
 
 export const Sheet = ({visible, title, theme: T, onClose, children, footer, headerAction}: SheetProps) => {
   const {t} = useTranslation();
@@ -67,52 +66,28 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
           </TouchableOpacity>
         </View>
       }
+      footerOptions={{keyboardOffset: FOOTER_KEYBOARD_LOCK}}
       footer={
         footer ? (
-          isIOS ? (
-            <View
-              onLayout={onFooterLayout}
-              style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}
-            >
-              {footer}
-            </View>
-          ) : (
-            <KeyboardStickyView offset={{closed: 0, opened: bottomInset}}>
-              <View
-                onLayout={onFooterLayout}
-                style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}
-              >
-                {footer}
-              </View>
-            </KeyboardStickyView>
-          )
+          <View
+            onLayout={onFooterLayout}
+            style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}
+          >
+            {footer}
+          </View>
         ) : undefined
       }
     >
-      {isIOS ? (
-        <ScrollView
-          ref={scrollRef}
-          style={s.body}
-          contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
-          showsVerticalScrollIndicator
-          keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
-        >
-          {children}
-        </ScrollView>
-      ) : (
-        <KeyboardAwareScrollView
-          ref={scrollRef}
-          style={s.body}
-          contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
-          showsVerticalScrollIndicator
-          keyboardShouldPersistTaps="handled"
-          bottomOffset={footer ? footerHeight + 24 : 24}
-          nestedScrollEnabled
-        >
-          {children}
-        </KeyboardAwareScrollView>
-      )}
+      <ScrollView
+        ref={scrollRef}
+        style={s.body}
+        contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        {children}
+      </ScrollView>
     </TrueSheet>
   );
 };

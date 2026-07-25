@@ -12,6 +12,7 @@ import type {SupportedLanguage} from '../i18n/i18n';
 import {saveBannerImage, saveBioImageFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
+import {useDraft, clearDraft} from '../hooks/useDraft';
 
 const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => (
   <View style={{flex: 1}}>
@@ -96,9 +97,12 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   };
 
 
+  useDraft<any>('system', 'system', visible, f, d => setF(d));
+
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn instant T={T} onPress={() => {
       onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
+      clearDraft('system', 'system');
       onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>

@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, FlatList, Image, Linking, Platform} from 'react-native';
-import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
+import {KeyboardAvoidingView, KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
@@ -398,8 +398,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
   if (showChannelList) {
     return (
-      <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
-      <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}}>
+      <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}} bottomOffset={24}>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.channels')}</Text>
         {activeChannels.map(ch => (
           <View key={ch.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
@@ -454,8 +453,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
             ))}
           </View>
         )}
-      </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     );
   }
 

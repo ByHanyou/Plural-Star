@@ -56,13 +56,14 @@ export interface NetworkSettings {
   token?: string;
 }
 
-export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal';
+export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal' | 'history';
 
 export type NetMessage =
   | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target' }
   | { t: 'disconnect' }
   | { t: 'ping' }
   | { t: 'front'; status: FrontShare | null }
+  | { t: 'front_req' }
   | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean }
   | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean }
   | { t: 'sync_req'; hashes: Record<string, string> }
@@ -80,6 +81,7 @@ export interface MirrorMember {
   description?: string;
   archived?: boolean;
   customFields?: {name: string; value: string | number | boolean | null; type?: string; markdown?: boolean; fieldId?: string}[];
+  connections?: {id: string; otherId: string; otherName: string; label: string; labelKey?: string; color?: string; note?: string}[];
 }
 
 export interface MirrorGroup {
@@ -113,6 +115,7 @@ export const SYNC_EXCLUDE_KEYS = [
 ];
 
 export const SYNC_STATE_KEY = 'ps:networkSyncState';
+export const PENDING_FRONTS_KEY = 'ps.pendingFronts';
 
 export const RENDEZVOUS_TTL_SECONDS = 30 * 60;
 

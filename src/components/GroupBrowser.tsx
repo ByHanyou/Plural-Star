@@ -1,0 +1,97 @@
+import React, {ReactNode} from 'react';
+import {View, TouchableOpacity} from 'react-native';
+import {Text} from './AppText';
+import {Avatar} from './Avatar';
+import {useTranslation} from 'react-i18next';
+import {fontScale, ThemeColors} from '../theme';
+import {Member, MemberGroup, childrenOf, groupKind, isRosterMember} from '../utils';
+
+interface GroupBrowserProps {
+  T: ThemeColors;
+  groups: MemberGroup[];
+  members: Member[];
+  browseId: string | null;
+  onNavigate: (id: string | null) => void;
+  onViewMember?: (id: string) => void;
+  rootTitle: string;
+  headerRight?: ReactNode;
+  banner?: ReactNode;
+  memberRow?: (m: Member) => ReactNode;
+  memberAction?: (m: Member) => ReactNode;
+}
+
+export const GroupBrowser = ({
+  T,
+  groups,
+  members,
+  browseId,
+  onNavigate,
+  onViewMember,
+  rootTitle,
+  headerRight,
+  banner,
+  memberRow,
+  memberAction,
+}: GroupBrowserProps) => {
+  const {t} = useTranslation();
+  const fs = fontScale(T);
+
+  // Two lists on purpose: facets are LISTED (they have groups and can front) but
+  // never COUNTED toward the roster. Custom fronts and deleted are in neither.
+  const listable = members.filter(m => !m.isCustomFront && !m.deleted);
+  const roster = members.filter(isRosterMember);
+  const folders = childrenOf(groups, browseId);
+  const folderMembers = browseId === null
+    ? listable.filter(m => !(m.groupIds || []).length)
+    : listable.filter(m => (m.groupIds || []).includes(browseId));
+  const current = browseId ? groups.find(g => g.id === browseId) || null : null;
+
+  return (
+    <>
+      <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14}}>
+        {browseId !== null && (
+          <TouchableOpacity onPress={() => onNavigate(current?.parentId ?? null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4}}>
+            <Text style={{fontSize: fs(18), color: T.dim}} allowFontScaling={false}>←</Text>
+          </TouchableOpacity>
+        )}
+        <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: current?.color || T.text}} numberOfLines={1}>{current ? current.name : rootTitle}</Text>
+        {headerRight}
+      </View>
+      {banner}
+      {folders.map(g => {
+        const cnt = roster.filter(m => (m.groupIds || []).includes(g.id)).length;
+        const subs = childrenOf(groups, g.id).length;
+        return (
+          <TouchableOpacity key={g.id} onPress={() => onNavigate(g.id)} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityLabel={`${g.name}, ${groupKind(g) === 'subsystem' ? t('memberGroups.subsystem') : t('memberGroups.group')}, ${cnt}`}
+            style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: T.border, backgroundColor: T.card, marginBottom: 8}}>
+            <View style={{width: 16, height: 16, borderRadius: groupKind(g) === 'subsystem' ? 4 : 8, backgroundColor: g.color || T.accent}} />
+            <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={1}>{g.name}</Text>
+            <Text style={{fontSize: fs(11), color: T.muted}}>{subs > 0 ? `${subs} ⊟ · ` : ''}{cnt}</Text>
+            <Text style={{fontSize: fs(16), color: T.dim}} allowFontScaling={false}>›</Text>
+          </TouchableOpacity>
+        );
+      })}
+      {folderMembers.map(m => {
+        if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
+        return (
+          <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
+            <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
+              accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')}
+              style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+              <Avatar member={m} size={30} T={T} />
+              <View style={{flex: 1}}>
+                <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
+                {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
+              </View>
+            </TouchableOpacity>
+            {memberAction && memberAction(m)}
+          </View>
+        );
+      })}
+      {folders.length === 0 && folderMembers.length === 0 && (
+        <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', marginTop: 8}}>{t('memberGroups.none')}</Text>
+      )}
+    </>
+  );
+};

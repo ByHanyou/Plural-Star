@@ -6,8 +6,11 @@ import {useTranslation} from 'react-i18next';
 import {NetworkManager} from '../network/NetworkManager';
 import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup} from '../network/types';
 import {ThemeColors, fontScale} from '../theme';
-import {Member, JournalEntry, fmtTime} from '../utils';
-import {RichText} from '../components/MarkdownRenderer';
+import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime} from '../utils';
+import {GroupBrowser} from '../components/GroupBrowser';
+import {MemberModal} from '../modals/MemberModal';
+import {JournalModal} from '../modals/JournalModal';
+import {HistoryScreen} from './HistoryScreen';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
@@ -28,9 +31,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const [memberCache, setMemberCache] = useState<MirrorMember[]>([]);
   const [memberMedia, setMemberMedia] = useState<Record<string, string>>({});
   const [requesting, setRequesting] = useState<'idle' | 'sent' | 'failed'>('idle');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [groupPath, setGroupPath] = useState<MirrorGroup[]>([]);
-  const [detailId, setDetailId] = useState<string | null>(null);
+  const [browseId, setBrowseId] = useState<string | null>(null);
+  const [viewMemberId, setViewMemberId] = useState<string | null>(null);
   const [viewEntry, setViewEntry] = useState<JournalEntry | null>(null);
   const [unlockFor, setUnlockFor] = useState<JournalEntry | null>(null);
   const [pwInput, setPwInput] = useState('');
@@ -41,7 +43,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const reload = useCallback(async () => {
     const cache = await NetworkManager.loadMirror(peerId, feature);
     setEntry(cache);
-    if (feature === 'journal' || feature === 'groups') {
+    if (feature === 'journal' || feature === 'groups' || feature === 'history') {
       const mc = await NetworkManager.loadMirror(peerId, 'members');
       setMemberCache(mc && Array.isArray(mc.data) ? mc.data : []);
       setMemberMedia(mc?.media || {});
@@ -57,7 +59,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     }, 12000);
     NetworkManager.requestMirror(peerId, feature)
       .catch(() => setRequesting('failed'));
-    if (feature === 'groups') {
+    if (feature === 'groups' || feature === 'history') {
       NetworkManager.requestMirror(peerId, 'members').catch(() => {});
     }
   }, [peerId, feature]);
@@ -65,9 +67,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   useEffect(() => {
     if (!visible) return;
     setEntry(null);
-    setExpandedId(null);
-    setGroupPath([]);
-    setDetailId(null);
+    setBrowseId(null);
+    setViewMemberId(null);
     setViewEntry(null);
     setUnlockFor(null);
     reload();
@@ -101,11 +102,13 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const featureLabel =
     feature === 'members' ? t('tabs.members')
     : feature === 'groups' ? t('members.fieldGroups')
+    : feature === 'history' ? t('tabs.history')
     : t('tabs.journal');
 
-  const mentionSource: MirrorMember[] =
+  const mirrorMembers: MirrorMember[] =
     feature === 'members' && Array.isArray(entry?.data) ? (entry!.data as MirrorMember[]) : memberCache;
-  const mentionMembers: Member[] = mentionSource.map(mm => ({
+  const mirrorMedia: Record<string, string> = (feature === 'members' ? entry?.media : memberMedia) || {};
+  const mentionMembers: Member[] = mirrorMembers.map(mm => ({
     id: mm.id,
     name: mm.name,
     pronouns: mm.pronouns || '',
@@ -144,52 +147,43 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     }
   };
 
-  const cfDisplay = (cf: {value: string | number | boolean | null; type?: string}): string => {
-    if (typeof cf.value === 'boolean') return cf.value ? '✓' : '—';
-    if (cf.type === 'date' && typeof cf.value === 'number') return fmtTime(cf.value);
-    return String(cf.value ?? '');
-  };
+  const toMember = (mm: MirrorMember, groupIds: string[] = []): Member => ({
+    id: mm.id,
+    name: mm.name,
+    pronouns: mm.pronouns || '',
+    role: mm.role || '',
+    color: mm.color || '',
+    description: mm.description || '',
+    archived: mm.archived,
+    avatar: mirrorMedia[mm.id],
+    groupIds,
+    customFields: (mm.customFields || []).map((cf, i) => ({
+      fieldId: cf.fieldId || `mirror-cf-${i}`,
+      value: cf.type === 'image'
+        ? (mirrorMedia[`${mm.id}#cf:${cf.fieldId || ''}`] ?? null)
+        : cf.value,
+    })),
+  } as Member);
 
-  const renderCustomFields = (mm: MirrorMember, media?: Record<string, string>) => (
-    <>
-      {(mm.customFields || []).map((cf, i) => (
-        <View key={i} style={{marginTop: 6}}>
-          <Text style={{fontSize: fs(11), color: T.dim}}>{cf.name}</Text>
-          {cf.type === 'image' ? (() => {
-            const img = media?.[`${mm.id}#cf:${cf.fieldId || ''}`];
-            return img ? (
-              <Image
-                source={{uri: img}}
-                style={{width: '100%', height: 180, borderRadius: 8, marginTop: 4, backgroundColor: T.surface}}
-                resizeMode="cover"
-                accessibilityRole="image"
-                accessibilityLabel={t('a11y.image')}
-              />
-            ) : (
-              <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic'}}>{t('markdown.imageUnavailable')}</Text>
-            );
-          })() : cf.markdown && typeof cf.value === 'string' ? (
-            <RichText text={cf.value} T={T} members={mentionMembers} />
-          ) : (
-            <Text style={{fontSize: fs(12), color: T.text}}>{cfDisplay(cf)}</Text>
-          )}
-        </View>
-      ))}
-    </>
-  );
+  const fieldDefsOf = (mm: MirrorMember): CustomFieldDef[] =>
+    (mm.customFields || []).map((cf, i) => ({
+      id: cf.fieldId || `mirror-cf-${i}`,
+      name: cf.name,
+      type: (cf.type || 'text') as CustomFieldType,
+      markdown: cf.markdown,
+      sortOrder: i,
+    }));
 
   const renderMemberRow = ({item}: {item: MirrorMember}) => {
-    const avatar = entry?.media?.[item.id];
+    const avatar = mirrorMedia[item.id];
     const sub = [item.pronouns, item.role].filter(Boolean).join('  ·  ');
-    const expanded = expandedId === item.id;
     return (
       <TouchableOpacity
-        onPress={() => setExpandedId(expanded ? null : item.id)}
-        activeOpacity={item.description ? 0.7 : 1}
+        onPress={() => setViewMemberId(item.id)}
+        activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityState={{expanded}}
         accessibilityLabel={`${item.name}${sub ? `. ${sub}` : ''}`}
-        style={{flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
+        style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
         {avatar ? (
           <Image source={{uri: avatar}} style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12}} accessibilityElementsHidden importantForAccessibility="no" />
         ) : (
@@ -199,13 +193,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         )}
         <View style={{flex: 1, minWidth: 0}}>
           <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text, opacity: item.archived ? 0.55 : 1}} numberOfLines={1}>{item.name}</Text>
-          {!!sub && <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={expanded ? undefined : 1}>{sub}</Text>}
-          {expanded && !!item.description && (
-            <View style={{marginTop: 6}}>
-              <RichText text={item.description} T={T} members={mentionMembers} />
-            </View>
-          )}
-          {expanded && renderCustomFields(item, entry?.media)}
+          {!!sub && <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={1}>{sub}</Text>}
         </View>
       </TouchableOpacity>
     );
@@ -216,63 +204,47 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       ? {groups: entry.data.groups || [], membership: entry.data.membership || {}}
       : {groups: [], membership: {}};
 
-  const groupChildren = (parentId?: string): MirrorGroup[] => {
-    const ids = new Set(groupsData.groups.map(g => g.id));
-    return groupsData.groups
-      .filter(g => ((g.parentId && ids.has(g.parentId)) ? g.parentId : undefined) === parentId)
-      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || (a.name || '').localeCompare(b.name || ''));
-  };
+  const browserGroups: MemberGroup[] = groupsData.groups.map(g => {
+    const ids = new Set(groupsData.groups.map(x => x.id));
+    return {
+      id: g.id,
+      name: g.name,
+      color: g.color,
+      kind: g.kind,
+      parentId: g.parentId && ids.has(g.parentId) ? g.parentId : undefined,
+      sortOrder: g.sortOrder,
+    } as MemberGroup;
+  });
 
-  const renderGroups = () => {
-    const current = groupPath.length > 0 ? groupPath[groupPath.length - 1] : null;
-    const subgroups = groupChildren(current ? current.id : undefined);
-    const groupMembers = [...(groupsData.membership[current ? current.id : ''] || [])].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    const empty = subgroups.length === 0 && groupMembers.length === 0;
-    return (
-      <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}>
-        {groupPath.length > 0 && (
-          <TouchableOpacity onPress={() => setGroupPath(groupPath.slice(0, -1))} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityLabel={t('common.back')} style={{paddingVertical: 8}}>
-            <Text style={{fontSize: fs(13), color: T.accent}}>‹ {t('common.back')}</Text>
-          </TouchableOpacity>
-        )}
-        {current && (
-          <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '700', color: T.text, marginBottom: 6}}>{current.name}</Text>
-        )}
-        {subgroups.map(g => {
-          const count = (groupsData.membership[g.id] || []).length;
-          return (
-            <TouchableOpacity key={g.id} onPress={() => setGroupPath([...groupPath, g])} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={`${g.name}, ${count}`}
-              style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
-              <View style={{width: 10, height: 10, borderRadius: 5, marginRight: 10, backgroundColor: g.color || T.border}} importantForAccessibility="no" accessibilityElementsHidden />
-              <Text style={{flex: 1, fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} importantForAccessibility="no">{g.name}</Text>
-              <Text style={{fontSize: fs(11), color: T.dim}} importantForAccessibility="no">{count} ›</Text>
-            </TouchableOpacity>
-          );
-        })}
-        {groupMembers.map(m => {
-          const mm = memberCache.find(x => x.id === m.id);
-          const avatar = memberMedia[m.id];
-          return (
-            <TouchableOpacity key={m.id} onPress={() => setDetailId(m.id)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={m.name}
-              style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
-              {avatar ? (
-                <Image source={{uri: avatar}} style={{width: fs(30), height: fs(30), borderRadius: fs(15), marginRight: 10}} accessibilityElementsHidden importantForAccessibility="no" />
-              ) : (
-                <View style={{width: fs(30), height: fs(30), borderRadius: fs(15), marginRight: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: mm?.color || T.border}} accessibilityElementsHidden importantForAccessibility="no">
-                  <Text style={{fontSize: fs(12), fontWeight: '700', color: '#fff'}}>{(m.name || '?').slice(0, 1).toUpperCase()}</Text>
-                </View>
-              )}
-              <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} importantForAccessibility="no">{m.name}</Text>
-            </TouchableOpacity>
-          );
-        })}
-        {empty && <Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>}
-      </ScrollView>
-    );
-  };
+  const browserMembers: Member[] = (() => {
+    const groupIdsBy: Record<string, string[]> = {};
+    Object.entries(groupsData.membership).forEach(([gid, list]) => {
+      if (!gid) return;
+      (list || []).forEach(m => {
+        groupIdsBy[m.id] = [...(groupIdsBy[m.id] || []), gid];
+      });
+    });
+    const named: Record<string, string> = {};
+    Object.values(groupsData.membership).forEach(list => (list || []).forEach(m => { named[m.id] = m.name; }));
+    return Object.keys(named).map(id => {
+      const mm = memberCache.find(x => x.id === id) || {id, name: named[id]};
+      return toMember(mm as MirrorMember, groupIdsBy[id] || []);
+    });
+  })();
+
+  const renderGroups = () => (
+    <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}>
+      <GroupBrowser
+        T={T}
+        groups={browserGroups}
+        members={browserMembers}
+        browseId={browseId}
+        onNavigate={setBrowseId}
+        onViewMember={setViewMemberId}
+        rootTitle={t('members.fieldGroups')}
+      />
+    </ScrollView>
+  );
 
   const journalEntries: JournalEntry[] = Array.isArray(entry?.data) ? [...(entry!.data as JournalEntry[])].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (b.timestamp || 0) - (a.timestamp || 0)) : [];
 
@@ -324,6 +296,18 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       );
     }
     if (feature === 'groups') return renderGroups();
+    if (feature === 'history') {
+      const events: HistoryEntry[] = Array.isArray(entry.data) ? entry.data : [];
+      return (
+        <HistoryScreen
+          theme={T}
+          readOnly
+          historyOverride={events}
+          membersOverride={mirrorMembers.map(mm => toMember(mm))}
+          journalOverride={[]}
+        />
+      );
+    }
     return (
       <FlatList
         data={journalEntries}
@@ -355,72 +339,49 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         )}
         {body()}
 
-        <Modal visible={!!viewEntry} transparent animationType="fade" onRequestClose={() => setViewEntry(null)}>
-          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
-            <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '80%', padding: 16}}>
-              <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text}} numberOfLines={2}>
-                {viewEntry?.pinned ? '📌 ' : ''}{viewEntry?.title || t('common.untitled')}
-              </Text>
-              <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2, marginBottom: 8}}>{viewEntry ? fmtTime(viewEntry.timestamp) : ''}</Text>
-              <ScrollView style={{flexGrow: 0}}>
-                {viewEntry?.body ? <RichText text={viewEntry.body} T={T} members={mentionMembers} /> : null}
-                {(viewEntry?.hashtags || []).length > 0 && (
-                  <Text style={{fontSize: fs(11), color: T.accent, marginTop: 8}}>{(viewEntry?.hashtags || []).map(x => `#${x}`).join(' ')}</Text>
-                )}
-              </ScrollView>
-              <TouchableOpacity onPress={() => setViewEntry(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 12}}>
-                <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.close')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
+        {!!viewEntry && (
+          <JournalModal
+            visible
+            theme={T}
+            entry={viewEntry}
+            members={mentionMembers}
+            templates={[]}
+            lockView
+            onSave={() => {}}
+            onClose={() => setViewEntry(null)}
+          />
+        )}
 
-        <Modal visible={!!detailId} transparent animationType="fade" onRequestClose={() => setDetailId(null)}>
-          <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
-            <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '80%', padding: 16}}>
-              {(() => {
-                const mm = detailId ? memberCache.find(x => x.id === detailId) || null : null;
-                const fallbackName = detailId
-                  ? Object.values(groupsData.membership).flat().find(x => x.id === detailId)?.name || ''
-                  : '';
-                const avatar = detailId ? memberMedia[detailId] : undefined;
-                const sub = mm ? [mm.pronouns, mm.role].filter(Boolean).join('  ·  ') : '';
-                return (
-                  <>
-                    <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
-                      {avatar ? (
-                        <Image source={{uri: avatar}} style={{width: fs(44), height: fs(44), borderRadius: fs(22), marginRight: 12}} accessibilityElementsHidden importantForAccessibility="no" />
-                      ) : (
-                        <View style={{width: fs(44), height: fs(44), borderRadius: fs(22), marginRight: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: mm?.color || T.border}} accessibilityElementsHidden importantForAccessibility="no">
-                          <Text style={{fontSize: fs(17), fontWeight: '700', color: '#fff'}}>{((mm?.name || fallbackName) || '?').slice(0, 1).toUpperCase()}</Text>
-                        </View>
-                      )}
-                      <View style={{flex: 1, minWidth: 0}}>
-                        <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '700', color: T.text}} numberOfLines={1}>{mm?.name || fallbackName}</Text>
-                        {!!sub && <Text style={{fontSize: fs(11), color: T.dim, marginTop: 1}}>{sub}</Text>}
-                      </View>
-                    </View>
-                    <ScrollView style={{flexGrow: 0}}>
-                      {mm ? (
-                        <>
-                          {!!mm.description && <RichText text={mm.description} T={T} members={mentionMembers} />}
-                          {renderCustomFields(mm, memberMedia)}
-                        </>
-                      ) : (
-                        <ActivityIndicator color={T.accent} />
-                      )}
-                    </ScrollView>
-                    <TouchableOpacity onPress={() => setDetailId(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
-                      style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 12}}>
-                      <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.close')}</Text>
-                    </TouchableOpacity>
-                  </>
-                );
-              })()}
-            </View>
-          </View>
-        </Modal>
+        {(() => {
+          const mm = viewMemberId ? mirrorMembers.find(x => x.id === viewMemberId) || null : null;
+          if (!viewMemberId) return null;
+          if (!mm) {
+            return (
+              <Modal visible transparent animationType="fade" onRequestClose={() => setViewMemberId(null)}>
+                <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'}}>
+                  <ActivityIndicator color={T.accent} />
+                </View>
+              </Modal>
+            );
+          }
+          const gids = browserMembers.find(x => x.id === mm.id)?.groupIds || [];
+          return (
+            <MemberModal
+              visible
+              theme={T}
+              member={toMember(mm, gids)}
+              members={mentionMembers}
+              groups={browserGroups}
+              readOnly
+              lockRead
+              fieldDefsOverride={fieldDefsOf(mm)}
+              connectionsOverride={mm.connections || []}
+              onClose={() => setViewMemberId(null)}
+              onSave={() => {}}
+              onDelete={() => {}}
+            />
+          );
+        })()}
 
         <Modal visible={!!unlockFor} transparent animationType="fade" onRequestClose={() => setUnlockFor(null)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24, paddingBottom: 24 + kbHeight}}>

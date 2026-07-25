@@ -154,12 +154,20 @@ export interface Member {
   createdAt?: number;
   sourceId?: string;
   isCustomFront?: boolean;
+  isFacet?: boolean;
   mailboxPassword?: string;
   pkProxyTags?: {prefix?: string | null; suffix?: string | null}[];
   pkAvatarUrl?: string;
   pkBannerUrl?: string;
   pkKeepProxy?: boolean;
 }
+
+// A member that counts toward the system roster: not a custom front, not a facet,
+// not deleted. Use this for every member COUNT so new categories can never inflate it.
+export const isRosterMember = (m: Member): boolean =>
+  !m.isCustomFront && !m.isFacet && !m.deleted;
+
+export const rosterMembers = (members: Member[]): Member[] => members.filter(isRosterMember);
 
 export const DEFAULT_CUSTOM_FRONT_NAMES = ['Chatty', 'Non-Verbal', 'IWC', 'DNI', 'Blurry', 'Blendy', 'Rapid Switching', 'Foggy', 'Grounded', 'Dissociated', 'Anxious', 'Depressed', 'Cheerful', 'Happy', 'Sad', 'Crisis', 'Melancholy', 'Stimming', 'Stressed', 'Working', 'Traveling', 'Sleeping', 'Hyperfocus'];
 
@@ -515,10 +523,12 @@ export interface HistoryEntry {
   coFrontMood?: string;
   coFrontNote?: string;
   coFrontEnergy?: number;
+  coFrontLocation?: string;
   coConsciousIds?: string[];
   coConsciousMood?: string;
   coConsciousNote?: string;
   coConsciousEnergy?: number;
+  coConsciousLocation?: string;
   changeType?: HistoryChangeType;
   changeTime?: number;
   changeTier?: FrontTierKey;
@@ -685,16 +695,21 @@ export const historyEntryToFrontState = (entry: HistoryEntry): FrontState => ({
     mood: entry.mood,
     note: entry.note || '',
     location: entry.location,
+    energyLevel: entry.energyLevel,
   },
   coFront: {
     memberIds: entry.coFrontIds || [],
     mood: entry.coFrontMood,
     note: entry.coFrontNote || '',
+    location: entry.coFrontLocation,
+    energyLevel: entry.coFrontEnergy,
   },
   coConscious: {
     memberIds: entry.coConsciousIds || [],
     mood: entry.coConsciousMood,
     note: entry.coConsciousNote || '',
+    location: entry.coConsciousLocation,
+    energyLevel: entry.coConsciousEnergy,
   },
   startTime: entry.startTime,
 });
@@ -754,10 +769,12 @@ export const frontToHistoryEntry = (f: FrontState, endTime: number | null, chang
   coFrontMood: f.coFront.mood,
   coFrontNote: f.coFront.note || undefined,
   coFrontEnergy: f.coFront.energyLevel,
+  coFrontLocation: f.coFront.location || undefined,
   coConsciousIds: f.coConscious.memberIds.length > 0 ? f.coConscious.memberIds : undefined,
   coConsciousMood: f.coConscious.mood,
   coConsciousNote: f.coConscious.note || undefined,
   coConsciousEnergy: f.coConscious.energyLevel,
+  coConsciousLocation: f.coConscious.location || undefined,
   changeType,
   changeTime: changeType !== 'front' ? Date.now() : undefined,
   changeTier,

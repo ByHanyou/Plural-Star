@@ -53,6 +53,34 @@ export const EnergyRow = ({value, onChange, color, T, t, style}: {value: number 
   );
 };
 
+export const LocationPicker = ({location, setLocation, allLocations, color, T, t}: any) => {
+  const fs = fontScale(T);
+  const accent = color || T.accent;
+  const list: string[] = allLocations || [];
+  return (
+    <>
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
+      {list.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}>
+          <View style={{flexDirection: 'row', gap: 5}}>
+            {list.map((l: string) => (
+              <TouchableOpacity key={l} onPress={() => setLocation(location === l ? '' : l)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityState={{selected: location === l}} accessibilityLabel={l}
+                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0,
+                  backgroundColor: location === l ? `${accent}20` : T.surface, borderColor: location === l ? `${accent}60` : T.border}}>
+                <Text style={{fontSize: fs(11), color: location === l ? accent : T.dim, fontWeight: location === l ? '600' : '400'}}>{l}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+      <TextInput value={location} onChangeText={setLocation} placeholder={t('modal.typeLocation')} placeholderTextColor={T.muted}
+        accessibilityLabel={t('modal.location')}
+        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginTop: 4}} />
+    </>
+  );
+};
+
 export const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom, setShowCustom, allMoods, T, t}: any) => {
   const fs = fontScale(T);
   const selected = parseMoodList(mood);

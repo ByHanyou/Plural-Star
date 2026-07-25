@@ -11,6 +11,7 @@ import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {deleteAvatar, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
+import {useDraft, clearDraft} from '../hooks/useDraft';
 
 export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDelete, onClose, isFronting = false, statusMode = false}: any) => {
   const {t} = useTranslation();
@@ -24,6 +25,8 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
   const [linking, setLinking] = useState(false);
   const [showDescEditor, setShowDescEditor] = useState(false);
   React.useEffect(() => { if (visible) { const fresh = customFront || blank(); setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || [], isCustomFront: true}); setConfirmDel(false); setShowLink(false); setLinkInput(''); setLinking(false); setShowDescEditor(false); } }, [visible, customFront?.id]);
+  const draftId = isNew ? 'new' : (customFront?.id || f.id);
+  useDraft<Member>('customFront', draftId, visible, f, d => setF(d));
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const applyLink = async () => {
     const url = linkInput.trim();
@@ -56,8 +59,8 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
     <Sheet visible={visible} title={statusMode ? (isNew ? t('status.add') : t('status.edit')) : (isNew ? t('customFront.add') : t('customFront.edit'))} theme={T} onClose={onClose} footer={<>
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
       {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(f.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
-      {!confirmDel && <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={() => {if (f.name.trim()) {onSave({...f, isCustomFront: true}); onClose();}}}>{t('common.save')}</Btn>}</>}>
+      {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('customFront', draftId); onClose();}}>{t('common.cancel')}</Btn>}
+      {!confirmDel && <Btn instant T={T} onPress={() => {if (f.name.trim()) {onSave({...f, isCustomFront: true}); clearDraft('customFront', draftId); onClose();}}}>{t('common.save')}</Btn>}</>}>
       <View style={{alignItems: 'center', marginBottom: 16}}>
         <TouchableOpacity onPress={pickPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>
           {f.avatar ? (

@@ -1,5 +1,6 @@
 import React, {useState, useMemo} from 'react';
 import {View, ScrollView, TouchableOpacity} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
@@ -273,7 +274,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
   };
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} bottomOffset={24}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16}}>
         <RangeBtn id="all" label={t('stats.allTime')} />
         <RangeBtn id="7d" label={t('stats.last7')} />
@@ -493,6 +494,6 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
           );
         })()}
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };

@@ -1,5 +1,6 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, Linking, BackHandler, Platform, PanResponder, PixelRatio, AccessibilityInfo} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {ReorderLockButton} from '../components/DragHandle';
 import {Text, TextInput} from '../components/AppText';
@@ -173,11 +174,15 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     location: location || undefined,
     energyLevel: energy,
     coFrontIds: coFrontIds.length > 0 ? coFrontIds : undefined,
-    coFrontMood: undefined,
-    coFrontNote: undefined,
+    coFrontMood: editEntry?.coFrontMood,
+    coFrontNote: editEntry?.coFrontNote,
+    coFrontLocation: editEntry?.coFrontLocation,
+    coFrontEnergy: editEntry?.coFrontEnergy,
     coConsciousIds: coConIds.length > 0 ? coConIds : undefined,
-    coConsciousMood: undefined,
-    coConsciousNote: undefined,
+    coConsciousMood: editEntry?.coConsciousMood,
+    coConsciousNote: editEntry?.coConsciousNote,
+    coConsciousLocation: editEntry?.coConsciousLocation,
+    coConsciousEnergy: editEntry?.coConsciousEnergy,
     changeType: 'front',
   });
 
@@ -301,7 +306,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   };
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -366,7 +371,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
           <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('common.save')}</Text>
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </KeyboardAwareScrollView>
   );
 };
 
