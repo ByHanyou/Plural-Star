@@ -4,10 +4,14 @@ import notifee, {
   AndroidStyle,
   TriggerType,
   TimeUnit,
+  AlarmType,
   IntervalTrigger,
   TimestampTrigger,
   RepeatFrequency,
-} from '@notifee/react-native';
+// react-native-notify-kit is the maintained drop-in fork of notifee (archived
+// Apr 2026). Same API, same native classes — verified against the published
+// tarball before switching.
+} from 'react-native-notify-kit';
 import {Platform} from 'react-native';
 import {FrontState, Member, Medication, MedicalAppointment, fmtDur, fmtTime} from '../utils';
 import {logError} from '../utils/log';
@@ -356,9 +360,16 @@ export const showFrontNotification = async (
       id: NOTIF_ID,
       title,
       body,
-      android: {...frontAndroidConfig(ownBig, [], onlineLabel), asForegroundService: netOn},
+      // Always a foreground service, not just when sync is on. A plain ongoing
+      // notification is owned by the app process: the moment Android reclaims
+      // the process — battery optimisation, Doze, memory pressure, and Samsung
+      // especially — the notification goes with it, which is the "it vanishes
+      // after a few hours" report. A foreground service is what tells the OS to
+      // keep it alive. Whitelisting the app in battery settings does not fix
+      // this on its own, which is why that user's attempt didn't hold.
+      android: {...frontAndroidConfig(ownBig, [], onlineLabel), asForegroundService: true},
     });
-    if (netOn) fgsBound = true;
+    fgsBound = true;
   } catch (e) {
     console.error('[PluralSpace] Notification error:', e);
   }
@@ -386,7 +397,7 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
-        android: {...frontAndroidConfig(content.bigText, [], content.body), asForegroundService: NetworkManager.getState().enabled},
+        android: {...frontAndroidConfig(content.bigText, [], content.body), asForegroundService: true},
       },
       trigger,
     );
@@ -458,6 +469,19 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
         type: TriggerType.TIMESTAMP,
         timestamp: Date.now() + 60 * 60 * 1000,
         repeatFrequency: RepeatFrequency.HOURLY,
+        // Without an alarm these are ordinary scheduled work, which Doze defers
+        // or drops outright — the "front check notifications don't work either"
+        // half of the report. allowWhileIdle fires them through Doze.
+        // `allowWhileIdle` is DEPRECATED in the installed notifee (9.1.8) — its own
+        // typings say "use `type` instead".
+        //
+        // Deliberately SET_AND_ALLOW_WHILE_IDLE, not SET_EXACT_*: the EXACT variants
+        // need an exact-alarm permission, and Play restricts those to apps whose CORE
+        // purpose is alarms/timers/calendars. A front-check reminder is a secondary
+        // feature, so we would fail that policy. This type still fires through Doze,
+        // which is the actual problem — it just isn't second-accurate, and a "have you
+        // checked who's fronting?" nudge does not need to be.
+        alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
       };
       await notifee.createTriggerNotification(
         {id: FRONT_CHECK_NOTIF_ID, title, body},
@@ -473,6 +497,16 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
         type: TriggerType.TIMESTAMP,
         timestamp: Date.now() + effectiveInterval * (i + 1) * 60 * 60 * 1000,
         repeatFrequency: RepeatFrequency.DAILY,
+        // `allowWhileIdle` is DEPRECATED in the installed notifee (9.1.8) — its own
+        // typings say "use `type` instead".
+        //
+        // Deliberately SET_AND_ALLOW_WHILE_IDLE, not SET_EXACT_*: the EXACT variants
+        // need an exact-alarm permission, and Play restricts those to apps whose CORE
+        // purpose is alarms/timers/calendars. A front-check reminder is a secondary
+        // feature, so we would fail that policy. This type still fires through Doze,
+        // which is the actual problem — it just isn't second-accurate, and a "have you
+        // checked who's fronting?" nudge does not need to be.
+        alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
       };
       await notifee.createTriggerNotification(
         {id: `${FRONT_CHECK_NOTIF_ID}-${i}`, title, body},

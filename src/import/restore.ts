@@ -6,6 +6,7 @@ import {store, KEYS, chatMsgKey} from '../storage';
 import {importZipBundle} from '../export/exportUtils';
 import {saveAvatar, saveBannerFromBase64, migrateInlineChatMedia} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
+import {ImportControl, stoppedSummary} from './progress';
 import {convertSPSwitches, normHex, mergeForeignMember, finalizeMemberReplace, mergeHistoryEntries, getStoredMembers, mergeMediaIntoMembers} from './convert';
 import {spAvatarCandidates, downloadFirstAvatar} from './spApi';
 
@@ -21,6 +22,27 @@ export type RestoreCtx = {
   t: TFunction;
   onDataImported: () => void;
   history: HistoryEntry[];
+  /** Drives the wait screen and carries the user's stop request. Optional so
+   *  older call sites keep compiling; when absent nothing reports progress. */
+  control?: ImportControl;
+};
+
+/**
+ * Phase helper. Announces the phase, runs it, marks it done — and returns false
+ * if the user asked to stop, which the caller uses to bail out BETWEEN phases.
+ * Never mid-write: a half-written members list is worse than a partial import.
+ */
+export const runPhase = async (
+  ctx: {control?: ImportControl; setRestoreProgress: any},
+  label: string,
+  work: () => Promise<void>,
+): Promise<boolean> => {
+  if (ctx.control?.shouldStop()) return false;
+  if (ctx.control) ctx.control.begin(label);
+  else ctx.setRestoreProgress(label);
+  await work();
+  ctx.control?.end();
+  return true;
 };
 
 export const importBase64MemberMedia = async (
@@ -56,9 +78,24 @@ export const applyImportedHistory = async (newHistory: HistoryEntry[], ctx: Pick
 
 export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCtx) => {
   const {restoreSel, setRestoreProgress, t} = ctx;
-    if (restoreSel.journal && data.journal) await store.set(KEYS.journal, data.journal);
-    if (restoreSel.frontHistory && data.frontHistory) await store.set(KEYS.history, data.frontHistory);
-    if (restoreSel.groups && data.groups) await store.set(KEYS.groups, data.groups);
+    // Each of these is a phase boundary: the wait screen advances here, and a
+    // stop request is honoured here rather than mid-write.
+    if (restoreSel.journal && data.journal) {
+      if (!(await runPhase(ctx, t('share.progressJournal', {defaultValue: 'Restoring journal…'}), async () => {
+        await store.set(KEYS.journal, data.journal);
+      }))) return;
+    }
+    if (restoreSel.frontHistory && data.frontHistory) {
+      if (!(await runPhase(ctx, t('share.progressHistory', {defaultValue: 'Restoring front history…'}), async () => {
+        await store.set(KEYS.history, data.frontHistory);
+      }))) return;
+    }
+    if (restoreSel.groups && data.groups) {
+      if (!(await runPhase(ctx, t('share.progressGroups', {defaultValue: 'Restoring groups…'}), async () => {
+        await store.set(KEYS.groups, data.groups);
+      }))) return;
+    }
+    if (ctx.control?.shouldStop()) return;
     if (restoreSel.chat) {
       if (data.chatChannels) await store.set(KEYS.chatChannels, data.chatChannels);
       if (data.chatMessages) {
@@ -78,6 +115,8 @@ export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: Re
         }, 4, (done, total) => setRestoreProgress(t('share.progressChatN', {done, total})));
       }
     }
+    if (ctx.control?.shouldStop()) return;
+    if (ctx.control) ctx.control.begin(t('share.progressSettings', {defaultValue: 'Restoring settings…'}));
     if (restoreSel.settings || restoreSel.moods) {
       const currentSettings = await store.get<AppSettings>(KEYS.settings) || {} as AppSettings;
       let newSettings = {...currentSettings};
@@ -102,6 +141,8 @@ export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: Re
     if (restoreSel.whiteboard !== false && data.whiteboard) await store.set(KEYS.whiteboard, data.whiteboard);
     if (restoreSel.palettes && data.customColors) await store.set(KEYS.customColors, data.customColors);
     if (restoreSel.settings && data.shareSettings) await store.set(KEYS.share, data.shareSettings);
+    // The tail above is a batch of single writes — one phase, not fifteen.
+    ctx.control?.end();
   };
 
 export const downloadAvatarsTo = async (urls: Record<string, string>, ctx: Pick<RestoreCtx, 'setRestoreProgress' | 't'>) => {
@@ -119,8 +160,67 @@ export const downloadAvatarsTo = async (urls: Record<string, string>, ctx: Pick<
     }
   };
 
-export const importOurcana = async (rawData: any, ctx: RestoreCtx) => {
+/**
+ * Ourcana v3 dropped the flat members/frontHistory arrays for a graph of
+ * typed nodes (member | customField | system) plus hasMember edges. Flatten it
+ * back into the shape the importer below already understands, so old exports
+ * keep working untouched. Unknown node types are ignored on purpose — a future
+ * Ourcana release should add data, not break the import.
+ */
+const normalizeOurcana = (raw: any): any => {
+  if (!raw || !raw.graph || !Array.isArray(raw.graph.nodes)) return raw;
+  const nodes: any[] = raw.graph.nodes;
+  const byType = (t: string) => nodes.filter((n: any) => n && n.type === t);
+  const sysProps = byType('system')[0]?.properties || {};
+  const fieldDefs = byType('customField')
+    .slice()
+    .sort((a: any, b: any) => (a.properties?.order ?? 0) - (b.properties?.order ?? 0))
+    .map((n: any, i: number) => ({
+      id: String(n.id),
+      name: String(n.properties?.label || `Field ${i + 1}`).trim() || `Field ${i + 1}`,
+      order: n.properties?.order ?? i,
+      type: String(n.properties?.type || 'text'),
+    }));
+  const members = byType('member').map((n: any) => {
+    const p = n.properties || {};
+    return {
+      id: String(n.id),
+      name: p.name,
+      displayName: p.displayName,
+      showOnlyDisplayName: p.showOnlyDisplayName,
+      pronouns: p.pronouns,
+      desc: p.desc,
+      color: p.color,
+      archived: p.archived,
+      // localAvatarPath points at a file on THEIR device and cannot travel.
+      avatarUrl: p.avatarUrl,
+      ourcanaFieldValues: p.customFields && typeof p.customFields === 'object' ? p.customFields : {},
+    };
+  });
+  const frontHistory = byType('front')
+    .concat(byType('frontEntry'))
+    .map((n: any) => {
+      const p = n.properties || {};
+      return {
+        memberIds: Array.isArray(p.memberIds) ? p.memberIds : (p.memberId ? [p.memberId] : []),
+        startTime: p.startTime,
+        endTime: p.endTime,
+        isLive: p.isLive,
+      };
+    });
+  return {
+    ...raw,
+    system: {name: sysProps.username, desc: sysProps.desc},
+    members,
+    tags: [],
+    frontHistory,
+    ourcanaFieldDefs: fieldDefs,
+  };
+};
+
+export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx) => {
   const {restoreSel} = ctx;
+    const rawData = normalizeOurcana(rawDataIn);
     const ouSys = rawData.system || {};
     const ouMembers: any[] = Array.isArray(rawData.members) ? rawData.members : [];
     const ouFronts: any[] = Array.isArray(rawData.frontHistory) ? rawData.frontHistory : [];
@@ -170,6 +270,46 @@ export const importOurcana = async (rawData: any, ctx: RestoreCtx) => {
       const switches = ouFronts.map((f: any) => ({content: {members: Array.isArray(f.memberIds) ? f.memberIds : [], startTime: f.startTime, endTime: f.isLive ? null : (f.endTime ?? null)}}));
       const newH = convertSPSwitches(switches, idMap);
       await applyImportedHistory(newH, ctx);
+    }
+    const ouFieldDefs: any[] = Array.isArray(rawData.ourcanaFieldDefs) ? rawData.ourcanaFieldDefs : [];
+    if (restoreSel.customFields && restoreSel.members && ouFieldDefs.length > 0) {
+      // Their fields are global definitions; each member holds a
+      // { fieldNodeId: value } map against them. Match ours by name so a repeat
+      // import reuses the same column instead of duplicating it.
+      const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
+      const fieldIdMap: Record<string, string> = {};
+      const newDefs: CustomFieldDef[] = [];
+      ouFieldDefs.forEach((f: any, i: number) => {
+        const name = String(f.name || `Field ${i + 1}`);
+        const existing = existingDefs.find(d => d.name.toLowerCase() === name.toLowerCase());
+        let localId: string;
+        if (existing) { localId = existing.id; } else {
+          localId = uid();
+          const raw = String(f.type || 'text').toLowerCase();
+          const type: CustomFieldDef['type'] = raw === 'number' ? 'number' : raw === 'boolean' || raw === 'toggle' ? 'toggle' : raw === 'date' ? 'date' : 'text';
+          newDefs.push({id: localId, name, type, sortOrder: f.order ?? i});
+        }
+        fieldIdMap[String(f.id)] = localId;
+      });
+      if (newDefs.length > 0) await store.set(KEYS.customFieldDefs, [...existingDefs, ...newDefs]);
+      const membersForCF = await store.get<Member[]>(KEYS.members, []) || [];
+      const withCF = membersForCF.map(lm => {
+        const om = ouMembers.find((m: any) => idMap[String(m.id)] === lm.id);
+        const vals = om?.ourcanaFieldValues;
+        if (!vals || typeof vals !== 'object') return lm;
+        const merged: CustomFieldValue[] = [...(lm.customFields || [])];
+        for (const k in vals) {
+          const fieldId = fieldIdMap[String(k)];
+          const v = vals[k];
+          if (!fieldId || v === null || v === undefined || v === '') continue;
+          const value = typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? v : String(v);
+          const at = merged.findIndex(c => c.fieldId === fieldId);
+          if (at >= 0) merged[at] = {...merged[at], value};
+          else merged.push({fieldId, value});
+        }
+        return merged.length > 0 ? {...lm, customFields: merged} : lm;
+      });
+      await store.set(KEYS.members, withCF);
     }
     if (restoreSel.avatars) {
       const urls: Record<string, string> = {};
@@ -257,6 +397,9 @@ export const handleRestore = (ctx: RestoreCtx) => {
               await store.set(KEYS.members, mem);
             }
             await restoreSharedPayload(data, ctx);
+            // A stop is not a failure and not a clean success — say which steps
+            // actually landed instead of claiming the import finished.
+            if (ctx.control?.stopped) setRestoreError(stoppedSummary(ctx.control, t));
             setRestoreDone(true); setTimeout(() => onDataImported(), 800);
             return;
           }

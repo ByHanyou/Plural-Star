@@ -1,11 +1,11 @@
-import React, {useState} from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import {View, TouchableOpacity, Alert, StyleSheet, ActivityIndicator} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8} from '../export/exportUtils';
+import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
 import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
 import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
 
@@ -14,8 +14,9 @@ type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit' | 'spfil
 
 import {saveAvatarFromUrl, saveAvatar, saveBannerFromBase64, saveBannerFromUrl, migrateInlineChatMedia} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
-import {parseAmpar} from '../utils/ampar';
 import {fontScale, ThemeColors} from '../theme';
+import {ImportWaitOverlay} from '../components/ImportWaitOverlay';
+import {ImportProgress, ImportControl} from '../import/progress';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useAppStore} from '../store/appStore';
 import {saveShareSettings} from '../store/actions';
@@ -60,8 +61,56 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const [recoverSel, setRecoverSel] = useState<Record<string, boolean>>({});
   const [recoverDone, setRecoverDone] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [restoreProgress, setRestoreProgress] = useState<string>('');
+  const [restoreProgressText, setRestoreProgressText] = useState<string>('');
+  // Structured progress for the wait overlay. Import paths that still call
+  // setRestoreProgress('some label') keep working — the label is lifted into
+  // the object so the bar and the inline text stay in step.
+  const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
+  const importControlRef = useRef<ImportControl | null>(null);
+  const setRestoreProgress = React.useCallback((p: ImportProgress | string) => {
+    if (typeof p === 'string') {
+      setRestoreProgressText(p);
+      // Importers that were never edited still announce their phases this way,
+      // so route the label through the controller: it counts the phase and, if
+      // a stop is pending, throws right here — a label is only announced
+      // between units of work, so it is the one safe boundary they expose.
+      let c = importControlRef.current;
+      if (!c && p) {
+        // Foreign-app and API imports start without going through the restore
+        // button, so adopt the first label they announce.
+        c = new ImportControl(setRestoreProgressRef.current!);
+        c.plan(6);
+        importControlRef.current = c;
+      }
+      if (c) { c.beginFromLabel(p); return; }
+      setImportProgress(prev => (prev ? {...prev, label: p} : {label: p, phase: 0, phases: 0}));
+    } else {
+      setRestoreProgressText(p.label);
+      setImportProgress(p);
+    }
+  }, []);
+  const restoreProgress = restoreProgressText;
+  // Self-reference so the lazily-created controller writes back through the same
+  // setter. A stuck blocking overlay is worse than no overlay, so the controller
+  // and its progress are dropped the moment a run ends.
+  const setRestoreProgressRef = useRef<typeof setRestoreProgress | null>(null);
+  setRestoreProgressRef.current = setRestoreProgress;
+  useEffect(() => {
+    if (!restoring) {
+      importControlRef.current = null;
+      setImportProgress(null);
+    }
+  }, [restoring]);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  // Foreign-app and API imports never set `restoring`; they finish by setting
+  // importStatus. Without this the lazily-created controller would never be
+  // dropped and the blocking overlay would sit there after a completed import.
+  useEffect(() => {
+    if (importStatus !== 'idle') {
+      importControlRef.current = null;
+      setImportProgress(null);
+    }
+  }, [importStatus]);
   const [importMsg, setImportMsg] = useState('');
   const [importSource, setImportSource] = useState<ImportSource>('backup');
   const [extToken, setExtToken] = useState('');
@@ -182,8 +231,16 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           setRestorePath(safeZipPath); setRestoreIsBundle(true); setRestoreFile(res.name || 'backup.zip'); setRestorePreview(true);
           return;
         }
-        setRestoreError(t('share.invalidJsonBackup'));
-        return;
+        // An Ourcana .our is a plain zip wrapped around a single ourcana.json.
+        // Pull the json out and carry on down the normal foreign-import path.
+        const inner = zb ? Object.keys(zb.files).find(n => n.toLowerCase().endsWith('.json')) : undefined;
+        if (zb && inner) {
+          try { parsed = JSON.parse(zipTextOf(zb.files[inner])); } catch {}
+        }
+        if (!parsed) {
+          setRestoreError(t('share.invalidJsonBackup'));
+          return;
+        }
       }
       const isPluralSpaceApp = !parsed._meta && parsed.system && typeof parsed.system === 'object' && Array.isArray(parsed.members) && Array.isArray(parsed.fronts);
       if (isPluralSpaceApp) { setRestoreError(t('share.psUseTab')); return; }
@@ -191,7 +248,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
       const isSPExport = !parsed._meta && Array.isArray(parsed.members) && parsed.members.length > 0
         && parsed.members[0]._id !== undefined && Array.isArray(parsed.customFields);
       const isOctocon = !parsed._meta && parsed.user && typeof parsed.user === 'object' && Array.isArray(parsed.alters);
-      const isOurcana = (parsed.format === 'ourcana') || (!parsed._meta && Array.isArray(parsed.members) && Array.isArray(parsed.frontHistory) && parsed.members[0]?.id !== undefined);
+      // v3 is a node/edge graph with no top-level members array.
+      const isOurcana = (parsed.format === 'ourcana') || (parsed.graph && Array.isArray(parsed.graph.nodes)) || (!parsed._meta && Array.isArray(parsed.members) && Array.isArray(parsed.frontHistory) && parsed.members[0]?.id !== undefined);
       const isMultiplicity = (parsed.app === 'multiplicity') || (Array.isArray(parsed.alters) && Array.isArray(parsed.front_entries));
       if (!isNativePS && !isSPExport && !isOctocon && !isOurcana && !isMultiplicity) {
         setRestoreError(t('share.unrecognizedBackup'));
@@ -328,6 +386,16 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   };
 
   return (
+    <>
+    <ImportWaitOverlay
+      // Not just `restoring` — that flag belongs to the backup path only, so the
+      // foreign-app and API imports were running behind no overlay at all. A live
+      // controller means an import is genuinely in flight, whichever path started it.
+      visible={restoring || !!importControlRef.current}
+      progress={importProgress}
+      theme={T}
+      onCancel={importControlRef.current ? () => importControlRef.current?.requestStop() : undefined}
+    />
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', gap: 6, marginBottom: 4}}>
         <SectionBtn id="export" label={t('share.export')} />
@@ -475,7 +543,17 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
                     : restoring ? <View style={{alignItems: 'center', paddingVertical: 16}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress || t('share.importing')}</Text></View>
-                    : <TouchableOpacity onPress={() => handleRestore({restorePath, restorePreview, restoreIsBundle, restoreSel, setRestoring, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
+                    : <TouchableOpacity onPress={() => {
+                      // Fresh controller per run: the wait screen reads its phase
+                      // position and the Cancel button writes its stop request.
+                      const control = new ImportControl(setRestoreProgress);
+                      // Estimate from what the user actually ticked, so the bar
+                      // isn't pacing against phases this run will never do.
+                      control.plan(Math.max(3, Object.values(restoreSel).filter(Boolean).length));
+                      importControlRef.current = control;
+                      setImportProgress({label: '', phase: 0, phases: Math.max(3, Object.values(restoreSel).filter(Boolean).length)});
+                      handleRestore({restorePath, restorePreview, restoreIsBundle, restoreSel, setRestoring, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history, control});
+                    }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
                 </>
               )}
               <Divider label={t('share.recoverData')} />
@@ -737,6 +815,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
         </View>
       )}
     </KeyboardAwareScrollView>
+    </>
   );
 };
 

@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -7,6 +8,22 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- NO exact-alarm permissions on purpose. Play restricts USE_EXACT_ALARM to
+         apps whose CORE function is an alarm clock, timer or calendar; a
+         front-check reminder is a secondary feature, so declaring it risks
+         rejection. SCHEDULE_EXACT_ALARM is user-grantable but unnecessary here:
+         reminders use AlarmType.SET_AND_ALLOW_WHILE_IDLE, which survives Doze
+         without needing either permission.
+         The remove below strips the copy the notification library's own manifest
+         merges in (both notifee 9.1.8's AAR and the notify-kit fork declare it) —
+         without this, the permission ships in the APK despite our choice. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+    <!-- Reminders survive a reboot. Verified in the packaged notifee core AAR:
+         it declares RECEIVE_BOOT_COMPLETED and a receiver for BOOT_COMPLETED /
+         QUICKBOOT_POWERON itself, so no receiver of ours is needed — manifest
+         merging brings both in. Declaring the permission here too is harmless
+         and makes the dependency explicit. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
       android:name=".MainApplication"

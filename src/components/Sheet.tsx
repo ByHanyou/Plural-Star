@@ -1,5 +1,5 @@
-import React, {ReactNode, useEffect, useRef, useState} from 'react';
-import {View, ScrollView, TouchableOpacity, StyleSheet, LayoutChangeEvent, Platform} from 'react-native';
+import React, {ReactNode, useEffect, useRef} from 'react';
+import {View, ScrollView, TouchableOpacity, StyleSheet, Platform} from 'react-native';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrueSheet} from '@lodev09/react-native-true-sheet';
@@ -19,7 +19,6 @@ interface SheetProps {
 const isIPad = Platform.OS === 'ios' && Platform.isPad;
 
 const ANDROID_NAV_BAR_FLOOR = 24;
-const FOOTER_KEYBOARD_LOCK = -10000;
 
 export const Sheet = ({visible, title, theme: T, onClose, children, footer, headerAction}: SheetProps) => {
   const {t} = useTranslation();
@@ -30,9 +29,6 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
   const bottomInset = Platform.OS === 'android'
     ? Math.max(rawBottomInset, ANDROID_NAV_BAR_FLOOR)
     : rawBottomInset;
-  const [footerHeight, setFooterHeight] = useState(0);
-  const onFooterLayout = (e: LayoutChangeEvent) => setFooterHeight(e.nativeEvent.layout.height);
-
   const wasVisible = useRef(false);
   useEffect(() => {
     if (visible) {
@@ -44,10 +40,9 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
     }
   }, [visible]);
 
-  const basePaddingBottom = footer
-    ? (footerHeight > 0 ? footerHeight + 24 : 96)
-    : 56 + bottomInset;
-  const scrollPaddingBottom = basePaddingBottom;
+  // The footer is part of the layout now, not an overlay, so the scroll body no
+  // longer has to reserve its height.
+  const scrollPaddingBottom = footer ? 24 : 56 + bottomInset;
 
   return (
     <TrueSheet
@@ -66,28 +61,35 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
           </TouchableOpacity>
         </View>
       }
-      footerOptions={{keyboardOffset: FOOTER_KEYBOARD_LOCK}}
-      footer={
-        footer ? (
-          <View
-            onLayout={onFooterLayout}
-            style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}
-          >
+    >
+      {/*
+        The footer is deliberately NOT TrueSheet's `footer` prop. That renders a
+        position:absolute overlay whose Y is set by native positionFooter() on
+        every keyboard and sheet event — and when one of those events is missed
+        it stays stranded mid-sheet, floating over the content, which is the bug
+        users kept reporting. Nine attempts tuned that movement; this removes it.
+        An ordinary flex column can't be stranded: the footer sits under the
+        scroll body because that is where it is in the layout. `scrollable`
+        already gives this content view flex:1 inside an absolute-fill container,
+        so the column is bounded and the ScrollView still gets its own height.
+      */}
+      <View style={s.content}>
+        <ScrollView
+          ref={scrollRef}
+          style={s.body}
+          contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          {children}
+        </ScrollView>
+        {footer ? (
+          <View style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}>
             {footer}
           </View>
-        ) : undefined
-      }
-    >
-      <ScrollView
-        ref={scrollRef}
-        style={s.body}
-        contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
-        showsVerticalScrollIndicator
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
-      >
-        {children}
-      </ScrollView>
+        ) : null}
+      </View>
     </TrueSheet>
   );
 };
@@ -104,6 +106,7 @@ const s = StyleSheet.create({
   title: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic'},
   closeBtn: {padding: 4},
   closeX: {fontSize: 16},
+  content: {flex: 1},
   body: {flex: 1, paddingHorizontal: 20, paddingTop: 16},
   footer: {
     flexDirection: 'row',

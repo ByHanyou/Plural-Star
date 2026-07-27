@@ -1793,7 +1793,13 @@ class NetworkManagerImpl {
     const CLONE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
     let changed = false;
     this.friends = this.friends.map(f => {
-      if (f.kind === 'device' && f.initRole === 'target' && f.initPending) {
+      // Was 'target' only. A SOURCE whose initial clone never completed stayed
+      // initPending forever — and acceptedDevices() excludes initPending, so
+      // that device is frozen out of every future sync while still showing as
+      // linked. That is the "linked but nothing syncs, ever" report. Expiring
+      // it is safe: normal key sync converges the data anyway, so the worst
+      // case is the pair syncs instead of staying dead.
+      if (f.kind === 'device' && f.initPending) {
         if (!f.initStartedAt || Date.now() - f.initStartedAt > CLONE_IDLE_TIMEOUT_MS) {
           changed = true;
           return { ...f, initPending: false };
@@ -1804,6 +1810,28 @@ class NetworkManagerImpl {
     if (changed) {
       this.persistFriends();
       this.notify();
+    }
+    this.retryPendingLinks();
+  }
+
+  /**
+   * A device link only completes when each side RECEIVES the other's `connect`.
+   * If that one packet is missed — app backgrounded at the wrong moment, relay
+   * hiccup, the other side not yet online — the record sits at 'entered_theirs'
+   * forever. It never reaches 'accepted', so acceptedDevices() excludes it and
+   * it never syncs, while the UI still says "waiting for them to enter your
+   * code". Nothing in the app ever retried that packet.
+   *
+   * So resend it. `connect` is idempotent — the handler upserts by peer id and
+   * replies with an ack — and this runs on the same cadence as the stale-clone
+   * sweep (init, focus, every 60s), which is exactly when a missed handshake
+   * should get another chance.
+   */
+  private retryPendingLinks(): void {
+    for (const f of this.friends) {
+      if (f.kind !== 'device' || f.status === 'accepted') continue;
+      if (!this.isReachable(f.peerId)) continue;
+      this.sendConnectTo(f.peerId, 'device', false).catch(() => {});
     }
   }
 

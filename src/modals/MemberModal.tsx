@@ -199,6 +199,36 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         </ScrollView>
       )}
 
+      {/*
+        Facets arrived after people had already pressed ordinary members into
+        that role, so the category has to be changeable in place. Everything
+        else about the record — fields, groups, connections, avatar — is
+        untouched; only which list it lives in changes. isFacet and
+        isCustomFront are mutually exclusive, so setting one clears the other.
+      */}
+      {/* Not offered for the system's own member: self is a roster member by
+          definition, and the app resolves it by id without excluding facets. */}
+      {!isNew && !readOnly && !profileMode && memberTab === 'main' && settings?.selfMemberId !== f.id && (
+        <TouchableOpacity
+          onPress={() => {
+            const toFacet = !f.isFacet;
+            setF({...f, isFacet: toFacet, isCustomFront: toFacet ? false : f.isCustomFront});
+          }}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={f.isFacet
+            ? t('members.makeMember', {defaultValue: 'Move to Members'})
+            : t('members.makeFacet', {defaultValue: 'Move to Facets'})}
+          accessibilityHint={t('members.moveCategoryHint', {defaultValue: 'Keeps everything else about this profile. Facets are not counted as members.'})}
+          style={{alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 14}}>
+          <Text style={{fontSize: fs(12), color: T.dim, fontWeight: '600'}}>
+            {f.isFacet
+              ? `↩ ${t('members.makeMember', {defaultValue: 'Move to Members'})}`
+              : `◈ ${t('members.makeFacet', {defaultValue: 'Move to Facets'})}`}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {(memberTab === 'main' || isNew) && (<>
         <View style={{alignItems: 'center', marginBottom: 16}}>
           <TouchableOpacity onPress={readOnly ? undefined : pickAvatar} activeOpacity={readOnly ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>

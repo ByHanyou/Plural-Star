@@ -1,7 +1,6 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, FlatList, Image, Linking, Platform} from 'react-native';
-import {KeyboardAvoidingView, KeyboardAwareScrollView} from 'react-native-keyboard-controller';
-import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
+import {View, ScrollView, TouchableOpacity, Alert, FlatList, Image, Linking, Platform, Keyboard, Dimensions} from 'react-native';
+import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
@@ -31,7 +30,38 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const onSaveChannels = saveChatChannels;
   const {t} = useTranslation();
   const fs = fontScale(T);
-  const behavior = useKeyboardBehavior();
+  /**
+   * The composer used to sit inside a KeyboardAvoidingView, which works out its
+   * lift from its own measured frame. That failed here — users had the composer
+   * and the formatting bar hidden under the keyboard. Two things can break that
+   * measurement: the TabBar is a sibling BELOW this screen (so part of the gap to
+   * the window bottom isn't ours), and App.tsx keeps visited tabs mounted behind
+   * `display: 'none'`, which can leave a stale frame on a return visit.
+   *
+   * So measure both real numbers instead of trusting the frame: the keyboard's
+   * height, and the actual gap between the composer's bottom edge and the bottom
+   * of the window. Lift = keyboard − gap. That is correct whichever of the two
+   * was to blame, and re-measures on every layout, including tab re-entry.
+   */
+  const [kbHeight, setKbHeight] = useState(0);
+  const [gapBelow, setGapBelow] = useState(0);
+  const composerRef = useRef<View>(null);
+  useEffect(() => {
+    // iOS reports will*, Android only reliably reports did*.
+    const evShow = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const evHide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(evShow as any, (e: any) => setKbHeight(e?.endCoordinates?.height ?? 0));
+    const hide = Keyboard.addListener(evHide as any, () => setKbHeight(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  const measureComposer = useCallback(() => {
+    composerRef.current?.measureInWindow((_x, y, _w, h) => {
+      const winH = Dimensions.get('window').height;
+      const gap = winH - (y + h);
+      if (isFinite(gap)) setGapBelow(Math.max(0, gap));
+    });
+  }, []);
+  const keyboardLift = Math.max(0, kbHeight - gapBelow);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(channels.find(c => !c.archived)?.id || null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -458,7 +488,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   }
 
   return (
-    <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={behavior}>
+    <View style={{flex: 1, backgroundColor: T.bg, paddingBottom: keyboardLift}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <TouchableOpacity onPress={() => setShowChannelList(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.channels')} style={{marginRight: 10}}>
           <Text style={{fontSize: fs(16), color: T.dim}}>☰</Text>
@@ -531,7 +561,10 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
       {showFormatBar && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          style={{maxHeight: 40, flexGrow: 0, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}
+          // maxHeight was a hard 40px while every button inside scales with the
+          // user's text size, so at larger sizes the row was clipped and the
+          // formatting options looked cut off. Let it grow with the text.
+          style={{maxHeight: Math.max(40, fs(12) * 2 + 28), flexGrow: 0, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}
           contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 6, gap: 6, flexDirection: 'row', alignItems: 'center'}}>
           {[
             {label: 'B', before: '**', after: '**'},
@@ -554,7 +587,10 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
         </ScrollView>
       )}
 
-      <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}>
+      <View
+        ref={composerRef}
+        onLayout={measureComposer}
+        style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}>
         <TouchableOpacity onPress={sendMedia} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.attachFile')} style={{padding: 4}}>
           <Text style={{fontSize: fs(18), color: T.dim}}>📎</Text>
         </TouchableOpacity>
@@ -573,6 +609,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
           <Text style={{fontSize: fs(16), color: input.trim() ? T.bg : T.muted}}>{editingMessageId ? '✓' : '↑'}</Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 };

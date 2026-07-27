@@ -4,7 +4,6 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Member, SystemInfo, HistoryEntry, CustomFieldDef, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
-import {parseAmpar} from '../utils/ampar';
 import {convertSPSwitches, normHex} from './convert';
 import {applyImportedHistory} from './restore';
 
@@ -22,6 +21,33 @@ export type AmpersandCtx = {
   onDataImported: () => void;
 };
 
+/**
+ * Ampersand's JSON export (DatabaseJSON) reshaped into the same preview the
+ * binary path produces, so the confirm step below stays one code path. Their
+ * entity model is identical across both formats — the only difference is that
+ * JSON holds custom field values as { fieldUuid: value } where the binary holds
+ * [key, value] pairs, so that one field gets adapted here.
+ */
+export const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
+  const db = d?.database || {};
+  const systems: any[] = Array.isArray(db.systems) ? db.systems : [];
+  const defaultId = String(d?.config?.appConfig?.defaultSystem || '');
+  const systemRow = systems.find((s: any) => String(s?.uuid) === defaultId) || systems[0] || {name: fallbackSystemName};
+  const members = (Array.isArray(db.members) ? db.members : [])
+    // Multi-system exports would otherwise merge every roster into one.
+    .filter((a: any) => a && (!defaultId || !a.system || String(a.system) === defaultId))
+    .map((a: any) => ({
+      ...a,
+      customFields: {value: Object.entries(a.customFields && typeof a.customFields === 'object' ? a.customFields : {})},
+    }));
+  return {
+    system: systemRow,
+    members,
+    switches: Array.isArray(db.frontingEntries) ? db.frontingEntries : [],
+    customFields: Array.isArray(db.customFields) ? db.customFields : [],
+  };
+};
+
 export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
   const {setRestoreError, setExtPreview, setImportStatus, setImportMsg, t, setImportSource} = ctx;
     setRestoreError(''); setExtPreview(null); setImportStatus('idle'); setImportMsg('');
@@ -29,19 +55,30 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
       const [res] = await safePick({type: ['*/*']});
       if (!res) return;
       const path = getPickedFilePath(res);
-      let b64: string;
-      try { b64 = await ReactNativeBlobUtil.fs.readFile(path, 'base64'); }
-      catch { b64 = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'base64'); }
-      const tables = parseAmpar(b64);
-      const amMembers = tables.members || [];
-      const fronting = tables.frontingEntries || [];
-      const systemRow = (tables.systems || [])[0] || {name: t('share.system')};
-      const fieldDefs = tables.customFields || [];
-      if (amMembers.length === 0 && fronting.length === 0) {
-        throw new Error(t('share.amparEmpty'));
+      // Ampersand's JSON export is the format their dev recommends — the binary
+      // one changes shape every few releases. Try text first; a binary file just
+      // fails JSON.parse and falls through to the old decoder.
+      let jsonDb: any = null;
+      try {
+        let txt: string;
+        try { txt = await ReactNativeBlobUtil.fs.readFile(path, 'utf8'); }
+        catch { txt = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'utf8'); }
+        const parsed = JSON.parse(txt);
+        if (parsed && parsed.database && Array.isArray(parsed.database.members)) jsonDb = parsed;
+      } catch {}
+      if (jsonDb) {
+        const prev = ampersandJsonToPreview(jsonDb, t('share.system'));
+        if (prev.members.length === 0 && prev.switches.length === 0) throw new Error(t('share.amparEmpty'));
+        setExtPreview(prev);
+        setImportSource('ampersand');
+        return;
       }
-      setExtPreview({system: systemRow, members: amMembers, switches: fronting, customFields: fieldDefs});
-      setImportSource('ampersand');
+      // The binary .ampar/.ampdb format is DEFUNCT here: Ampersand's developer
+      // reshapes it every few releases, so parsing it was a standing liability.
+      // Their JSON export is the supported path and the only one we accept.
+      throw new Error(t('share.ampersandNeedsJson', {
+        defaultValue: "That isn't an Ampersand JSON export. In Ampersand, use Export your data and pick the JSON file.",
+      }));
     } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || t('share.couldNotReadAmpar')); }
   };
 
@@ -81,14 +118,15 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
                 pairs.forEach((pair: any) => {
                   if (!Array.isArray(pair) || pair.length < 2) return;
                   const fid = fieldIdMap[String(pair[0])];
-                  if (!fid || pair[1] == null) return;
+                  if (!fid || pair[1] == null || pair[1] === '') return;
                   cf.push({fieldId: fid, value: (typeof pair[1] === 'object' ? JSON.stringify(pair[1]) : String(pair[1])) as any});
                 });
               }
               return {
                 id: localId, sourceId: 'amp:' + String(a.uuid),
                 name: (a.name && String(a.name).trim()) || 'Unnamed member',
-                pronouns: String(a.pronouns || ''), role: '', color: normHex(a.color),
+                // role only exists in the JSON export; the binary path leaves it blank.
+                pronouns: String(a.pronouns || ''), role: String(a.role || ''), color: normHex(a.color),
                 description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!a.isCustomFront,
                 tags: [], groupIds: [], customFields: cf,
               } as Member;
