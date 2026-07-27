@@ -2831,11 +2831,6 @@ PODS:
     - ReactCommon/turbomodule/core
     - SocketRocket
     - Yoga
-  - RNNotifee (9.1.8):
-    - React-Core
-    - RNNotifee/NotifeeCore (= 9.1.8)
-  - RNNotifee/NotifeeCore (9.1.8):
-    - React-Core
   - RNReanimated (4.5.1):
     - boost
     - DoubleConversion
@@ -3255,7 +3250,6 @@ DEPENDENCIES:
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - RNLocalize (from `../node_modules/react-native-localize`)
-  - "RNNotifee (from `../node_modules/@notifee/react-native`)"
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNShare (from `../node_modules/react-native-share`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -3449,8 +3443,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/@react-native-clipboard/clipboard"
   RNLocalize:
     :path: "../node_modules/react-native-localize"
-  RNNotifee:
-    :path: "../node_modules/@notifee/react-native"
   RNReanimated:
     :path: "../node_modules/react-native-reanimated"
   RNShare:
@@ -3555,7 +3547,6 @@ SPEC CHECKSUMS:
   ReactCommon: 4e44c3353d307b2d41dec7ef7a9faa76b1d82d51
   RNCClipboard: 4b58c780f63676367640f23c8e114e9bd0cf86ac
   RNLocalize: 1aedbc2c15073861a364174919d23c31c5924b16
-  RNNotifee: 5e3b271e8ea7456a36eec994085543c9adca9168
   RNReanimated: ab314192bf73cf8b4cc6567f2e2f9c90e9bb80e8
   RNShare: bf3fa119b277d4a1729553e870039427bcb80c93
   RNSVG: 9037a5826c3e0ad3f7e2aee7607b64d6710f048e
