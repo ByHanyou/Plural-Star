@@ -10,7 +10,7 @@ import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, Reco
 import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
-type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit' | 'spfile' | 'ampersand' | 'pluralspace';
+type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace';
 
 import {saveAvatarFromUrl, saveAvatar, saveBannerFromBase64, saveBannerFromUrl, migrateInlineChatMedia} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
@@ -28,6 +28,7 @@ import {handlePluralKitFetch} from '../import/pluralkit';
 import {handleExtImport} from '../import/extApply';
 import {handlePluralSpacePick, handlePluralSpaceConfirm, handlePluralSpaceAvatarsPick} from '../import/pluralspace';
 import {handleAmpersandPick, handleAmpersandConfirm} from '../import/ampersand';
+import {handleTupperboxPick, handleTupperboxConfirm} from '../import/tupperbox';
 import {handleSPFileImport, handleSPFileConfirmImport} from '../import/spFile';
 
 interface Props {
@@ -115,7 +116,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const [importSource, setImportSource] = useState<ImportSource>('backup');
   const [extToken, setExtToken] = useState('');
   const [extLoading, setExtLoading] = useState(false);
-  const [extPreview, setExtPreview] = useState<{members: any[]; switches: any[]; system: any; customFields?: any[]; groups?: any[]; journal?: any[]; chat?: any[]; polls?: any[]} | null>(null);
+  const [extPreview, setExtPreview] = useState<{members: any[]; switches: any[]; system: any; customFields?: any[]; groups?: any[]; journal?: any[]; chat?: any[]; polls?: any[]; tuppers?: any[]; systems?: any[]} | null>(null);
   const [extSel, setExtSel] = useState({system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true, displayNames: true});
   const [psAvatarIndex, setPsAvatarIndex] = useState<Record<string, string> | null>(null);
   const [psZipFiles, setPsZipFiles] = useState<Record<string, Uint8Array> | null>(null);
@@ -480,6 +481,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
             <SourceBtn id="pluralkit" label={t('share.pluralKit')} />
             <SourceBtn id="spfile" label={t('share.spFile')} />
             <SourceBtn id="ampersand" label={t('share.ampersand')} />
+            <SourceBtn id="tupperbox" label={t('share.tupperbox')} />
             <SourceBtn id="pluralspace" label={t('share.pluralSpace')} />
           </View>
           {importSource === 'journal' && (
@@ -713,6 +715,36 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
                   <TouchableOpacity onPress={() => handleAmpersandConfirm({extPreview, extSel, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                    <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+          {importSource === 'tupperbox' && (
+            <View>
+              <Divider label={t('share.tupperboxImport')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.tupperboxHint')}</Text>
+              <TouchableOpacity onPress={() => handleTupperboxPick({extPreview, extSel, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickTbFile')}
+                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickTbFile')}</Text>
+              </TouchableOpacity>
+              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {extPreview && importSource === 'tupperbox' && (
+                <View>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 14}}>
+                    <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>Tupperbox</Text>
+                    <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: (extPreview.tuppers || []).length})}{(extPreview.groups || []).length > 0 ? ` · ${t('share.groupsCount', {count: (extPreview.groups || []).length})}` : ''}</Text>
+                  </View>
+                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
+                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.tuppers || []).length})} value={extSel.members} onToggle={() => togE('members')} />
+                    {(extPreview.groups || []).length > 0 && (
+                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={() => handleTupperboxConfirm({extPreview, extSel, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>

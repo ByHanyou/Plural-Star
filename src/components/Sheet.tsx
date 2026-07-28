@@ -40,9 +40,9 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
     }
   }, [visible]);
 
-  // The footer is part of the layout now, not an overlay, so the scroll body no
-  // longer has to reserve its height.
-  const scrollPaddingBottom = footer ? 24 : 56 + bottomInset;
+  // With the footer inside the scroll body it supplies its own spacing; the
+  // bottom inset still keeps the last row above gesture/nav bars.
+  const scrollPaddingBottom = (footer ? 8 : 56) + bottomInset;
 
   return (
     <TrueSheet
@@ -63,33 +63,34 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
       }
     >
       {/*
-        The footer is deliberately NOT TrueSheet's `footer` prop. That renders a
-        position:absolute overlay whose Y is set by native positionFooter() on
-        every keyboard and sheet event — and when one of those events is missed
-        it stays stranded mid-sheet, floating over the content, which is the bug
-        users kept reporting. Nine attempts tuned that movement; this removes it.
-        An ordinary flex column can't be stranded: the footer sits under the
-        scroll body because that is where it is in the layout. `scrollable`
-        already gives this content view flex:1 inside an absolute-fill container,
-        so the column is bounded and the ScrollView still gets its own height.
+        Attempt 11. The footer is deliberately NOT TrueSheet's `footer` prop —
+        that native overlay strands mid-sheet whenever a positionFooter() event
+        is missed (attempts 1–9 all tuned that movement). Attempt 10 (1.14.2)
+        made it the bottom row of a flex column and trusted the native content
+        view to bound the column at the sheet's visible height; on real devices
+        it does not — the column sizes to its children, so the footer row landed
+        BELOW THE FOLD (Save missing on iOS, clipped on Android — the 1.14.2
+        bug wave). Now the footer lives INSIDE the scroll body, after the
+        content. Scroll content cannot end up outside the scrollport by
+        construction — worst case the user scrolls to it — and it cannot move
+        when the keyboard opens, which was the original spec. Do not "pin" this
+        again without a device in hand.
       */}
-      <View style={s.content}>
-        <ScrollView
-          ref={scrollRef}
-          style={s.body}
-          contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
-          showsVerticalScrollIndicator
-          keyboardShouldPersistTaps="handled"
-          nestedScrollEnabled
-        >
-          {children}
-        </ScrollView>
+      <ScrollView
+        ref={scrollRef}
+        style={s.body}
+        contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
+        showsVerticalScrollIndicator
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        {children}
         {footer ? (
-          <View style={[s.footer, {borderTopColor: T.border, backgroundColor: T.card, paddingBottom: 16 + bottomInset}]}>
+          <View style={[s.footer, {borderTopColor: T.border}]}>
             {footer}
           </View>
         ) : null}
-      </View>
+      </ScrollView>
     </TrueSheet>
   );
 };
@@ -106,13 +107,14 @@ const s = StyleSheet.create({
   title: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic'},
   closeBtn: {padding: 4},
   closeX: {fontSize: 16},
-  content: {flex: 1},
   body: {flex: 1, paddingHorizontal: 20, paddingTop: 16},
+  // No paddingHorizontal: the footer sits inside the scroll body, which
+  // already insets 20 — doubling it squeezed the buttons.
   footer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 8,
-    paddingHorizontal: 20,
+    marginTop: 16,
     paddingVertical: 16,
     borderTopWidth: 1,
   },

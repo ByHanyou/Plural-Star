@@ -14,7 +14,7 @@ import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {store, KEYS, storageLooksWiped, restoreAllBackups, storageReadFailures, anyPsKeysExist} from './src/storage';
 import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
-import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars} from './src/utils/mediaUtils';
+import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars, restoreMissingMediaFiles} from './src/utils/mediaUtils';
 import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders} from './src/services/NotificationService';
 import {waitForProtectedData} from './src/services/LiveActivityService';
 
@@ -266,6 +266,33 @@ function MainAppContent() {
         setSystem(loadedSystem);
       }
       setMembers(loadedMembers);
+      // Fire-and-forget: re-download avatars/banners whose FILES vanished but
+      // whose PK/Tupperbox source URLs we kept ("banner disappeared" reports —
+      // path healing can't resurrect a deleted file). Never blocks startup;
+      // merged by id against the CURRENT roster when it finishes, so edits
+      // made while downloads ran aren't clobbered.
+      if (!storageSuspect) {
+        restoreMissingMediaFiles(loadedMembers).then(async r => {
+          if (!r.changed) return;
+          const healedById = new Map(r.members.map((m: Member) => [m.id, m]));
+          const cur = useAppStore.getState().members;
+          // Adopt a healed value only while the current one is still a
+          // file:// path (or empty) — if the user set a fresh image while the
+          // download ran, theirs wins.
+          const adopt = (curV: string | undefined, healedV: string | undefined) =>
+            healedV && healedV !== curV && (!curV || curV.startsWith('file://')) ? healedV : curV;
+          const merged = cur.map(m => {
+            const h = healedById.get(m.id);
+            if (!h) return m;
+            const avatar = adopt(m.avatar, h.avatar);
+            const banner = adopt(m.banner, h.banner);
+            return avatar !== m.avatar || banner !== m.banner ? {...m, avatar, banner} : m;
+          });
+          useAppStore.getState().setMembers(merged);
+          await store.set(KEYS.members, merged);
+          console.log('[STARTUP] re-downloaded missing avatar/banner files from source URLs');
+        }).catch(e => console.error('[PS] media restore error:', e));
+      }
       const migratedFront = migrateFrontState(fr) || findOpenFrontInHistory(hist || []);
       setFront(migratedFront);
       if (((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) && !storageSuspect) {

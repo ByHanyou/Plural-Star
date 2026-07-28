@@ -1,7 +1,7 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {Member, SystemInfo, HistoryEntry, CustomFieldDef, CustomFieldValue, uid} from '../utils';
+import {Member, MemberGroup, SystemInfo, HistoryEntry, CustomFieldDef, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {convertSPSwitches, normHex} from './convert';
@@ -34,14 +34,18 @@ export const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
   const defaultId = String(d?.config?.appConfig?.defaultSystem || '');
   const systemRow = systems.find((s: any) => String(s?.uuid) === defaultId) || systems[0] || {name: fallbackSystemName};
   const members = (Array.isArray(db.members) ? db.members : [])
-    // Multi-system exports would otherwise merge every roster into one.
-    .filter((a: any) => a && (!defaultId || !a.system || String(a.system) === defaultId))
+    // ALL systems are kept. We used to filter to defaultSystem, which silently
+    // DROPPED every other system's members — real data loss for multi-system
+    // users. Each Ampersand system becomes a group instead (confirm step), so
+    // nothing merges into an indistinguishable pile and nothing is lost.
+    .filter((a: any) => !!a)
     .map((a: any) => ({
       ...a,
       customFields: {value: Object.entries(a.customFields && typeof a.customFields === 'object' ? a.customFields : {})},
     }));
   return {
     system: systemRow,
+    systems,
     members,
     switches: Array.isArray(db.frontingEntries) ? db.frontingEntries : [],
     customFields: Array.isArray(db.customFields) ? db.customFields : [],
@@ -99,13 +103,42 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           }
 
           const fieldIdMap: Record<string, string> = {};
+          // Ampersand keeps `age` on the member itself; we have no native age,
+          // so it becomes an "Age" custom field instead of being dropped. The
+          // name is deliberately NOT localized: customFieldDefs sync across
+          // devices/platforms, and Desktop dedupes defs by name — a translated
+          // name here and a plain one there would double the field.
+          let ageFieldId = '';
           if (extSel.customFields) {
             const defs: CustomFieldDef[] = amFields.map((f: any, i: number) => {
               const localId = uid();
               fieldIdMap[String(f.uuid)] = localId;
               return {id: localId, name: String(f.name || `Field ${i + 1}`), type: 'text', sortOrder: f.priority ?? i};
             });
+            const hasAge = amMembers.some((a: any) => a?.age != null && String(a.age).trim() !== '');
+            if (hasAge && !defs.some(d => d.name.toLowerCase() === 'age')) {
+              ageFieldId = uid();
+              defs.push({id: ageFieldId, name: 'Age', type: 'text', sortOrder: defs.length});
+            }
             await store.set(KEYS.customFieldDefs, defs);
+          }
+
+          // Every Ampersand system becomes a group when the export holds more
+          // than one, so multi-system rosters stay tellable-apart. A single
+          // system needs no group — that is just the roster.
+          const amSystems: any[] = Array.isArray(extPreview.systems) ? extPreview.systems : [];
+          const sysGroupMap: Record<string, string> = {};
+          if (extSel.members && amSystems.length > 1) {
+            const existingGroups = await store.get<MemberGroup[]>(KEYS.groups, []) || [];
+            const newGroups: MemberGroup[] = [];
+            amSystems.forEach((sy: any, i: number) => {
+              const sName = (sy?.name && String(sy.name).trim()) || `System ${i + 1}`;
+              const existing = existingGroups.find(eg => eg.name.toLowerCase() === sName.toLowerCase());
+              const localId = existing ? existing.id : uid();
+              if (!existing) newGroups.push({id: localId, name: sName, sourceId: 'amp:sys:' + String(sy?.uuid || i)});
+              if (sy?.uuid != null) sysGroupMap[String(sy.uuid)] = localId;
+            });
+            if (newGroups.length > 0) await store.set(KEYS.groups, [...existingGroups, ...newGroups]);
           }
 
           if (extSel.members) {
@@ -122,13 +155,17 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
                   cf.push({fieldId: fid, value: (typeof pair[1] === 'object' ? JSON.stringify(pair[1]) : String(pair[1])) as any});
                 });
               }
+              if (ageFieldId && a.age != null && String(a.age).trim() !== '') {
+                cf.push({fieldId: ageFieldId, value: String(a.age) as any});
+              }
               return {
                 id: localId, sourceId: 'amp:' + String(a.uuid),
                 name: (a.name && String(a.name).trim()) || 'Unnamed member',
                 // role only exists in the JSON export; the binary path leaves it blank.
                 pronouns: String(a.pronouns || ''), role: String(a.role || ''), color: normHex(a.color),
                 description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!a.isCustomFront,
-                tags: [], groupIds: [], customFields: cf,
+                tags: [], customFields: cf,
+                groupIds: a.system != null && sysGroupMap[String(a.system)] ? [sysGroupMap[String(a.system)]] : [],
               } as Member;
             });
             await store.set(KEYS.members, newMembers);

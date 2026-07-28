@@ -30,6 +30,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [confirmDel, setConfirmDel] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [showDescEditor, setShowDescEditor] = useState(false);
+  // A banner whose FILE is gone (iOS purged an old tmp-path image, or the
+  // file vanished) used to render as a silent blank box — the "banner
+  // disappeared" reports. Track load failure so the slot shows the re-pick
+  // hint instead of dead space.
+  const [bannerBroken, setBannerBroken] = useState(false);
+  useEffect(() => { setBannerBroken(false); }, [f.banner]);
   const [showLink, setShowLink] = useState(false);
   const [linkInput, setLinkInput] = useState('');
   const [linking, setLinking] = useState(false);
@@ -264,7 +270,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
           )}
         </View>
 
-        {(!readOnly || f.banner) && (
+        {(!readOnly || (f.banner && !bannerBroken)) && (
           <TouchableOpacity onPress={readOnly ? undefined : async () => {
             try {
               const img = await pickImageFromGallery();
@@ -277,7 +283,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
           }} activeOpacity={readOnly ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={t('memberProfile.changeBanner')} style={{marginBottom: 10}}>
             <View style={{width: '100%', aspectRatio: 3, borderRadius: 8, borderWidth: readOnly ? 0 : 1, borderStyle: 'dashed', borderColor: T.border, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
-              {f.banner ? <Image source={{uri: f.banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('memberProfile.changeBanner')}</Text>}
+              {f.banner && !bannerBroken ? <Image source={{uri: f.banner}} onError={() => setBannerBroken(true)} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('memberProfile.changeBanner')}</Text>}
             </View>
           </TouchableOpacity>
         )}

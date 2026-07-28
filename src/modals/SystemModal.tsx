@@ -33,6 +33,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [locs, setLocs] = useState<string[]>(settings?.locations || []); const [moods, setMoods] = useState<string[]>(settings?.customMoods || []);
   const [selectedLang, setSelectedLang] = useState<SupportedLanguage>(settings?.language || 'en');
   const [notifEnabled, setNotifEnabled] = useState<boolean>(settings?.notificationsEnabled ?? true);
+  const [persistFront, setPersistFront] = useState<boolean>(settings?.persistentFrontNotif !== false);
   const [frontCheckInterval, setFrontCheckInterval] = useState<number>(settings?.frontCheckInterval || 0);
   const [notifRefreshMins, setNotifRefreshMins] = useState<number>(settings?.notificationRefreshMinutes || 0);
   const [showNotifRefreshPicker, setShowNotifRefreshPicker] = useState(false);
@@ -59,7 +60,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
     finally { setAvatarLinking(false); }
   };
 
-  React.useEffect(() => { if (visible) { setShowAvatarLink(false); setAvatarLinkInput(''); setAvatarLinking(false); setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible, system, settings]);
+  React.useEffect(() => { if (visible) { setShowAvatarLink(false); setAvatarLinkInput(''); setAvatarLinking(false); setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible, system, settings]);
 
   const addLoc = () => {if (newLocation.trim() && !locs.includes(newLocation.trim())) {setLocs([...locs, newLocation.trim()]); setNewLocation('');}};
   const addMood = () => {if (newMood.trim() && !moods.includes(newMood.trim())) {setMoods([...moods, newMood.trim()]); setNewMood('');}};
@@ -103,7 +104,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn instant T={T} onPress={() => {
       onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
       clearDraft('system', 'system');
-      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
+      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
       <Field label={singletMode ? t('modal.name') : t('modal.systemName')} value={f.name} onChange={(v: string) => setF((x: any) => ({...x, name: v}))} placeholder={singletMode ? t('setup.yourNamePlaceholder') : t('modal.systemNamePlaceholder')} T={T} />
@@ -255,6 +256,10 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.notifications')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.notificationsDesc')}</Text></View>
           <ToggleSwitch value={notifEnabled} onToggle={() => setNotifEnabled(!notifEnabled)} label={t('modal.notifications')} T={T} style={{marginLeft: 12}} /></View>
+        {notifEnabled && (
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.persistentFrontNotif')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.persistentFrontNotifDesc')}</Text></View>
+            <ToggleSwitch value={persistFront} onToggle={() => setPersistFront(!persistFront)} label={t('modal.persistentFrontNotif')} T={T} style={{marginLeft: 12}} /></View>
+        )}
 
         <View style={{marginTop: 12}}>
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{singletMode ? t('notification.statusCheck') : t('notification.frontCheck')}</Text>
@@ -285,15 +290,18 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.refreshTitle')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 8}}>{t('notification.refreshDesc')}</Text>
           <TouchableOpacity onPress={() => setShowNotifRefreshPicker(!showNotifRefreshPicker)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{expanded: showNotifRefreshPicker}} accessibilityLabel={t('notification.refreshTitle')} accessibilityValue={{text: notifRefreshMins === 0 ? t('notification.off') : notifRefreshMins < 60 ? t('notification.everyNMinutes', {count: notifRefreshMins}) : t('notification.everyNHours', {count: notifRefreshMins / 60})}}
+            accessibilityRole="button" accessibilityState={{expanded: showNotifRefreshPicker}} accessibilityLabel={t('notification.refreshTitle')} accessibilityValue={{text: notifRefreshMins === 0 ? t('notification.refreshAuto') : notifRefreshMins < 60 ? t('notification.everyNMinutes', {count: notifRefreshMins}) : t('notification.everyNHours', {count: notifRefreshMins / 60})}}
             style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showNotifRefreshPicker ? `${T.accent}60` : T.border}}>
-            <Text style={{fontSize: fs(14), color: T.text}}>{notifRefreshMins === 0 ? t('notification.off') : notifRefreshMins < 60 ? t('notification.everyNMinutes', {count: notifRefreshMins}) : t('notification.everyNHours', {count: notifRefreshMins / 60})}</Text>
+            <Text style={{fontSize: fs(14), color: T.text}}>{notifRefreshMins === 0 ? t('notification.refreshAuto') : notifRefreshMins < 60 ? t('notification.everyNMinutes', {count: notifRefreshMins}) : t('notification.everyNHours', {count: notifRefreshMins / 60})}</Text>
             <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{showNotifRefreshPicker ? '▲' : '▼'}</Text>
           </TouchableOpacity>
           {showNotifRefreshPicker && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
               {[0, 15, 30, 60, 240, 480, 720, 1440].map(mins => {
-                const label = mins === 0 ? t('notification.off') : mins < 60 ? t('notification.everyNMinutes', {count: mins}) : t('notification.everyNHours', {count: mins / 60});
+                // 0 stored = "no explicit choice". Since the vanish fix the
+                // re-post is the notification's resurrection path, so 0 now
+                // means the 30-minute floor — never "off". Labeled honestly.
+                const label = mins === 0 ? t('notification.refreshAuto') : mins < 60 ? t('notification.everyNMinutes', {count: mins}) : t('notification.everyNHours', {count: mins / 60});
                 return (
                   <TouchableOpacity key={mins} onPress={() => {setNotifRefreshMins(mins); setShowNotifRefreshPicker(false);}} activeOpacity={0.7}
                     accessibilityRole="menuitem" accessibilityState={{selected: notifRefreshMins === mins}} accessibilityLabel={label}

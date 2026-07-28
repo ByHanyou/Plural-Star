@@ -285,8 +285,24 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   }, [deferredQuery, activeGroup, activeTag, memberTab]);
 
   const jumpToLetter = (letter: string) => {
-    const idx = filtered.findIndex(m => ((m.name || '').trim().toUpperCase()[0] || '') === letter);
-    if (idx >= 0) { try { listRef.current?.scrollToIndex({index: idx, animated: false}); } catch {} }
+    // Fold diacritics so É files under E — otherwise those names are
+    // unreachable from the rail entirely. The regex range below is the
+    // combining-marks block U+0300–U+036F as literal (invisible) characters;
+    // don't "clean it up" — it's what strips the accents after NFD.
+    const firstChar = (m: Member): string =>
+      ((m.name || '').trim()[0] || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+    let idx = filtered.findIndex(m => firstChar(m) === letter);
+    if (idx < 0) {
+      // Nearest-block fallback. Exact-match-only made every letter with no
+      // members a DEAD TAP — for a typical roster that is most of the rail,
+      // which read as "the rail doesn't work". A miss now lands on the next
+      // block in the current sort direction, like every contacts rail.
+      idx = filtered.findIndex(m => sortMode === 'reverse-alphabetical'
+        ? firstChar(m) < letter
+        : firstChar(m) > letter);
+    }
+    if (idx < 0 && filtered.length > 0) idx = filtered.length - 1;
+    if (idx >= 0) { try { listRef.current?.scrollToIndex({index: idx, animated: false, viewPosition: 0}); } catch {} }
   };
   const showRail = !selectionMode && (sortMode === 'alphabetical' || sortMode === 'reverse-alphabetical') && filtered.length > 12;
   const railLetters = sortMode === 'reverse-alphabetical' ? [...ALPHABET].reverse() : ALPHABET;

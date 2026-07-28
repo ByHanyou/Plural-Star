@@ -7,6 +7,7 @@ import {store, KEYS} from '../storage';
 import {uid} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {logError} from '../utils/log';
+import {traceEnclosedRegion} from '../utils/floodFill';
 import {ColorCarousel} from '../components/ColorCarousel';
 
 const WORLD = 8000;
@@ -29,17 +30,6 @@ interface Props {
 const WIDTHS = [1, 3, 6, 12, 15];
 
 type Tool = 'draw' | 'move' | 'erase' | 'bucket';
-
-const pointInPoly = (x: number, y: number, pts: number[]): boolean => {
-  let inside = false;
-  const n = pts.length / 2;
-  for (let i = 0, j = n - 1; i < n; j = i++) {
-    const xi = pts[i * 2], yi = pts[i * 2 + 1];
-    const xj = pts[j * 2], yj = pts[j * 2 + 1];
-    if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)) inside = !inside;
-  }
-  return inside;
-};
 
 const strokePath = (pts: number[]): string => {
   if (pts.length < 2) return '';
@@ -229,9 +219,16 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   }), [persist]);
 
   const bucketFill = (wx: number, wy: number) => {
-    const target = [...strokesRef.current].reverse().find(s => s.w > 0 && s.pts.length >= 6 && pointInPoly(wx, wy, s.pts));
-    const fill: Stroke = target
-      ? {id: uid(), c: colorRef.current, w: -2, pts: [...target.pts]}
+    // Real enclosure detection: all strokes' segments are walls, flood from
+    // the tap. Enclosed → fill exactly that region (works across multiple
+    // strokes and un-touching endpoints — the old single-stroke polygon test
+    // missed those and fell through to painting the whole board). Open →
+    // the deliberate background fill, which now only happens when the tap
+    // point genuinely isn't enclosed by anything. On a wall → do nothing.
+    const region = traceEnclosedRegion(wx, wy, strokesRef.current);
+    if (region === null) return;
+    const fill: Stroke = Array.isArray(region)
+      ? {id: uid(), c: colorRef.current, w: -2, pts: region}
       : {id: uid(), c: colorRef.current, w: -1, pts: [0, 0, 0, 0]};
     const next = [...strokesRef.current, fill];
     setStrokes(next);

@@ -579,6 +579,11 @@ export interface AppSettings {
   language: SupportedLanguage;
   notificationsEnabled: boolean;
   notificationRefreshMinutes?: number;
+  // Default true. When false, the always-on front status (Android FGS
+  // notification / iOS Live Activity) is suppressed — but friend alerts and
+  // front-check reminders still fire. Requested by users whose lock screen
+  // the persistent notification crowds (time-blindness, privacy).
+  persistentFrontNotif?: boolean;
   activePaletteId: string;
   textScale: TextScale;
   memberSortMode?: MemberSortMode;

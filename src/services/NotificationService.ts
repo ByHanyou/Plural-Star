@@ -234,14 +234,28 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
 };
 
 export const showFriendUpdateAlert = async (f: Friend) => {
-  if (Platform.OS !== 'android') return;
   if (!NetworkManager.getState().enabled) return;
   if (friendNotifyLevel(f) === 'off') return;
   const s = f.lastStatus;
   if (!s || !s.fronters) return;
-  await setupFriendAlertChannel();
   const dur = s.startTime ? fmtDur(s.startTime) : '';
   const lines = friendStatusLines(s);
+  if (Platform.OS === 'ios') {
+    // iOS path. This used to be Android-only, which meant iOS users could only
+    // see friend front updates as lines INSIDE the Live Activity — forcing
+    // them to keep the persistent status on just to know their partner
+    // switched. A friend update is a transient event; it gets a normal banner,
+    // fully independent of the Live Activity. (Cross-platform notification
+    // rule: every alert needs an iOS path.)
+    await notifee.displayNotification({
+      id: `${FRIEND_ALERT_PREFIX}${f.peerId}`,
+      title: f.displayName,
+      body: lines.length > 1 ? lines.slice(0, 6).join('\n') : `${s.fronters}${dur ? `  ·  ${dur}` : ''}`,
+      ios: {sound: 'default'},
+    });
+    return;
+  }
+  await setupFriendAlertChannel();
   await notifee.displayNotification({
     id: `${FRIEND_ALERT_PREFIX}${f.peerId}`,
     title: f.displayName,
@@ -397,12 +411,58 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
-        android: {...frontAndroidConfig(content.bigText, [], content.body), asForegroundService: true},
+        // Deliberately NOT asForegroundService here. This trigger fires from
+        // the background (WorkManager), and Android 12+ blocks starting a
+        // foreground service from the background — the re-post would throw
+        // ForegroundServiceStartNotAllowedException and the notification would
+        // stay gone, which is exactly the "vanished and never came back"
+        // report. A plain ongoing re-post always succeeds; the FGS re-binds
+        // the next time the app is opened (showFrontNotification).
+        android: frontAndroidConfig(content.bigText, [], content.body),
       },
       trigger,
     );
   } catch (e) {
     console.error('[PluralSpace] Notification refresh schedule error:', e);
+  }
+};
+
+// Called from index.js's notifee.onBackgroundEvent when the refresh trigger
+// delivers while the process is dead (headless JS). Rebuilds the front
+// notification from storage with FRESH durations instead of the stale content
+// baked into the trigger at schedule time. Plain notification only — headless
+// runs in a background context, where Android 12+ forbids starting an FGS.
+let lastReassert = 0;
+
+export const reassertFrontNotification = async () => {
+  try {
+    if (Platform.OS !== 'android') return;
+    // Re-entry guard: if DELIVERED also fires for the re-post itself, this
+    // would loop — each display raising the event that causes the next
+    // display. One re-assert per minute is all resurrection ever needs.
+    const now = Date.now();
+    if (now - lastReassert < 60000) return;
+    lastReassert = now;
+    // Lazy require: index.js calls this before React exists; keep the module
+    // graph for the headless path as small as possible.
+    const {store, KEYS} = require('../storage');
+    const settings = await store.get(KEYS.settings, null);
+    if (settings && settings.notificationsEnabled === false) return;
+    if (settings && settings.persistentFrontNotif === false) return;
+    const front = await store.get(KEYS.front, null);
+    if (!front) return;
+    const members = await store.get(KEYS.members, []);
+    const content = buildFrontContent(front, members || []);
+    if (!content) return;
+    await setupNotificationChannel();
+    await notifee.displayNotification({
+      id: NOTIF_ID,
+      title: content.title,
+      body: content.body,
+      android: frontAndroidConfig(content.bigText, [], content.body),
+    });
+  } catch (e) {
+    logError('notif', e);
   }
 };
 

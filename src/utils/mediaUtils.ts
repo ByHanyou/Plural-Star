@@ -334,6 +334,54 @@ export const migrateStaleMediaPaths = async (
   return {members: updatedMembers, system: updatedSystem, changed};
 };
 
+/**
+ * Recovery pass for VANISHED media files ("banner was not blank before but
+ * now it is" reports). Path healing (migrateStaleMediaPaths) can only fix the
+ * URI's container prefix — if the file itself is gone, the healed path still
+ * renders blank. For members imported from PluralKit/Tupperbox we kept the
+ * original remote URLs (pkAvatarUrl/pkBannerUrl), so a missing file can be
+ * re-downloaded. Hand-picked images with no source URL are left untouched —
+ * the field keeps its path and simply renders blank, same as before, so
+ * nothing is destroyed.
+ *
+ * Callers must NOT block startup on this: it does real network work
+ * (7s-timeout downloads). Capped per run so a roster full of dead URLs
+ * can't churn the network every launch.
+ */
+export const restoreMissingMediaFiles = async (
+  members: any[],
+): Promise<{members: any[]; changed: boolean}> => {
+  let changed = false;
+  let attempts = 0;
+  const MAX_ATTEMPTS = 12;
+  const fileMissing = async (uri?: string): Promise<boolean> => {
+    if (!uri || typeof uri !== 'string' || !uri.startsWith('file://')) return false;
+    const path = uri.replace('file://', '').split('?')[0];
+    try { return !(await ReactNativeBlobUtil.fs.exists(path)); } catch { return false; }
+  };
+  const out: any[] = [];
+  for (const m of members || []) {
+    if (!m || attempts >= MAX_ATTEMPTS) { out.push(m); continue; }
+    let next = m;
+    if (m.pkAvatarUrl && (await fileMissing(m.avatar))) {
+      attempts++;
+      try {
+        const fresh = await saveAvatarFromUrl(m.id, m.pkAvatarUrl);
+        if (fresh) { next = {...next, avatar: fresh}; changed = true; }
+      } catch {}
+    }
+    if (m.pkBannerUrl && attempts < MAX_ATTEMPTS && (await fileMissing(next.banner))) {
+      attempts++;
+      try {
+        const fresh = await saveBannerFromUrl(m.id, m.pkBannerUrl);
+        if (fresh) { next = {...next, banner: fresh}; changed = true; }
+      } catch {}
+    }
+    out.push(next);
+  }
+  return {members: out, changed};
+};
+
 export const rebaseChatMessageMedia = (messages: any[]): {messages: any[]; changed: boolean} => {
   let changed = false;
   const out = (messages || []).map((msg: any) => {
