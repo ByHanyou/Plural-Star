@@ -1,5 +1,5 @@
 import React, {useState, useMemo, useEffect, useRef} from 'react';
-import {View, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Keyboard} from 'react-native';
+import {View, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Keyboard, StatusBar} from 'react-native';
 import {Text, TextInput} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts, fontScale} from '../theme';
@@ -141,8 +141,12 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
     }
   };
 
+  // Android was paddingTop: 0 — fine when RN Modals drew below the status
+  // bar, wrong on the edge-to-edge Android baseline: the window spans the
+  // bar, so the Cancel/Save header clipped up behind it. Same formula as
+  // AppHeader (status-bar-replacement padding with a sane floor).
   return (
-    <View style={[s.container, {backgroundColor: T.bg, paddingTop: Platform.OS === 'ios' ? insets.top : 0}]}>
+    <View style={[s.container, {backgroundColor: T.bg, paddingTop: Platform.OS === 'ios' ? insets.top : Math.max(StatusBar.currentHeight || 0, insets.top || 0, 28)}]}>
       <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.bg}]}>
         <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')} style={s.headerBtn}>
           <Text style={{fontSize: fs(14), color: T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{i18n.t('common.cancel')}</Text>

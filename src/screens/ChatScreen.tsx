@@ -54,14 +54,24 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     const hide = Keyboard.addListener(evHide as any, () => setKbHeight(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
+  // Mirror of the lift currently APPLIED, readable inside the async measure
+  // callback without a stale closure.
+  const appliedLiftRef = useRef(0);
   const measureComposer = useCallback(() => {
     composerRef.current?.measureInWindow((_x, y, _w, h) => {
       const winH = Dimensions.get('window').height;
-      const gap = winH - (y + h);
+      // Normalize back to the AT-REST position: the lift padding pushes the
+      // composer up by exactly appliedLiftRef.current, so a measure taken
+      // while lifted reads a gap that much larger. Without subtracting it,
+      // measure → lift → re-measure(sees lift) → gap grows → lift collapses
+      // → composer falls → measure → lift returns… — the visible flashing
+      // between lifted and not. Subtracting makes the loop a fixpoint.
+      const gap = winH - (y + h) - appliedLiftRef.current;
       if (isFinite(gap)) setGapBelow(Math.max(0, gap));
     });
   }, []);
   const keyboardLift = Math.max(0, kbHeight - gapBelow);
+  appliedLiftRef.current = keyboardLift;
   const [activeChannelId, setActiveChannelId] = useState<string | null>(channels.find(c => !c.archived)?.id || null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');

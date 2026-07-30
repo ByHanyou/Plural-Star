@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {View, Modal, Platform, ScrollView, FlatList, TouchableOpacity, Image, ActivityIndicator} from 'react-native';
+import {View, Modal, Platform, ScrollView, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
@@ -322,7 +322,9 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{flex: 1, backgroundColor: T.bg}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 12 + insets.top : 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
+        {/* Same edge-to-edge fix as the MD editor: full-screen Modals span the
+            Android status bar now, so the bare 12 clipped this header under it. */}
+        <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 12 + insets.top : 12 + Math.max(StatusBar.currentHeight || 0, insets.top || 0), paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
           <View style={{flex: 1, minWidth: 0, marginRight: 8}}>
             <Text accessibilityRole="header" style={{fontSize: fs(16), fontWeight: '700', color: T.text}} numberOfLines={1}>{displayName}</Text>
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 1}}>{featureLabel}</Text>

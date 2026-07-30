@@ -193,7 +193,7 @@ export const buildHtmlExport = (
         .map(id => members.find(m => m.id === id)?.name)
         .filter(Boolean);
       return `<div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #eee">
-        <h3 style="margin:0 0 4px;font-size:16px">${e.title || 'Untitled'}</h3>
+        <h3 style="margin:0 0 4px;font-size:16px">${e.title || i18n.t('common.untitled')}</h3>
         <div style="font-size:12px;color:#888;margin-bottom:10px">${fmtTime(e.timestamp)}${authors.length ? ` · By: ${authors.join(', ')}` : ''}</div>
         <div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${e.body || ''}</div>
       </div>`;
@@ -207,11 +207,11 @@ export const buildHtmlExport = (
         (e.memberIds || [])
           .map(id => members.find(m => m.id === id)?.name)
           .filter(Boolean)
-          .join(', ') || 'Unknown';
+          .join(', ') || i18n.t('common.unknown');
       return `<tr>
         <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${names}</td>
         <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${fmtTime(e.startTime)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${e.endTime ? fmtTime(e.endTime) : 'Ongoing'}</td>
+        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')}</td>
         <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${fmtDur(e.startTime, e.endTime)}</td>
         <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;color:#666">${e.note || ''}</td>
       </tr>`;
@@ -219,7 +219,7 @@ export const buildHtmlExport = (
     .join('');
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>${system.name} — Plural Star Export</title>
+  <title>${system.name} — ${i18n.t('share.exportDocTitle')}</title>
   <style>
     body{font-family:OpenDyslexic,serif;max-width:860px;margin:40px auto;padding:0 24px;color:#222;line-height:1.6}
     h1{font-size:32px;margin-bottom:4px}
@@ -231,13 +231,13 @@ export const buildHtmlExport = (
   <body>
   <h1>${system.name}</h1>
   ${system.description ? `<p style="font-size:16px;color:#555;margin-top:0">${system.description}</p>` : ''}
-  <div class="meta">Exported ${new Date().toLocaleString('en-US', {dateStyle: 'long', timeStyle: 'short'})} via Plural Star · ${members.filter(m => !m.isCustomFront && !m.isFacet).length} members · ${journal.length} journal entries · ${history.length} front history records</div>
-  <h2>Members</h2>
-  ${members.filter(m => !m.isCustomFront && !m.isFacet).length ? `<table><thead><tr><th>Name</th><th>Pronouns</th><th>Role</th><th>Description</th></tr></thead><tbody>${memberRows}</tbody></table>` : '<p style="color:#888">No members recorded.</p>'}
-  <h2>System Journal</h2>
-  ${journal.length ? journalHtml : '<p style="color:#888">No journal entries.</p>'}
-  <h2>Front History</h2>
-  ${history.length ? `<table><thead><tr><th>Who</th><th>Started</th><th>Ended</th><th>Duration</th><th>Note</th></tr></thead><tbody>${historyRows}</tbody></table>${history.length > 100 ? `<p style="font-size:12px;color:#888;margin-top:8px">Showing 100 of ${history.length} records. Full history in JSON export.</p>` : ''}` : '<p style="color:#888">No front history recorded.</p>'}
+  <div class="meta">${i18n.t('share.exportDocMeta', {date: new Date().toLocaleString(i18n.language, {dateStyle: 'long', timeStyle: 'short'}), members: members.filter(m => !m.isCustomFront && !m.isFacet).length, journal: journal.length, history: history.length})}</div>
+  <h2>${i18n.t('share.exportDocMembers')}</h2>
+  ${members.filter(m => !m.isCustomFront && !m.isFacet).length ? `<table><thead><tr><th>${i18n.t('share.exportDocName')}</th><th>${i18n.t('share.exportDocPronouns')}</th><th>${i18n.t('share.exportDocRole')}</th><th>${i18n.t('share.exportDocDescription')}</th></tr></thead><tbody>${memberRows}</tbody></table>` : `<p style="color:#888">${i18n.t('share.exportDocNoMembers')}</p>`}
+  <h2>${i18n.t('share.exportDocJournal')}</h2>
+  ${journal.length ? journalHtml : `<p style="color:#888">${i18n.t('share.exportDocNoJournal')}</p>`}
+  <h2>${i18n.t('share.exportDocHistory')}</h2>
+  ${history.length ? `<table><thead><tr><th>${i18n.t('share.exportDocWho')}</th><th>${i18n.t('share.exportDocStarted')}</th><th>${i18n.t('share.exportDocEnded')}</th><th>${i18n.t('share.exportDocDuration')}</th><th>${i18n.t('share.exportDocNote')}</th></tr></thead><tbody>${historyRows}</tbody></table>${history.length > 100 ? `<p style="font-size:12px;color:#888;margin-top:8px">${i18n.t('share.exportDocShowing', {total: history.length})}</p>` : ''}` : `<p style="color:#888">${i18n.t('share.exportDocNoHistory')}</p>`}
   </body></html>`;
 };
 
@@ -254,18 +254,18 @@ export const buildEmailBody = (
 
   const jList = journal
     .slice(0, 10)
-    .map(e => `[${fmtTime(e.timestamp)}] ${e.title || 'Untitled'}\n${e.body?.slice(0, 300) || ''}${(e.body?.length ?? 0) > 300 ? '…' : ''}`)
+    .map(e => `[${fmtTime(e.timestamp)}] ${e.title || i18n.t('common.untitled')}\n${e.body?.slice(0, 300) || ''}${(e.body?.length ?? 0) > 300 ? '…' : ''}`)
     .join('\n\n---\n\n');
 
   const hList = history
     .slice(0, 20)
     .map(e => {
-      const names = (e.memberIds || []).map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ') || 'Unknown';
-      return `${fmtTime(e.startTime)} → ${e.endTime ? fmtTime(e.endTime) : 'ongoing'} (${fmtDur(e.startTime, e.endTime)}) — ${names}${e.note ? ` | "${e.note}"` : ''}`;
+      const names = (e.memberIds || []).map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ') || i18n.t('common.unknown');
+      return `${fmtTime(e.startTime)} → ${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')} (${fmtDur(e.startTime, e.endTime)}) — ${names}${e.note ? ` | "${e.note}"` : ''}`;
     })
     .join('\n');
 
-  return `SYSTEM EXPORT — ${system.name}\nExported: ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ MEMBERS (${realMembers.length}) ━━\n${mList || 'None recorded.'}\n\n━━ JOURNAL (${journal.length} entries${journal.length > 10 ? ' — showing 10 most recent' : ''}) ━━\n${jList || 'No entries.'}\n\n━━ FRONT HISTORY (${history.length} records${history.length > 20 ? ' — showing 20 most recent' : ''}) ━━\n${hList || 'No history.'}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\nFull data available by exporting JSON from Plural Star.`;
+  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
 };
 
 
@@ -775,7 +775,7 @@ export const exportEmail = (
   recipient: string,
 ): void => {
   const subject = encodeURIComponent(
-    `${system.name} — Plural Star Export · ${new Date().toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})}`,
+    `${system.name} — ${i18n.t('share.exportDocTitle')} · ${new Date().toLocaleDateString(i18n.language, {month: 'long', day: 'numeric', year: 'numeric'})}`,
   );
   const body = encodeURIComponent(buildEmailBody(system, members, history, journal));
   Linking.openURL(`mailto:${recipient}?subject=${subject}&body=${body}`);
@@ -786,7 +786,7 @@ const buildJournalTxt = (journal: JournalEntry[], members: Member[]): string => 
   return journal.map(e => {
     const authors = (e.authorIds || []).map(id => members.find(m => m.id === id)?.name).filter(Boolean);
     const header = [
-      `Title: ${e.title || 'Untitled'}`,
+      `Title: ${e.title || i18n.t('common.untitled')}`,
       `Date: ${fmtTime(e.timestamp)}`,
       authors.length ? `Authors: ${authors.join(', ')}` : null,
     ].filter(Boolean).join('\n');
@@ -801,7 +801,7 @@ const buildJournalMd = (journal: JournalEntry[], members: Member[]): string => {
       `*${fmtTime(e.timestamp)}*`,
       authors.length ? `*Authors: ${authors.join(', ')}*` : null,
     ].filter(Boolean).join(' · ');
-    return `# ${e.title || 'Untitled'}\n\n${meta}\n\n${e.body || ''}`;
+    return `# ${e.title || i18n.t('common.untitled')}\n\n${meta}\n\n${e.body || ''}`;
   }).join('\n\n---\n\n');
 };
 
