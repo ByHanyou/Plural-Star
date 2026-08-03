@@ -85,7 +85,7 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
           })}
         </View>
       )}
-      <TextInput value={search} onChangeText={setSearch} placeholder={t('members.searchToAdd')} placeholderTextColor={T.muted}
+      <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('members.searchToAdd')} placeholder={t('members.searchToAdd')} placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 4}} />
       {search.length > 0 && (
         <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
@@ -347,18 +347,18 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       )}
 
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
-      <TextInput value={mood} onChangeText={setMood} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
+      <TextInput value={mood} onChangeText={setMood} accessibilityLabel={t('modal.enterMood')} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14}} />
 
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
-      <TextInput value={location} onChangeText={setLocation} placeholder={t('modal.typeLocation')} placeholderTextColor={T.muted}
+      <TextInput value={location} onChangeText={setLocation} accessibilityLabel={t('modal.typeLocation')} placeholder={t('modal.typeLocation')} placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14}} />
 
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
       <EnergyRow value={energy} onChange={setEnergy} color={T.accent} T={T} t={t} style={{marginBottom: 14}} />
 
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.note')}</Text>
-      <TextInput value={note} onChangeText={setNote} placeholder={t('modal.whatHappening')} placeholderTextColor={T.muted} multiline numberOfLines={3}
+      <TextInput value={note} onChangeText={setNote} accessibilityLabel={t('modal.whatHappening')} placeholder={t('modal.whatHappening')} placeholderTextColor={T.muted} multiline numberOfLines={3}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), minHeight: 80, textAlignVertical: 'top', marginBottom: 20}} />
 
       <View style={{flexDirection: 'row', gap: 10}}>
@@ -622,12 +622,12 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
           {credits.map((c, i) => (
             <TouchableOpacity key={i} onPress={() => Linking.openURL(c.url)} activeOpacity={0.7} accessibilityRole="link"
               style={{flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, backgroundColor: T.card, borderColor: T.border, padding: 14, marginBottom: 10}}>
-              <Text style={{fontSize: fs(22), color: T.accent, marginRight: 14}}>✦</Text>
+              <Text accessibilityElementsHidden importantForAccessibility="no" style={{fontSize: fs(22), color: T.accent, marginRight: 14}}>✦</Text>
               <View style={{flex: 1}}>
                 <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}} numberOfLines={1}>{c.name}</Text>
                 <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={1}>{c.role}</Text>
               </View>
-              <Text style={{fontSize: fs(14), color: T.dim, marginLeft: 8}}>↗</Text>
+              <Text accessibilityElementsHidden importantForAccessibility="no" style={{fontSize: fs(14), color: T.dim, marginLeft: 8}}>↗</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>

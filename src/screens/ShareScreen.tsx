@@ -7,10 +7,10 @@ import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
 import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
-import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory} from '../utils';
+import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory, fmtTime} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
-type ImportSource = 'backup' | 'journal' | 'simplyplural' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace';
+type ImportSource = 'backup' | 'journal' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace';
 
 import {saveAvatarFromUrl, saveAvatar, saveBannerFromBase64, saveBannerFromUrl, migrateInlineChatMedia} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
@@ -23,7 +23,6 @@ import {saveShareSettings} from '../store/actions';
 import {normalizeSpAvatarUrl, spAvatarCandidates, downloadFirstAvatar, spGet} from '../import/spApi';
 import {convertSPSwitches, convertPKSwitches, normHex, mergeForeignMember, finalizeMemberReplace, mergeHistoryEntries, getStoredMembers, mergeMediaIntoMembers, psTime, convertPluralSpaceFronts} from '../import/convert';
 import {handleRestore} from '../import/restore';
-import {handleSimplyPluralFetch} from '../import/simplyplural';
 import {handlePluralKitFetch} from '../import/pluralkit';
 import {handleExtImport} from '../import/extApply';
 import {handlePluralSpacePick, handlePluralSpaceConfirm, handlePluralSpaceAvatarsPick} from '../import/pluralspace';
@@ -71,6 +70,16 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const setRestoreProgress = React.useCallback((p: ImportProgress | string) => {
     if (typeof p === 'string') {
       setRestoreProgressText(p);
+      // An EMPTY label is how every import path signals "run over" — and it has
+      // to tear the controller down here. The PK/API and PluralSpace runs never
+      // touch `restoring` or `importStatus`, so neither teardown effect fires for
+      // them; the controller outlived the run and the blocking overlay sat at 95%
+      // forever even though the import had fully succeeded.
+      if (!p) {
+        importControlRef.current = null;
+        setImportProgress(null);
+        return;
+      }
       // Importers that were never edited still announce their phases this way,
       // so route the label through the controller: it counts the phase and, if
       // a stop is pending, throws right here — a label is only announced
@@ -457,7 +466,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           </View>
           <Text style={[s.hint, {color: T.muted}]}>{t('share.perEntryHint')}</Text>
           <Divider label={t('share.sendEmail')} />
-          <TextInput value={emailAddr} onChangeText={setEmailAddr} placeholder={t('share.emailPlaceholder')} placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
+          <TextInput value={emailAddr} onChangeText={setEmailAddr} accessibilityLabel={t('share.sendEmail')} placeholder={t('share.emailPlaceholder')} placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10}} />
           <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.openInMail')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
             <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.openInMail')}</Text>
@@ -477,7 +486,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12, marginBottom: 4}}>
             <SourceBtn id="journal" label={t('share.journalFile')} />
             <SourceBtn id="backup" label={t('share.backup')} />
-            <SourceBtn id="simplyplural" label={t('share.simplyPlural')} />
             <SourceBtn id="pluralkit" label={t('share.pluralKit')} />
             <SourceBtn id="spfile" label={t('share.spFile')} />
             <SourceBtn id="ampersand" label={t('share.ampersand')} />
@@ -576,7 +584,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     {recoverEntries.map(entry => {
                       const sizeLabel = entry.sizeBytes > 1024 * 1024 ? `${(entry.sizeBytes / 1024 / 1024).toFixed(1)} MB` : entry.sizeBytes > 1024 ? `${(entry.sizeBytes / 1024).toFixed(0)} KB` : `${entry.sizeBytes} B`;
-                      const dateLabel = entry.mtime ? new Date(entry.mtime).toLocaleString() : '';
+                      const dateLabel = entry.mtime ? fmtTime(entry.mtime) : '';
                       const checked = !!recoverSel[entry.key];
                       return (
                         <TouchableOpacity key={entry.key} onPress={() => setRecoverSel(s => ({...s, [entry.key]: !s[entry.key]}))} activeOpacity={0.7}
@@ -616,13 +624,13 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
               </TouchableOpacity>
             </View>
           )}
-          {(importSource === 'simplyplural' || importSource === 'pluralkit') && (
+          {importSource === 'pluralkit' && (
             <View>
-              <Divider label={importSource === 'simplyplural' ? t('share.spImport') : t('share.pkImport')} />
-              <Text style={[s.para, {color: T.dim}]}>{importSource === 'simplyplural' ? t('share.spTokenHint') : t('share.pkTokenHint')}</Text>
-              <TextInput value={extToken} onChangeText={setExtToken} placeholder={importSource === 'simplyplural' ? t('share.spTokenPlaceholder') : t('share.pkTokenPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
+              <Divider label={t('share.pkImport')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.pkTokenHint')}</Text>
+              <TextInput value={extToken} onChangeText={setExtToken} accessibilityLabel={t('share.pkTokenPlaceholder')} placeholder={t('share.pkTokenPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10, fontFamily: 'monospace'}} />
-              <TouchableOpacity onPress={importSource === 'simplyplural' ? () => handleSimplyPluralFetch({extToken, t, setExtLoading, setExtPreview}) : () => handlePluralKitFetch({extToken, t, setExtLoading, setExtPreview})} disabled={extLoading} activeOpacity={0.7}
+              <TouchableOpacity onPress={() => handlePluralKitFetch({extToken, t, setExtLoading, setExtPreview})} disabled={extLoading} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityLabel={t('share.fetchData')} accessibilityState={{disabled: extLoading}}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10, opacity: extLoading ? 0.5 : 1}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{extLoading ? t('share.fetching') : t('share.fetchData')}</Text>
@@ -646,10 +654,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow label={t('share.banners')} value={extSel.banners} onToggle={() => togE('banners')} />
                     )}
                     <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
-                    {importSource === 'simplyplural' && (
-                      <SectionRow label={t('customFields.title')} sublabel={t('share.customFieldsCount', {count: (extPreview.customFields || []).length})} value={extSel.customFields} onToggle={() => togE('customFields')} />
-                    )}
-                    {(importSource === 'simplyplural' || (extPreview.groups && extPreview.groups.length > 0)) && (
+                    {extPreview.groups && extPreview.groups.length > 0 && (
                       <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
@@ -714,7 +719,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <SectionRow label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
                     <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
-                  <TouchableOpacity onPress={() => handleAmpersandConfirm({extPreview, extSel, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => handleAmpersandConfirm({extPreview, extSel, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>

@@ -108,7 +108,7 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
         </View>
       )}
       <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
-        <TextInput value={tagInput} onChangeText={setTagInput} placeholder={t('modal.topic')} placeholderTextColor={T.muted}
+        <TextInput value={tagInput} onChangeText={setTagInput} accessibilityLabel={t('modal.topic')} placeholder={t('modal.topic')} placeholderTextColor={T.muted}
           autoCapitalize="none" autoCorrect={false}
           style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
           onSubmitEditing={addTag} returnKeyType="done" />

@@ -135,7 +135,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
         <Text accessibilityRole="header" style={[s.heading, {color: T.text, marginBottom: 8}]}>{t('journal.locked')}</Text>
         <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 24}}>{t('journal.enterPasswordToContinue')}</Text>
         <TextInput value={globalPwInput} onChangeText={v => {setGlobalPwInput(v); setGlobalPwError(false);}}
-          placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
+          accessibilityLabel={t('journal.password')} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
           style={[s.input, {width: '100%', backgroundColor: T.surface, color: T.text, borderColor: globalPwError ? T.danger : T.border, marginBottom: 6}]}
           onSubmitEditing={handleGlobalUnlock} />
         {globalPwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, alignSelf: 'flex-start'}}>{t('journal.incorrectPassword')}</Text>}
@@ -242,7 +242,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
               </TouchableOpacity>
             )}
             <TextInput value={tagSearch} onChangeText={v => {setTagSearch(v); setShowTagResults(v.length > 0);}} onFocus={() => setShowTagResults(tagSearch.length > 0)}
-              placeholder={t('journal.searchTags')} placeholderTextColor={T.muted}
+              accessibilityLabel={t('journal.searchTags')} placeholder={t('journal.searchTags')} placeholderTextColor={T.muted}
               style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(12)}} />
           </View>
           {showTagResults && filteredTags.length > 0 && (
@@ -277,7 +277,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
               ) : null;
             })()}
             <TextInput value={authorSearch} onChangeText={v => {setAuthorSearch(v); setShowAuthorResults(v.length > 0);}} onFocus={() => setShowAuthorResults(authorSearch.length > 0)}
-              placeholder={t('journal.searchAuthors')} placeholderTextColor={T.muted}
+              accessibilityLabel={t('journal.searchAuthors')} placeholder={t('journal.searchAuthors')} placeholderTextColor={T.muted}
               style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(12)}} />
           </View>
           {showAuthorResults && filteredAuthors.length > 0 && (
@@ -452,7 +452,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
               {entryPwModal?.mode === 'delete' ? t('journal.deletePasswordPrompt') : t('journal.unlockPasswordPrompt')}
             </Text>
             <TextInput value={entryPwInput} onChangeText={v => {setEntryPwInput(v); setEntryPwError(false);}}
-              placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
+              accessibilityLabel={t('journal.password')} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
               style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: entryPwError ? T.danger : T.border, marginBottom: 6}]}
               onSubmitEditing={handleEntryPwConfirm} />
             {entryPwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10}}>{t('journal.incorrectPassword')}</Text>}

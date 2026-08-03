@@ -1,3 +1,4 @@
+import PluralRules from 'intl-pluralrules/plural-rules';
 import i18n from 'i18next';
 import {initReactI18next} from 'react-i18next';
 import * as RNLocalize from 'react-native-localize';
@@ -19,8 +20,36 @@ import vi from './vi.json';
 import th from './th.json';
 import ms from './ms.json';
 import zhHant from './zhHant.json';
+import nl from './nl.json';
+import is from './is.json';
+import hi from './hi.json';
+import af from './af.json';
+import ko from './ko.json';
+import sv from './sv.json';
+import pl from './pl.json';
 
-export const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'pt', 'fi', 'nb', 'it', 'tr', 'ms', 'vi', 'th', 'zh', 'zhHant', 'ja', 'ru', 'uk'] as const;
+/**
+ * Hermes ships no Intl.PluralRules, and since i18next v24 there is no fallback:
+ * without it only English-style _one/_other resolve, so the ru/uk _few/_many
+ * forms would silently never be selected (3 участник instead of 3 участника).
+ *
+ * Probe the capability rather than the engine version — a locale-poor build
+ * answers 'other' for everything, so ask it something only a real CLDR table
+ * knows. Never overwrite a working implementation; if Hermes gains one, we
+ * defer to it and this becomes dead weight, not a conflict.
+ */
+const hasWorkingPluralRules = (): boolean => {
+  const PR = (Intl as any).PluralRules;
+  if (typeof PR !== 'function') return false;
+  try {
+    return new PR('pl').select(2) === 'few';
+  } catch {
+    return false;
+  }
+};
+if (!hasWorkingPluralRules()) (Intl as any).PluralRules = PluralRules;
+
+export const SUPPORTED_LANGUAGES = ['en', 'es', 'fr', 'de', 'nl', 'pt', 'fi', 'sv', 'nb', 'is', 'it', 'pl', 'tr', 'ms', 'vi', 'th', 'hi', 'af', 'zh', 'zhHant', 'ja', 'ko', 'ru', 'uk'] as const;
 export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 
 const getDeviceLanguage = (): SupportedLanguage => {
@@ -62,6 +91,13 @@ i18n
       vi: {translation: vi},
       th: {translation: th},
       ms: {translation: ms},
+      nl: {translation: nl},
+      is: {translation: is},
+      hi: {translation: hi},
+      af: {translation: af},
+      ko: {translation: ko},
+      sv: {translation: sv},
+      pl: {translation: pl},
     },
     lng: getDeviceLanguage(),
     fallbackLng: 'en',

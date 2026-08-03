@@ -4,7 +4,7 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, CustomFieldDef, CustomFieldType, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
-import {convertSPSwitches, normHex, finalizeMemberReplace} from './convert';
+import {convertSPSwitches, normHex, finalizeMemberReplace, findClaimableByName, reviveIfTombstoned} from './convert';
 import {spAvatarCandidates, downloadFirstAvatar} from './spApi';
 import {applyImportedHistory} from './restore';
 
@@ -78,14 +78,13 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
             if (spId) {
               const idx = merged.findIndex(em => em.sourceId === spId);
               if (idx >= 0) {
-                merged[idx] = {...merged[idx], ...incoming, sourceId: spId};
+                merged[idx] = {...merged[idx], ...incoming, ...reviveIfTombstoned(merged[idx], incoming), sourceId: spId};
                 idMap[spId] = merged[idx].id;
                 return;
               }
-              const lowerName = String(incoming.name).toLowerCase();
-              const idx2 = merged.findIndex(em => !em.sourceId && em.name.toLowerCase() === lowerName);
+              const idx2 = findClaimableByName(merged, new Set(Object.values(idMap)), String(incoming.name));
               if (idx2 >= 0) {
-                merged[idx2] = {...merged[idx2], ...incoming, sourceId: spId};
+                merged[idx2] = {...merged[idx2], ...incoming, ...reviveIfTombstoned(merged[idx2], incoming), sourceId: spId};
                 idMap[spId] = merged[idx2].id;
                 return;
               }

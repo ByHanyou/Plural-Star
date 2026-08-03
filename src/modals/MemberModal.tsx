@@ -137,8 +137,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
 
   const relTypeMap = new Map(allRelationshipTypes(relTypes).map((td: RelationshipTypeDef) => [td.id, td] as [string, RelationshipTypeDef]));
-  const relTypeName = (td: RelationshipTypeDef) => (td.preset && !td.overridden) ? t(`relType.${td.id}`) : td.name;
-  const relTypeInverse = (td: RelationshipTypeDef) => !td.directional ? relTypeName(td) : ((td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`) : (td.inverseName || td.name));
+  const relTypeName = (td: RelationshipTypeDef) => (td.preset && !td.overridden) ? t(`relType.${td.id}`, {defaultValue: td.name}) : td.name;
+  const relTypeInverse = (td: RelationshipTypeDef) => !td.directional ? relTypeName(td) : ((td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`, {defaultValue: td.inverseName || td.name}) : (td.inverseName || td.name));
   const connRole = (r: Relationship) => { const td = relTypeMap.get(r.typeId); if (!td) return '?'; return r.fromId === f.id ? relTypeInverse(td) : relTypeName(td); };
   const myConnections = relList.filter((r: Relationship) => r.fromId === f.id || r.toId === f.id);
 
@@ -263,7 +263,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
           )}
           {!readOnly && showLink && (
             <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8, width: '100%'}}>
-              <TextInput value={linkInput} onChangeText={setLinkInput} placeholder="https://…" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url"
+              <TextInput value={linkInput} onChangeText={setLinkInput} accessibilityLabel={t('modal.linkPfp')} placeholder="https://…" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url"
                 style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}} onSubmitEditing={applyLink} returnKeyType="done" />
               <Btn T={T} disabled={linking || !linkInput.trim()} onPress={applyLink} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
             </View>
@@ -359,7 +359,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         )}
         {!readOnly && (
           <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 14}}>
-            <TextInput value={tagInput} onChangeText={setTagInput} placeholder={t('modal.memberTagPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
+            <TextInput value={tagInput} onChangeText={setTagInput} accessibilityLabel={t('modal.memberTagPlaceholder')} placeholder={t('modal.memberTagPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
               style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} onSubmitEditing={addTag} returnKeyType="done" />
             <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
           </View>
@@ -552,7 +552,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                     <TextInput
                       value={String(val || '')}
                       onChangeText={(v: string) => setFieldVal(fd.id, v)}
-                      placeholder={fd.name}
+                      accessibilityLabel={fd.name} placeholder={fd.name}
                       placeholderTextColor={T.muted}
                       editable={!readOnly}
                       multiline
@@ -576,7 +576,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                         const n = Number(cleaned);
                         if (Number.isFinite(n)) setFieldVal(fd.id, n);
                       }}
-                      placeholder={fd.name}
+                      accessibilityLabel={fd.name} placeholder={fd.name}
                       placeholderTextColor={T.muted}
                       editable={!readOnly}
                       keyboardType="numbers-and-punctuation"
@@ -585,7 +585,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                   </View>
                 ) : (
                   <Field label={fd.name} value={String(val || '')} onChange={(v: string) => setFieldVal(fd.id, v)}
-                    placeholder={fd.name} readOnly={readOnly} multiline T={T} />
+                    accessibilityLabel={fd.name} placeholder={fd.name} readOnly={readOnly} multiline T={T} />
                 )}
               </View>
             );

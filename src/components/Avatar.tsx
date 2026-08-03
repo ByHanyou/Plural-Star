@@ -13,7 +13,11 @@ interface AvatarProps {
 
 export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
   const [imgError, setImgError] = useState(false);
-  useEffect(() => { setImgError(false); }, [member?.avatar]);
+  // Keyed on id as well as uri: FlashList recycles row components, so this
+  // instance can be handed a different member while imgError is still true from
+  // the previous one — that row would then show initials for a member whose
+  // image is perfectly fine.
+  useEffect(() => { setImgError(false); }, [member?.id, member?.avatar]);
 
   const radius = Math.round(size * 0.22);
 

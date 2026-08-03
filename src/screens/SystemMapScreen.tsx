@@ -155,7 +155,7 @@ const MemberPickerField = ({label, value, onChange, members, T}: {
       </TouchableOpacity>
       {open && (
         <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
-          <TextInput value={search} onChangeText={setSearch} placeholder={t('common.search')} placeholderTextColor={T.muted} autoFocus
+          <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('common.search')} placeholder={t('common.search')} placeholderTextColor={T.muted} autoFocus
             style={{backgroundColor: T.surface, color: T.text, fontSize: fs(13), paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}} />
           <ScrollView style={{maxHeight: 180}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             {filtered.slice(0, 30).map(m => (
@@ -185,7 +185,7 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
   const [color, setColor] = useState(initial?.color || DEFAULT_REL_COLOR);
   return (
     <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 12}}>
-      <TextInput value={name} onChangeText={setName} placeholder={t('systemMap.typeName')} placeholderTextColor={T.muted}
+      <TextInput value={name} onChangeText={setName} accessibilityLabel={t('systemMap.typeName')} placeholder={t('systemMap.typeName')} placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginBottom: 8}} />
       <TouchableOpacity onPress={() => setDirectional(!directional)} activeOpacity={0.7}
         accessibilityRole="switch" accessibilityState={{checked: directional}} accessibilityLabel={t('systemMap.directional')}
@@ -194,7 +194,7 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
         <Text style={{fontSize: fs(12), color: T.dim}}>{t('systemMap.directional')}</Text>
       </TouchableOpacity>
       {directional && (
-        <TextInput value={inverse} onChangeText={setInverse} placeholder={t('systemMap.inverseName')} placeholderTextColor={T.muted}
+        <TextInput value={inverse} onChangeText={setInverse} accessibilityLabel={t('systemMap.inverseName')} placeholder={t('systemMap.inverseName')} placeholderTextColor={T.muted}
           style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginBottom: 8}} />
       )}
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.typeColor')}</Text>
@@ -319,10 +319,10 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     await store.set(KEYS.relationshipTypes, next);
   };
 
-  const typeLabel = useCallback((td: RelationshipTypeDef): string => (td.preset && !td.overridden) ? t(`relType.${td.id}`) : td.name, [t]);
+  const typeLabel = useCallback((td: RelationshipTypeDef): string => (td.preset && !td.overridden) ? t(`relType.${td.id}`, {defaultValue: td.name}) : td.name, [t]);
   const typeInverseLabel = useCallback((td: RelationshipTypeDef): string => {
     if (!td.directional) return typeLabel(td);
-    return (td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`) : (td.inverseName || td.name);
+    return (td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`, {defaultValue: td.inverseName || td.name}) : (td.inverseName || td.name);
   }, [t, typeLabel]);
 
   const roleOfOther = (r: Relationship, memberId: string): string => {
@@ -858,7 +858,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               )}
 
               <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.note')}</Text>
-              <TextInput value={relNote} onChangeText={setRelNote} placeholder={t('systemMap.notePlaceholder')} placeholderTextColor={T.muted} multiline
+              <TextInput value={relNote} onChangeText={setRelNote} accessibilityLabel={t('systemMap.notePlaceholder')} placeholder={t('systemMap.notePlaceholder')} placeholderTextColor={T.muted} multiline
                 onFocus={() => setTimeout(() => editorScrollRef.current?.scrollToEnd({animated: true}), 80)}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), minHeight: 60, textAlignVertical: 'top', marginBottom: 16}} />
 
@@ -987,7 +987,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               </TouchableOpacity>
             </View>
             <View style={{paddingHorizontal: 16, paddingBottom: 8}}>
-              <TextInput value={memberPickerSearch} onChangeText={setMemberPickerSearch} placeholder={t('common.search')} placeholderTextColor={T.muted}
+              <TextInput value={memberPickerSearch} onChangeText={setMemberPickerSearch} accessibilityLabel={t('common.search')} placeholder={t('common.search')} placeholderTextColor={T.muted}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} />
             </View>
             <ScrollView contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 28}} keyboardShouldPersistTaps="handled">

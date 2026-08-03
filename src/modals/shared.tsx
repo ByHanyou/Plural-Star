@@ -19,7 +19,7 @@ export const Field = ({label, value, onChange, placeholder, multiline = false, n
   <View style={{marginBottom: 14}}>
     {label && <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{label}</Text>}
     <TextInput value={value} onChangeText={onChange} placeholder={placeholder} placeholderTextColor={T.muted} multiline={multiline} numberOfLines={multiline ? numberOfLines : 1}
-      editable={!readOnly}
+      editable={!readOnly} accessibilityLabel={label || placeholder}
       style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), minHeight: multiline ? 100 : undefined, textAlignVertical: multiline ? 'top' : 'center'}} />
   </View>
   );
@@ -104,7 +104,7 @@ export const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom
           </TouchableOpacity>
         </View>
       </ScrollView>
-      {showCustom && <TextInput value={customMood} onChangeText={setCustomMood} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
+      {showCustom && <TextInput value={customMood} onChangeText={setCustomMood} accessibilityLabel={t('modal.enterMood')} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginTop: 4}} />}
     </>
   );

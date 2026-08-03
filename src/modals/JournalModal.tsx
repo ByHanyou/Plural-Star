@@ -105,7 +105,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
       {(f.hashtags || []).length > 0 && (<View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>{(f.hashtags || []).map((tag: string) => (<TouchableOpacity key={tag} onPress={() => set('hashtags', (f.hashtags || []).filter((x: string) => x !== tag))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.remove')} ${tag}`} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}><Text style={{fontSize: fs(12), color: T.info}}>{tag}</Text><Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text></TouchableOpacity>))}</View>)}
       <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 14}}>
-        <TextInput value={tagInput} onChangeText={setTagInput} placeholder={t('modal.topic')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} onSubmitEditing={addTag} returnKeyType="done" />
+        <TextInput value={tagInput} onChangeText={setTagInput} accessibilityLabel={t('modal.topic')} placeholder={t('modal.topic')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} onSubmitEditing={addTag} returnKeyType="done" />
         <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
       </View>
       {members.length > 0 && (<>
@@ -123,7 +123,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
             ); })}
           </View>
         )}
-        <TextInput value={authorSearch} onChangeText={setAuthorSearch} placeholder={t('modal.searchAuthors')} placeholderTextColor={T.muted}
+        <TextInput value={authorSearch} onChangeText={setAuthorSearch} accessibilityLabel={t('modal.searchAuthors')} placeholder={t('modal.searchAuthors')} placeholderTextColor={T.muted}
           autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
           style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 4}} />
         {authorSearch.length > 0 && (
@@ -147,7 +147,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
       </>)}
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14}}>
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.entryPassword')}</Text><TouchableOpacity onPress={() => {setShowPwField(!showPwField); if (showPwField) set('password', undefined);}} accessibilityRole="button" accessibilityLabel={`${showPwField ? t('common.remove') : t('common.add')} ${t('modal.entryPassword')}`}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showPwField ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
-        {showPwField && <TextInput value={f.password || ''} onChangeText={(v: string) => set('password', v || undefined)} placeholder={t('modal.entryPasswordPlaceholder')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />}
+        {showPwField && <TextInput value={f.password || ''} onChangeText={(v: string) => set('password', v || undefined)} accessibilityLabel={t('modal.entryPasswordPlaceholder')} placeholder={t('modal.entryPasswordPlaceholder')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />}
       </View>
       {showTemplatePicker && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowTemplatePicker(false)}>

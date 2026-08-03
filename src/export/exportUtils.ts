@@ -265,7 +265,7 @@ export const buildEmailBody = (
     })
     .join('\n');
 
-  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString()}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
+  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString(i18n.language)}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
 };
 
 
@@ -463,7 +463,7 @@ const B64INV = (() => {
   return a;
 })();
 
-const u8FromBase64 = (b64: string): Uint8Array => {
+export const u8FromBase64 = (b64: string): Uint8Array => {
   const clean = b64.replace(/[^A-Za-z0-9+/]/g, '');
   const full = Math.floor(clean.length / 4);
   const rem = clean.length - full * 4;

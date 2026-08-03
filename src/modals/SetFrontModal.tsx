@@ -70,7 +70,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
         </ScrollView>
       )}
 
-      <TextInput value={search} onChangeText={setSearch} placeholder={t('members.searchToAdd')} placeholderTextColor={T.muted}
+      <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('members.searchToAdd')} placeholder={t('members.searchToAdd')} placeholderTextColor={T.muted}
         autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 6}} />
 

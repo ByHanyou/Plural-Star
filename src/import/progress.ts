@@ -30,9 +30,12 @@ export type ProgressSetter = (p: ImportProgress | string) => void;
 
 /** Thrown at a phase boundary when the user asked to stop. Not an error state. */
 export class ImportStopped extends Error {
-  constructor() {
+  /** Phases that finished and were kept, so the catch can say so without the control. */
+  readonly completedCount: number;
+  constructor(completedCount = 0) {
     super('import stopped by user');
     this.name = 'ImportStopped';
+    this.completedCount = completedCount;
   }
 }
 
@@ -98,7 +101,7 @@ export class ImportControl {
       this.currentLabel = label;
       this.emit();
     }
-    if (this.cancelled) throw new ImportStopped();
+    if (this.cancelled) throw new ImportStopped(this.completed.length);
   }
 
   /** Checked at phase boundaries. */

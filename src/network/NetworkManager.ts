@@ -38,6 +38,7 @@ import {
   SYNC_EXCLUDE_KEYS,
   SYNC_STATE_KEY,
   GW_REGISTERED_KEY,
+  FRONT_CLEARED_KEY,
   PROTO_VERSION,
   MAX_NOTIF_FRIENDS,
   FriendNotifyLevel,
@@ -210,7 +211,9 @@ class NetworkManagerImpl {
       peerId: this.identity?.peerId ?? null,
       friends: this.friends.filter(f => f.kind !== 'device'),
       devices: this.friends.filter(f => f.kind === 'device'),
-      onlinePeers: Array.from(this.online),
+      onlinePeers: this.identity && this.status === 'online'
+        ? Array.from(new Set([...this.online, this.identity.peerId]))
+        : Array.from(this.online),
       relayConfigured: !!net.relayUrl,
       activeFriendCode: this.active.friend?.code ?? null,
       activeFriendExpiresAt: this.active.friend?.expiresAt ?? null,
@@ -585,8 +588,14 @@ class NetworkManagerImpl {
           if (existing.kind === 'device') this.onDeviceLinkAccepted(accepted);
           else this.sendMyFrontTo(sender.peerId);
         } else if (existing && existing.status === 'accepted') {
-          this.upsertFriend({ ...existing, displayName: msg.name || existing.displayName, peerRole: msg.role ?? existing.peerRole, peerV: msg.v ?? existing.peerV });
+          const updated: Friend = { ...existing, displayName: msg.name || existing.displayName, peerRole: msg.role ?? existing.peerRole, peerV: msg.v ?? existing.peerV };
+          this.upsertFriend(updated);
           if (!msg.ack) this.sendConnectTo(sender.peerId, existing.kind, true).catch(() => {});
+          if (updated.kind === 'device' && updated.initPending && msg.role != null &&
+              ((updated.initRole === 'source' && updated.peerRole === 'source') ||
+               (updated.initRole === 'target' && updated.peerRole !== 'source'))) {
+            this.failRolePairing(updated);
+          }
         } else if (msg.ack) {
           break;
         } else {
@@ -1745,6 +1754,22 @@ class NetworkManagerImpl {
     } catch {}
   }
 
+  private async frontClearedAt(): Promise<number | null> {
+    try {
+      const raw = await AsyncStorage.getItem(FRONT_CLEARED_KEY);
+      const n = raw ? Number(raw) : NaN;
+      return Number.isFinite(n) ? n : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async noteFrontCleared(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(FRONT_CLEARED_KEY, String(Date.now()));
+    } catch {}
+  }
+
   private frontStartTime(raw: string | null | undefined): number | null {
     if (!raw) return null;
     try {
@@ -2140,6 +2165,14 @@ class NetworkManagerImpl {
         const incT = this.frontStartTime(incoming.v);
         const locT = this.frontStartTime(localRaw);
         if (incT != null && locT != null && incT < locT) continue;
+        if (incT != null && locT == null) {
+          const clearedAt = await this.frontClearedAt();
+          if (clearedAt != null && incT < clearedAt) continue;
+        }
+        // Only stamp on the transition into empty. Re-stamping while already
+        // empty would drag the clear time forward on every sync round and start
+        // rejecting fronts that a peer legitimately began seconds ago.
+        if (incT == null && locT != null) await this.noteFrontCleared();
       }
       const localHash = localRaw != null ? syncHash(localRaw) : '__absent__';
       const base = this.lastHashes[k];
@@ -2218,25 +2251,48 @@ class NetworkManagerImpl {
       if (!Array.isArray(localList) || !Array.isArray(incomingList)) return null;
       const nameKey = (d: any) => String(d?.name || '').trim().toLowerCase();
       const remap: Record<string, string> = {};
-      const merged = localList.filter(d => d && d.id);
+      const merged: any[] = [];
+      const seenIds = new Set<string>();
+      for (const d of localList) {
+        if (!d || !d.id || seenIds.has(String(d.id))) continue;
+        seenIds.add(String(d.id));
+        merged.push(d);
+      }
+      const nameCounts = (list: any[]) => {
+        const counts = new Map<string, number>();
+        for (const d of list) {
+          if (!d || !d.id) continue;
+          const k = nameKey(d);
+          if (!k) continue;
+          counts.set(k, (counts.get(k) || 0) + 1);
+        }
+        return counts;
+      };
+      const localCounts = nameCounts(merged);
+      const incomingCounts = nameCounts(incomingList);
       const byName = new Map<string, any>();
-      for (const d of merged) { if (nameKey(d)) byName.set(nameKey(d), d); }
+      for (const d of merged) {
+        const k = nameKey(d);
+        if (k && localCounts.get(k) === 1) byName.set(k, d);
+      }
       for (const d of incomingList) {
-        if (!d || !d.id || !nameKey(d)) continue;
-        const ex = byName.get(nameKey(d));
+        if (!d || !d.id || seenIds.has(String(d.id))) continue;
+        const k = nameKey(d);
+        const ex = k && incomingCounts.get(k) === 1 ? byName.get(k) : undefined;
         if (!ex) {
-          byName.set(nameKey(d), d);
+          seenIds.add(String(d.id));
           merged.push(d);
           continue;
         }
-        if (ex.id === d.id) continue;
         if (String(d.id) < String(ex.id)) {
-          remap[ex.id] = d.id;
-          const idx = merged.findIndex(x => x.id === ex.id);
+          remap[String(ex.id)] = String(d.id);
+          const idx = merged.findIndex(x => String(x.id) === String(ex.id));
           if (idx >= 0) merged[idx] = d;
-          byName.set(nameKey(d), d);
+          seenIds.delete(String(ex.id));
+          seenIds.add(String(d.id));
+          byName.set(k, d);
         } else {
-          remap[d.id] = ex.id;
+          remap[String(d.id)] = String(ex.id);
         }
       }
       const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);

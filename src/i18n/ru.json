@@ -263,9 +263,11 @@
     "active": "Активные",
     "archived": "В архиве",
     "noArchived": "Архив пуст.",
-    "count": "{{count}} member",
-    "count_other": "{{count}} members",
-    "countFiltered": "{{filtered}} of {{total}} members"
+    "count": "{{count}} участник",
+    "count_few": "{{count}} участника",
+    "count_many": "{{count}} участников",
+    "count_other": "{{count}} участников",
+    "countFiltered": "{{filtered}} из {{total}} участников"
   },
   "history": {
     "editEntry": "Изменить",
@@ -389,9 +391,9 @@
     "groups": "Группы",
     "ampersand": "Ampersand",
     "ampersandImport": "Импорт из Ampersand",
-    "ampersandHint": "Выберите JSON-экспорт Ampersand. В Ampersand используйте «Export your data» и выберите файл JSON. Двоичная резервная копия не поддерживается — её формат меняется от версии к версии, поэтому разработчик рекомендует JSON. Участники, пользовательские поля и история фронта будут добавлены в вашу систему.",
-    "pickAmparFile": "Выбрать JSON-экспорт Ampersand",
-    "ampersandNeedsJson": "Это не JSON-экспорт Ampersand. В Ampersand используйте «Export your data» и выберите файл JSON.",
+    "ampersandHint": "Выберите любой экспорт Ampersand — двоичный архив .ampar или их файл JSON. В Ampersand используйте «Export your data». Участники, пользовательские поля, теги, записи дневника и история фронта будут добавлены в вашу систему; архив .ampar также приносит аватары и баннеры.",
+    "pickAmparFile": "Выбрать экспорт Ampersand (.ampar или .json)",
+    "ampersandNeedsJson": "Это не экспорт Ampersand. В Ampersand используйте «Export your data» и выберите архив .ampar или файл JSON.",
     "tupperbox": "Tupperbox",
     "tupperboxImport": "Импорт из Tupperbox",
     "tupperboxHint": "Выберите экспорт Tupperbox. В Discord выполните tul!export и скачайте созданный файл JSON. Импортируются участники и их группы; прокси-скобки сохраняются для будущего экспорта в PluralKit.",
@@ -429,7 +431,7 @@
     "exportMailFooter": "Полные данные доступны через JSON-экспорт из Plural Star.",
     "amparEmpty": "В этом архиве не найдено участников или истории фронта.",
     "importComplete": "Импорт завершён.",
-    "importFormatsNote": "Автоматически распознаёт Plural Star, Simply Plural, Octocon, Ourcana (.our или .json) и HiveMind (.json). Для Ampersand используйте вкладку Ampersand и их JSON-экспорт; для экспортов PluralSpace — вкладку PluralSpace.",
+    "importFormatsNote": "Автоматически распознаёт Plural Star, Simply Plural, Octocon, Ourcana (.our или .json) и HiveMind (.json). Для Ampersand используйте вкладку Ampersand (.ampar или JSON); для экспортов PluralSpace — вкладку PluralSpace.",
     "pluralSpace": "PluralSpace",
     "psImport": "Импорт из PluralSpace",
     "psHint": "Импорт из экспорта данных PluralSpace (.zip). Распакуйте экспорт и выберите файл data.json внутри него. Участники, пользовательские поля, история фронта, записи дневника, чат и опросы будут добавлены в вашу систему.",
@@ -719,8 +721,8 @@
     "textScaleNormal": "Обычный",
     "textScaleLarge": "Большой",
     "textScaleExtraLarge": "Огромный",
-    "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFont": "Шрифт для дислексии",
+    "dyslexicFontDesc": "Переключает основной текст на OpenDyslexic. Заголовки сохраняют свой шрифт."
   },
   "notification": {
     "chatPingTitle": "◆ {{speaker}} пингнул(а) вас в #{{channel}}",
@@ -760,8 +762,12 @@
     "noteboard": "Уведомления о доске",
     "noteboardDesc": "Уведомлять, когда у фронтящего участника есть непрочитанные заметки.",
     "noteboardUnreadTitle": "◇ {{count}} непрочитанная заметка",
+    "noteboardUnreadTitle_few": "◇ {{count}} непрочитанные заметки",
+    "noteboardUnreadTitle_many": "◇ {{count}} непрочитанных заметок",
     "noteboardUnreadTitle_other": "◇ {{count}} непрочитанных заметок",
     "noteboardUnreadLine": "{{name}}: {{count}} новая заметка",
+    "noteboardUnreadLine_few": "{{name}}: {{count}} новые заметки",
+    "noteboardUnreadLine_many": "{{name}}: {{count}} новых заметок",
     "noteboardUnreadLine_other": "{{name}}: {{count}} новых заметок"
   },
   "language": {
@@ -781,7 +787,14 @@
     "tr": "Türkçe",
     "vi": "Tiếng Việt",
     "th": "ไทย",
-    "ms": "Bahasa Melayu"
+    "ms": "Bahasa Melayu",
+    "nl": "Nederlands",
+    "is": "Íslenska",
+    "hi": "हिन्दी",
+    "af": "Afrikaans",
+    "ko": "한국어",
+    "sv": "Svenska",
+    "pl": "Polski"
   },
   "memberGroups": {
     "changeColor": "Изменить цвет",
@@ -1047,6 +1060,8 @@
     "inboxOf": "Почта {{name}}",
     "replyFrom": "Отправить {{name}} как:",
     "messageCount": "{{count}} сообщение",
+    "messageCount_few": "{{count}} сообщения",
+    "messageCount_many": "{{count}} сообщений",
     "messageCount_other": "{{count}} сообщений",
     "unreadCount": "{{count}} непрочитанных",
     "deleteTitle": "Удалить сообщение",

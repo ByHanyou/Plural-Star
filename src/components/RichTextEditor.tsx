@@ -168,7 +168,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
           </TouchableOpacity>
         )}
       </View>
-      <ScrollView ref={scrollRef} style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 40 + kbHeight}} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 40 + kbHeight}} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive">
         <TextInput
           value={text}
           onChangeText={setText}
@@ -176,6 +176,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
           placeholderTextColor={T.muted}
           accessibilityLabel={i18n.t('editor.body')}
           multiline
+          scrollEnabled={false}
           autoFocus
           onSelectionChange={e => { selEndRef.current = e.nativeEvent.selection.end; }}
           onContentSizeChange={() => {

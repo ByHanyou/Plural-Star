@@ -5,7 +5,7 @@ import {T} from '../theme';
 
 export const SplashView = () => (
   <View style={[styles.loading, {backgroundColor: T.bg}]}>
-    <StatusBar barStyle="light-content" backgroundColor={T.bg} translucent={false} />
+    <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
     <Image source={require('../assets/splash-logo.png')} accessibilityElementsHidden importantForAccessibility="no" style={styles.splashLogo} resizeMode="contain" />
     <Text style={[styles.splashName, {color: T.accent}]}>Plural Star</Text>
   </View>

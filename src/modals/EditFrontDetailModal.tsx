@@ -48,7 +48,7 @@ export const EditFrontDetailModal = ({visible, theme: T, front, tier, settings, 
         }); })()}
         <TouchableOpacity onPress={() => setShowCustomMood(!showCustomMood)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{expanded: showCustomMood}} accessibilityLabel={t('modal.custom')} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, flexShrink: 0, backgroundColor: showCustomMood ? `${T.accent}20` : T.surface, borderColor: showCustomMood ? `${T.accent}60` : T.border}}><Text style={{fontSize: fs(12), color: showCustomMood ? T.accent : T.dim, fontWeight: showCustomMood ? '600' : '400'}}>{showCustomMood ? `− ${t('modal.custom')}` : `+ ${t('modal.custom')}`}</Text></TouchableOpacity>
       </View></ScrollView>
-      {showCustomMood && <TextInput value={customMood} onChangeText={setCustomMood} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted} style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginTop: 6}} />}
+      {showCustomMood && <TextInput value={customMood} onChangeText={setCustomMood} accessibilityLabel={t('modal.enterMood')} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted} style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginTop: 6}} />}
       <View style={{height: 12}} />
       <LocationPicker location={location} setLocation={setLocation} allLocations={allLocations} color={tierColor} T={T} t={t} />
       <View style={{height: 12}} />

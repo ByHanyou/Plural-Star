@@ -575,7 +575,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       )}
 
       {tabMembers.length > 3 && (
-        <TextInput ref={searchRef} defaultValue="" onChangeText={setQuery} placeholder={t('members.search')} placeholderTextColor={T.muted}
+        <TextInput ref={searchRef} defaultValue="" onChangeText={setQuery} accessibilityLabel={t('members.search')} placeholder={t('members.search')} placeholderTextColor={T.muted}
           autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
           style={[s.search, {backgroundColor: T.surface, color: T.text, borderColor: T.border}]} />
       )}

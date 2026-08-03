@@ -1,6 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import {logError} from './utils/log';
+import {FRONT_CLEARED_KEY} from './network/types';
+
+/**
+ * True for both shapes a cleared front can take: the `null` we actually write,
+ * and a tier object that happens to hold nobody. Duplicated here rather than
+ * imported from utils so storage stays free of the i18n/utils import chain.
+ */
+const frontValueIsEmpty = (v: unknown): boolean => {
+  if (v == null) return true;
+  const f = v as any;
+  if (typeof f !== 'object') return false;
+  const n = (t: any) => (t && Array.isArray(t.memberIds) ? t.memberIds.length : 0);
+  return n(f.primary) + n(f.coFront) + n(f.coConscious) === 0;
+};
 
 export const KEYS = {
   system:   'ps:system',
@@ -219,6 +233,9 @@ export const store = {
   async set(key: string, value: unknown): Promise<void> {
     const json = JSON.stringify(value);
     let asyncStorageOk = true;
+    if (key === KEYS.front && frontValueIsEmpty(value)) {
+      try { await AsyncStorage.setItem(FRONT_CLEARED_KEY, String(Date.now())); } catch (e) { logError('storage', e); }
+    }
     try {
       await AsyncStorage.setItem(key, json);
       if (STORAGE_DEBUG && CRITICAL_KEYS.has(key)) console.log(`[STORAGE] set ${key} OK (${json.length}b)`);

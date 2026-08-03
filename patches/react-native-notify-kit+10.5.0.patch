@@ -1,0 +1,18 @@
+diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java
+index 736e3eb..6e78a32 100644
+--- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java
++++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java
+@@ -120,13 +120,6 @@ public class ReceiverService extends Service {
+ 
+     NotificationModel notificationModel = NotificationModel.fromBundle(notification);
+ 
+-    // On Android 14+, users can dismiss foreground service notifications even with ongoing: true.
+-    // If the dismissed notification belongs to the active foreground service, re-post it
+-    // so the user remains aware of the running service.
+-    if (ForegroundService.repostIfActive(notificationModel.getId())) {
+-      return;
+-    }
+-
+     EventBus.post(new NotificationEvent(TYPE_DISMISSED, notificationModel));
+   }
+ 

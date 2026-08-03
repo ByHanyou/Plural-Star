@@ -39,7 +39,7 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
           <TextInput
             value={input}
             onChangeText={v => { setInput(v); if (error) setError(''); }}
-            placeholder={t('lock.passwordPlaceholder')}
+            accessibilityLabel={t('lock.passwordPlaceholder')} placeholder={t('lock.passwordPlaceholder')}
             placeholderTextColor={T.muted}
             secureTextEntry
             autoFocus

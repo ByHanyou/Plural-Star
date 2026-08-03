@@ -1,6 +1,6 @@
 {
   "name": "PluralStar",
-  "version": "1.14.4",
+  "version": "1.15.0",
   "private": true,
   "scripts": {
     "android": "node scripts/run-android.js",
@@ -22,6 +22,7 @@
     "dotenv-defaults": "^6.0.0",
     "fflate": "^0.8.3",
     "i18next": "^26.3.6",
+    "intl-pluralrules": "^2.0.1",
     "react": "19.2.8",
     "react-i18next": "^17.0.11",
     "react-native": "0.86.0",

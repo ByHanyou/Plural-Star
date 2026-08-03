@@ -467,7 +467,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
         {showNewChannel ? (
           <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8}}>
-            <TextInput value={newChannelName} onChangeText={setNewChannelName} placeholder={t('chat.channelName')} placeholderTextColor={T.muted}
+            <TextInput value={newChannelName} onChangeText={setNewChannelName} accessibilityLabel={t('chat.channelName')} placeholder={t('chat.channelName')} placeholderTextColor={T.muted}
               style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}}
               onSubmitEditing={createChannel} returnKeyType="done" autoFocus />
             <TouchableOpacity onPress={createChannel} activeOpacity={0.7} accessibilityRole="button"
@@ -515,7 +515,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
       {showMemberPicker && (
         <View style={{paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}>
-          <TextInput value={memberSearch} onChangeText={setMemberSearch} placeholder={t('chat.searchSpeaker')} placeholderTextColor={T.muted}
+          <TextInput value={memberSearch} onChangeText={setMemberSearch} accessibilityLabel={t('chat.searchSpeaker')} placeholder={t('chat.searchSpeaker')} placeholderTextColor={T.muted}
             style={{backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(13), marginBottom: 6}} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={{flexDirection: 'row', gap: 6}}>
@@ -610,7 +610,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
         <TouchableOpacity onPress={() => setShowFormatBar(!showFormatBar)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{expanded: showFormatBar}} accessibilityLabel={t('chat.formatting')} style={{padding: 4}}>
           <Text style={{fontSize: fs(14), fontWeight: '700', color: showFormatBar ? T.accent : T.dim}}>Aa</Text>
         </TouchableOpacity>
-        <TextInput value={input} onChangeText={setInput} placeholder={editingMessageId ? t('chat.editPlaceholder') : t('chat.typeMessage')} placeholderTextColor={T.muted}
+        <TextInput value={input} onChangeText={setInput} accessibilityLabel={editingMessageId ? t('chat.editPlaceholder') : t('chat.typeMessage')} placeholder={editingMessageId ? t('chat.editPlaceholder') : t('chat.typeMessage')} placeholderTextColor={T.muted}
           style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: editingMessageId ? `${T.accent}60` : T.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, fontSize: fs(14)}}
           onSubmitEditing={editingMessageId ? saveEditedMessage : sendMessage} returnKeyType={editingMessageId ? 'done' : 'send'} />
         <TouchableOpacity onPress={editingMessageId ? saveEditedMessage : sendMessage} activeOpacity={0.7}

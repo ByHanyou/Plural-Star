@@ -62,7 +62,7 @@ Build out your system roster with profile pictures, 900×300 banner images, name
 Manage your groups and subsystems from one dedicated screen — create, rename, recolor, nest, and reorganize without digging through individual member profiles.
 
 **✦ Custom Fields**  
-Define your own per-member fields beyond the built-in ones. Support for text, number, toggle, date, month/year, month, year, and markdown types. Create fields once in the Hub; fill them out per-member in the member edit modal. Fields are reorderable, renameable, and fully exportable. Compatible with Simply Plural custom field imports.
+Define your own per-member fields beyond the built-in ones. Thirteen field types: Text, Rich Text, Image, Number, Toggle, Color, Date, Date Range, Timestamp, Month, Year, Month + Year, and Month + Day. Rich Text fields (and Text fields with Markdown support enabled) take full formatting and let you **@mention other members** — tap the mention to jump straight to that profile. Create fields once in the Hub; fill them out per-member in the member edit modal. Fields are reorderable, renameable, and fully exportable. Compatible with Simply Plural custom field imports.
 
 **✉ Mailbox**  
 System-wide mail between headmates in its own Hub tile: per-member inboxes with unread badges and notification alerts, compose with From/To pickers, quick replies, pinning, and delete confirmation. Useful for leaving messages between alters, shared observations, or ongoing context that doesn't fit anywhere else — and mail syncs across your linked devices.
@@ -92,16 +92,25 @@ Write journal entries with the same editor available in member profiles. Entries
 Medication reminders, appointments, medical history, and emergency info in one Hub tile — available in both system and Observatory modes. Medications support dosage, multiple daily reminder times, notes, and a pause toggle. Appointments take a date and time, location, and a remind-before offset (at time, 30 minutes, 1 hour, or 1 day). Keep a dated medical history of conditions, surgeries, and diagnoses. The Emergency section stores conditions, allergies, and blood type — and can display them on the persistent notification, visible from the lock screen for first responders.
 
 **⇅ Import & Export**  
-Migrating from another app? Import your full system data — members, history, custom fields, and system info — from Simply Plural, PluralKit, Octocon, Ampersand, Ourcana, HiveMind, or PluralSpace, via API token or export file. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Profile pictures are imported from avatar URLs. Custom field names and values are mapped automatically with bidirectional ID normalization.
+Migrating from another app? Import your full system data — members, history, custom fields, and system info — from Simply Plural, PluralKit, Tupperbox, Octocon, Ampersand, Ourcana, HiveMind, or PluralSpace, via API token or export file. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Profile pictures are imported from avatar URLs. Custom field names and values are mapped automatically with bidirectional ID normalization.
 
-Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Granular per-category toggles — pick exactly what to export or restore: system info, members, avatars, banners, front history, journal, groups, chat, moods, palettes, settings, custom fields, noteboards, polls, System Map relationships, medical. Import `.txt`, `.md`, or `.json` files directly as journal entries.
+Every format these apps currently produce is read directly, including the awkward ones:
+
+- **PluralSpace** — both the older `data.json` export and the current account-scoped **OpenPlural** bundle (`manifest.json` + `systems/<name>/openplural.json` + per-system media). Whoever was fronting when the export was taken stays fronting after the import.
+- **Ampersand** — both their JSON export and the binary **`.ampar`** archive, read natively. Profile pictures and banners travel inside that archive and come across with everything else; their member tags become groups, and journal posts and board messages (polls included) land in your journal.
+- **PluralKit** — front history is paginated properly rather than stopping at the first hundred switches.
+
+Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Granular per-category toggles — pick exactly what to export or restore: system info, members, avatars, banners, front history, journal, groups, chat, moods, palettes, settings, custom fields, mailbox, polls, System Map relationships, medical. Import `.txt`, `.md`, or `.json` files directly as journal entries.
+
+Imports **replace** your roster rather than piling duplicates on top of it, and members that aren't in the incoming file are archived rather than deleted — so their history, chat lines, and map connections keep resolving to a name.
 
 **🌐 Multilingual**  
 
-Full interface available in English, Español, Français, Deutsch, Português, Suomi, Norsk, Italiano, Türkçe, Bahasa Melayu, Tiếng Việt, ไทย, 简体中文, 繁體中文, 日本語, Русский, and Українська — 17 languages total. Auto-detects your device language on first launch, including Traditional vs Simplified Chinese by region. Change anytime via the dropdown in System Settings.
+Full interface available in English, Español, Français, Deutsch, Nederlands, Português, Suomi, Svenska, Norsk, Íslenska, Italiano, Polski, Türkçe, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, Afrikaans, 简体中文, 繁體中文, 日本語, 한국어, Русский, and Українська — 24 languages total. Auto-detects your device language on first launch, including Traditional vs Simplified Chinese by region. Change anytime via the dropdown in System Settings.
 
 **Other Features**
 - Obsidian Blue dark theme and Steel light theme built-in, plus 10 custom palette slots — define your own four-color theme
+- Colors hub with 92 named presets across four rows (default, darker, pastel, neon) plus 24 custom color slots, used anywhere a color is picked
 - System Profile with its own banner, description, and markdown formatting — separate from member profiles
 - Profile pictures on member avatars throughout the app; banners shown on member profiles and edit screens
 - Adjustable text size — Normal, Large, or Extra Large — plus OpenDyslexic and other font choices
@@ -109,16 +118,31 @@ Full interface available in English, Español, Français, Deutsch, Português, S
 - Per-tier energy levels (1–10) for Primary, Co-Front, and Co-Conscious
 - Location tagging with optional GPS auto-fill (resolves to neighbourhood or city — raw coordinates are never stored)
 - Notification toggle in System Settings, front-check interval scheduling, and a configurable notification refresh interval
-- Pinnable journal entries and noteboard notes
+- Pinnable journal entries and mailbox messages
 - Password protection per journal entry and for the full journal
 - Searchable tag and author filters in journal
 - Member tags and named groups with multi-group assignment
 - Searchable member and Custom Front pickers in front selection
 - Per-member history with full event log
 - Custom Fronts (Sleeping, Blurry, etc.) selectable in Update Front and Retro History
-- Token and file imports from seven plural apps with co-front grouping
+- Token and file imports from eight plural apps with co-front grouping
 - Full data export and restore with per-category granularity
 - Discord community accessible directly from the Hub
+
+---
+
+## Accessibility
+
+Screen reader support is treated as a feature, not a checkbox. Every control carries a programmatic name, role, and state — including the ones that only exist as a gesture elsewhere.
+
+- **Gesture-only UI has a non-gesture path.** Drag handles, the Hub tile grips, and the whiteboard turtle expose adjustable controls with increment/decrement actions, so reordering and drawing work entirely from VoiceOver and TalkBack. Nothing interactive is hidden from a screen reader to make an audit pass — only genuinely decorative glyphs are.
+- **Every input is named.** Labels stay attached whether or not the field is empty, so the name doesn't disappear the moment you start typing.
+- **Reordering is announced positionally** ("moved to 3 of 12") rather than as a bare "moved".
+- **State is never colour-only** — selected chips, toggles, and tabs report their state to assistive tech as well as showing it.
+- **Adjustable text size** (Normal, Large, Extra Large) with an OpenDyslexic option, and layouts that hold at larger sizes.
+- **Destructive actions confirm** before removing stored data or media; clearing the whiteboard triple-confirms.
+
+Dates, times, and number formatting follow your selected app language across all 24 locales rather than defaulting to US English, and plural forms follow proper CLDR rules — including the separate few/many forms Russian, Ukrainian, and Polish require.
 
 ---
 
@@ -129,6 +153,8 @@ Everything lives on your device. No accounts, no cloud sync, no tracking, no ads
 The only outbound requests are:
 - **GPS location** (optional, off by default) — coordinates are sent to [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org) to resolve a neighbourhood or city name. Raw coordinates are never stored.
 - **Simply Plural / PluralKit import** (optional) — your token is used for a single one-time request and never stored.
+- **Avatar downloads during import** (optional) — when an export references profile pictures by URL rather than embedding them, those images are fetched once so they end up on your device. File-based imports that carry their own images, such as Ampersand `.ampar` archives and PluralSpace bundles, make no network requests at all.
+- **Friends & Syncing** (optional, off by default) — end-to-end encrypted; the relay only ever sees sealed blobs it cannot read.
 
 Full privacy policy: [https://thehanyou.github.io/Plural-Star/](https://byhanyou.github.io/Plural-Star/)
 

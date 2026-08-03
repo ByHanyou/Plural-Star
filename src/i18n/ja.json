@@ -263,9 +263,9 @@
     "active": "アクティブ",
     "archived": "アーカイブ済み",
     "noArchived": "アーカイブされたメンバーはいません。",
-    "count": "{{count}} member",
-    "count_other": "{{count}} members",
-    "countFiltered": "{{filtered}} of {{total}} members"
+    "count": "{{count}} 人のメンバー",
+    "count_other": "{{count}} 人のメンバー",
+    "countFiltered": "{{total}} 人中 {{filtered}} 人"
   },
   "history": {
     "editEntry": "編集",
@@ -389,9 +389,9 @@
     "groups": "グループ",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand インポート",
-    "ampersandHint": "Ampersand の JSON エクスポートを選択してください。Ampersand で「Export your data」を使い、JSON ファイルを選びます。バイナリのバックアップには対応していません。リリースごとに形式が変わるため、開発者も JSON を推奨しています。メンバー、カスタムフィールド、フロント履歴がシステムに追加されます。",
-    "pickAmparFile": "Ampersand の JSON エクスポートを選択",
-    "ampersandNeedsJson": "これは Ampersand の JSON エクスポートではありません。Ampersand で「Export your data」を使い、JSON ファイルを選んでください。",
+    "ampersandHint": "Ampersand のどちらのエクスポートでも選べます — バイナリの .ampar アーカイブ、または JSON ファイルです。Ampersand で「Export your data」を使ってください。メンバー、カスタムフィールド、タグ、ジャーナルの投稿、フロント履歴がシステムに追加されます。.ampar アーカイブはプロフィール画像とバナーも取り込みます。",
+    "pickAmparFile": "Ampersand のエクスポートを選択（.ampar または .json）",
+    "ampersandNeedsJson": "これは Ampersand のエクスポートではありません。Ampersand で「Export your data」を使い、.ampar アーカイブか JSON ファイルを選んでください。",
     "tupperbox": "Tupperbox",
     "tupperboxImport": "Tupperbox インポート",
     "tupperboxHint": "Tupperbox のエクスポートを選んでください。Discord で tul!export を実行し、作成された JSON ファイルをダウンロードします。メンバーとグループが取り込まれ、プロキシ括弧は後で PluralKit へエクスポートするために保持されます。",
@@ -429,7 +429,7 @@
     "exportMailFooter": "全データは Plural Star の JSON エクスポートで取得できます。",
     "amparEmpty": "このアーカイブにはメンバーやフロント履歴が見つかりませんでした。",
     "importComplete": "インポートが完了しました。",
-    "importFormatsNote": "Plural Star、Simply Plural、Octocon、Ourcana（.our または .json）、HiveMind（.json）を自動判別します。Ampersand は Ampersand タブとその JSON エクスポート、PluralSpace のエクスポートは PluralSpace タブを使用してください。",
+    "importFormatsNote": "Plural Star、Simply Plural、Octocon、Ourcana（.our または .json）、HiveMind（.json）を自動判別します。Ampersand は Ampersand タブ（.ampar または JSON）、PluralSpace のエクスポートは PluralSpace タブを使用してください。",
     "pluralSpace": "PluralSpace",
     "psImport": "PluralSpace インポート",
     "psHint": "PluralSpace のデータエクスポート（.zip）からインポートします。エクスポートを解凍し、その中の data.json ファイルを選択してください。メンバー、カスタムフィールド、フロント履歴、日記、チャット、投票がシステムに追加されます。",
@@ -719,8 +719,8 @@
     "textScaleNormal": "標準",
     "textScaleLarge": "大",
     "textScaleExtraLarge": "特大",
-    "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFont": "ディスレクシア対応フォント",
+    "dyslexicFontDesc": "本文を OpenDyslexic に切り替えます。見出しは元のフォントのままです。"
   },
   "notification": {
     "filePermTitle": "ファイルアクセス",
@@ -781,7 +781,14 @@
     "tr": "Türkçe",
     "vi": "Tiếng Việt",
     "th": "ไทย",
-    "ms": "Bahasa Melayu"
+    "ms": "Bahasa Melayu",
+    "nl": "Nederlands",
+    "is": "Íslenska",
+    "hi": "हिन्दी",
+    "af": "Afrikaans",
+    "ko": "한국어",
+    "sv": "Svenska",
+    "pl": "Polski"
   },
   "memberGroups": {
     "groupName": "グループ名",

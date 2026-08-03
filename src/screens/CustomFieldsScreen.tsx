@@ -216,7 +216,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
 
       <View style={{position: 'absolute', bottom: kbHeight, left: 0, right: 0, backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
         <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
-          <TextInput value={newName} onChangeText={setNewName} placeholder={t('customFields.fieldName')} placeholderTextColor={T.muted}
+          <TextInput value={newName} onChangeText={setNewName} accessibilityLabel={t('customFields.fieldName')} placeholder={t('customFields.fieldName')} placeholderTextColor={T.muted}
             style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
             onSubmitEditing={addField} />
           <TouchableOpacity onPress={() => setShowTypePicker(!showTypePicker)} activeOpacity={0.7}

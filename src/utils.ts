@@ -792,10 +792,17 @@ export const frontToHistoryEntry = (f: FrontState, endTime: number | null, chang
 export const uid = (): string =>
   Date.now().toString(36) + Math.random().toString(36).slice(2);
 
-const getLocale = (): string => {
+const LOCALE_OVERRIDES: Record<string, string> = {en: 'en-US', pt: 'pt-BR', zh: 'zh-Hans', zhHant: 'zh-Hant'};
+
+export const getLocale = (): string => {
   const lang = i18n.language || 'en';
-  const localeMap: Record<string, string> = {en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', pt: 'pt-BR', fi: 'fi-FI', nb: 'nb-NO', zh: 'zh-CN', ja: 'ja-JP'};
-  return localeMap[lang] || 'en-US';
+  const tag = LOCALE_OVERRIDES[lang] || lang;
+  try {
+    new Date(0).toLocaleDateString(tag);
+    return tag;
+  } catch (e) {
+    return 'en-US';
+  }
 };
 
 export const fmtTime = (ts: number): string =>

@@ -57,11 +57,19 @@ export const normHex = (c: any): string => { const s = String(c || '').trim(); r
 export const reviveIfTombstoned = (em: Member, incoming: Partial<Member>): Partial<Member> =>
   em.deleted ? { deleted: false, archived: incoming.archived ?? false } : {};
 
+export const findClaimableByName = (merged: Member[], claimed: Set<string>, name: string): number => {
+  const lower = String(name || '').toLowerCase();
+  if (!lower) return -1;
+  const eligible = (em: Member) => !claimed.has(em.id) && !em.isCustomFront && !em.isFacet && em.name.toLowerCase() === lower;
+  const unsourced = merged.findIndex(em => !em.sourceId && eligible(em));
+  if (unsourced >= 0) return unsourced;
+  return merged.findIndex(em => eligible(em));
+};
+
 export const mergeForeignMember = (merged: Member[], idMap: Record<string, string>, extId: string, incoming: Partial<Member>) => {
   const bySource = merged.findIndex(em => em.sourceId === extId);
   if (bySource >= 0) { merged[bySource] = {...merged[bySource], ...incoming, ...reviveIfTombstoned(merged[bySource], incoming), sourceId: extId}; idMap[extId.replace(/^[a-z]+:/, '')] = merged[bySource].id; return; }
-  const lower = String(incoming.name || '').toLowerCase();
-  const byName = merged.findIndex(em => !em.sourceId && em.name.toLowerCase() === lower);
+  const byName = findClaimableByName(merged, new Set(Object.values(idMap)), String(incoming.name || ''));
   if (byName >= 0) { merged[byName] = {...merged[byName], ...incoming, ...reviveIfTombstoned(merged[byName], incoming), sourceId: extId}; idMap[extId.replace(/^[a-z]+:/, '')] = merged[byName].id; return; }
   const nid = uid();
   merged.push({id: nid, sourceId: extId, tags: [], groupIds: [], customFields: [], ...incoming} as Member);
@@ -70,7 +78,10 @@ export const mergeForeignMember = (merged: Member[], idMap: Record<string, strin
 
 export const finalizeMemberReplace = (merged: Member[], idMap: Record<string, string>): Member[] => {
   const kept = new Set(Object.values(idMap));
-  return merged.filter(m => m.isCustomFront || kept.has(m.id));
+  return merged.map(m => {
+    if (m.isCustomFront || m.isFacet || m.deleted || kept.has(m.id)) return m;
+    return {...m, archived: true, deleted: true};
+  });
 };
 
 export const historySig = (e: HistoryEntry): string =>
@@ -89,6 +100,177 @@ export const mergeMediaIntoMembers = <K extends 'avatar' | 'banner'>(list: Membe
   list.map(member => mediaMap[member.id] ? {...member, [field]: mediaMap[member.id]} : member);
 
 export const psTime = (v: any): number => { if (!v) return 0; const ms = new Date(String(v)).getTime(); return isNaN(ms) ? 0 : ms; };
+
+/**
+ * PluralSpace replaced its flat `data.json` export with an account-scoped
+ * bundle in the OpenPlural interchange format:
+ *
+ *   manifest.json                            { format: "openplural", systems: [...] }
+ *   account/account.json
+ *   systems/<slug>/openplural.json           <- the actual system
+ *   systems/<slug>/media/...
+ *
+ * Nothing about it matches the old shape — every collection was renamed, media
+ * moved behind an asset table, and member role/status became a taxonomy. Rather
+ * than fork the whole importer, normalise an OpenPlural system back into the
+ * legacy shape the rest of the PS path already consumes, so old exports and new
+ * ones travel the same code.
+ */
+export const isOpenPluralSystem = (o: any): boolean =>
+  !!o && typeof o === 'object' && typeof o.openplural_version === 'string'
+  && Array.isArray(o.members) && Array.isArray(o.front_periods);
+
+export const normalizeOpenPlural = (root: any, mediaPrefix = ''): any | null => {
+  if (!isOpenPluralSystem(root)) return null;
+  const sys = (Array.isArray(root.systems) ? root.systems : [])[0] || {};
+  const assets = new Map<string, any>();
+  for (const a of Array.isArray(root.assets) ? root.assets : []) if (a && a.id) assets.set(String(a.id), a);
+  // asset.uri is relative to the system folder ("media/x.jpg"), but zip entries
+  // are keyed from the archive root, so re-attach the prefix we found it under.
+  const assetPath = (id: any): string => {
+    const a = id ? assets.get(String(id)) : null;
+    const uri = a && a.uri ? String(a.uri) : '';
+    return uri ? `${mediaPrefix}${uri}` : '';
+  };
+
+  const terms = new Map<string, any>();
+  for (const t of Array.isArray(root.taxonomy_terms) ? root.taxonomy_terms : []) if (t && t.id) terms.set(String(t.id), t);
+  // Member "role" is no longer a column — it is a taxonomy term of kind 'role'
+  // assigned to the member. Terms of kind 'status' hang off front periods.
+  const rolesByMember = new Map<string, string[]>();
+  for (const a of Array.isArray(root.taxonomy_assignments) ? root.taxonomy_assignments : []) {
+    if (!a || a.subject_type !== 'member') continue;
+    const term = terms.get(String(a.term_id));
+    if (!term || term.kind !== 'role' || !term.name) continue;
+    const key = String(a.subject_id);
+    rolesByMember.set(key, [...(rolesByMember.get(key) || []), String(term.name)]);
+  }
+
+  const fieldNames = new Map<string, string>();
+  for (const f of Array.isArray(root.custom_fields) ? root.custom_fields : []) if (f && f.id) fieldNames.set(String(f.id), String(f.name || ''));
+  const valuesByMember = new Map<string, {field_name: string; value: any}[]>();
+  for (const v of Array.isArray(root.custom_field_values) ? root.custom_field_values : []) {
+    if (!v) continue;
+    const owner = String(v.member_id || v.subject_id || '');
+    const name = fieldNames.get(String(v.custom_field_id || v.field_id)) || String(v.field_name || '');
+    if (!owner || !name) continue;
+    valuesByMember.set(owner, [...(valuesByMember.get(owner) || []), {field_name: name, value: v.value}]);
+  }
+
+  const groupsByMember = new Map<string, string[]>();
+  for (const gm of Array.isArray(root.group_memberships) ? root.group_memberships : []) {
+    if (!gm) continue;
+    const key = String(gm.member_id || '');
+    if (!key) continue;
+    groupsByMember.set(key, [...(groupsByMember.get(key) || []), String(gm.group_id || '')]);
+  }
+
+  const members = (Array.isArray(root.members) ? root.members : []).map((m: any) => ({
+    id: m?.id,
+    name: m?.name,
+    display_name: m?.display_name,
+    pronouns: m?.pronouns,
+    description: m?.description,
+    color: m?.color,
+    role: (rolesByMember.get(String(m?.id)) || []).join(', '),
+    is_archived: !!m?.archived,
+    is_custom_front: !!m?.is_custom_front,
+    avatar_media_path: assetPath(m?.avatar_asset_id),
+    banner_media_path: assetPath(m?.banner_asset_id),
+    groups: groupsByMember.get(String(m?.id)) || [],
+    custom_field_values: valuesByMember.get(String(m?.id)) || [],
+    created_at: m?.created_at,
+  }));
+
+  const periods = Array.isArray(root.front_periods) ? root.front_periods : [];
+  const at = (v: any): number => { if (!v) return 0; const ms = new Date(String(v)).getTime(); return isNaN(ms) ? 0 : ms; };
+
+  /**
+   * OpenPlural dropped `is_live`, and PluralSpace CLOSES the fronting period
+   * when it writes the export — so read literally, every import ends with
+   * nobody fronting. Reopen the newest period, but only when it ends flush
+   * against the export, which is unambiguous in practice: in the reference
+   * export the newest period ends 26s before `exported_at` and the one before
+   * it ends 3 hours before. A front the user genuinely ended earlier stays
+   * ended — silently resurrecting those is the bug class fixed on 08-03.
+   */
+  const LIVE_AT_EXPORT_MS = 5 * 60 * 1000;
+  const exportedAt = at(root.exported_at);
+  let liveEnd = 0;
+  if (exportedAt > 0) {
+    for (const p of periods) { const e = at(p?.ended_at); if (e > liveEnd) liveEnd = e; }
+    const gap = exportedAt - liveEnd;
+    if (!(liveEnd > 0 && gap >= 0 && gap <= LIVE_AT_EXPORT_MS)) liveEnd = 0;
+  }
+
+  // One period can name several members at different tiers; the legacy shape is
+  // one row per member, so flatten. 'member' is PluralSpace's plain fronting
+  // role and maps to primary front, same as 'primary'.
+  const fronts: any[] = [];
+  for (const p of periods) {
+    if (!p) continue;
+    // Co-fronters share the period's end instant, so compare on the value and
+    // every row of that final group reopens together.
+    const live = !p.ended_at || (liveEnd > 0 && at(p.ended_at) === liveEnd);
+    const assignments = Array.isArray(p.assignments) && p.assignments.length ? p.assignments : [{member_id: p.member_id, front_role: 'primary'}];
+    for (const a of assignments) {
+      if (!a || !a.member_id) continue;
+      const role = String(a.front_role || 'primary');
+      fronts.push({
+        id: p.id,
+        member_id: a.member_id,
+        type: role === 'co_front' ? 'co_front' : role === 'co_conscious' || role === 'co_con' ? 'co_con' : 'front',
+        started_at: p.started_at,
+        ended_at: live ? null : p.ended_at,
+        comment: a.note || p.note || '',
+        is_live: live,
+      });
+    }
+  }
+
+  const messagesByConv = new Map<string, any[]>();
+  const chat = root.chat && typeof root.chat === 'object' ? root.chat : {};
+  for (const msg of Array.isArray(chat.messages) ? chat.messages : []) {
+    if (!msg) continue;
+    const key = String(msg.conversation_id || '');
+    messagesByConv.set(key, [...(messagesByConv.get(key) || []), msg]);
+  }
+
+  return {
+    system: {
+      id: sys.id,
+      name: sys.name,
+      description: sys.description,
+      color: sys.color,
+      avatar_media_path: assetPath(sys.avatar_asset_id),
+      banner_media_path: assetPath(sys.banner_asset_id),
+    },
+    members,
+    fronts,
+    custom_fields: (Array.isArray(root.custom_fields) ? root.custom_fields : []).map((f: any) => ({
+      id: f?.id, name: f?.name, field_type: f?.field_type, is_multiple: false, values: [],
+    })),
+    member_groups: (Array.isArray(root.groups) ? root.groups : []).map((g: any) => ({
+      id: g?.id, name: g?.name, color: g?.color, description: g?.description,
+    })),
+    journal_entries: (Array.isArray(root.notes) ? root.notes : []).map((n: any) => ({
+      id: n?.id,
+      title: n?.title,
+      body: n?.body,
+      created_at: n?.created_at || n?.entry_date,
+      member_id: n?.member_id,
+      author_member_ids: Array.isArray(n?.author_member_ids) ? n.author_member_ids : [],
+    })),
+    chat_channels: (Array.isArray(chat.conversations) ? chat.conversations : []).map((c: any) => ({
+      id: c?.id,
+      name: c?.name || c?.title,
+      messages: (messagesByConv.get(String(c?.id)) || []).map((m: any) => ({
+        id: m?.id, member_id: m?.member_id || m?.author_member_id, content: m?.body ?? m?.content, created_at: m?.created_at,
+      })),
+    })),
+    polls: Array.isArray(root.polls?.polls) ? root.polls.polls : [],
+  };
+};
 
 export const convertPluralSpaceFronts = (fronts: any[], idMap: Record<string, string>): HistoryEntry[] => {
   type PsEntry = {mid: string; tier: 'front' | 'co_front' | 'co_con'; startTime: number; endTime: number | null; live: boolean; note: string};

@@ -1,7 +1,7 @@
 import {useEffect, useRef} from 'react';
 import {AppState} from 'react-native';
 import {FrontState, Member, AppSettings} from '../utils';
-import {showFrontNotification, clearFrontNotification, showFriendUpdateAlert, scheduleFrontCheckReminder, cancelFrontCheckReminder, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh} from '../services/NotificationService';
+import {showFrontNotification, clearFrontNotification, showFriendUpdateAlert, scheduleFrontCheckReminder, cancelFrontCheckReminder, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh, clearFrontDismissGuard} from '../services/NotificationService';
 import {NetworkManager} from '../network/NetworkManager';
 import {friendNotifyLevel} from '../network/types';
 import {logError} from '../utils/log';
@@ -62,13 +62,19 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
     return () => clearInterval(interval);
   }, [front, members, appSettings.notificationsEnabled, persistent, systemName]);
 
-  const frontNotifRef = useRef({front, members, systemName, enabled: appSettings.notificationsEnabled && persistent});
-  frontNotifRef.current = {front, members, systemName, enabled: appSettings.notificationsEnabled && persistent};
+  useEffect(() => {
+    clearFrontDismissGuard();
+  }, [appSettings.notificationsEnabled, persistent]);
+
+  const frontNotifRef = useRef({front, members, systemName, enabled: appSettings.notificationsEnabled && persistent, refreshMins: appSettings.notificationRefreshMinutes || 30});
+  frontNotifRef.current = {front, members, systemName, enabled: appSettings.notificationsEnabled && persistent, refreshMins: appSettings.notificationRefreshMinutes || 30};
   useEffect(() => {
     const sub = AppState.addEventListener('change', s => {
       if (s !== 'active' || !frontNotifRef.current.enabled) return;
-      const {front: f, members: m, systemName: n} = frontNotifRef.current;
+      clearFrontDismissGuard();
+      const {front: f, members: m, systemName: n, refreshMins} = frontNotifRef.current;
       showFrontNotification(f, m, n).catch(e => logError('notif', e));
+      if (f && refreshMins > 0) scheduleFrontNotificationRefresh(f, m, refreshMins).catch(e => logError('notif', e));
     });
     return () => sub.remove();
   }, []);

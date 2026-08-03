@@ -180,6 +180,19 @@ const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback:
 };
 
 let fgsBound = false;
+let frontDismissGuard: string | null = null;
+
+export const clearFrontDismissGuard = () => {
+  frontDismissGuard = null;
+};
+
+export const noteFrontNotifDismissed = async () => {
+  if (Platform.OS !== 'android') return;
+  frontDismissGuard = lastFrontSig || '';
+  try { await notifee.cancelTriggerNotification(NOTIF_ID); } catch (e) { logError('notif', e); }
+};
+
+let lastFrontSig = '';
 
 const buildFriendLines = (): string[] => {
   const st = NetworkManager.getState();
@@ -370,20 +383,18 @@ export const showFrontNotification = async (
       try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
     }
 
+    const sig = JSON.stringify([title, body, ownBig]);
+    if (frontDismissGuard !== null && sig === frontDismissGuard) return;
+
     await notifee.displayNotification({
       id: NOTIF_ID,
       title,
       body,
-      // Always a foreground service, not just when sync is on. A plain ongoing
-      // notification is owned by the app process: the moment Android reclaims
-      // the process — battery optimisation, Doze, memory pressure, and Samsung
-      // especially — the notification goes with it, which is the "it vanishes
-      // after a few hours" report. A foreground service is what tells the OS to
-      // keep it alive. Whitelisting the app in battery settings does not fix
-      // this on its own, which is why that user's attempt didn't hold.
       android: {...frontAndroidConfig(ownBig, [], onlineLabel), asForegroundService: true},
     });
     fgsBound = true;
+    lastFrontSig = sig;
+    frontDismissGuard = null;
   } catch (e) {
     console.error('[PluralSpace] Notification error:', e);
   }
@@ -442,6 +453,7 @@ export const reassertFrontNotification = async () => {
     // display. One re-assert per minute is all resurrection ever needs.
     const now = Date.now();
     if (now - lastReassert < 60000) return;
+    if (frontDismissGuard !== null) return;
     lastReassert = now;
     // Lazy require: index.js calls this before React exists; keep the module
     // graph for the headless path as small as possible.

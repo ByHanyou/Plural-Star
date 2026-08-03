@@ -5,7 +5,8 @@ import {store, KEYS} from '../storage';
 import {saveBannerFromUrl} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
 import {normalizeSpAvatarUrl, spAvatarCandidates, downloadFirstAvatar} from './spApi';
-import {convertSPSwitches, convertPKSwitches, finalizeMemberReplace} from './convert';
+import {convertSPSwitches, convertPKSwitches, finalizeMemberReplace, findClaimableByName, reviveIfTombstoned} from './convert';
+import {isImportStopped} from './progress';
 import {applyImportedHistory} from './restore';
 
 export type ExtApplyCtx = {
@@ -57,15 +58,14 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
             if (extId) {
               const idx = merged.findIndex(em => em.sourceId === extId);
               if (idx >= 0) {
-                merged[idx] = {...merged[idx], ...incoming, sourceId: extId};
+                merged[idx] = {...merged[idx], ...incoming, ...reviveIfTombstoned(merged[idx], incoming), sourceId: extId};
                 idMap[extId] = merged[idx].id;
                 if (isPK && m.id && m.id !== extId) idMap[m.id] = merged[idx].id;
                 return;
               }
-              const lowerName = String(incoming.name).toLowerCase();
-              const idx2 = merged.findIndex(em => !em.sourceId && em.name.toLowerCase() === lowerName);
+              const idx2 = findClaimableByName(merged, new Set(Object.values(idMap)), String(incoming.name));
               if (idx2 >= 0) {
-                merged[idx2] = {...merged[idx2], ...incoming, sourceId: extId};
+                merged[idx2] = {...merged[idx2], ...incoming, ...reviveIfTombstoned(merged[idx2], incoming), sourceId: extId};
                 idMap[extId] = merged[idx2].id;
                 if (isPK && m.id && m.id !== extId) idMap[m.id] = merged[idx2].id;
                 return;
@@ -345,6 +345,13 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
         setExtPreview(null); setExtToken(''); setTimeout(() => onDataImported(), 500);
         } catch (e: any) {
           setRestoreProgress('');
+          // A user cancel arrives here as ImportStopped. Reporting it as
+          // "Import failed" made a deliberate stop look like a crash.
+          if (isImportStopped(e)) {
+            setExtPreview(null); setExtToken(''); setTimeout(() => onDataImported(), 500);
+            Alert.alert(t('share.importStopped', {count: e?.completedCount ?? 0}));
+            return;
+          }
           console.error('[EXT-IMPORT] failed:', e);
           Alert.alert(t('share.importFailed'), t('share.importPartialError', {error: e?.message || String(e)}));
         }

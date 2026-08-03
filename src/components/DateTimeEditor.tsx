@@ -4,6 +4,7 @@ import {Text, TextInput} from './AppText';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import i18n from '../i18n/i18n';
+import {getLocale} from '../utils';
 
 export type DateTimeEditorMode =
   | 'datetime'
@@ -154,14 +155,15 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
   };
 
   const fmtSummary = () => {
-    if (mode === 'time') return date.toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
+    const loc = getLocale();
+    if (mode === 'time') return date.toLocaleTimeString(loc, {hour: 'numeric', minute: '2-digit'});
     if (mode === 'year') return String(year);
-    if (mode === 'month') return date.toLocaleDateString(undefined, {month: 'long'});
-    if (mode === 'monthYear') return date.toLocaleDateString(undefined, {month: 'short', year: 'numeric'});
-    if (mode === 'monthDay') return date.toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
-    if (mode === 'date') return date.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
-    const datePart = date.toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'});
-    const timePart = date.toLocaleTimeString(undefined, {hour: 'numeric', minute: '2-digit'});
+    if (mode === 'month') return date.toLocaleDateString(loc, {month: 'long'});
+    if (mode === 'monthYear') return date.toLocaleDateString(loc, {month: 'short', year: 'numeric'});
+    if (mode === 'monthDay') return date.toLocaleDateString(loc, {month: 'short', day: 'numeric'});
+    if (mode === 'date') return date.toLocaleDateString(loc, {month: 'short', day: 'numeric', year: 'numeric'});
+    const datePart = date.toLocaleDateString(loc, {month: 'short', day: 'numeric', year: 'numeric'});
+    const timePart = date.toLocaleTimeString(loc, {hour: 'numeric', minute: '2-digit'});
     return `${datePart}  ${timePart}`;
   };
 

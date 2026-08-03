@@ -24,7 +24,7 @@
 - Built-in dark and light palettes plus custom palettes.
 - Text scaling.
 - Optional OpenDyslexic default font.
-- Multi-language UI in `src/i18n/` (17 locales: en, es, fr, de, pt, fi, nb, it, tr, ms, vi, th, zh, zhHant, ja, ru, uk). zh-Hant auto-detected via script/region codes.
+- Multi-language UI in `src/i18n/` (24 locales: en, es, fr, de, nl, pt, fi, sv, nb, is, it, pl, tr, ms, vi, th, hi, af, zh, zhHant, ja, ko, ru, uk). zh-Hant auto-detected via script/region codes.
 - Local notifications for front state (with configurable refresh interval), front checks (Status Check in singlet mode), and noteboard activity.
 
 ## Platform

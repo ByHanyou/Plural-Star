@@ -1,13 +1,15 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import {strFromU8} from 'fflate';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, ChatChannel, ChatMessage, MemberPoll, CustomFieldDef, CustomFieldType, CustomFieldValue, uid} from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
 import {readZipBundle, base64FromU8} from '../export/exportUtils';
 import {saveAvatar} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
-import {mergeForeignMember, normHex, psTime, finalizeMemberReplace, convertPluralSpaceFronts} from './convert';
+import {mergeForeignMember, normHex, psTime, finalizeMemberReplace, convertPluralSpaceFronts, normalizeOpenPlural, isOpenPluralSystem} from './convert';
+import {isImportStopped} from './progress';
 import {applyImportedHistory, downloadAvatarsTo} from './restore';
 
 export type PluralSpaceCtx = {
@@ -42,6 +44,18 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
         try { bundle = await readZipBundle(path); }
         catch { bundle = await readZipBundle(res.uri || path); }
         parsed = bundle?.data;
+        // Newer PluralSpace exports are OpenPlural bundles: no data.json at the
+        // root, the system sits at systems/<slug>/openplural.json and its media
+        // paths are relative to that folder.
+        if (!parsed && bundle) {
+          const entry = Object.keys(bundle.files).find(n => /(^|\/)openplural\.json$/i.test(n));
+          if (entry) {
+            try {
+              const root = JSON.parse(strFromU8(bundle.files[entry]));
+              parsed = normalizeOpenPlural(root, entry.replace(/openplural\.json$/i, ''));
+            } catch { parsed = null; }
+          }
+        }
         if (!parsed) throw new Error(t('share.psNotExport'));
         setPsZipFiles(bundle!.files);
       } else {
@@ -49,8 +63,10 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
         try { raw = await ReactNativeBlobUtil.fs.readFile(path, 'utf8'); }
         catch { raw = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'utf8'); }
         try { parsed = JSON.parse(raw); } catch { throw new Error(t('share.psNotExport')); }
+        // A bare openplural.json can be picked too; it just has no media.
+        if (isOpenPluralSystem(parsed)) parsed = normalizeOpenPlural(parsed);
       }
-      const ok = !parsed._meta && parsed.system && typeof parsed.system === 'object' && Array.isArray(parsed.members) && Array.isArray(parsed.fronts);
+      const ok = !parsed?._meta && parsed?.system && typeof parsed.system === 'object' && Array.isArray(parsed.members) && Array.isArray(parsed.fronts);
       if (!ok) throw new Error(t('share.psNotExport'));
       setExtPreview({
         system: parsed.system,
@@ -307,7 +323,11 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
           setImportStatus('success'); setImportMsg(t('share.importComplete'));
           setExtPreview(null);
           setTimeout(() => onDataImported(), 800);
-        } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric')); }
+        } catch (e: any) {
+          // A user cancel arrives as ImportStopped — a deliberate stop, not a failure.
+          if (isImportStopped(e)) { setRestoreProgress(''); setImportStatus('success'); setImportMsg(t('share.importStopped', {count: e?.completedCount ?? 0})); setExtPreview(null); setTimeout(() => onDataImported(), 800); return; }
+          setRestoreProgress(''); setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric'));
+        }
       }},
     ]);
   };

@@ -12,7 +12,7 @@ import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 import {GroupBrowser} from '../components/GroupBrowser';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, colorName} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, colorName, isRosterMember} from '../utils';
 
 interface Props {
   theme: ThemeColors;
@@ -221,7 +221,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     seen.add(g.id);
     const isEditing = editId === g.id;
     const isSub = groupKind(g) === 'subsystem';
-    const memberCount = members.filter(m => !m.isCustomFront && !m.isFacet && (m.groupIds || []).includes(g.id)).length;
+    const memberCount = members.filter(m => isRosterMember(m) && (m.groupIds || []).includes(g.id)).length;
     const moving = movingIds;
     const canDrop = !!moving && !moving.includes(g.id) && !moving.some(id => isDescendant(groups, g.id, id));
     const isSelected = selectedIds.includes(g.id);
@@ -522,7 +522,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
         <TouchableOpacity onPress={() => setShowNewColor(s => !s)}
           accessibilityRole="button" accessibilityState={{expanded: showNewColor}} accessibilityLabel={`${t('memberGroups.changeColor')}, ${colorName(newColor, t)}`}
           style={{width: 28, height: 28, borderRadius: newKind === 'subsystem' ? 6 : 14, backgroundColor: newColor, borderWidth: 2, borderColor: showNewColor ? '#fff' : 'rgba(255,255,255,0.15)'}} />
-        <TextInput value={newName} onChangeText={setNewName} placeholder={t('memberGroups.addPlaceholder')} placeholderTextColor={T.muted}
+        <TextInput value={newName} onChangeText={setNewName} accessibilityLabel={t('memberGroups.addPlaceholder')} placeholder={t('memberGroups.addPlaceholder')} placeholderTextColor={T.muted}
           style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: fs(13)}} onSubmitEditing={addNode} returnKeyType="done" />
         <TouchableOpacity onPress={() => setNewKind(k => k === 'group' ? 'subsystem' : 'group')} activeOpacity={0.7} accessibilityRole="button"
           style={{paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>

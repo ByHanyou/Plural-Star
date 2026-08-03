@@ -263,9 +263,9 @@
     "active": "Ativos",
     "archived": "Arquivados",
     "noArchived": "Nenhum membro arquivado.",
-    "count": "{{count}} member",
-    "count_other": "{{count}} members",
-    "countFiltered": "{{filtered}} of {{total}} members"
+    "count": "{{count}} membro",
+    "count_other": "{{count}} membros",
+    "countFiltered": "{{filtered}} de {{total}} membros"
   },
   "history": {
     "editEntry": "Editar",
@@ -389,9 +389,9 @@
     "groups": "Grupos",
     "ampersand": "Ampersand",
     "ampersandImport": "Importar do Ampersand",
-    "ampersandHint": "Escolhe a exportação JSON do Ampersand. No Ampersand, usa «Export your data» e escolhe o arquivo JSON. O backup binário não é suportado — o formato muda entre versões, por isso o desenvolvedor recomenda JSON. Membros, campos personalizados e histórico de frente serão adicionados ao teu sistema.",
-    "pickAmparFile": "Escolher exportação JSON do Ampersand",
-    "ampersandNeedsJson": "Isso não é uma exportação JSON do Ampersand. No Ampersand, usa «Export your data» e escolhe o arquivo JSON.",
+    "ampersandHint": "Escolhe qualquer uma das exportações do Ampersand — o arquivo binário .ampar ou o arquivo JSON. No Ampersand, usa «Export your data». Membros, campos personalizados, etiquetas, entradas do diário e histórico de frente serão adicionados ao teu sistema; o arquivo .ampar também traz as fotos de perfil e os banners.",
+    "pickAmparFile": "Escolher exportação do Ampersand (.ampar ou .json)",
+    "ampersandNeedsJson": "Isso não é uma exportação do Ampersand. No Ampersand, usa «Export your data» e escolhe o arquivo .ampar ou o arquivo JSON.",
     "tupperbox": "Tupperbox",
     "tupperboxImport": "Importação do Tupperbox",
     "tupperboxHint": "Escolhe uma exportação do Tupperbox. No Discord, executa tul!export e baixa o arquivo JSON criado. Membros e seus grupos são importados; os colchetes de proxy são mantidos para uma futura exportação ao PluralKit.",
@@ -429,7 +429,7 @@
     "exportMailFooter": "Dados completos disponíveis exportando JSON do Plural Star.",
     "amparEmpty": "Nenhum membro ou histórico de frente encontrado neste arquivo.",
     "importComplete": "Importação concluída.",
-    "importFormatsNote": "Detecta automaticamente Plural Star, Simply Plural, Octocon, Ourcana (.our ou .json) e HiveMind (.json). Para Ampersand, usa a aba Ampersand e a exportação JSON deles; para exportações do PluralSpace, usa a aba PluralSpace.",
+    "importFormatsNote": "Detecta automaticamente Plural Star, Simply Plural, Octocon, Ourcana (.our ou .json) e HiveMind (.json). Para Ampersand, usa a aba Ampersand (.ampar ou JSON); para exportações do PluralSpace, usa a aba PluralSpace.",
     "pluralSpace": "PluralSpace",
     "psImport": "Importar do PluralSpace",
     "psHint": "Importa de uma exportação de dados do PluralSpace (.zip). Descompacta a exportação e escolhe o arquivo data.json dentro dela. Membros, campos personalizados, histórico de frente, entradas de diário, chat e enquetes serão adicionados ao teu sistema.",
@@ -719,8 +719,8 @@
     "textScaleNormal": "Normal",
     "textScaleLarge": "Grande",
     "textScaleExtraLarge": "Extra Grande",
-    "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFont": "Fonte para dislexia",
+    "dyslexicFontDesc": "Muda o texto do corpo para OpenDyslexic. Os títulos mantêm a fonte deles."
   },
   "notification": {
     "chatPingTitle": "◆ {{speaker}} avisou você em #{{channel}}",
@@ -781,7 +781,14 @@
     "tr": "Türkçe",
     "vi": "Tiếng Việt",
     "th": "ไทย",
-    "ms": "Bahasa Melayu"
+    "ms": "Bahasa Melayu",
+    "nl": "Nederlands",
+    "is": "Íslenska",
+    "hi": "हिन्दी",
+    "af": "Afrikaans",
+    "ko": "한국어",
+    "sv": "Svenska",
+    "pl": "Polski"
   },
   "memberGroups": {
     "changeColor": "Alterar cor",

@@ -2,7 +2,7 @@ import React, {useState, useEffect, useCallback, useMemo, useRef} from 'react';
 import {View, StyleSheet, StatusBar, Alert, AppState, BackHandler, Platform} from 'react-native';
 import {setAppTextFont} from './src/components/AppText';
 import {fontFamilyForChoice} from './src/theme';
-import {SafeAreaProvider} from 'react-native-safe-area-context';
+import {SafeAreaProvider, SafeAreaView} from 'react-native-safe-area-context';
 import {KeyboardProvider} from 'react-native-keyboard-controller';
 import {useTranslation} from 'react-i18next';
 
@@ -491,8 +491,13 @@ function MainAppContent() {
 
   if (firstRun) {
     return (
-      <>
-        <StatusBar barStyle="light-content" backgroundColor={C.bg} translucent={false} />
+      // targetSdk 36 enforces edge-to-edge, so StatusBar backgroundColor and
+      // translucent={false} are both no-ops — the system bar area falls through
+      // to the window background, which Theme.AppCompat.DayNight paints WHITE in
+      // day mode. The main app never showed it because its root View covers the
+      // window; these two early returns rendered a bare fragment and did not.
+      <SafeAreaView edges={['top']} style={[styles.root, {backgroundColor: C.bg}]}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <SetupScreen theme={C} onSave={async s => {
           await saveSystem({name: s.name, description: s.description});
           if (s.singlet) {
@@ -502,16 +507,16 @@ function MainAppContent() {
           }
           setFirstRun(false); setTimeout(requestPermissions, 500);
         }} />
-      </>
+      </SafeAreaView>
     );
   }
 
   if (locked && appSettings.appLockPassword) {
     return (
-      <>
-        <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor={C.bg} translucent={false} />
+      <SafeAreaView edges={['top']} style={[styles.root, {backgroundColor: C.bg}]}>
+        <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor="transparent" translucent />
         <LockScreen theme={C} password={appSettings.appLockPassword} systemName={system.name} onUnlock={() => setLocked(false)} />
-      </>
+      </SafeAreaView>
     );
   }
 

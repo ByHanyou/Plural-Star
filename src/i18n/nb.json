@@ -263,9 +263,9 @@
     "active": "Aktiv",
     "archived": "Arkivert",
     "noArchived": "Ingen arkiverte medlemmer.",
-    "count": "{{count}} member",
-    "count_other": "{{count}} members",
-    "countFiltered": "{{filtered}} of {{total}} members"
+    "count": "{{count}} medlem",
+    "count_other": "{{count}} medlemmer",
+    "countFiltered": "{{filtered}} av {{total}} medlemmer"
   },
   "history": {
     "editEntry": "Rediger",
@@ -389,9 +389,9 @@
     "groups": "Grupper",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand-import",
-    "ampersandHint": "Velg Ampersands JSON-eksport. I Ampersand bruker du «Export your data» og velger JSON-filen. Den binære sikkerhetskopien støttes ikke — formatet endres mellom versjoner, derfor anbefaler utvikleren JSON. Medlemmer, egendefinerte felt og fronthistorikk legges til i systemet ditt.",
-    "pickAmparFile": "Velg Ampersands JSON-eksport",
-    "ampersandNeedsJson": "Dette er ikke en JSON-eksport fra Ampersand. I Ampersand bruker du «Export your data» og velger JSON-filen.",
+    "ampersandHint": "Velg hvilken som helst av Ampersands eksporter — det binære .ampar-arkivet eller JSON-filen deres. I Ampersand bruker du «Export your data». Medlemmer, egendefinerte felt, etiketter, dagbokinnlegg og fronthistorikk legges til i systemet ditt; .ampar-arkivet tar også med profilbilder og bannere.",
+    "pickAmparFile": "Velg Ampersand-eksport (.ampar eller .json)",
+    "ampersandNeedsJson": "Dette er ikke en eksport fra Ampersand. I Ampersand bruker du «Export your data» og velger .ampar-arkivet eller JSON-filen.",
     "tupperbox": "Tupperbox",
     "tupperboxImport": "Tupperbox-import",
     "tupperboxHint": "Velg en Tupperbox-eksport. Kjør tul!export i Discord og last ned JSON-filen som lages. Medlemmer og gruppene deres importeres; proxy-parenteser beholdes for senere PluralKit-eksport.",
@@ -429,7 +429,7 @@
     "exportMailFooter": "Alle data tilgjengelig ved å eksportere JSON fra Plural Star.",
     "amparEmpty": "Fant ingen medlemmer eller fronthistorikk i dette arkivet.",
     "importComplete": "Import fullført.",
-    "importFormatsNote": "Gjenkjenner automatisk Plural Star, Simply Plural, Octocon, Ourcana (.our eller .json) og HiveMind (.json). For Ampersand, bruk Ampersand-fanen og deres JSON-eksport; for PluralSpace-eksporter, bruk PluralSpace-fanen.",
+    "importFormatsNote": "Gjenkjenner automatisk Plural Star, Simply Plural, Octocon, Ourcana (.our eller .json) og HiveMind (.json). For Ampersand, bruk Ampersand-fanen (.ampar eller JSON); for PluralSpace-eksporter, bruk PluralSpace-fanen.",
     "pluralSpace": "PluralSpace",
     "psImport": "PluralSpace-import",
     "psHint": "Importer fra en PluralSpace-dataeksport (.zip). Pakk ut eksporten og velg data.json-filen inni. Medlemmer, egendefinerte felt, fronthistorikk, dagbokinnlegg, chat og avstemninger legges til i systemet ditt.",
@@ -719,8 +719,8 @@
     "headmateName": "Medlemsnavn",
     "noteOptional": "Notat (valgfritt)",
     "updateFront": "Oppdater front",
-    "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFont": "Dyslektikervennlig skrift",
+    "dyslexicFontDesc": "Bytter brødteksten til OpenDyslexic. Overskrifter beholder sin egen skrift."
   },
   "notification": {
     "chatPingTitle": "◆ {{speaker}} pinget deg i #{{channel}}",
@@ -781,7 +781,14 @@
     "tr": "Türkçe",
     "vi": "Tiếng Việt",
     "th": "ไทย",
-    "ms": "Bahasa Melayu"
+    "ms": "Bahasa Melayu",
+    "nl": "Nederlands",
+    "is": "Íslenska",
+    "hi": "हिन्दी",
+    "af": "Afrikaans",
+    "ko": "한국어",
+    "sv": "Svenska",
+    "pl": "Polski"
   },
   "memberGroups": {
     "changeColor": "Endre farge",

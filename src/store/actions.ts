@@ -103,7 +103,7 @@ export const saveMedical = async (d: MedicalData) => {
   setEmergencyNotificationInfo(null);
   await rescheduleMedicationReminders(d.medications || []);
   await rescheduleAppointmentReminders(d.appointments || []);
-  if (appSettings.notificationsEnabled) {
+  if (appSettings.notificationsEnabled && appSettings.persistentFrontNotif !== false) {
     showFrontNotification(front, members, system.name).catch(e => console.error('[PS] notif error:', e));
   }
 };

@@ -29,10 +29,10 @@ export const SetupScreen = ({theme: T, onSave}: Props) => {
         <Text style={[s.sub, {color: T.dim}]}>{singlet ? t('setup.subtitleSinglet') : t('setup.subtitle')}</Text>
         <View style={s.form}>
           <Text style={[s.label, {color: T.dim}]}>{singlet ? t('setup.yourName') : t('setup.systemName')}</Text>
-          <TextInput value={name} onChangeText={setName} placeholder={singlet ? t('setup.yourNamePlaceholder') : t('setup.systemNamePlaceholder')}
+          <TextInput value={name} onChangeText={setName} accessibilityLabel={singlet ? t('setup.yourNamePlaceholder') : t('setup.systemNamePlaceholder')} placeholder={singlet ? t('setup.yourNamePlaceholder') : t('setup.systemNamePlaceholder')}
             placeholderTextColor={T.muted} style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: T.border}]} />
           <Text style={[s.label, {color: T.dim}]}>{singlet ? t('setup.goals') : t('setup.description')}</Text>
-          <TextInput value={desc} onChangeText={setDesc} placeholder={singlet ? t('setup.goalsPlaceholder') : t('setup.descriptionPlaceholder')}
+          <TextInput value={desc} onChangeText={setDesc} accessibilityLabel={singlet ? t('setup.goalsPlaceholder') : t('setup.descriptionPlaceholder')} placeholder={singlet ? t('setup.goalsPlaceholder') : t('setup.descriptionPlaceholder')}
             placeholderTextColor={T.muted} multiline numberOfLines={4}
             style={[s.input, s.textarea, {backgroundColor: T.surface, color: T.text, borderColor: T.border}]} />
           <TouchableOpacity onPress={() => name.trim() && onSave({name: name.trim(), description: desc.trim(), singlet})}

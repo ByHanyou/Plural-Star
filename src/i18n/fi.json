@@ -263,9 +263,9 @@
     "active": "Aktiivinen",
     "archived": "Arkistoitu",
     "noArchived": "Ei arkistoituja jäseniä.",
-    "count": "{{count}} member",
-    "count_other": "{{count}} members",
-    "countFiltered": "{{filtered}} of {{total}} members"
+    "count": "{{count}} jäsen",
+    "count_other": "{{count}} jäsentä",
+    "countFiltered": "{{filtered}} / {{total}} jäsentä"
   },
   "history": {
     "editEntry": "Muokkaa",
@@ -389,9 +389,9 @@
     "groups": "Ryhmät",
     "ampersand": "Ampersand",
     "ampersandImport": "Ampersand-tuonti",
-    "ampersandHint": "Valitse Ampersandin JSON-vienti. Käytä Ampersandissa «Export your data» ja valitse JSON-tiedosto. Binääristä varmuuskopiota ei tueta — sen muoto muuttuu julkaisujen välillä, siksi kehittäjä suosittelee JSONia. Jäsenet, mukautetut kentät ja edustushistoria lisätään järjestelmääsi.",
-    "pickAmparFile": "Valitse Ampersandin JSON-vienti",
-    "ampersandNeedsJson": "Tämä ei ole Ampersandin JSON-vienti. Käytä Ampersandissa «Export your data» ja valitse JSON-tiedosto.",
+    "ampersandHint": "Valitse kumpi tahansa Ampersandin vienti — binäärinen .ampar-arkisto tai heidän JSON-tiedostonsa. Käytä Ampersandissa «Export your data». Jäsenet, mukautetut kentät, tunnisteet, päiväkirjamerkinnät ja edustushistoria lisätään järjestelmääsi; .ampar-arkisto tuo mukanaan myös profiilikuvat ja bannerit.",
+    "pickAmparFile": "Valitse Ampersandin vienti (.ampar tai .json)",
+    "ampersandNeedsJson": "Tämä ei ole Ampersandin vienti. Käytä Ampersandissa «Export your data» ja valitse .ampar-arkisto tai JSON-tiedosto.",
     "tupperbox": "Tupperbox",
     "tupperboxImport": "Tupperbox-tuonti",
     "tupperboxHint": "Valitse Tupperbox-vienti. Suorita Discordissa tul!export ja lataa sen luoma JSON-tiedosto. Jäsenet ja heidän ryhmänsä tuodaan; proxy-sulkeet säilytetään myöhempää PluralKit-vientiä varten.",
@@ -436,7 +436,7 @@
     "pkExportHint": "Vie jäsenet ja frontaushistorian PluralKit-muotoisena tiedostona pk;import- (PluralKit) tai tul!import-komennolle (Tupperbox). Avatarit siirtyvät vain, jos ne ovat kuvalinkkejä — PluralKit ei voi lukea paikallisesti tallennettuja kuvia — ja proxy-tagit jäävät tyhjiksi botissa määritettäviksi.",
     "usePkDisplayNames": "Käytä näyttönimiä",
     "usePkDisplayNamesHint": "Tuo jokaisen jäsenen PluralKit-näyttönimi (usein pronominien kera) pelkän nimen sijaan.",
-    "importFormatsNote": "Tunnistaa automaattisesti Plural Star-, Simply Plural-, Octocon-, Ourcana- (.our tai .json) ja HiveMind-tiedostot (.json). Ampersand: käytä Ampersand-välilehteä ja heidän JSON-vientiään; PluralSpace-viennit: käytä PluralSpace-välilehteä.",
+    "importFormatsNote": "Tunnistaa automaattisesti Plural Star-, Simply Plural-, Octocon-, Ourcana- (.our tai .json) ja HiveMind-tiedostot (.json). Ampersand: käytä Ampersand-välilehteä (.ampar tai JSON); PluralSpace-viennit: käytä PluralSpace-välilehteä.",
     "pluralSpace": "PluralSpace",
     "psImport": "PluralSpace-tuonti",
     "psHint": "Tuo PluralSpace-tietoviennistä (.zip). Pura vienti ja valitse sen sisältä data.json-tiedosto. Jäsenet, mukautetut kentät, edustushistoria, päiväkirjamerkinnät, keskustelut ja äänestykset lisätään järjestelmääsi.",
@@ -719,8 +719,8 @@
     "headmateName": "Jäsenen nimi",
     "noteOptional": "Muistiinpano (valinnainen)",
     "updateFront": "Päivitä front",
-    "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFont": "Lukihäiriöystävällinen fontti",
+    "dyslexicFontDesc": "Vaihtaa leipätekstin OpenDyslexic-fonttiin. Otsikot säilyttävät oman fonttinsa."
   },
   "notification": {
     "chatPingTitle": "◆ {{speaker}} pingasi sinua kanavalla #{{channel}}",
@@ -781,7 +781,14 @@
     "tr": "Türkçe",
     "vi": "Tiếng Việt",
     "th": "ไทย",
-    "ms": "Bahasa Melayu"
+    "ms": "Bahasa Melayu",
+    "nl": "Nederlands",
+    "is": "Íslenska",
+    "hi": "हिन्दी",
+    "af": "Afrikaans",
+    "ko": "한국어",
+    "sv": "Svenska",
+    "pl": "Polski"
   },
   "memberGroups": {
     "changeColor": "Vaihda väri",

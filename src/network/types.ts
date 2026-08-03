@@ -140,6 +140,18 @@ export const PENDING_FRONTS_KEY = 'ps.pendingFronts';
  */
 export const GW_REGISTERED_KEY = 'ps.gwRegistered';
 
+/**
+ * When this device last set the front to empty. DOT prefix: device-local, never
+ * syncs or exports — each device only needs its own clear time to defend its own
+ * state, so this costs nothing on the wire.
+ *
+ * A cleared front is stored as `null`, which carries no startTime, so the
+ * last-write-wins guard on ps:front had nothing to compare against and a peer
+ * holding a week-old front would happily overwrite the clear. This timestamp is
+ * that missing side of the comparison.
+ */
+export const FRONT_CLEARED_KEY = 'ps.frontClearedAt';
+
 export const RENDEZVOUS_TTL_SECONDS = 30 * 60;
 
 export const MAX_NOTIF_FRIENDS = 5;

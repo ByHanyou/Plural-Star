@@ -490,7 +490,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                     </TouchableOpacity>
                   </View>
                 )}
-                <TextInput value={memberSearch} onChangeText={setMemberSearch} placeholder={singlet ? t('history.searchStatus') : t('history.searchMember')} placeholderTextColor={T.muted}
+                <TextInput value={memberSearch} onChangeText={setMemberSearch} accessibilityLabel={singlet ? t('history.searchStatus') : t('history.searchMember')} placeholder={singlet ? t('history.searchStatus') : t('history.searchMember')} placeholderTextColor={T.muted}
                   style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, fontSize: fs(13)}} />
                 {memberSearch.length > 0 && (
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginTop: 4, maxHeight: 280}}>

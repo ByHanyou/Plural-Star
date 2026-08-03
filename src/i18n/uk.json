@@ -263,9 +263,11 @@
     "active": "Активні",
     "archived": "В архіві",
     "noArchived": "Архів порожній.",
-    "count": "{{count}} member",
-    "count_other": "{{count}} members",
-    "countFiltered": "{{filtered}} of {{total}} members"
+    "count": "{{count}} учасник",
+    "count_few": "{{count}} учасники",
+    "count_many": "{{count}} учасників",
+    "count_other": "{{count}} учасників",
+    "countFiltered": "{{filtered}} з {{total}} учасників"
   },
   "history": {
     "editEntry": "Редагувати",
@@ -389,9 +391,9 @@
     "groups": "Групи",
     "ampersand": "Ampersand",
     "ampersandImport": "Імпорт з Ampersand",
-    "ampersandHint": "Виберіть JSON-експорт Ampersand. В Ampersand скористайтеся «Export your data» і виберіть файл JSON. Двійкова резервна копія не підтримується — її формат змінюється між версіями, тому розробник рекомендує JSON. Учасників, користувацькі поля та історію фронту буде додано до вашої системи.",
-    "pickAmparFile": "Вибрати JSON-експорт Ampersand",
-    "ampersandNeedsJson": "Це не JSON-експорт Ampersand. В Ampersand скористайтеся «Export your data» і виберіть файл JSON.",
+    "ampersandHint": "Виберіть будь-який експорт Ampersand — двійковий архів .ampar або їхній файл JSON. В Ampersand скористайтеся «Export your data». Учасників, користувацькі поля, теги, записи щоденника та історію фронту буде додано до вашої системи; архів .ampar також приносить аватари та банери.",
+    "pickAmparFile": "Вибрати експорт Ampersand (.ampar або .json)",
+    "ampersandNeedsJson": "Це не експорт Ampersand. В Ampersand скористайтеся «Export your data» і виберіть архів .ampar або файл JSON.",
     "tupperbox": "Tupperbox",
     "tupperboxImport": "Імпорт із Tupperbox",
     "tupperboxHint": "Виберіть експорт Tupperbox. У Discord виконайте tul!export і завантажте створений файл JSON. Імпортуються учасники та їхні групи; проксі-дужки зберігаються для майбутнього експорту в PluralKit.",
@@ -436,7 +438,7 @@
     "pkExportHint": "Експортує учасників та історію фронту у файл формату PluralKit для pk;import (PluralKit) або tul!import (Tupperbox). Аватари переносяться, лише якщо це посилання на зображення — PluralKit не читає локально збережені картинки — а proxy-теги лишаються порожніми для налаштування в боті.",
     "usePkDisplayNames": "Використовувати відображувані імена",
     "usePkDisplayNamesHint": "Імпортувати відображуване ім'я PluralKit кожного учасника (часто із займенниками) замість звичайного імені.",
-    "importFormatsNote": "Автоматично розпізнає Plural Star, Simply Plural, Octocon, Ourcana (.our або .json) та HiveMind (.json). Для Ampersand використовуйте вкладку Ampersand і їхній JSON-експорт; для експортів PluralSpace — вкладку PluralSpace.",
+    "importFormatsNote": "Автоматично розпізнає Plural Star, Simply Plural, Octocon, Ourcana (.our або .json) та HiveMind (.json). Для Ampersand використовуйте вкладку Ampersand (.ampar або JSON); для експортів PluralSpace — вкладку PluralSpace.",
     "pluralSpace": "PluralSpace",
     "psImport": "Імпорт з PluralSpace",
     "psHint": "Імпорт з експорту даних PluralSpace (.zip). Розпакуйте експорт і виберіть файл data.json усередині нього. Учасників, користувацькі поля, історію фронту, записи щоденника, чат і опитування буде додано до вашої системи.",
@@ -719,8 +721,8 @@
     "textScaleNormal": "Звичайний",
     "textScaleLarge": "Великий",
     "textScaleExtraLarge": "Величезний",
-    "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFont": "Шрифт для дислексії",
+    "dyslexicFontDesc": "Перемикає основний текст на OpenDyslexic. Заголовки зберігають свій шрифт."
   },
   "notification": {
     "filePermTitle": "Доступ до файлів",
@@ -760,8 +762,12 @@
     "noteboard": "Сповіщення про дошку",
     "noteboardDesc": "Сповіщати, коли у фронтуючого учасника є непрочитані нотатки.",
     "noteboardUnreadTitle": "◇ {{count}} непрочитана нотатка",
+    "noteboardUnreadTitle_few": "◇ {{count}} непрочитані нотатки",
+    "noteboardUnreadTitle_many": "◇ {{count}} непрочитаних нотаток",
     "noteboardUnreadTitle_other": "◇ {{count}} непрочитаних нотаток",
     "noteboardUnreadLine": "{{name}}: {{count}} нова нотатка",
+    "noteboardUnreadLine_few": "{{name}}: {{count}} нові нотатки",
+    "noteboardUnreadLine_many": "{{name}}: {{count}} нових нотаток",
     "noteboardUnreadLine_other": "{{name}}: {{count}} нових нотаток"
   },
   "language": {
@@ -781,7 +787,14 @@
     "tr": "Türkçe",
     "vi": "Tiếng Việt",
     "th": "ไทย",
-    "ms": "Bahasa Melayu"
+    "ms": "Bahasa Melayu",
+    "nl": "Nederlands",
+    "is": "Íslenska",
+    "hi": "हिन्दी",
+    "af": "Afrikaans",
+    "ko": "한국어",
+    "sv": "Svenska",
+    "pl": "Polski"
   },
   "memberGroups": {
     "groupName": "Назва групи",
@@ -1047,6 +1060,8 @@
     "inboxOf": "Скринька {{name}}",
     "replyFrom": "Надіслати {{name}} від імені:",
     "messageCount": "{{count}} повідомлення",
+    "messageCount_few": "{{count}} повідомлення",
+    "messageCount_many": "{{count}} повідомлень",
     "messageCount_other": "{{count}} повідомлень",
     "unreadCount": "{{count}} непрочитаних",
     "deleteTitle": "Видалити повідомлення",
