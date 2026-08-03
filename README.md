@@ -88,17 +88,8 @@ Local-only IRC-style chat for your system. Create, rename, and organize channels
 **◉ System Journal**  
 Write journal entries with the same editor available in member profiles. Entries open in a clean read-only view with a one-tap Edit button. Pin important entries to the top of the list, and start new ones from saved templates with preset titles, bodies, and tags. Tag entries with authors (searchable by name), add topic hashtags (searchable by tag), and optionally lock individual entries or the entire journal behind passwords. Export individual entries or the full journal in `.txt`, `.md`, or `.json`.
 
-**⚕ Medical**  
-Medication reminders, appointments, medical history, and emergency info in one Hub tile — available in both system and Observatory modes. Medications support dosage, multiple daily reminder times, notes, and a pause toggle. Appointments take a date and time, location, and a remind-before offset (at time, 30 minutes, 1 hour, or 1 day). Keep a dated medical history of conditions, surgeries, and diagnoses. The Emergency section stores conditions, allergies, and blood type — and can display them on the persistent notification, visible from the lock screen for first responders.
-
 **⇅ Import & Export**  
 Migrating from another app? Import your full system data — members, history, custom fields, and system info — from Simply Plural, PluralKit, Tupperbox, Octocon, Ampersand, Ourcana, HiveMind, or PluralSpace, via API token or export file. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Profile pictures are imported from avatar URLs. Custom field names and values are mapped automatically with bidirectional ID normalization.
-
-Every format these apps currently produce is read directly, including the awkward ones:
-
-- **PluralSpace** — both the older `data.json` export and the current account-scoped **OpenPlural** bundle (`manifest.json` + `systems/<name>/openplural.json` + per-system media). Whoever was fronting when the export was taken stays fronting after the import.
-- **Ampersand** — both their JSON export and the binary **`.ampar`** archive, read natively. Profile pictures and banners travel inside that archive and come across with everything else; their member tags become groups, and journal posts and board messages (polls included) land in your journal.
-- **PluralKit** — front history is paginated properly rather than stopping at the first hundred switches.
 
 Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Granular per-category toggles — pick exactly what to export or restore: system info, members, avatars, banners, front history, journal, groups, chat, moods, palettes, settings, custom fields, mailbox, polls, System Map relationships, medical. Import `.txt`, `.md`, or `.json` files directly as journal entries.
 
