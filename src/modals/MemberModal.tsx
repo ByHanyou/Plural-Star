@@ -8,7 +8,7 @@ import {Avatar} from '../components/Avatar';
 import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {PALETTE, fontScale} from '../theme';
-import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR} from '../utils';
+import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, isValidHex, normalizeHex} from '../utils';
 import {store, KEYS} from '../storage';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
@@ -28,6 +28,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [cloneSel, setCloneSel] = useState({name: true, pronouns: true, role: true, color: true, description: true});
   const [f, setF] = useState<Member>(member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []});
   const [confirmDel, setConfirmDel] = useState(false);
+  const [viewPfp, setViewPfp] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const [showDescEditor, setShowDescEditor] = useState(false);
   // A banner whose FILE is gone (iOS purged an old tmp-path image, or the
@@ -39,6 +40,11 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [showLink, setShowLink] = useState(false);
   const [linkInput, setLinkInput] = useState('');
   const [linking, setLinking] = useState(false);
+  // Custom Color hex entry: writes straight to this member's color, so any hex
+  // works without ever touching the Colors tile's permanent custom slots. The
+  // carousel already surfaces an off-palette value as a leading "stray" swatch.
+  const [showHexEntry, setShowHexEntry] = useState(false);
+  const [hexInput, setHexInput] = useState('');
 
   type MemberTab = 'main' | 'fields' | 'connections';
   const [memberTab, setMemberTab] = useState<MemberTab>('main');
@@ -53,11 +59,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || []));
   }, [fieldDefsOverride]);
 
-  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setMemberTab('main'); setReadMode(readOnlyProp); } }, [visible, member?.id]);
+  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setShowHexEntry(false); setHexInput(''); setMemberTab('main'); setReadMode(readOnlyProp); } }, [visible, member?.id]);
   const draftId = isNew ? 'new' : (member?.id || f.id);
   useDraft<Member>('member', readOnly ? '' : draftId, visible, f, d => setF(d));
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
+  const applyCustomHex = () => { const n = normalizeHex(hexInput); if (!isValidHex(n)) return; set('color', n); setShowHexEntry(false); };
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
   const [groupInfo, setGroupInfo] = useState<MemberGroup | null>(null);
   const doClone = async () => {
@@ -237,7 +244,9 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
       {(memberTab === 'main' || isNew) && (<>
         <View style={{alignItems: 'center', marginBottom: 16}}>
-          <TouchableOpacity onPress={readOnly ? undefined : pickAvatar} activeOpacity={readOnly ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>
+          {/* Read-only viewers had a dead tap here. Now it opens the picture at
+              full size, which is the whole point of looking at someone's card. */}
+          <TouchableOpacity onPress={readOnly ? (f.avatar ? () => setViewPfp(true) : undefined) : pickAvatar} activeOpacity={readOnly && !f.avatar ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={readOnly ? t('modal.viewPfp') : t('modal.changePfp')}>
             {f.avatar ? (
               <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
             ) : (
@@ -251,6 +260,11 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
               </View>
             )}
           </TouchableOpacity>
+          {f.avatar && (
+            <TouchableOpacity onPress={() => setViewPfp(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} style={{marginTop: 6}}>
+              <Text style={{fontSize: fs(11), color: T.accent}}>🔍 {t('modal.viewPfp')}</Text>
+            </TouchableOpacity>
+          )}
           {f.avatar && !readOnly && (
             <TouchableOpacity onPress={removeAvatar} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.removePfp')} style={{marginTop: 6}}>
               <Text style={{fontSize: fs(11), color: T.danger}}>{t('modal.removePfp')}</Text>
@@ -300,10 +314,37 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12}}>
               <TouchableOpacity onPress={() => set('avatarTransparent', !f.avatarTransparent)} activeOpacity={0.8}
                 accessibilityRole="switch" accessibilityState={{checked: !!f.avatarTransparent}} accessibilityLabel={t('modal.transparentColor')}
+                hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
                 style={{width: 30, height: 30, borderRadius: 15, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
                 <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
               </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowHexEntry(s => { const next = !s; if (next) setHexInput((f.color || '').toUpperCase()); return next; })} activeOpacity={0.8}
+                accessibilityRole="button" accessibilityState={{expanded: showHexEntry}} accessibilityLabel={t('modal.customColor')}
+                hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+                style={{width: 30, height: 30, borderRadius: 15, backgroundColor: T.surface, borderWidth: 2, borderColor: showHexEntry ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
+                <Text style={{fontSize: 14, fontWeight: '700', color: showHexEntry ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">#</Text>
+              </TouchableOpacity>
             </View>
+            {showHexEntry && (
+              <View style={{marginTop: 10}}>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                  <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+                    style={{width: 30, height: 30, borderRadius: 15, backgroundColor: isValidHex(normalizeHex(hexInput)) ? normalizeHex(hexInput) : T.surface, borderWidth: 2, borderColor: T.border}} />
+                  <TextInput value={hexInput} onChangeText={(v: string) => setHexInput(v.replace(/\s+/g, ''))} placeholder="#000000" placeholderTextColor={T.muted} maxLength={7} autoCapitalize="characters" autoCorrect={false}
+                    accessibilityLabel={t('modal.customColor')}
+                    style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: isValidHex(normalizeHex(hexInput)) || hexInput.length < 2 ? T.border : T.danger, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), fontFamily: 'monospace'}}
+                    onSubmitEditing={applyCustomHex} returnKeyType="done" />
+                  <TouchableOpacity onPress={applyCustomHex} disabled={!isValidHex(normalizeHex(hexInput))} activeOpacity={0.8}
+                    accessibilityRole="button" accessibilityLabel={t('common.confirm')} accessibilityState={{disabled: !isValidHex(normalizeHex(hexInput))}}
+                    style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: isValidHex(normalizeHex(hexInput)) ? `${T.accent}50` : T.border, backgroundColor: isValidHex(normalizeHex(hexInput)) ? T.accentBg : T.surface, opacity: isValidHex(normalizeHex(hexInput)) ? 1 : 0.5}}>
+                    <Text style={{fontSize: fs(12), fontWeight: '600', color: isValidHex(normalizeHex(hexInput)) ? T.accent : T.dim}}>{t('common.confirm')}</Text>
+                  </TouchableOpacity>
+                </View>
+                {hexInput.length >= 2 && !isValidHex(normalizeHex(hexInput)) && (
+                  <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.danger, marginTop: 4}}>{t('modal.invalidHex')}</Text>
+                )}
+              </View>
+            )}
           </View>
         ) : (
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14}}>
@@ -625,11 +666,25 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         </View>
       )}
 
+      {/* A look at the picture, not a change to it: nothing here resizes the
+          avatar anywhere else, and it closes on any tap. */}
+      <Modal visible={viewPfp && !!f.avatar} transparent animationType="fade" onRequestClose={() => setViewPfp(false)}>
+        <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: 16}} activeOpacity={1}
+          onPress={() => setViewPfp(false)} accessibilityRole="button" accessibilityLabel={t('common.close')}>
+          <Image source={{uri: f.avatar}} style={{width: '100%', height: '80%', borderRadius: 12}} resizeMode="contain"
+            accessibilityRole="image" accessibilityLabel={t('modal.viewPfpOf', {name: f.name || '?'})} />
+          <Text style={{fontSize: fs(13), color: T.dim, marginTop: 16}}>{t('common.close')}</Text>
+        </TouchableOpacity>
+      </Modal>
+
       <Modal visible={!!groupInfo} transparent animationType="fade" onRequestClose={() => setGroupInfo(null)}>
-        <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 28}} activeOpacity={1} onPress={() => setGroupInfo(null)} accessibilityRole="none">
-          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+        {/* role="none" was not enough: a touchable is an accessibility element
+            by default, which on iOS hid this card's contents from VoiceOver.
+            accessible={false} is what actually opts the scrim out. */}
+        <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 28}} activeOpacity={1} onPress={() => setGroupInfo(null)} accessible={false} importantForAccessibility="no">
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setGroupInfo(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10}}>
-              <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: groupInfo?.color || T.accent}} importantForAccessibility="no" />
+              <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: groupInfo?.color || T.accent}} accessibilityElementsHidden importantForAccessibility="no" />
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(15), fontWeight: '600', color: T.text}} numberOfLines={1}>{groupInfo?.name}</Text>
             </View>
             <ScrollView style={{maxHeight: 260}}>

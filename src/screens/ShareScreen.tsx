@@ -149,7 +149,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     system: true, members: true, avatars: true, banners: true, frontHistory: true, journal: true,
     groups: true, chat: true, moods: true, palettes: true, settings: true,
     customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true,
-    medical: true, whiteboard: true,
+    medical: true, whiteboard: true, planner: true,
   });
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
 
@@ -433,11 +433,12 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
               ['palettes', t('share.themePalettes')],
               ['settings', t('share.appSettings')],
               ['customFields', t('customFields.title')],
-              ['noteboards', t('noteboard.title')],
+              ['noteboards', t('mailbox.title')],
               ['polls', t('polls.title')],
               ['journalTemplates', t('journal.templatesTab')],
               ['relationships', t('systemMap.title')],
               ['whiteboard', t('whiteboard.title')],
+              ['planner', t('planner.title')],
             ] as [keyof ExportCategories, string][]).map(([k, label]) => (
               <SectionRow key={k} label={label} value={!!exportSel[k]} onToggle={() => togExp(k)} />
             ))}
@@ -543,7 +544,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       ['palettes', t('share.themePalettes')],
                       ['settings', t('share.appSettings')],
                       ['customFields', t('customFields.title')],
-                      ['noteboards', t('noteboard.title')],
+                      ['noteboards', t('mailbox.title')],
                       ['polls', t('polls.title')],
                       ['journalTemplates', t('journal.templatesTab')],
                       ['relationships', t('systemMap.title')],
@@ -610,7 +611,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverSel({}); setRecoverDone(false);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
                         <Text style={{fontSize: fs(13), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={handleApplyRecovery} activeOpacity={0.7} disabled={Object.values(recoverSel).every(v => !v)} accessibilityRole="button" accessibilityLabel={t('share.recoverSelected')} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: Object.values(recoverSel).every(v => !v) ? 0.4 : 1}}>
+                      <TouchableOpacity onPress={handleApplyRecovery} activeOpacity={0.7} disabled={Object.values(recoverSel).every(v => !v)} accessibilityRole="button" accessibilityLabel={t('share.recoverSelected')} accessibilityState={{disabled: Object.values(recoverSel).every(v => !v)}} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: Object.values(recoverSel).every(v => !v) ? 0.4 : 1}}>
                         <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.recoverSelected')}</Text>
                       </TouchableOpacity>
                     </View>

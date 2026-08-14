@@ -71,32 +71,38 @@ const MemberCard = React.memo(function MemberCard({
     ? (isSelected ? T.accent : T.border)
     : (isFronting ? `${m.color}60` : T.border);
   return (
-    <TouchableOpacity
-      activeOpacity={0.75}
-      accessibilityRole="button"
-      accessibilityLabel={[m.name, badgeCfg ? t(badgeCfg.i18nKey) : null, fields?.pronouns !== false ? m.pronouns : null, fields?.roles !== false ? m.role : null, fields?.groups !== false && memberGroups.length ? memberGroups.map(g => g.name).join(', ') : null, fields?.descriptions !== false ? m.description : null].filter(Boolean).join(', ')}
-      accessibilityState={selectionMode ? {selected: isSelected} : undefined}
-      style={[s.card, {backgroundColor: T.card, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8}]}
-      onPress={selectionMode ? () => onToggleSelect(m.id) : () => onActivate(m)}
-      onLongPress={() => onEnterSelection(m.id)}
-      delayLongPress={350}
-      accessibilityActions={[{name: 'longpress', label: t('members.selectAction')}]}
-      onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'longpress') onEnterSelection(m.id); }}>
+    // The whole card used to be one labeled touchable, which on iOS hid the
+    // reorder arrows and quick-front button from VoiceOver entirely. The card
+    // press now lives on a flex:1 content touchable; arrows, drag handle and
+    // quick-front are reachable siblings. Visuals unchanged.
+    <View
+      style={[s.card, {backgroundColor: T.card, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8}]}>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
         {dragHandle}
+        {!selectionMode && showReorder && (
+          <View style={{justifyContent: 'center', gap: 2, marginRight: -6}}>
+            <TouchableOpacity onPress={() => !isFirst && onReorder && onReorder(m.id, 'up')} hitSlop={{top: 6, bottom: 2, left: 8, right: 8}} disabled={isFirst} accessibilityRole="button" accessibilityState={{disabled: isFirst}} accessibilityLabel={isFirst || !prevName ? `${t('members.moveUp')}, ${m.name}` : `${t('members.moveUp')}, ${m.name}, ${t('members.moveAbove', {name: prevName})}`}>
+              <Text style={{fontSize: fs(14), color: isFirst ? T.muted : T.dim, opacity: isFirst ? 0.3 : 1}} accessibilityElementsHidden importantForAccessibility="no">▲</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => !isLast && onReorder && onReorder(m.id, 'down')} hitSlop={{top: 2, bottom: 6, left: 8, right: 8}} disabled={isLast} accessibilityRole="button" accessibilityState={{disabled: isLast}} accessibilityLabel={isLast || !nextName ? `${t('members.moveDown')}, ${m.name}` : `${t('members.moveDown')}, ${m.name}, ${t('members.moveBelow', {name: nextName})}`}>
+              <Text style={{fontSize: fs(14), color: isLast ? T.muted : T.dim, opacity: isLast ? 0.3 : 1}} accessibilityElementsHidden importantForAccessibility="no">▼</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        <TouchableOpacity
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={[m.name, badgeCfg ? t(badgeCfg.i18nKey) : null, fields?.pronouns !== false ? m.pronouns : null, fields?.roles !== false ? m.role : null, fields?.groups !== false && memberGroups.length ? memberGroups.map(g => g.name).join(', ') : null, fields?.descriptions !== false ? m.description : null].filter(Boolean).join(', ')}
+          accessibilityState={selectionMode ? {selected: isSelected} : undefined}
+          onPress={selectionMode ? () => onToggleSelect(m.id) : () => onActivate(m)}
+          onLongPress={() => onEnterSelection(m.id)}
+          delayLongPress={350}
+          accessibilityActions={[{name: 'longpress', label: t('members.selectAction')}]}
+          onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'longpress') onEnterSelection(m.id); }}
+          style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14}}>
         {selectionMode && (
           <View style={{width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? T.accent : T.border, backgroundColor: isSelected ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
             {isSelected && <Text style={{fontSize: fs(12), fontWeight: '700', color: T.bg}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
-          </View>
-        )}
-        {!selectionMode && showReorder && (
-          <View style={{justifyContent: 'center', gap: 2, marginRight: -6}}>
-            <TouchableOpacity onPress={() => !isFirst && onReorder && onReorder(m.id, 'up')} hitSlop={{top: 6, bottom: 2, left: 8, right: 8}} disabled={isFirst} accessibilityRole="button" accessibilityLabel={isFirst || !prevName ? `${t('members.moveUp')}, ${m.name}` : `${t('members.moveUp')}, ${m.name}, ${t('members.moveAbove', {name: prevName})}`}>
-              <Text style={{fontSize: fs(14), color: isFirst ? T.muted : T.dim, opacity: isFirst ? 0.3 : 1}}>▲</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => !isLast && onReorder && onReorder(m.id, 'down')} hitSlop={{top: 2, bottom: 6, left: 8, right: 8}} disabled={isLast} accessibilityRole="button" accessibilityLabel={isLast || !nextName ? `${t('members.moveDown')}, ${m.name}` : `${t('members.moveDown')}, ${m.name}, ${t('members.moveBelow', {name: nextName})}`}>
-              <Text style={{fontSize: fs(14), color: isLast ? T.muted : T.dim, opacity: isLast ? 0.3 : 1}}>▼</Text>
-            </TouchableOpacity>
           </View>
         )}
         <Avatar member={m} size={44} pulse={isFronting} T={T} />
@@ -113,6 +119,7 @@ const MemberCard = React.memo(function MemberCard({
             </View>
           )}
         </View>
+        </TouchableOpacity>
         {!selectionMode && (
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
             {!!onQuickFront && !!onRemoveFromFront && !m.archived && !m.deleted && (
@@ -126,7 +133,7 @@ const MemberCard = React.memo(function MemberCard({
           </View>
         )}
       </View>
-    </TouchableOpacity>
+    </View>
   );
 });
 
@@ -153,7 +160,17 @@ interface Props {
 }
 
 export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
-  const members = useAppStore(s => s.members);
+  // The System Profile is NOT a roster member. Observatory needs a member
+  // record to hold it, and the record it creates (or adopts) is a plain member
+  // in ps:members, so it leaked into this list, the counts, and the tabs.
+  // It is identified by settings.selfMemberId and is excluded here; Observatory
+  // renders it through ProfileScreen instead and never shows this screen.
+  const allMembers = useAppStore(s => s.members);
+  const selfMemberId = useAppStore(s => s.appSettings.selfMemberId);
+  const members = useMemo(
+    () => (selfMemberId ? allMembers.filter(m => m.id !== selfMemberId) : allMembers),
+    [allMembers, selfMemberId],
+  );
   const front = useAppStore(s => s.front);
   const groups = useAppStore(s => s.groups);
   const {t} = useTranslation();
@@ -665,9 +682,11 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       </View>
     </Modal>
     <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
-      <TouchableOpacity activeOpacity={1} onPress={() => setQuickFrontFor(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+      {/* Accessible scrim hid the whole tier picker from iOS VoiceOver; the
+          card's escape gesture now handles VO dismissal instead. */}
+      <TouchableOpacity activeOpacity={1} onPress={() => setQuickFrontFor(null)} accessible={false} importantForAccessibility="no"
         style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
-        <TouchableOpacity activeOpacity={1} accessible={false} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+        <TouchableOpacity activeOpacity={1} accessible={false} accessibilityViewIsModal onAccessibilityEscape={() => setQuickFrontFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
           <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>
             {t('members.addToFront')}{quickFrontFor ? ` — ${quickFrontFor.name}` : ''}
           </Text>
@@ -685,7 +704,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
                   if (mm && onQuickAddToFront) onQuickAddToFront(mm.id, k);
                 }}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>
-                <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: color}} importantForAccessibility="no" />
+                <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: color}} accessibilityElementsHidden importantForAccessibility="no" />
                 <Text style={{fontSize: fs(14), color: T.text}}>{label}</Text>
               </TouchableOpacity>
             ))}

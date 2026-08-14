@@ -50,6 +50,46 @@ const luminance = (hex: string): number => {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 };
 
+// Defined ABOVE deriveTheme on purpose: the module-scope default theme calls
+// deriveTheme during import, so everything it uses must already exist.
+export const contrastRatio = (hexA: string, hexB: string): number => {
+  const lum = (hex: string): number => {
+    const h = (hex || '').replace('#', '');
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : (h + '000000').slice(0, 6);
+    const n = parseInt(full, 16) || 0;
+    const chan = (v: number) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    };
+    return 0.2126 * chan((n >> 16) & 255) + 0.7152 * chan((n >> 8) & 255) + 0.0722 * chan(n & 255);
+  };
+  const la = lum(hexA);
+  const lb = lum(hexB);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+// Nothing ever validated that a palette's text can be read on its background,
+// so a bright bg with light text (bg #EDB5C7 + text #8D8AB8 is the reported
+// pair, 1.86:1) made the system name and most labels vanish — and
+// readableAccent made it worse, because its fallback IS that text. This nudges
+// a failing colour toward black or white, keeping as much of the chosen hue
+// as the floor allows; palettes that already pass come back untouched.
+export const ensureReadable = (color: string, bg: string, min: number): string => {
+  if (contrastRatio(color, bg) >= min) return color;
+  const pole = contrastRatio('#000000', bg) >= contrastRatio('#FFFFFF', bg) ? '#000000' : '#FFFFFF';
+  if (contrastRatio(pole, bg) < min) return pole; // mid-grey bg: closest possible
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 8; i++) {
+    const t = (lo + hi) / 2;
+    if (contrastRatio(mix(color, pole, t), bg) >= min) hi = t;
+    else lo = t;
+  }
+  return mix(color, pole, hi);
+};
+
 export const deriveTheme = (bg: string, accent: string, text: string, mid: string): ThemeColors => {
   const lum = luminance(bg);
   const isLight = lum > 0.3;
@@ -64,8 +104,11 @@ export const deriveTheme = (bg: string, accent: string, text: string, mid: strin
   const border = mix(bg, mid, borderT);
   const borderLt = mix(bg, mid, borderLtT);
 
-  const dim = mix(text, mid, 0.12);
-  const muted = mix(text, mid, 0.30);
+  // 4.5:1 is WCAG AA for body text; muted is placeholder/tertiary and gets
+  // the large-text floor of 3:1 so it still reads as quieter than dim.
+  const effText = ensureReadable(text, bg, 4.5);
+  const dim = ensureReadable(mix(effText, mid, 0.12), bg, 4.5);
+  const muted = ensureReadable(mix(effText, mid, 0.30), bg, 3);
   const toggleOff = mix(bg, mid, 0.22);
 
   const accentRgb = hexToRgb(accent);
@@ -93,7 +136,7 @@ export const deriveTheme = (bg: string, accent: string, text: string, mid: strin
     borderLt,
     accent,
     accentBg,
-    text,
+    text: effText,
     dim,
     muted,
     toggleOff,
@@ -150,24 +193,8 @@ export const PALETTE = [
 
 export const fontScale = (T: ThemeColors) => (s: number) => Math.round(s * (T?.textScale || 1));
 
-export const contrastRatio = (hexA: string, hexB: string): number => {
-  const lum = (hex: string): number => {
-    const h = (hex || '').replace('#', '');
-    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : (h + '000000').slice(0, 6);
-    const n = parseInt(full, 16) || 0;
-    const chan = (v: number) => {
-      const s = v / 255;
-      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-    };
-    return 0.2126 * chan((n >> 16) & 255) + 0.7152 * chan((n >> 8) & 255) + 0.0722 * chan(n & 255);
-  };
-  const la = lum(hexA);
-  const lb = lum(hexB);
-  const hi = Math.max(la, lb);
-  const lo = Math.min(la, lb);
-  return (hi + 0.05) / (lo + 0.05);
-};
-
+// T.text is contrast-guaranteed by deriveTheme now, so this fallback is safe
+// even when the accent fails: it can no longer hand back an invisible colour.
 export const readableAccent = (T: ThemeColors): string =>
   contrastRatio(T.accent, T.bg) >= 3 ? T.accent : T.text;
 

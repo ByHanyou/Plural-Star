@@ -198,9 +198,13 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
       currentTag = 'p';
     }
     lastIdx = match.index + full.length;
+    // Peeking at the next tag costs an exec, and a failed exec resets lastIndex
+    // to 0 on a global regex. That sent the loop back to the first tag after the
+    // last one, forever: any block HTML (a <div> centring an image, say) locked
+    // the JS thread, so the editor stopped responding to Save and then died.
     const nextMatch = blockRe.exec(raw);
-    if (nextMatch) { current = raw.slice(match.index + full.length, nextMatch.index); blockRe.lastIndex = nextMatch.index; }
-    else { current = raw.slice(match.index + full.length); }
+    if (nextMatch) { current = raw.slice(lastIdx, nextMatch.index); blockRe.lastIndex = nextMatch.index; }
+    else { current = raw.slice(lastIdx); blockRe.lastIndex = raw.length; }
   }
   if (current.trim()) segments.push({tag: currentTag, content: current});
 

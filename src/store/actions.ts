@@ -1,13 +1,13 @@
 import {Alert} from 'react-native';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, MedicalData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid} from '../utils';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatMessage, MedicalData, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
 import {logError} from '../utils/log';
 import type {CustomPalette} from '../theme';
 import {migrateInlineChatMedia, rebaseChatMessageMedia} from '../utils/mediaUtils';
-import {setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, showFrontNotification} from '../services/NotificationService';
+import {setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, reschedulePlannerNotifications, showFrontNotification} from '../services/NotificationService';
 import {useAppStore} from './appStore';
 
 export const loadChatMessages = async (channels: ChatChannel[]) => {
@@ -106,6 +106,13 @@ export const saveMedical = async (d: MedicalData) => {
   if (appSettings.notificationsEnabled && appSettings.persistentFrontNotif !== false) {
     showFrontNotification(front, members, system.name).catch(e => console.error('[PS] notif error:', e));
   }
+};
+
+export const savePlanner = async (d: PlannerData) => {
+  const {setPlanner} = useAppStore.getState();
+  setPlanner(d);
+  await store.set(KEYS.planner, d);
+  await reschedulePlannerNotifications(d);
 };
 
 export const selectPalette = async (id: string) => {
@@ -225,7 +232,7 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
               const m = members.find(mm => mm.id === id);
               return `${m?.name || '?'} (${count})`;
             }).join(', ');
-            Alert.alert(i18n.t('noteboard.title'), `${names}`);
+            Alert.alert(i18n.t('mailbox.title'), `${names}`);
           }
         }
       } catch (e) { logError('front', e); }

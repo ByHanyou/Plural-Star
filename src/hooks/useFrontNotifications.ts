@@ -97,11 +97,17 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
     // The user setting now only shortens the interval; 30 min is the floor
     // default. Same id + onlyAlertOnce = each re-post is silent and invisible
     // when the notification is already showing.
+    // `members` is deliberately NOT a dependency, and is read from the ref
+    // instead. It is a fresh array after any member edit and after every sync
+    // apply, and each reschedule re-enqueues the periodic work with a full
+    // initial delay, so the refresh clock was being reset over and over and the
+    // re-post never got to run. Only a front change alters what this trigger
+    // would say, so only a front change needs to rebuild it.
     const mins = appSettings.notificationRefreshMinutes || 30;
     if (!front || !appSettings.notificationsEnabled || !persistent || mins <= 0) {
       cancelFrontNotificationRefresh().catch(e => console.error('[PS] notif refresh cancel error:', e));
     } else {
-      scheduleFrontNotificationRefresh(front, members, mins).catch(e => console.error('[PS] notif refresh schedule error:', e));
+      scheduleFrontNotificationRefresh(front, frontNotifRef.current.members, mins).catch(e => console.error('[PS] notif refresh schedule error:', e));
     }
-  }, [front, members, appSettings.notificationRefreshMinutes, appSettings.notificationsEnabled, persistent]);
+  }, [front, appSettings.notificationRefreshMinutes, appSettings.notificationsEnabled, persistent]);
 };

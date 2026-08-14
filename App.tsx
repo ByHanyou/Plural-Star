@@ -9,13 +9,14 @@ import {useTranslation} from 'react-i18next';
 import './src/i18n/i18n';
 import {changeLanguage} from './src/i18n/i18n';
 import type {SupportedLanguage} from './src/i18n/i18n';
+import {setTerminologyOverrides} from './src/i18n/terminology';
 
 import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {store, KEYS, storageLooksWiped, restoreAllBackups, storageReadFailures, anyPsKeysExist} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, DeviceCodes, MedicalData, DEFAULT_MEDICAL, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, DeviceCodes, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
 import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars, restoreMissingMediaFiles} from './src/utils/mediaUtils';
-import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders} from './src/services/NotificationService';
+import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, reschedulePlannerNotifications} from './src/services/NotificationService';
 import {waitForProtectedData} from './src/services/LiveActivityService';
 
 import {SetupScreen} from './src/screens/SetupScreen';
@@ -112,6 +113,10 @@ function MainAppContent() {
   const setAllChatMessages = useAppStore(s => s.setAllChatMessages);
   const medical = useAppStore(s => s.medical);
   const setMedical = useAppStore(s => s.setMedical);
+  const setPlanner = useAppStore(s => s.setPlanner);
+  // Push the Terminology Picker's words into the i18n post-processor whenever
+  // settings change, including the initial load and incoming syncs.
+  useEffect(() => { setTerminologyOverrides(appSettings.terminology); }, [appSettings.terminology]);
 
   const [showSetFront, setShowSetFront] = useState(false);
   const [showEditFrontDetail, setShowEditFrontDetail] = useState(false);
@@ -334,6 +339,17 @@ function MainAppContent() {
       }
 
       try {
+        const savedPlanner = await store.get<PlannerData>(KEYS.planner);
+        const plan: PlannerData = {...DEFAULT_PLANNER, ...(savedPlanner || {})};
+        setPlanner(plan);
+        // Re-arms every trigger from stored data, so synced-in changes and
+        // reboots both land with live notifications.
+        await reschedulePlannerNotifications(plan);
+      } catch (e) {
+        console.error('[PS] planner init error:', e);
+      }
+
+      try {
         const savedCodes = await store.get<DeviceCodes>(KEYS.deviceCodes);
         if ((!savedCodes || !savedCodes.friendCode || !savedCodes.syncCode) && !storageSuspect) {
           const fresh: DeviceCodes = {friendCode: generateFriendCode(), syncCode: generateSyncCode(), createdAt: Date.now()};
@@ -464,8 +480,10 @@ function MainAppContent() {
     setAppSettings(DEFAULT_SETTINGS); setGroups([]); setPalettes([]); setActivePaletteId('__dark__');
     setChatChannels([]); setAllChatMessages([]);
     setMedical(DEFAULT_MEDICAL); setEmergencyNotificationInfo(null);
+    setPlanner(DEFAULT_PLANNER);
     await rescheduleMedicationReminders([]);
     await rescheduleAppointmentReminders([]);
+    await reschedulePlannerNotifications(null);
     setTab('front'); setMountedTabs(['front']); setFirstRun(true);
   };
 

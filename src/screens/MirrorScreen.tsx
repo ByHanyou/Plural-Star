@@ -330,10 +330,10 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 1}}>{featureLabel}</Text>
           </View>
           <TouchableOpacity onPress={request} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('network.mirrorRefresh')} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-            <Text style={{fontSize: fs(16), color: T.accent}} importantForAccessibility="no">⟳</Text>
+            <Text style={{fontSize: fs(16), color: T.accent}} accessibilityElementsHidden importantForAccessibility="no">⟳</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-            <Text style={{fontSize: fs(16), color: T.dim}} importantForAccessibility="no">✕</Text>
+            <Text style={{fontSize: fs(16), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
           </TouchableOpacity>
         </View>
         {!!statusLine() && (

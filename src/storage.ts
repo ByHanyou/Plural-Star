@@ -42,12 +42,13 @@ export const KEYS = {
   customColors: 'ps:customColors',
   deviceCodes: 'ps:deviceCodes',
   medical: 'ps:medical',
+  planner: 'ps:planner',
 };
 
 const CRITICAL_KEYS = new Set([
   KEYS.system, KEYS.members, KEYS.front, KEYS.history,
   KEYS.journal, KEYS.groups, KEYS.chatChannels, KEYS.relationships,
-  KEYS.deviceCodes, KEYS.medical,
+  KEYS.deviceCodes, KEYS.medical, KEYS.planner,
   'ps:networkIdentity', 'ps:networkFriends', 'ps:networkSettings',
 ]);
 

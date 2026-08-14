@@ -10,6 +10,7 @@ import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
+import {updateFront} from '../store/actions';
 import {
   FrontState,
   FrontTier,
@@ -26,6 +27,14 @@ interface Props {
   onEditDetails: (tier: FrontTierKey) => void;
 }
 
+// Quick Remove: one tap takes a member out of the front without opening the
+// full Set Front modal. Routed through updateFront so history closing,
+// segment entries and memberSince all behave exactly as a normal edit.
+const stripMember = (tier: FrontTier, id: string): FrontTier => ({
+  ...tier,
+  memberIds: tier.memberIds.filter(x => x !== id),
+});
+
 const TIER_I18N_KEY: Record<FrontTierKey, string> = {
   primary: 'tier.primaryFront',
   coFront: 'tier.coFront',
@@ -39,6 +48,7 @@ const TierCard = ({
   getMember,
   front,
   onEditDetails,
+  onQuickRemove,
 }: {
   tier: FrontTier;
   tierKey: FrontTierKey;
@@ -46,6 +56,7 @@ const TierCard = ({
   getMember: (id: string) => Member | undefined;
   front: FrontState;
   onEditDetails: (tier: FrontTierKey) => void;
+  onQuickRemove: (memberId: string) => void;
 }) => {
   const {t} = useTranslation();
 
@@ -119,6 +130,11 @@ const TierCard = ({
                 <Text style={{fontSize: fs(11), color: T.muted}} accessibilityLabel={`${m.name}, ${t('front.frontingFor')} ${fmtDur(front.memberSince?.[m.id] ?? front.startTime)}`}>
                   {fmtDur(front.memberSince?.[m.id] ?? front.startTime)}
                 </Text>
+                <TouchableOpacity onPress={() => onQuickRemove(m.id)} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityLabel={t('front.quickRemove', {name: m.name})}
+                  style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                  <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
+                </TouchableOpacity>
               </View>
             ))
           ) : (
@@ -169,6 +185,15 @@ export const FrontScreen = ({
 
   const empty = isFrontEmpty(front);
 
+  const quickRemove = (memberId: string) => {
+    if (!front) return;
+    updateFront(
+      stripMember(front.primary, memberId),
+      stripMember(front.coFront, memberId),
+      stripMember(front.coConscious, memberId),
+    ).catch(() => {});
+  };
+
   return (
     <View style={{flex: 1}}>
       <ScrollView
@@ -218,6 +243,7 @@ export const FrontScreen = ({
               getMember={getMember}
               front={front!}
               onEditDetails={onEditDetails}
+              onQuickRemove={quickRemove}
             />
 
             <TierCard
@@ -227,6 +253,7 @@ export const FrontScreen = ({
               getMember={getMember}
               front={front!}
               onEditDetails={onEditDetails}
+              onQuickRemove={quickRemove}
             />
 
             <TierCard
@@ -236,6 +263,7 @@ export const FrontScreen = ({
               getMember={getMember}
               front={front!}
               onEditDetails={onEditDetails}
+              onQuickRemove={quickRemove}
             />
           </>
         )}

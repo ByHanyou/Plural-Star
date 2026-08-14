@@ -10,14 +10,15 @@ import {useAppStore} from '../store/appStore';
 import {saveHistory, applyFrontState} from '../store/actions';
 import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, singletStatuses} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
+import {PlannerScreen} from './PlannerScreen';
 import {EnergyRow} from '../modals/shared';
 import {TogglePill} from '../components/ToggleSwitch';
 import {Avatar} from '../components/Avatar';
 
-type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'whiteboard' | 'colors' | 'discord' | 'credits' | 'supportPS';
+type HubTile = 'share' | 'retroHistory' | 'statistics' | 'chat' | 'customFields' | 'systemManager' | 'archive' | 'polls' | 'systemMap' | 'medical' | 'mailbox' | 'network' | 'whiteboard' | 'colors' | 'planner' | 'discord' | 'credits' | 'supportPS';
 
 const HUB_ORDER_KEY = 'ps.hubTileOrder';
-const DEFAULT_TILE_ORDER: HubTile[] = ['retroHistory', 'statistics', 'chat', 'mailbox', 'whiteboard', 'colors', 'network', 'polls', 'systemMap', 'customFields', 'systemManager', 'archive', 'share', 'credits', 'discord', 'supportPS'];
+const DEFAULT_TILE_ORDER: HubTile[] = ['planner', 'retroHistory', 'statistics', 'chat', 'mailbox', 'whiteboard', 'colors', 'network', 'polls', 'systemMap', 'customFields', 'systemManager', 'archive', 'share', 'credits', 'discord', 'supportPS'];
 
 const mergeTileOrder = (saved: string[], defaults: HubTile[]): HubTile[] => {
   const valid = saved.filter(id => (defaults as string[]).includes(id)) as HubTile[];
@@ -127,8 +128,8 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   const {t} = useTranslation();
   const fs = fontScale(T);
   const isEditing = editIndex !== undefined && editIndex >= 0 && !!editEntry;
-  const regularMembers = members.filter(m => !m.isCustomFront);
-  const customFronts = members.filter(m => m.isCustomFront && !m.archived);
+  const regularMembers = members.filter(m => !m.isCustomFront && !m.deleted);
+  const customFronts = members.filter(m => m.isCustomFront && !m.archived && !m.deleted);
   const statusPool = singletStatuses(members);
 
   const editingActiveFront = !!(
@@ -160,6 +161,11 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     return history.filter((e, i) => {
       if (!e.startTime) return false;
       if (isEditing && i === editIndex) return false;
+      // Mood, location and note rows are point-in-time markers. Nothing ever
+      // closes them, so their endTime stays null for good, and reading that as
+      // "still running" made every one of them overlap everything recorded
+      // after it. Only real front spans can overlap.
+      if (e.changeType && e.changeType !== 'front') return false;
       const eEnd = e.endTime ?? Date.now();
       return e.startTime < effectiveEnd && start < eEnd;
     });
@@ -583,6 +589,14 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     );
   }
 
+  if (activeTile === 'planner') {
+    return (
+      <View style={{flex: 1, backgroundColor: T.bg}}>
+        <PlannerScreen theme={T} onBack={() => setActiveTile(null)} />
+      </View>
+    );
+  }
+
   if (activeTile === 'colors') {
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
@@ -697,6 +711,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   };
 
   const tiles: {id: HubTile; icon: string; label: string; external?: boolean}[] = [
+    {id: 'planner', icon: '🗓', label: t('planner.title')},
     {id: 'retroHistory', icon: '◷', label: t('hub.retroHistory')},
     {id: 'statistics', icon: '⊞', label: t('hub.statistics')},
     {id: 'chat', icon: '⌨', label: t('hub.systemChat')},
@@ -803,7 +818,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
                     moveTileStep(tile.id, e.nativeEvent.actionName === 'increment' ? 1 : -1);
                   }}
                   style={{position: 'absolute', top: 0, left: 0, paddingHorizontal: 10, paddingVertical: 8, zIndex: 2}}>
-                  <Text style={{fontSize: fs(13), color: T.accent}} importantForAccessibility="no">⠿</Text>
+                  <Text style={{fontSize: fs(13), color: T.accent}} accessibilityElementsHidden importantForAccessibility="no">⠿</Text>
                 </View>
               )}
               <Text style={{fontSize: fs(26), lineHeight: fs(32), color: T.accent, textAlign: 'center', includeFontPadding: false}} maxFontSizeMultiplier={1.2}>{tile.icon}</Text>

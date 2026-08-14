@@ -151,12 +151,15 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
       </View>
       {showTemplatePicker && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowTemplatePicker(false)}>
-          <TouchableOpacity activeOpacity={1} onPress={() => setShowTemplatePicker(false)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+          {/* Scrim must not be an accessible button: on iOS that hides the whole
+              card from VoiceOver. Escape gesture on the card dismisses instead. */}
+          <TouchableOpacity activeOpacity={1} onPress={() => setShowTemplatePicker(false)} accessible={false} importantForAccessibility="no"
             style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24}}>
             <TouchableOpacity activeOpacity={1} onPress={() => {}} accessible={false}
+              accessibilityViewIsModal onAccessibilityEscape={() => setShowTemplatePicker(false)}
               style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
               <View style={{padding: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                <Text style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>
+                <Text accessibilityRole="header" style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>
                   {t('journal.pickTemplate')}
                 </Text>
               </View>

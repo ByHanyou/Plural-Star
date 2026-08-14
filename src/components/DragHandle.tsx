@@ -30,7 +30,7 @@ export const DragHandle = ({T, active, panHandlers, name, position, count, onSte
         onStep(e.nativeEvent.actionName === 'increment' ? 1 : -1);
       }}
       style={{alignSelf: 'stretch', justifyContent: 'center', paddingHorizontal: 9, opacity: active ? 1 : 0.25}}>
-      <Text style={{fontSize: fs(15), color: active ? T.accent : T.muted}} importantForAccessibility="no">⠿</Text>
+      <Text style={{fontSize: fs(15), color: active ? T.accent : T.muted}} accessibilityElementsHidden importantForAccessibility="no">⠿</Text>
     </View>
   );
 };
@@ -47,7 +47,7 @@ export const ReorderLockButton = ({T, on, onToggle}: {T: ThemeColors; on: boolea
       accessibilityLabel={t('common.reorderLock')}
       hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
       style={{padding: 8, opacity: on ? 1 : 0.35}}>
-      <Text style={{fontSize: fs(16)}} importantForAccessibility="no">🤏</Text>
+      <Text style={{fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no">🤏</Text>
     </TouchableOpacity>
   );
 };

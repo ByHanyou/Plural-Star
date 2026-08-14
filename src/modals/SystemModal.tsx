@@ -4,7 +4,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {pickImageFromGallery} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
-import {BUILTIN_PALETTES, FONT_OPTIONS, fontScale} from '../theme';
+import {BUILTIN_PALETTES, FONT_OPTIONS, fontScale, ensureReadable} from '../theme';
 import type {CustomPalette, FontChoice, ThemeColors} from '../theme';
 import {uid, isValidHex, normalizeHex, TextScale, TEXT_SCALE_OPTIONS} from '../utils';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
@@ -38,6 +38,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [notifRefreshMins, setNotifRefreshMins] = useState<number>(settings?.notificationRefreshMinutes || 0);
   const [showNotifRefreshPicker, setShowNotifRefreshPicker] = useState(false);
   const [noteboardNotifs, setNoteboardNotifs] = useState<boolean>(settings?.noteboardNotifications ?? false);
+  const [termMap, setTermMap] = useState<Record<string, string>>(settings?.terminology || {});
   const [appLockPw, setAppLockPw] = useState<string>(settings?.appLockPassword || '');
   const [showAppLockPw, setShowAppLockPw] = useState<boolean>(!!settings?.appLockPassword);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
@@ -60,7 +61,12 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
     finally { setAvatarLinking(false); }
   };
 
-  React.useEffect(() => { if (visible) { setShowAvatarLink(false); setAvatarLinkInput(''); setAvatarLinking(false); setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible, system, settings]);
+  React.useEffect(() => { if (visible) { setShowAvatarLink(false); setAvatarLinkInput(''); setAvatarLinking(false); setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setTermMap(settings?.terminology || {}); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Depends on `visible` ONLY, deliberately. `settings` is a fresh object on
+  // every store write (a sync apply, a GPS location update, any other setting
+  // saved), so keeping it in the deps re-ran this while the sheet was open and
+  // threw away whatever the user had edited but not yet saved. That is what
+  // reset reordered custom moods and brought deleted ones back.
 
   const addLoc = () => {if (newLocation.trim() && !locs.includes(newLocation.trim())) {setLocs([...locs, newLocation.trim()]); setNewLocation('');}};
   const addMood = () => {if (newMood.trim() && !moods.includes(newMood.trim())) {setMoods([...moods, newMood.trim()]); setNewMood('');}};
@@ -104,7 +110,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn instant T={T} onPress={() => {
       onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
       clearDraft('system', 'system');
-      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
+      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
       <Field label={singletMode ? t('modal.name') : t('modal.systemName')} value={f.name} onChange={(v: string) => setF((x: any) => ({...x, name: v}))} placeholder={singletMode ? t('setup.yourNamePlaceholder') : t('modal.systemNamePlaceholder')} T={T} />
@@ -166,22 +172,28 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             const isActive = activePaletteId === p.id;
             const isBuiltIn = p.id.startsWith('__');
             return (
-              <TouchableOpacity key={p.id} onPress={() => onSelectPalette(p.id)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityState={{selected: isActive}} accessibilityLabel={p.name}
+              // Row was one big labeled touchable, so its Edit/Delete children
+              // were invisible to iOS VoiceOver. Select is now its own flex:1
+              // touchable with Edit/Delete as reachable siblings.
+              <View key={p.id}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, borderWidth: 1,
                   backgroundColor: isActive ? `${p.accent}15` : T.surface, borderColor: isActive ? `${p.accent}50` : T.border}}>
-                <View style={{flexDirection: 'row', gap: 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-                  {[p.bg, p.accent, p.text, p.mid].map((c, i) => (<View key={i} style={{width: 16, height: 16, borderRadius: 4, backgroundColor: c, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'}} />))}
-                </View>
-                <Text style={{flex: 1, fontSize: fs(13), color: isActive ? p.accent : T.text, fontWeight: isActive ? '600' : '400'}}>{p.name}</Text>
-                {isActive && <Text style={{fontSize: fs(12), color: p.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                <TouchableOpacity onPress={() => onSelectPalette(p.id)} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityState={{selected: isActive}} accessibilityLabel={p.name}
+                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                  <View style={{flexDirection: 'row', gap: 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                    {[p.bg, p.accent, p.text, p.mid].map((c, i) => (<View key={i} style={{width: 16, height: 16, borderRadius: 4, backgroundColor: c, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'}} />))}
+                  </View>
+                  <Text style={{flex: 1, fontSize: fs(13), color: isActive ? p.accent : T.text, fontWeight: isActive ? '600' : '400'}}>{p.name}</Text>
+                  {isActive && <Text style={{fontSize: fs(12), color: p.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                </TouchableOpacity>
                 {!isBuiltIn && (
                   <View style={{flexDirection: 'row', gap: 8}}>
                     <TouchableOpacity onPress={() => startEditPalette(p)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${p.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => deletePalette(p.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${p.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => deletePalette(p.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${p.name}`} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}><Text style={{fontSize: fs(12), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no">✕</Text></TouchableOpacity>
                   </View>
                 )}
-              </TouchableOpacity>
+              </View>
             );
           })}
         </View>
@@ -203,15 +215,21 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
               <HexField label={t('modal.palMid')} value={palMid} onChange={setPalMid} T={T} />
             </View>
             {isValidHex(normalizeHex(palBg)) && isValidHex(normalizeHex(palAccent)) && isValidHex(normalizeHex(palText)) && isValidHex(normalizeHex(palMid)) && (
+              // Each preview label is clamped against the surface it actually
+              // sits on: bg-tinted labels on the accent/mid fills, the text
+              // colour on the bg strip. Raw values went invisible whenever two
+              // palette colours shared a luminance ("fren" teal put its Mid
+              // label at 1.18:1), and the text chip now mirrors the readable
+              // text the app will really use.
               <View style={{flexDirection: 'row', gap: 3, marginBottom: 10, padding: 8, borderRadius: 8, backgroundColor: normalizeHex(palBg)}}>
                 <View style={{flex: 1, height: 24, borderRadius: 4, backgroundColor: normalizeHex(palAccent), alignItems: 'center', justifyContent: 'center'}}>
-                  <Text style={{fontSize: fs(10), fontWeight: '600', color: normalizeHex(palBg)}}>{t('modal.palPreviewAccent')}</Text>
+                  <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palBg), normalizeHex(palAccent), 4.5)}}>{t('modal.palPreviewAccent')}</Text>
                 </View>
                 <View style={{flex: 1, height: 24, borderRadius: 4, alignItems: 'center', justifyContent: 'center'}}>
-                  <Text style={{fontSize: fs(10), fontWeight: '600', color: normalizeHex(palText)}}>{t('modal.palPreviewText')}</Text>
+                  <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palText), normalizeHex(palBg), 4.5)}}>{t('modal.palPreviewText')}</Text>
                 </View>
                 <View style={{flex: 1, height: 24, borderRadius: 4, backgroundColor: normalizeHex(palMid), alignItems: 'center', justifyContent: 'center'}}>
-                  <Text style={{fontSize: fs(10), fontWeight: '600', color: normalizeHex(palBg)}}>{t('modal.palPreviewMid')}</Text>
+                  <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palBg), normalizeHex(palMid), 4.5)}}>{t('modal.palPreviewMid')}</Text>
                 </View>
               </View>
             )}
@@ -326,6 +344,30 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <ToggleSwitch value={noteboardNotifs} onToggle={() => setNoteboardNotifs(!noteboardNotifs)} label={t('notification.noteboard')} T={T} style={{marginLeft: 12}} />
         </View>
         )}
+      </View>
+      <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
+        <View style={{marginBottom: 8}}>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('terminology.title')}</Text>
+          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('terminology.hint')}</Text>
+        </View>
+        {([['member', 'members'], ['group', 'groups'], ['facet', 'facets'], ['front', 'system']] as const).map(pair => (
+          <View key={pair[0]} style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
+            {pair.map(term => (
+              <View key={term} style={{flex: 1}}>
+                <Text style={{fontSize: fs(10), color: T.dim, marginBottom: 3}}>{t(`terminology.${term}`)}</Text>
+                <TextInput
+                  value={termMap[term] || ''}
+                  onChangeText={v => setTermMap(m => ({...m, [term]: v}))}
+                  placeholder={t(`terminology.${term}`)}
+                  placeholderTextColor={T.muted}
+                  accessibilityLabel={t(`terminology.${term}`)}
+                  autoCapitalize="none"
+                  style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}}
+                />
+              </View>
+            ))}
+          </View>
+        ))}
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.language')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.languageDesc')}</Text></View>

@@ -73,7 +73,7 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border, gap: 8}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 6}}>
-          <Text style={{fontSize: fs(16), color: T.dim}} importantForAccessibility="no">‹</Text>
+          <Text style={{fontSize: fs(16), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">‹</Text>
         </TouchableOpacity>
         <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: T.text}}>{t('colors.title')}</Text>
       </View>
@@ -105,7 +105,7 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
               <TouchableOpacity key={i} onPress={() => openSlot(i)} activeOpacity={0.8}
                 accessibilityRole="button" accessibilityLabel={t('colors.emptySlot', {n: i + 1})}
                 style={{width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: T.dim, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center'}}>
-                <Text style={{fontSize: fs(16), color: T.dim}} importantForAccessibility="no">＋</Text>
+                <Text style={{fontSize: fs(16), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">＋</Text>
               </TouchableOpacity>
             );
           })}

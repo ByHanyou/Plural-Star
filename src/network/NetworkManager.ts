@@ -55,6 +55,7 @@ import {
 } from './types';
 
 const SYNC_DEBOUNCE_MS = 8000;
+const MIRROR_DEBOUNCE_MS = 10000;
 const SYNC_MIN_INTERVAL_MS = 8000;
 const SYNC_MSG_BUDGET = 64 * 1024;
 const SYNC_CHUNK_SIZE = 48 * 1024;
@@ -179,6 +180,7 @@ class NetworkManagerImpl {
 
   private lastHashes: Record<string, string> = {};
   private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  private mirrorTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPushAt = 0;
   private syncing = false;
   private chunkBuffers: Map<string, {parts: string[]; total: number; seqs: Set<number>; init: boolean}> = new Map();
@@ -501,7 +503,15 @@ class NetworkManagerImpl {
     if (!record) throw new Error('code not found or expired');
     const id = openRendezvousRecord(record);
     if (!id) throw new Error('invalid record');
-    if (id.peerId === self.peerId) throw new Error('that is your own code');
+    if (id.peerId === self.peerId) {
+      // A device that adopted our identity IS this peer: same keys, same relay
+      // address. Matching on peer id alone therefore called a sibling's sync
+      // code "your own code", so an adopted pair could never link again after
+      // unlinking. Only the code we ourselves published is genuinely ours.
+      const mine = this.active[kind]?.code;
+      const isReallyMine = kind !== 'device' || (!!mine && mine.toUpperCase() === code.toUpperCase());
+      if (isReallyMine) throw new Error('that is your own code');
+    }
 
     const existing = this.friends.find(f => f.peerId === id.peerId);
     const status: Friend['status'] =
@@ -793,9 +803,12 @@ class NetworkManagerImpl {
   private async announceFrontToGateway(): Promise<void> {
     const self = this.identity;
     if (!self || !this.settings.enabled) return;
-    const fronters = (this.myFront?.fronters || '').slice(0, 120);
+    // Code-point slices, matching the gateway's rune caps: a bare .slice
+    // counts UTF-16 units and can split an emoji's surrogate pair, which
+    // corrupts the signed string and kills the announce silently.
+    const fronters = Array.from(this.myFront?.fronters || '').slice(0, 120).join('');
     const startTime = this.myFront?.startTime || 0;
-    const name = (this.systemName || '').slice(0, 64);
+    const name = Array.from(this.systemName || '').slice(0, 64).join('');
     const ts = Date.now();
     const signed = `psgw-front|${self.peerId}|${ts}|${fronters}|${startTime}|${name}`;
     const sig = nacl.sign.detached(decodeUTF8(signed), self.edSecretKey);
@@ -1483,7 +1496,10 @@ class NetworkManagerImpl {
     if (!m || typeof m.seq !== 'number' || typeof m.total !== 'number' || m.total < 1 || m.total > SYNC_MAX_PARTS) return;
     const id = `${sender.peerId}|${m.feature}`;
     let buf = this.mirrorBuffers.get(id);
-    if (!buf || buf.total !== m.total) {
+    // seq 0 always opens a fresh transfer. Without this, an interrupted one left
+    // its parts behind and the retry's early chunks were discarded as duplicates,
+    // so the mirror joined old halves to new and failed to parse.
+    if (!buf || buf.total !== m.total || m.seq === 0) {
       buf = {parts: new Array(m.total).fill(''), total: m.total, seqs: new Set()};
       this.mirrorBuffers.set(id, buf);
     }
@@ -1632,6 +1648,18 @@ class NetworkManagerImpl {
 
   notifyDataChanged(): void {
     this.snapMemo = null;
+    // Friends' mirrors are pushed from here too. They used to refresh only when
+    // the buckets were saved on the Network screen, so editing a member, group
+    // or journal entry left every viewer holding the copy they last pulled by
+    // hand. refreshAllMirrors compares a payload hash per peer and feature, so
+    // an unchanged mirror costs a rebuild and no send.
+    if (this.settings.enabled) {
+      if (this.mirrorTimer) clearTimeout(this.mirrorTimer);
+      this.mirrorTimer = setTimeout(() => {
+        this.mirrorTimer = null;
+        this.refreshAllMirrors();
+      }, MIRROR_DEBOUNCE_MS);
+    }
     if (this.friends.some(f => f.kind === 'device' && f.initRole === 'target' && f.initPending)) return;
     if (!this.settings.enabled || this.acceptedDevices().length === 0) return;
     if (this.syncTimer) clearTimeout(this.syncTimer);

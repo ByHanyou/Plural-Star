@@ -335,7 +335,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       accessibilityRole="button" accessibilityState={{selected: tool === id}} accessibilityLabel={label}
       style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1,
         backgroundColor: tool === id ? T.accentBg : 'transparent', borderColor: tool === id ? T.accent : T.border}}>
-      <Text style={{fontSize: fs(15), color: tool === id ? T.accent : T.dim}} importantForAccessibility="no">{glyph}</Text>
+      <Text style={{fontSize: fs(15), color: tool === id ? T.accent : T.dim}} accessibilityElementsHidden importantForAccessibility="no">{glyph}</Text>
     </TouchableOpacity>
   );
 
@@ -343,20 +343,20 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border, gap: 8}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 6}}>
-          <Text style={{fontSize: fs(16), color: T.dim}} importantForAccessibility="no">‹</Text>
+          <Text style={{fontSize: fs(16), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">‹</Text>
         </TouchableOpacity>
         <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: T.text}}>{t('whiteboard.title')}</Text>
         <TouchableOpacity onPress={undo} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('whiteboard.undo')} accessibilityState={{disabled: strokes.length === 0}} style={{padding: 6}}>
-          <Text style={{fontSize: fs(15), color: strokes.length ? T.text : T.muted}} importantForAccessibility="no">↩</Text>
+          <Text style={{fontSize: fs(15), color: strokes.length ? T.text : T.muted}} accessibilityElementsHidden importantForAccessibility="no">↩</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => zoomBy(1.25)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.zoomIn')} style={{padding: 6}}>
-          <Text style={{fontSize: fs(15), color: T.text}} importantForAccessibility="no">＋</Text>
+          <Text style={{fontSize: fs(15), color: T.text}} accessibilityElementsHidden importantForAccessibility="no">＋</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => zoomBy(0.8)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.zoomOut')} style={{padding: 6}}>
-          <Text style={{fontSize: fs(15), color: T.text}} importantForAccessibility="no">－</Text>
+          <Text style={{fontSize: fs(15), color: T.text}} accessibilityElementsHidden importantForAccessibility="no">－</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={clearAll} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('whiteboard.clear')} style={{padding: 6}}>
-          <Text style={{fontSize: fs(15), color: T.danger}} importantForAccessibility="no">🗑</Text>
+          <Text style={{fontSize: fs(15), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no">🗑</Text>
         </TouchableOpacity>
       </View>
 
@@ -370,13 +370,13 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
             <TouchableOpacity key={wd} onPress={() => setWidth(wd)} activeOpacity={0.7}
               accessibilityRole="button" accessibilityState={{selected: width === wd}} accessibilityLabel={`${t('whiteboard.brushSize')} ${wd}`}
               style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: width === wd ? T.accent : T.border}}>
-              <View style={{width: wd + 4, height: wd + 4, borderRadius: (wd + 4) / 2, backgroundColor: color}} importantForAccessibility="no" />
+              <View style={{width: wd + 4, height: wd + 4, borderRadius: (wd + 4) / 2, backgroundColor: color}} accessibilityElementsHidden importantForAccessibility="no" />
             </TouchableOpacity>
           ))}
           <TouchableOpacity onPress={() => setTool('bucket')} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{selected: tool === 'bucket'}} accessibilityLabel={t('whiteboard.bucket')}
             style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: tool === 'bucket' ? T.accentBg : 'transparent', borderColor: tool === 'bucket' ? T.accent : T.border}}>
-            <Text style={{fontSize: fs(14)}} importantForAccessibility="no">🪣</Text>
+            <Text style={{fontSize: fs(14)}} accessibilityElementsHidden importantForAccessibility="no">🪣</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>

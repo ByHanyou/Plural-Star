@@ -62,12 +62,17 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
-      <TouchableOpacity activeOpacity={1} onPress={onCancel} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')}
+      {/* The scrim used to be an accessible "Cancel" button, which turned the
+          whole card into its descendants: on iOS an accessible touchable hides
+          its subtree, so VoiceOver could reach NOTHING inside this picker.
+          Scrim is now invisible to a11y; VO dismisses via the escape gesture. */}
+      <TouchableOpacity activeOpacity={1} onPress={onCancel} accessible={false} importantForAccessibility="no"
         style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24}}>
         <TouchableOpacity activeOpacity={1} onPress={() => {}} accessible={false}
+          accessibilityViewIsModal onAccessibilityEscape={onCancel}
           style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
           <View style={{padding: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
-            <Text style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>
               {i18n.t('mention.pickMember')}
             </Text>
             <TextInput

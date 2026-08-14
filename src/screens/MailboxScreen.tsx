@@ -15,6 +15,9 @@ interface Props {
   onBack: () => void;
 }
 
+// Recipient sentinel for "send to everyone". Not a member id, never stored.
+const ALL_RECIPIENTS = '*';
+
 export const MailboxScreen = ({theme: T, onBack}: Props) => {
   const kbHeight = useKeyboardHeight();
   const members = useAppStore(s => s.members);
@@ -118,11 +121,18 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
 
   const send = (recipientId: string, senderId: string) => {
     if (!recipientId || !senderId || !text.trim()) return;
-    const entry: NoteboardEntry = {
-      id: uid(), memberId: recipientId, authorId: senderId,
-      content: text.trim(), timestamp: Date.now(), read: senderId === recipientId,
-    };
-    save([...notes, entry]);
+    // "Everyone" fans out a real message per member rather than inventing a
+    // broadcast row: each inbox keeps its own unread flag, pin and delete, and
+    // every existing count, lock, sync and export path works untouched.
+    const targets = recipientId === ALL_RECIPIENTS ? active.map(m => m.id) : [recipientId];
+    if (targets.length === 0) return;
+    const body = text.trim();
+    const now = Date.now();
+    const entries: NoteboardEntry[] = targets.map(id => ({
+      id: uid(), memberId: id, authorId: senderId,
+      content: body, timestamp: now, read: senderId === id,
+    }));
+    save([...notes, ...entries]);
     setText('');
     setComposing(false);
   };
@@ -140,8 +150,18 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
     return b.timestamp - a.timestamp;
   });
 
-  const MemberChips = ({selected, onSelect}: {selected: string; onSelect: (id: string) => void}) => (
+  const MemberChips = ({selected, onSelect, allowAll = false}: {selected: string; onSelect: (id: string) => void; allowAll?: boolean}) => (
     <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4}}>
+      {allowAll && active.length > 0 && (
+        <TouchableOpacity onPress={() => onSelect(ALL_RECIPIENTS)} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityState={{selected: selected === ALL_RECIPIENTS}}
+          accessibilityLabel={`${t('mailbox.everyone')} (${active.length})`}
+          style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+            backgroundColor: selected === ALL_RECIPIENTS ? `${T.accent}20` : T.bg,
+            borderColor: selected === ALL_RECIPIENTS ? `${T.accent}50` : T.border}}>
+          <Text style={{fontSize: fs(11), fontWeight: '600', color: selected === ALL_RECIPIENTS ? T.accent : T.dim}}>{t('mailbox.everyone')} · {active.length}</Text>
+        </TouchableOpacity>
+      )}
       {active.map(m => (
         <TouchableOpacity key={m.id} onPress={() => onSelect(m.id)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityState={{selected: selected === m.id}} accessibilityLabel={m.name}
@@ -193,7 +213,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           {!!onSetMailboxPassword && (
             <TouchableOpacity onPress={() => { setLockInput(''); setLockManage(true); }} activeOpacity={0.7}
               accessibilityRole="button" accessibilityLabel={t('mailbox.lockTitle')} style={{padding: 6}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-              <Text style={{fontSize: fs(15), color: owner?.mailboxPassword ? T.accent : T.dim}} importantForAccessibility="no">{owner?.mailboxPassword ? '🔒' : '🔓'}</Text>
+              <Text style={{fontSize: fs(15), color: owner?.mailboxPassword ? T.accent : T.dim}} accessibilityElementsHidden importantForAccessibility="no">{owner?.mailboxPassword ? '🔒' : '🔓'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -210,7 +230,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
               <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('mailbox.messagePlaceholder')} multiline
                 style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 48, textAlignVertical: 'top'}} />
               <TouchableOpacity onPress={() => send(openId, fromId)} activeOpacity={0.7} disabled={!fromId || !text.trim()}
-                accessibilityRole="button" accessibilityLabel={t('mailbox.send')}
+                accessibilityRole="button" accessibilityLabel={t('mailbox.send')} accessibilityState={{disabled: !fromId || !text.trim()}}
                 style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 11, opacity: (!fromId || !text.trim()) ? 0.4 : 1}}>
                 <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('mailbox.send')}</Text>
               </TouchableOpacity>
@@ -260,11 +280,11 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('mailbox.from')}</Text>
             <MemberChips selected={fromId} onSelect={setFromId} />
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 10, marginBottom: 6}}>{t('mailbox.to')}</Text>
-            <MemberChips selected={toId} onSelect={setToId} />
+            <MemberChips selected={toId} onSelect={setToId} allowAll />
             <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('mailbox.messagePlaceholder')} multiline
               style={{backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 56, textAlignVertical: 'top', marginTop: 10}} />
             <TouchableOpacity onPress={() => send(toId, fromId)} activeOpacity={0.7} disabled={!fromId || !toId || !text.trim()}
-              accessibilityRole="button" accessibilityLabel={t('mailbox.send')}
+              accessibilityRole="button" accessibilityLabel={t('mailbox.send')} accessibilityState={{disabled: !fromId || !toId || !text.trim()}}
               style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingVertical: 11, alignItems: 'center', marginTop: 10, opacity: (!fromId || !toId || !text.trim()) ? 0.4 : 1}}>
               <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('mailbox.send')}</Text>
             </TouchableOpacity>
@@ -277,7 +297,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           const count = notes.filter(n => n.memberId === id).length;
           return (
             <TouchableOpacity key={id} onPress={() => openInbox(id)} activeOpacity={0.7} accessibilityRole="button"
-              accessibilityLabel={`${m?.name || '?'}. ${t('mailbox.messageCount', {count})}.${unread > 0 ? ` ${t('mailbox.unreadCount', {count: unread})}` : ''}`}
+              accessibilityLabel={`${m?.name || '?'}. ${t('mailbox.messageCount', {count})}.${unread > 0 ? ` ${t('mailbox.unreadCount', {count: unread})}` : ''}${m?.mailboxPassword ? ` ${t('mailbox.lockTitle')}` : ''}`}
               style={{flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: unread > 0 ? T.accent : T.border, padding: 12, marginBottom: 8}}>
               <View style={{width: 36, height: 36, borderRadius: 8, backgroundColor: m?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
                 <Text style={{fontSize: fs(13), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(m?.name || '?')}</Text>
@@ -285,7 +305,8 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
               <View style={{flex: 1}}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                   <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text, flexShrink: 1}} numberOfLines={1}>{m?.name || '?'}</Text>
-                  {!!m?.mailboxPassword && <Text style={{fontSize: fs(11)}} importantForAccessibility="no">🔒</Text>}
+                  {/* Locked state is spoken via the row label; the glyph itself is decorative. */}
+                  {!!m?.mailboxPassword && <Text style={{fontSize: fs(11)}} accessibilityElementsHidden importantForAccessibility="no">🔒</Text>}
                 </View>
                 <Text style={{fontSize: fs(11), color: T.muted}}>{t('mailbox.messageCount', {count})}</Text>
               </View>

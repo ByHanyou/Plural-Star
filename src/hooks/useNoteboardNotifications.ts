@@ -37,6 +37,7 @@ export const useNoteboardNotifications = (front: FrontState | null, members: Mem
         const allNotes = await store.get<NoteboardEntry[]>(KEYS.noteboards, []) || [];
         const lastSeen = await store.get<Record<string, number>>(KEYS.lastNoteboardSeen, {}) || {};
         const entries: {memberName: string; unreadCount: number}[] = [];
+        const notified: Record<string, number> = {};
         for (const memberId of newlyFronting) {
           const member = members.find(m => m.id === memberId);
           if (!member) continue;
@@ -44,10 +45,19 @@ export const useNoteboardNotifications = (front: FrontState | null, members: Mem
           const unread = allNotes.filter(n => n.memberId === memberId && !n.read && n.timestamp > lastSeenTs);
           if (unread.length > 0) {
             entries.push({memberName: member.name, unreadCount: unread.length});
+            notified[memberId] = Math.max(...unread.map(n => n.timestamp));
           }
         }
         if (entries.length > 0) {
           await showNoteboardNotification(entries);
+          // Record what was just announced. The old Noteboard tab used to
+          // advance lastNoteboardSeen when the notes were viewed; the Mailbox
+          // rewrite removed that writer, so the same unread mail re-announced
+          // on EVERY switch, which read as "notifications with no new mail".
+          // Advancing to the newest announced timestamp means only mail that
+          // arrives after this announcement can trigger the next one, while
+          // the Mailbox's own unread badges stay driven by the read flags.
+          await store.set(KEYS.lastNoteboardSeen, {...lastSeen, ...notified});
         }
       } catch (e) { console.error('[PS] noteboard unread check error:', e); }
     })();

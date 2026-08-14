@@ -12,8 +12,8 @@ import notifee, {
 // Apr 2026). Same API, same native classes — verified against the published
 // tarball before switching.
 } from 'react-native-notify-kit';
-import {Platform} from 'react-native';
-import {FrontState, Member, Medication, MedicalAppointment, fmtDur, fmtTime} from '../utils';
+import {AppState, Platform} from 'react-native';
+import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime} from '../utils';
 import {logError} from '../utils/log';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
@@ -386,13 +386,25 @@ export const showFrontNotification = async (
     const sig = JSON.stringify([title, body, ownBig]);
     if (frontDismissGuard !== null && sig === frontDismissGuard) return;
 
+    // Android 12+ forbids starting a foreground service from the background.
+    // Sync-applied front changes run exactly there, and posting with
+    // asForegroundService then crashed in notify-kit's ForegroundService.start
+    // (top Play Console crash on 1.15.0, ForegroundServiceStartNotAllowed +
+    // DidNotStartInTime family). Bind the FGS only when it is legal: app in
+    // the foreground, an FGS already running (re-posts to a live service are
+    // allowed), or an API level without the restriction. Otherwise post the
+    // same content as a plain ongoing notification — identical to what the
+    // background refresh trigger already does — and the FGS re-binds on the
+    // next foreground update.
+    const canBindFgs =
+      fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
     await notifee.displayNotification({
       id: NOTIF_ID,
       title,
       body,
-      android: {...frontAndroidConfig(ownBig, [], onlineLabel), asForegroundService: true},
+      android: {...frontAndroidConfig(ownBig, [], onlineLabel), ...(canBindFgs ? {asForegroundService: true} : {})},
     });
-    fgsBound = true;
+    fgsBound = canBindFgs;
     lastFrontSig = sig;
     frontDismissGuard = null;
   } catch (e) {
@@ -406,11 +418,25 @@ export const scheduleFrontNotificationRefresh = async (
   intervalMinutes: number,
 ) => {
   try {
-    await cancelFrontNotificationRefresh();
     if (Platform.OS !== 'android') return;
-    if (!front || !intervalMinutes || intervalMinutes < 15) return;
+    // No leading cancel. notify-kit enqueues this as unique periodic work with
+    // ExistingPeriodicWorkPolicy.UPDATE, so creating it again replaces the old
+    // one atomically. Cancelling first ran a separate async chain against the
+    // same unique work name, and with two schedule calls in flight a late
+    // cancel could land after the new enqueue and delete it. The trigger is the
+    // only thing that brings the notification back once Android reclaims the
+    // process, so losing it is exactly the "vanished until I opened the app"
+    // report. Bail-out paths below still cancel, because there the intent
+    // really is to stop refreshing.
+    if (!front || !intervalMinutes || intervalMinutes < 15) {
+      await cancelFrontNotificationRefresh();
+      return;
+    }
     const content = buildFrontContent(front, members);
-    if (!content) return;
+    if (!content) {
+      await cancelFrontNotificationRefresh();
+      return;
+    }
     await setupNotificationChannel();
     const trigger: IntervalTrigger = {
       type: TriggerType.INTERVAL,
@@ -652,6 +678,8 @@ export const clearNoteboardNotification = async () => {
 
 const MED_ID_PREFIX = 'ps-med-';
 const APPT_ID_PREFIX = 'ps-appt-';
+const PLAN_APPT_ID_PREFIX = 'ps-plan-appt-';
+const PLAN_REM_ID_PREFIX = 'ps-plan-rem-';
 
 const cancelTriggersWithPrefix = async (prefix: string) => {
   try {
@@ -668,6 +696,95 @@ export const rescheduleMedicationReminders = async (_medications: Medication[]) 
 
 export const rescheduleAppointmentReminders = async (_appointments: MedicalAppointment[]) => {
   await cancelTriggersWithPrefix(APPT_ID_PREFIX);
+};
+
+// Day Planner notifications. SET_AND_ALLOW_WHILE_IDLE fires through Doze
+// without the exact-alarm permission Play restricts; notifee ignores
+// alarmManager on iOS, where TimestampTrigger is the timestamp-trigger path
+// the standing cross-platform rule requires.
+//
+// Cadences: daily and weekly map to notifee's native repeatFrequency, so they
+// keep firing even if the app never reopens. Every other cadence (every other
+// day/week, monthly, every other month, annually, one-time) has no native
+// repeat, so its NEXT occurrence is armed as a one-shot and re-armed on every
+// app start and every planner save.
+const plannerAndroidConfig = () => ({
+  channelId: REMINDER_CHANNEL_ID,
+  smallIcon: 'ic_stat_notification',
+  importance: AndroidImportance.DEFAULT,
+  visibility: AndroidVisibility.PUBLIC,
+  pressAction: {id: 'default'},
+  color: '#DAA520',
+});
+
+const nativeRepeatFor = (repeat: string | undefined): RepeatFrequency | undefined => {
+  if (repeat === 'daily') return RepeatFrequency.DAILY;
+  if (repeat === 'weekly') return RepeatFrequency.WEEKLY;
+  return undefined;
+};
+
+export const reschedulePlannerNotifications = async (planner: PlannerData | null) => {
+  await cancelTriggersWithPrefix(PLAN_APPT_ID_PREFIX);
+  await cancelTriggersWithPrefix(PLAN_REM_ID_PREFIX);
+  if (!planner) return;
+  try {
+    await setupReminderChannel();
+    const now = Date.now();
+
+    for (const appt of planner.appointments || []) {
+      if (appt.reminderMinutesBefore == null) continue;
+      const offsetMs = appt.reminderMinutesBefore * 60 * 1000;
+      const occurrence = plannerNextOccurrence(appt.time, appt.repeat, now + offsetMs);
+      if (occurrence == null) continue;
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: occurrence - offsetMs,
+        repeatFrequency: nativeRepeatFor(appt.repeat),
+        alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
+      };
+      await notifee.createTriggerNotification(
+        {
+          id: `${PLAN_APPT_ID_PREFIX}${appt.id}`,
+          title: `🗓 ${appt.title}`,
+          body: appt.location
+            ? i18n.t('planner.notifApptAt', {time: fmtTime(occurrence), location: appt.location, defaultValue: `${fmtTime(occurrence)} · ${appt.location}`})
+            : i18n.t('planner.notifAppt', {time: fmtTime(occurrence), defaultValue: fmtTime(occurrence)}),
+          android: plannerAndroidConfig(),
+        },
+        trigger,
+      );
+    }
+
+    for (const rem of planner.reminders || []) {
+      if (!rem.enabled) continue;
+      const repeat = rem.repeat || 'daily';
+      for (let i = 0; i < (rem.times || []).length; i++) {
+        const [hh, mm] = rem.times[i].split(':').map(Number);
+        if (!Number.isFinite(hh) || !Number.isFinite(mm)) continue;
+        const anchor = new Date(rem.startDate ?? rem.createdAt);
+        anchor.setHours(hh, mm, 0, 0);
+        const occurrence = plannerNextOccurrence(anchor.getTime(), repeat, now);
+        if (occurrence == null) continue;
+        const trigger: TimestampTrigger = {
+          type: TriggerType.TIMESTAMP,
+          timestamp: occurrence,
+          repeatFrequency: nativeRepeatFor(repeat),
+          alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
+        };
+        await notifee.createTriggerNotification(
+          {
+            id: `${PLAN_REM_ID_PREFIX}${rem.id}-${i}`,
+            title: `⏰ ${rem.title}`,
+            body: rem.notes || i18n.t('planner.notifReminder', {defaultValue: 'Planner reminder'}),
+            android: plannerAndroidConfig(),
+          },
+          trigger,
+        );
+      }
+    }
+  } catch (e) {
+    console.error('[PluralSpace] Planner reschedule error:', e);
+  }
 };
 
 export const showChatPingNotification = async (

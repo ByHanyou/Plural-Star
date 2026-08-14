@@ -4,8 +4,9 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, CustomFieldDef, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
+import {readFileBytes} from '../utils/fileBytes';
 import {convertSPSwitches, normHex} from './convert';
-import {u8FromBase64, base64FromU8} from '../export/exportUtils';
+import {base64FromU8} from '../export/exportUtils';
 import {saveAvatar, saveBannerFromBase64} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
 import {logError} from '../utils/log';
@@ -352,14 +353,12 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
         setImportSource('ampersand');
         return;
       }
-      // Not JSON — try the binary archive. Read as base64 because the bytes are
-      // not valid UTF-8 and reading them as text corrupts them silently.
+      // Not JSON — try the binary archive. Streamed read: a whole-file base64
+      // readFile of a 37MB .ampar OOM-crashed low-RAM devices (Play Console
+      // ReactNativeBlobUtilFS.readFile OutOfMemoryError cluster).
       let bytes: Uint8Array | null = null;
       try {
-        let b64: string;
-        try { b64 = await ReactNativeBlobUtil.fs.readFile(path, 'base64'); }
-        catch { b64 = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'base64'); }
-        bytes = u8FromBase64(b64);
+        bytes = await readFileBytes(path, res.uri);
       } catch {}
       if (bytes && isAmparBytes(bytes)) {
         const prev = amparToPreview(bytes, t('share.system'));

@@ -1,3 +1,139 @@
+diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
+index bda1ee4..1609235 100644
+--- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
++++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
+@@ -130,10 +130,33 @@ public class ForegroundService extends Service {
+     intent.putExtra("notificationBundle", notificationBundle);
+ 
+     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+-      context.startForegroundService(intent);
++      try {
++        context.startForegroundService(intent);
++      } catch (Exception e) {
++        // Android 12+ denies foreground-service starts from the background
++        // (ForegroundServiceStartNotAllowedException, an IllegalStateException
++        // subclass), and an oversized notification parcel can throw
++        // TransactionTooLargeException. Neither should crash the app: post the
++        // notification directly so the user still sees it, and let the service
++        // bind on the next legal start.
++        Logger.w(TAG, "startForegroundService() failed; posting notification without FGS", e);
++        try {
++          NotificationManagerCompat.from(context).notify(hashCode, notification);
++        } catch (Exception notifyError) {
++          Logger.e(TAG, "Fallback notify() after failed FGS start also failed", notifyError);
++        }
++      }
+     } else {
+-      // TODO test this on older device
+-      context.startService(intent);
++      try {
++        context.startService(intent);
++      } catch (Exception e) {
++        Logger.w(TAG, "startService() failed; posting notification without FGS", e);
++        try {
++          NotificationManagerCompat.from(context).notify(hashCode, notification);
++        } catch (Exception notifyError) {
++          Logger.e(TAG, "Fallback notify() after failed service start also failed", notifyError);
++        }
++      }
+     }
+   }
+ 
+@@ -163,6 +186,57 @@ public class ForegroundService extends Service {
+     }
+   }
+ 
++  @Override
++  public void onCreate() {
++    super.onCreate();
++    satisfyContractEarly();
++  }
++
++  /**
++   * Android gives a service started via startForegroundService() five seconds to call
++   * startForeground(); on slow cold starts (Doze exit, low-RAM devices, React Native init
++   * contending for the main thread) onStartCommand can land after that window, and the system
++   * then raises ForegroundServiceDidNotStartInTimeException — the largest crash cluster this
++   * service produced in production. Satisfy the contract with a minimal silent placeholder at the
++   * earliest lifecycle point; onStartCommand replaces it with the real notification and cancels
++   * the placeholder id.
++   */
++  @SuppressLint({"ForegroundServiceType", "MissingPermission"})
++  private void satisfyContractEarly() {
++    if (mStartForegroundCalled) {
++      return;
++    }
++    try {
++      int declaredTypes = 0;
++      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
++        declaredTypes = getDeclaredForegroundServiceType();
++        if (!hasAnyForegroundServiceType(declaredTypes)) {
++          // No usable manifest type on API 34+: leave the existing onStartCommand
++          // paths to handle (and report) this configuration.
++          return;
++        }
++      }
++      ensureDefensiveChannel();
++      Notification placeholder =
++          new NotificationCompat.Builder(this, DEFENSIVE_CHANNEL_ID)
++              .setSmallIcon(android.R.drawable.ic_dialog_info)
++              .build();
++      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
++        startForeground(
++            DEFENSIVE_NOTIFICATION_ID,
++            placeholder,
++            selectDefensiveForegroundServiceType(declaredTypes));
++      } else {
++        startForeground(DEFENSIVE_NOTIFICATION_ID, placeholder);
++      }
++      mStartForegroundCalled = true;
++    } catch (Exception e) {
++      // Denied (e.g. a background start that raced past the caller-side guard) or any
++      // other failure: fall through to the original onStartCommand behaviour.
++      Logger.w(TAG, "Early startForeground() placeholder failed; continuing", e);
++    }
++  }
++
+   @SuppressLint({"ForegroundServiceType", "MissingPermission"})
+   @Override
+   public int onStartCommand(Intent intent, int flags, int startId) {
+@@ -308,6 +382,16 @@ public class ForegroundService extends Service {
+             return START_NOT_STICKY;
+           }
+ 
++          // The onCreate() placeholder (if used) has been superseded by the real
++          // startForeground() above; remove any detached copy from the shade.
++          // Outside sLock: notification cancel is Binder IPC.
++          try {
++            NotificationManagerCompat.from(ContextHolder.getApplicationContext())
++                .cancel(DEFENSIVE_NOTIFICATION_ID);
++          } catch (Exception ignored) {
++            // Nothing to clean up.
++          }
++
+           if (pendingEvent != null) {
+             EventBus.post(pendingEvent);
+           }
+@@ -531,6 +615,19 @@ public class ForegroundService extends Service {
+           "Defensive startForeground() was denied by Android while stopping the service; "
+               + "continuing with stopSelf() to avoid a fatal app crash.",
+           e);
++    } catch (IllegalStateException e) {
++      // ForegroundServiceStartNotAllowedException (API 31+) extends
++      // IllegalStateException: Android denied the defensive foreground call, most
++      // commonly on a STOP delivered to a background-started service. The old
++      // rethrow here converted that denial into a production crash. There is no
++      // contract to satisfy when the service was started via plain startService(),
++      // and when there is one the system raises its own ANR regardless — so a
++      // best-effort stop beats a guaranteed crash in both cases.
++      Logger.w(
++          TAG,
++          "Defensive startForeground() was not allowed (background start restriction); "
++              + "continuing with stopSelf().",
++          e);
+     } catch (Exception e) {
+       String msg =
+           "react-native-notify-kit: defensive startForeground() failed. "
 diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java
 index 736e3eb..6e78a32 100644
 --- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java

@@ -2,6 +2,7 @@ import PluralRules from 'intl-pluralrules/plural-rules';
 import i18n from 'i18next';
 import {initReactI18next} from 'react-i18next';
 import * as RNLocalize from 'react-native-localize';
+import {terminologyPostProcessor} from './terminology';
 
 import en from './en.json';
 import es from './es.json';
@@ -72,6 +73,7 @@ const getDeviceLanguage = (): SupportedLanguage => {
 
 i18n
   .use(initReactI18next)
+  .use(terminologyPostProcessor)
   .init({
     resources: {
       en: {translation: en},
@@ -103,6 +105,7 @@ i18n
     fallbackLng: 'en',
     interpolation: {escapeValue: false},
     compatibilityJSON: 'v4',
+    postProcess: ['terminology'],
   });
 
 export const changeLanguage = (lang: SupportedLanguage) => {

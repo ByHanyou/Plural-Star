@@ -1,5 +1,5 @@
 import {create} from 'zustand';
-import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, MemberGroup, ChatChannel, ChatMessage, MedicalData, DEFAULT_MEDICAL} from '../utils';
+import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, MemberGroup, ChatChannel, ChatMessage, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER} from '../utils';
 import type {CustomPalette} from '../theme';
 
 export const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: false};
@@ -21,6 +21,7 @@ type AppStore = {
   chatChannels: ChatChannel[];
   allChatMessages: ChatMessage[];
   medical: MedicalData;
+  planner: PlannerData;
   lastKnownLocation: string | undefined;
   setSystem: (v: SystemInfo) => void;
   setMembers: (v: Member[]) => void;
@@ -36,6 +37,7 @@ type AppStore = {
   setChatChannels: (v: ChatChannel[]) => void;
   setAllChatMessages: (v: ChatMessage[]) => void;
   setMedical: (v: MedicalData) => void;
+  setPlanner: (v: PlannerData) => void;
   setLastKnownLocation: (v: string | undefined) => void;
 };
 
@@ -56,6 +58,7 @@ export const useAppStore = create<AppStore>()(set => ({
   chatChannels: [],
   allChatMessages: [],
   medical: DEFAULT_MEDICAL,
+  planner: DEFAULT_PLANNER,
   lastKnownLocation: undefined,
   setSystem: v => set({system: v}),
   setMembers: v => set({members: v}),
@@ -71,5 +74,6 @@ export const useAppStore = create<AppStore>()(set => ({
   setChatChannels: v => set({chatChannels: v}),
   setAllChatMessages: v => set({allChatMessages: v}),
   setMedical: v => set({medical: v}),
+  setPlanner: v => set({planner: v}),
   setLastKnownLocation: v => set({lastKnownLocation: v}),
 }));

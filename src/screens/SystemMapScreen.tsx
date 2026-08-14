@@ -218,7 +218,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const editorScrollRef = useRef<ScrollView>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [colorAll, setColorAll] = useState(false);
-  const eligibleMembers = useMemo(() => members.filter(m => !m.isCustomFront && (showArchived || !m.archived)), [members, showArchived]);
+  // Tombstoned members (deleted) stay in storage only so history, chat and map
+  // links keep resolving to a name. They must never be offered for selection,
+  // including when Archived is switched on, or they show up as members that
+  // cannot be found or archived anywhere else in the app.
+  const eligibleMembers = useMemo(() => members.filter(m => !m.isCustomFront && !m.deleted && (showArchived || !m.archived)), [members, showArchived]);
   const [mapIds, setMapIds] = useState<string[]>([]);
   const mapIdSet = useMemo(() => new Set(mapIds), [mapIds]);
   const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id)), [eligibleMembers, mapIdSet]);
@@ -780,21 +784,25 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               const other = memberById.get(otherId);
               if (!other) return null;
               return (
-                <TouchableOpacity key={r.id} onPress={() => openEditor(r)} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={`${roleOfOther(r, selectedMember.id)}: ${other.name}`}
-                  style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                  <Avatar member={other} size={24} T={T} />
-                  <View style={{flex: 1}}>
-                    <Text style={{fontSize: fs(13), color: T.text}} numberOfLines={1}>{other.name}</Text>
-                    {r.note ? <Text style={{fontSize: fs(10), color: T.muted}} numberOfLines={1}>{r.note}</Text> : null}
-                  </View>
-                  <View style={{backgroundColor: `${typeById.get(r.typeId)?.color || DEFAULT_REL_COLOR}20`, borderWidth: 1, borderColor: `${typeById.get(r.typeId)?.color || DEFAULT_REL_COLOR}60`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3}}>
-                    <Text style={{fontSize: fs(10), color: typeById.get(r.typeId)?.color || DEFAULT_REL_COLOR}}>{roleOfOther(r, selectedMember.id)}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => deleteRelationship(r)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.deleteRelationship')} style={{padding: 4}}>
-                    <Text style={{fontSize: fs(12), color: T.danger}}>✕</Text>
+                // Edit and delete as siblings: the delete ✕ was a child of the
+                // labeled row touchable, unreachable by iOS VoiceOver.
+                <View key={r.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
+                  <TouchableOpacity onPress={() => openEditor(r)} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityLabel={`${roleOfOther(r, selectedMember.id)}: ${other.name}`}
+                    style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                    <Avatar member={other} size={24} T={T} />
+                    <View style={{flex: 1}}>
+                      <Text style={{fontSize: fs(13), color: T.text}} numberOfLines={1}>{other.name}</Text>
+                      {r.note ? <Text style={{fontSize: fs(10), color: T.muted}} numberOfLines={1}>{r.note}</Text> : null}
+                    </View>
+                    <View style={{backgroundColor: `${typeById.get(r.typeId)?.color || DEFAULT_REL_COLOR}20`, borderWidth: 1, borderColor: `${typeById.get(r.typeId)?.color || DEFAULT_REL_COLOR}60`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3}}>
+                      <Text style={{fontSize: fs(10), color: typeById.get(r.typeId)?.color || DEFAULT_REL_COLOR}}>{roleOfOther(r, selectedMember.id)}</Text>
+                    </View>
                   </TouchableOpacity>
-                </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteRelationship(r)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.deleteRelationship')} style={{padding: 4}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                    <Text style={{fontSize: fs(12), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
+                  </TouchableOpacity>
+                </View>
               );
             })}
           </ScrollView>

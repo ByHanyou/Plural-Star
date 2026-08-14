@@ -182,10 +182,11 @@ export const NetworkScreen = ({theme: T}: Props) => {
         clear();
       } catch (e: any) {
         const msg = String(e?.message || e).toLowerCase();
-        if (msg.includes('own')) throw new Error(t('network.ownCode'));
+        const sync = kind === 'device';
+        if (msg.includes('own')) throw new Error(t(sync ? 'network.ownSyncCode' : 'network.ownCode'));
         if (msg.includes('not found') || msg.includes('expired')) throw new Error(t('network.notFound'));
         if (msg.includes('timed out') || msg.includes('network request failed') || msg.includes('not connected')) throw new Error(t('network.publishFailed'));
-        throw new Error(t('network.invalidCode'));
+        throw new Error(t(sync ? 'network.invalidSyncCode' : 'network.invalidCode'));
       }
     });
   };
@@ -208,7 +209,14 @@ export const NetworkScreen = ({theme: T}: Props) => {
   };
 
   const onRemove = (f: Friend) => {
-    Alert.alert(t('network.remove'), f.displayName, [
+    // The body used to be nothing but the friend's name, which never said that
+    // removal is mutual: it sends a disconnect, so they lose you too, and both
+    // sides' cached mirrors go with it. Someone removed their partner system by
+    // accident because the dialog gave them nothing to stop on.
+    const body = f.kind === 'device'
+      ? f.displayName
+      : t('network.removeFriendWarn', {name: f.displayName});
+    Alert.alert(t('network.remove'), body, [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('network.remove'), style: 'destructive', onPress: () => guard(() => NetworkManager.removeFriend(f.peerId))},
     ]);
@@ -278,10 +286,13 @@ export const NetworkScreen = ({theme: T}: Props) => {
     const sub = online ? T.dim : T.muted;
     if (!s) return <Text style={{fontSize: fs(11), color: sub, marginTop: 2}}>{online ? t('network.online') : t('network.offline')}</Text>;
     const dur = s.startTime ? fmtDur(s.startTime) : '';
-    const line = (txt: string, key: string) => <Text key={key} style={{fontSize: fs(11), color: sub}} numberOfLines={2}>{txt}</Text>;
+    // No line clamp. A system with several fronters had its Primary and
+    // Co-Front lists cut off at two lines with no way to reach the rest, since
+    // this card is the only place a friend's full front is shown.
+    const line = (txt: string, key: string) => <Text key={key} style={{fontSize: fs(11), color: sub}}>{txt}</Text>;
     return (
       <View style={{marginTop: 2}}>
-        <Text style={{fontSize: fs(12), fontWeight: '600', color: head}} numberOfLines={1}>◈ {s.fronters}{dur ? `  ·  ${dur}` : ''}</Text>
+        <Text style={{fontSize: fs(12), fontWeight: '600', color: head}}>◈ {s.fronters}{dur ? `  ·  ${dur}` : ''}</Text>
         {s.primary ? line(t('notification.primary', {names: s.primary, defaultValue: `Primary: ${s.primary}`}), 'p') : null}
         {s.coFront ? line(t('notification.coFront', {names: s.coFront, defaultValue: `Co-Front: ${s.coFront}`}), 'cf') : null}
         {s.coConscious ? line(t('notification.coConscious', {names: s.coConscious, defaultValue: `Co-Conscious: ${s.coConscious}`}), 'cc') : null}
@@ -403,13 +414,13 @@ export const NetworkScreen = ({theme: T}: Props) => {
       <View key={f.peerId} style={{flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
         <View style={{width: 8, height: 8, borderRadius: 4, marginRight: 10, marginTop: 5, backgroundColor: f.status !== 'accepted' ? T.muted : online ? '#2faa55' : T.muted}} importantForAccessibility="no" accessibilityElementsHidden />
         <View style={{flex: 1, marginRight: 8}} accessible accessibilityRole="text" accessibilityLabel={`${f.displayName}. ${a11y}`}>
-          <Text style={{fontSize: fs(14), fontWeight: '600', color: online || f.status !== 'accepted' ? T.text : T.muted}} numberOfLines={1} importantForAccessibility="no">{f.displayName}</Text>
-          <View importantForAccessibility="no">{statusNode}</View>
+          <Text style={{fontSize: fs(14), fontWeight: '600', color: online || f.status !== 'accepted' ? T.text : T.muted}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{f.displayName}</Text>
+          <View accessibilityElementsHidden importantForAccessibility="no">{statusNode}</View>
         </View>
         {f.kind !== 'device' && f.status === 'accepted' && (
           <TouchableOpacity onPress={() => setMirrorMenuFor(f)} activeOpacity={0.7} accessibilityRole="button"
             accessibilityLabel={`${t('network.viewShared')}, ${f.displayName}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-            <Text style={{color: T.dim, fontSize: fs(16)}} importantForAccessibility="no">⋯</Text>
+            <Text style={{color: T.dim, fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no">⋯</Text>
           </TouchableOpacity>
         )}
         {f.kind !== 'device' && f.status === 'accepted' && (() => {
@@ -426,12 +437,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
               {/* Three states need three glyphs. 'full' and 'alerts' were both a
                   bell — one tap off 'full' looked muted but still sent alerts,
                   so people thought they had turned a friend off and hadn't. */}
-              <Text style={{color: level === 'full' ? T.accent : T.dim, fontSize: fs(15), opacity: level === 'off' ? 0.45 : 1}} importantForAccessibility="no">{level === 'full' ? '🔔' : level === 'alerts' ? '📳' : '🔕'}</Text>
+              <Text style={{color: level === 'full' ? T.accent : T.dim, fontSize: fs(15), opacity: level === 'off' ? 0.45 : 1}} accessibilityElementsHidden importantForAccessibility="no">{level === 'full' ? '🔔' : level === 'alerts' ? '📳' : '🔕'}</Text>
             </TouchableOpacity>
           );
         })()}
         <TouchableOpacity onPress={() => onRemove(f)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.remove')}, ${f.displayName}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-          <Text style={{color: T.dim, fontSize: fs(16)}} importantForAccessibility="no">✕</Text>
+          <Text style={{color: T.dim, fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
         </TouchableOpacity>
       </View>
     );
@@ -489,16 +500,16 @@ export const NetworkScreen = ({theme: T}: Props) => {
                   <TouchableOpacity style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket({...b})} activeOpacity={0.7}
                     accessibilityRole="button"
                     accessibilityLabel={`${b.name}. ${(['members', 'groups', 'journal', 'history', 'customFields', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
-                    <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} importantForAccessibility="no">{b.name}</Text>
-                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2} importantForAccessibility="no">
+                    <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{b.name}</Text>
+                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2} accessibilityElementsHidden importantForAccessibility="no">
                       {(['members', 'groups', 'journal', 'history', 'customFields', 'connections'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => cloneBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.cloneBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-                    <Text style={{color: T.dim, fontSize: fs(15)}} importantForAccessibility="no">⧉</Text>
+                    <Text style={{color: T.dim, fontSize: fs(15)}} accessibilityElementsHidden importantForAccessibility="no">⧉</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => confirmDeleteBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.deleteBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-                    <Text style={{color: T.dim, fontSize: fs(16)}} importantForAccessibility="no">✕</Text>
+                    <Text style={{color: T.dim, fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
                   </TouchableOpacity>
                 </View>
               ))}
@@ -514,7 +525,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}}>{t('network.enableDesc')}</Text>
               <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 12}} accessible accessibilityRole="text" accessibilityLabel={`${t('network.enable')} — ${statusLabel()}`}>
                 <View style={{width: 9, height: 9, borderRadius: 5, backgroundColor: statusColor(), marginRight: 8}} importantForAccessibility="no" accessibilityElementsHidden />
-                <Text style={{fontSize: fs(12), color: T.text}} importantForAccessibility="no">{statusLabel()}</Text>
+                <Text style={{fontSize: fs(12), color: T.text}} accessibilityElementsHidden importantForAccessibility="no">{statusLabel()}</Text>
               </View>
             </View>
 
@@ -573,7 +584,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                         accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={`${featureLabel(f)}: ${label}`}
                         style={{marginLeft: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                           backgroundColor: sel ? T.accentBg : 'transparent', borderColor: sel ? T.accent : T.border}}>
-                        <Text style={{fontSize: fs(11), color: sel ? T.accent : T.dim}} importantForAccessibility="no">{label}</Text>
+                        <Text style={{fontSize: fs(11), color: sel ? T.accent : T.dim}} accessibilityElementsHidden importantForAccessibility="no">{label}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -606,10 +617,10 @@ export const NetworkScreen = ({theme: T}: Props) => {
                           })}
                           accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={f.displayName}
                           style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7}}>
-                          <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} importantForAccessibility="no">
+                          <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} accessibilityElementsHidden importantForAccessibility="no">
                             {checked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
                           </View>
-                          <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} importantForAccessibility="no">{f.displayName}</Text>
+                          <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{f.displayName}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -648,10 +659,10 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <TouchableOpacity onPress={toggleSelectAllPicked} activeOpacity={0.7} accessibilityRole="checkbox"
                 accessibilityState={{checked: allPickedChecked}} accessibilityLabel={allPickedChecked ? t('network.deselectAll') : t('network.selectAll')}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
-                <View style={{width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: T.accent, backgroundColor: allPickedChecked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} importantForAccessibility="no">
+                <View style={{width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: T.accent, backgroundColor: allPickedChecked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} accessibilityElementsHidden importantForAccessibility="no">
                   {allPickedChecked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
                 </View>
-                <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.accent}} numberOfLines={1} importantForAccessibility="no">
+                <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.accent}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">
                   {allPickedChecked ? t('network.deselectAll') : t('network.selectAll')}
                 </Text>
               </TouchableOpacity>
@@ -663,10 +674,10 @@ export const NetworkScreen = ({theme: T}: Props) => {
                   <TouchableOpacity key={item.id} onPress={() => togglePickId(item.id)} activeOpacity={0.7}
                     accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={item.name}
                     style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
-                    <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} importantForAccessibility="no">
+                    <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} accessibilityElementsHidden importantForAccessibility="no">
                       {checked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
                     </View>
-                    <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} importantForAccessibility="no">{item.name}</Text>
+                    <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{item.name}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -680,8 +691,10 @@ export const NetworkScreen = ({theme: T}: Props) => {
       </Modal>
 
       <Modal visible={!!mirrorMenuFor} transparent animationType="fade" onRequestClose={() => setMirrorMenuFor(null)}>
-        <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}} activeOpacity={1} onPress={() => setMirrorMenuFor(null)} accessibilityRole="none">
-          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+        {/* role="none" left the scrim an accessible element, hiding this menu
+            from iOS VoiceOver; accessible={false} is the real opt-out. */}
+        <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}} activeOpacity={1} onPress={() => setMirrorMenuFor(null)} accessible={false} importantForAccessibility="no">
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setMirrorMenuFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}} numberOfLines={1}>
               {mirrorMenuFor?.displayName} — {t('network.viewShared')}
             </Text>
