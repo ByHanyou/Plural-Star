@@ -227,6 +227,11 @@ export const deleteAvatar = async (memberId: string): Promise<void> => {
       if (exists) { await ReactNativeBlobUtil.fs.unlink(path); break; }
     }
   } catch {}
+  // The local full-size View Photo copy goes with it.
+  try {
+    const full = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars_full/${memberId}.png`;
+    if (await ReactNativeBlobUtil.fs.exists(full)) await ReactNativeBlobUtil.fs.unlink(full);
+  } catch {}
 };
 
 export const saveChatMedia = async (messageId: string, base64: string, ext: string = 'jpg'): Promise<string> => {
@@ -279,12 +284,38 @@ export const saveBannerImage = async (
   return persistImage(sourceUri, destPath);
 };
 
+// View Photo used to blow the 256px avatar up to fullscreen and it showed.
+// At pick time a larger copy (capped at 1024px) is kept LOCALLY beside the
+// avatar; no member field ever references it, so sync, mirrors and exports
+// keep shipping the small one and other devices are untouched. Best-effort:
+// a failed large copy never fails the pick.
+const AVATAR_FULL_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars_full`;
+const AVATAR_FULL_MAX = 1024;
+
+const saveAvatarFull = async (memberId: string, sourceUri: string): Promise<void> => {
+  try {
+    await ensureDir(AVATAR_FULL_DIR);
+    await downscaleOrCopy(sourceUri, `${AVATAR_FULL_DIR}/${memberId}.png`, AVATAR_FULL_MAX);
+  } catch {}
+};
+
+export const avatarFullUri = async (memberId: string): Promise<string | null> => {
+  if (!memberId) return null;
+  try {
+    const p = `${AVATAR_FULL_DIR}/${memberId}.png`;
+    return (await ReactNativeBlobUtil.fs.exists(p)) ? `file://${p}?t=${Date.now()}` : null;
+  } catch {
+    return null;
+  }
+};
+
 export const saveAvatarFromUri = async (memberId: string, sourceUri: string): Promise<string> => {
   await ensureDir(AVATAR_DIR);
   for (const ext of ['jpg', 'png', 'gif', 'webp']) {
     const p = `${AVATAR_DIR}/${memberId}.${ext}`;
     try { if (await ReactNativeBlobUtil.fs.exists(p)) await ReactNativeBlobUtil.fs.unlink(p); } catch {}
   }
+  await saveAvatarFull(memberId, sourceUri);
   return downscaleOrCopy(sourceUri, `${AVATAR_DIR}/${memberId}.png`);
 };
 
@@ -316,19 +347,46 @@ export const migrateStaleMediaPaths = async (
     if (next && next !== uri) changed = true;
     return next;
   };
+  // Every iOS update moves the app container, and while avatar/banner URIs
+  // were being rebased, images living in TEXT were not — image-type custom
+  // fields hold a bare file:// URI as their value, and markdown bodies
+  // (descriptions, markdown fields) embed them as ![](file://...). Those kept
+  // pointing at the dead container and rendered blank after each update.
+  // Rebase a Documents URI wherever it appears inside a string.
+  const fixText = (text?: string): string | undefined => {
+    if (!text || typeof text !== 'string' || !text.includes('file://')) return text ?? undefined;
+    const next = text.replace(/file:\/\/[^\s)"'\]]+/g, u => rebaseDocumentUri(u) || u);
+    if (next !== text) changed = true;
+    return next;
+  };
+  const fixCustomFields = (cfs: any): any => {
+    if (!Array.isArray(cfs)) return cfs;
+    let cfChanged = false;
+    const mapped = cfs.map((cv: any) => {
+      if (!cv || typeof cv.value !== 'string') return cv;
+      const nv = fixText(cv.value);
+      if (nv === cv.value) return cv;
+      cfChanged = true;
+      return {...cv, value: nv};
+    });
+    return cfChanged ? mapped : cfs;
+  };
   const updatedMembers = (members || []).map((m: any) => {
     if (!m) return m;
     const newAvatar = fix(m.avatar);
     const newBanner = fix(m.banner);
-    if (newAvatar === m.avatar && newBanner === m.banner) return m;
-    return {...m, avatar: newAvatar, banner: newBanner};
+    const newDesc = fixText(m.description);
+    const newCfs = fixCustomFields(m.customFields);
+    if (newAvatar === m.avatar && newBanner === m.banner && newDesc === m.description && newCfs === m.customFields) return m;
+    return {...m, avatar: newAvatar, banner: newBanner, description: newDesc, customFields: newCfs};
   });
   let updatedSystem = system;
   if (system) {
     const newAvatar = fix(system.avatar);
     const newBanner = fix(system.banner);
-    if (newAvatar !== system.avatar || newBanner !== system.banner) {
-      updatedSystem = {...system, avatar: newAvatar, banner: newBanner};
+    const newDesc = fixText(system.description);
+    if (newAvatar !== system.avatar || newBanner !== system.banner || newDesc !== system.description) {
+      updatedSystem = {...system, avatar: newAvatar, banner: newBanner, description: newDesc};
     }
   }
   return {members: updatedMembers, system: updatedSystem, changed};

@@ -1,6 +1,5 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
-import ReactNativeBlobUtil from 'react-native-blob-util';
 import {strFromU8} from 'fflate';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, ChatChannel, ChatMessage, MemberPoll, CustomFieldDef, CustomFieldType, CustomFieldValue, uid} from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
@@ -8,6 +7,7 @@ import {readZipBundle, base64FromU8} from '../export/exportUtils';
 import {saveAvatar} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
+import {readFileText, readFileBase64} from '../utils/fileBytes';
 import {mergeForeignMember, normHex, psTime, finalizeMemberReplace, convertPluralSpaceFronts, normalizeOpenPlural, isOpenPluralSystem} from './convert';
 import {isImportStopped} from './progress';
 import {applyImportedHistory, downloadAvatarsTo} from './restore';
@@ -59,9 +59,7 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
         if (!parsed) throw new Error(t('share.psNotExport'));
         setPsZipFiles(bundle!.files);
       } else {
-        let raw: string;
-        try { raw = await ReactNativeBlobUtil.fs.readFile(path, 'utf8'); }
-        catch { raw = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'utf8'); }
+        const raw: string = await readFileText(path, res.uri);
         try { parsed = JSON.parse(raw); } catch { throw new Error(t('share.psNotExport')); }
         // A bare openplural.json can be picked too; it just has no media.
         if (isOpenPluralSystem(parsed)) parsed = normalizeOpenPlural(parsed);
@@ -345,9 +343,7 @@ export const handlePluralSpaceAvatarsPick = async (ctx: PluralSpaceCtx) => {
         const base = String(res.name || path.split('/').pop() || '').trim().toLowerCase();
         const memberId = psAvatarIndex[base];
         if (!memberId) return;
-        let b64: string;
-        try { b64 = await ReactNativeBlobUtil.fs.readFile(path, 'base64'); }
-        catch { b64 = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'base64'); }
+        const b64: string = await readFileBase64(path, res.uri);
         const fileUri = await saveAvatar(memberId, b64).catch(() => null);
         if (fileUri) saved[memberId] = fileUri;
       }, 4, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total})));

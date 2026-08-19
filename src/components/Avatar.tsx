@@ -75,6 +75,13 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
           fontSize: size * 0.35,
           fontWeight: '700',
           color: 'rgba(0,0,0,0.75)',
+          // Android reserves ascender/descender padding inside the glyph box,
+          // which floats a single centered initial visibly off middle (worse
+          // under the custom font choices). Both props are Android-only no-ops
+          // on iOS.
+          includeFontPadding: false,
+          textAlign: 'center',
+          textAlignVertical: 'center',
         }}
         allowFontScaling={false}
         accessibilityElementsHidden

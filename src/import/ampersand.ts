@@ -1,10 +1,9 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
-import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, CustomFieldDef, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
-import {readFileBytes} from '../utils/fileBytes';
+import {readFileBytes, readFileText} from '../utils/fileBytes';
 import {convertSPSwitches, normHex} from './convert';
 import {base64FromU8} from '../export/exportUtils';
 import {saveAvatar, saveBannerFromBase64} from '../utils/mediaUtils';
@@ -340,9 +339,7 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
       // fails JSON.parse and falls through to the old decoder.
       let jsonDb: any = null;
       try {
-        let txt: string;
-        try { txt = await ReactNativeBlobUtil.fs.readFile(path, 'utf8'); }
-        catch { txt = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'utf8'); }
+        const txt: string = await readFileText(path, res.uri);
         const parsed = JSON.parse(txt);
         if (parsed && parsed.database && Array.isArray(parsed.database.members)) jsonDb = parsed;
       } catch {}

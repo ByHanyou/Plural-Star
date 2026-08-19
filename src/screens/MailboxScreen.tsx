@@ -181,7 +181,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
       <View style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: unread ? 2 : 1, borderColor: (unread || note.pinned) ? T.accent : T.border, padding: 12, marginBottom: 8}}>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
           <View style={{width: 22, height: 22, borderRadius: 5, backgroundColor: author?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
-            <Text style={{fontSize: fs(9), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(author?.name || '?')}</Text>
+            <Text style={{fontSize: fs(9), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(author?.name || '?')}</Text>
           </View>
           <Text style={{fontSize: fs(12), color: author?.color || T.dim, fontWeight: '500'}}>{author?.name || '?'}</Text>
           {note.pinned && <Text style={{fontSize: fs(10), color: T.accent}}>📌</Text>}
@@ -300,7 +300,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
               accessibilityLabel={`${m?.name || '?'}. ${t('mailbox.messageCount', {count})}.${unread > 0 ? ` ${t('mailbox.unreadCount', {count: unread})}` : ''}${m?.mailboxPassword ? ` ${t('mailbox.lockTitle')}` : ''}`}
               style={{flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: unread > 0 ? T.accent : T.border, padding: 12, marginBottom: 8}}>
               <View style={{width: 36, height: 36, borderRadius: 8, backgroundColor: m?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
-                <Text style={{fontSize: fs(13), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(m?.name || '?')}</Text>
+                <Text style={{fontSize: fs(13), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(m?.name || '?')}</Text>
               </View>
               <View style={{flex: 1}}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>

@@ -54,6 +54,11 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               if (typeof m.avatar_url === 'string' && m.avatar_url) incoming.pkAvatarUrl = m.avatar_url;
               if (typeof m.banner === 'string' && m.banner) incoming.pkBannerUrl = m.banner;
               if (typeof m.keep_proxy === 'boolean') incoming.pkKeepProxy = m.keep_proxy;
+              // PK re-imports kept replacing pronouns people had rewritten in
+              // Plural Star (PK styles them with strikedown markup). With the
+              // toggle off the field is OMITTED, not blanked: matched members
+              // keep what they have here, new members arrive blank.
+              if (extSel.pronouns === false) delete incoming.pronouns;
             }
             if (extId) {
               const idx = merged.findIndex(em => em.sourceId === extId);
@@ -75,7 +80,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
             merged.push({
               id: newId,
               name: incoming.name as string,
-              pronouns: incoming.pronouns as string,
+              pronouns: (incoming.pronouns as string) ?? '',
               role: (incoming.role as string) ?? '',
               color: incoming.color as string,
               description: incoming.description as string,

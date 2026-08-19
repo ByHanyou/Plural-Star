@@ -7,6 +7,7 @@ import {useTranslation} from 'react-i18next';
 import {fmtDur, fmtTime, uid, Member, MemberGroup, JournalEntry, CustomFieldDef, Relationship, RelationshipTypeDef, PRESET_RELATIONSHIP_TYPES} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
+import {useMinuteTick} from '../hooks/useMinuteTick';
 import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
 import {useNetwork} from '../network/useNetwork';
@@ -52,6 +53,8 @@ const normalizeBucket = (b: PrivacyBucket): PrivacyBucket => ({
 
 export const NetworkScreen = ({theme: T}: Props) => {
   const kbHeight = useKeyboardHeight();
+  // Friend fronting durations freeze between incoming updates otherwise.
+  useMinuteTick();
   const members = useAppStore(s => s.members);
   const groups = useAppStore(s => s.groups);
   const journal = useAppStore(s => s.journal);
@@ -280,6 +283,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const renderFriendStatus = (f: Friend) => {
     if (f.status === 'entered_theirs') return <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{t('network.waitingThem')}</Text>;
     if (f.status === 'entered_mine') return <Text style={{fontSize: fs(11), color: T.accent, marginTop: 2}}>{t('network.waitingYou')}</Text>;
+    // Their side told us this friendship is gone. Anything below would be a
+    // frozen copy presented as live, so say the truth instead.
+    if (f.needsRefriend) return <Text style={{fontSize: fs(11), color: T.danger, marginTop: 2}}>{t('network.needsRefriend')}</Text>;
     const online = net.onlinePeers.includes(f.peerId);
     const s = f.lastStatus;
     const head = online ? T.text : T.muted;

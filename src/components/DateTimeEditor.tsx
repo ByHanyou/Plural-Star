@@ -31,7 +31,7 @@ const lastDayOfMonth = (year: number, monthZeroIndexed: number) =>
   new Date(year, monthZeroIndexed + 1, 0).getDate();
 
 const EditableCell = ({
-  value, pad, min, max, onCommit, onStep, width, label, T,
+  value, pad, min, max, onCommit, onStep, width, label, a11yLabel, T,
 }: {
   value: number;
   pad: number;
@@ -41,6 +41,10 @@ const EditableCell = ({
   onStep: (delta: number) => void;
   width: number;
   label?: string;
+  // The unit this cell edits (Hour, Minute, …). Without it every cell in the
+  // row announced an identical "Value" and its steppers an identical
+  // "Increase"/"Decrease" — five indistinguishable controls.
+  a11yLabel?: string;
   T: ThemeColors;
 }) => {
   const fs = fontScale(T);
@@ -63,12 +67,12 @@ const EditableCell = ({
 
   return (
     <View style={{alignItems: 'center', width}}>
-      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={i18n.t('a11y.increase')} hitSlop={{top: 4, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
+      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={a11yLabel ? `${i18n.t('a11y.increase')}, ${a11yLabel}` : i18n.t('a11y.increase')} hitSlop={{top: 4, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
         <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▲</Text>
       </TouchableOpacity>
       <TextInput
         value={text}
-        accessibilityLabel={i18n.t('a11y.value')}
+        accessibilityLabel={a11yLabel || i18n.t('a11y.value')}
         onChangeText={t => { editing.current = true; setText(t.replace(/[^0-9]/g, '')); }}
         onFocus={() => { editing.current = true; }}
         onBlur={() => commit()}
@@ -79,7 +83,7 @@ const EditableCell = ({
         maxLength={Math.max(pad, String(max).length)}
         style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 4, paddingVertical: 4, minWidth: width, textAlign: 'center', fontSize: fs(14), color: T.text, fontWeight: '500', fontFamily: 'monospace'}}
       />
-      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={i18n.t('a11y.decrease')} hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
+      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={a11yLabel ? `${i18n.t('a11y.decrease')}, ${a11yLabel}` : i18n.t('a11y.decrease')} hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
         <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▼</Text>
       </TouchableOpacity>
       {label ? <Text style={{fontSize: fs(9), color: T.muted, marginTop: 2, letterSpacing: 0.5}} accessibilityElementsHidden importantForAccessibility="no">{label}</Text> : null}
@@ -189,21 +193,21 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
               <EditableCell
                 value={month + 1} pad={2} min={1} max={12}
                 onCommit={commitMonth} onStep={d => stepBy('month', d)}
-                width={44} label="MM" T={T}
+                width={44} label="MM" a11yLabel={i18n.t('a11y.month')} T={T}
               />
             )}
             {showDay && (
               <EditableCell
                 value={day} pad={2} min={1} max={lastDayOfMonth(year, month)}
                 onCommit={commitDay} onStep={d => stepBy('day', d)}
-                width={44} label="DD" T={T}
+                width={44} label="DD" a11yLabel={i18n.t('a11y.day')} T={T}
               />
             )}
             {showYear && (
               <EditableCell
                 value={year} pad={4} min={MIN_YEAR} max={MAX_YEAR}
                 onCommit={commitYear} onStep={d => stepBy('year', d)}
-                width={60} label="YYYY" T={T}
+                width={60} label="YYYY" a11yLabel={i18n.t('a11y.year')} T={T}
               />
             )}
             {showTime && (
@@ -212,13 +216,13 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                 <EditableCell
                   value={displayHour} pad={2} min={1} max={12}
                   onCommit={commitHour12} onStep={d => stepBy('hour', d)}
-                  width={44} label="HH" T={T}
+                  width={44} label="HH" a11yLabel={i18n.t('a11y.hour')} T={T}
                 />
                 <Text style={{fontSize: fs(18), color: T.dim, fontWeight: '700', marginHorizontal: 2}}>:</Text>
                 <EditableCell
                   value={minutes} pad={2} min={0} max={59}
                   onCommit={commitMinute} onStep={d => stepBy('minute', d)}
-                  width={44} label="MIN" T={T}
+                  width={44} label="MIN" a11yLabel={i18n.t('a11y.minute')} T={T}
                 />
                 <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}
                   accessibilityRole="button" accessibilityLabel={isPM ? i18n.t('a11y.switchToAm') : i18n.t('a11y.switchToPm')}

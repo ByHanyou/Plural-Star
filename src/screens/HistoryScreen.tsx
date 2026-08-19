@@ -5,11 +5,13 @@ import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
+import {useMinuteTick} from '../hooks/useMinuteTick';
 import {saveHistory} from '../store/actions';
 import {AccentText} from '../components/AccentText';
 import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, TIER_LABELS, translateMood, sortMembersBySearch, singletStatuses, buildEffectiveEnd} from '../utils';
 import {store, KEYS} from '../storage';
 import {FlashList} from '@shopify/flash-list';
+import {FrontTimeline} from '../components/FrontTimeline';
 
 const memberInEntry = (memberId: string, entry: HistoryEntry): boolean =>
   (entry.memberIds || []).includes(memberId) ||
@@ -29,7 +31,7 @@ const memberTierInEntry = (memberId: string, entry: HistoryEntry): FrontTierKey 
   : (entry.coConsciousIds || []).includes(memberId) ? 'coConscious'
   : null;
 
-type SubTab = 'front' | 'member';
+type SubTab = 'front' | 'member' | 'timeline';
 
 interface Props {
   theme: ThemeColors;
@@ -234,6 +236,8 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
 });
 
 export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, readOnly = false, historyOverride, membersOverride, journalOverride}: Props) => {
+  // The open entry's "→ now" duration freezes without a tick.
+  useMinuteTick();
   const storeHistory = useAppStore(s => s.history);
   const storeJournal = useAppStore(s => s.journal);
   const storeMembers = useAppStore(s => s.members);
@@ -426,7 +430,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
           {t('history.title')}
         </Text>
         <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border, marginTop: 4}}>
-          {(['front', 'member'] as SubTab[]).map(tab => (
+          {(['front', 'member', 'timeline'] as SubTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
               style={[s.subtab, {
@@ -443,7 +447,9 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
               }}>
                 {tab === 'front'
                   ? (singlet ? t('history.statusHistory') : t('history.frontHistory'))
-                  : (singlet ? t('history.byStatus') : t('history.memberHistory'))}
+                  : tab === 'member'
+                  ? (singlet ? t('history.byStatus') : t('history.memberHistory'))
+                  : t('history.timeline')}
               </AccentText>
             </TouchableOpacity>
           ))}
@@ -466,6 +472,10 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
           }
           renderItem={renderFrontRow}
         />
+      )}
+
+      {subTab === 'timeline' && (
+        <FrontTimeline T={T} history={history} members={members} singlet={singlet} />
       )}
 
       {subTab === 'member' && (

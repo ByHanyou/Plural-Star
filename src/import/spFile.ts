@@ -1,9 +1,9 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
-import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, CustomFieldDef, CustomFieldType, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
+import {readFileText} from '../utils/fileBytes';
 import {convertSPSwitches, normHex, finalizeMemberReplace, findClaimableByName, reviveIfTombstoned} from './convert';
 import {spAvatarCandidates, downloadFirstAvatar} from './spApi';
 import {applyImportedHistory} from './restore';
@@ -25,7 +25,7 @@ export const handleSPFileImport = async (ctx: SPFileCtx) => {
     try {
       const [res] = await safePick({type: ['application/json', 'text/plain']});
       if (!res) return;
-      const content = await ReactNativeBlobUtil.fs.readFile(getPickedFilePath(res), 'utf8');
+      const content = await readFileText(getPickedFilePath(res), (res as any)?.uri);
       const data = JSON.parse(content);
       if (!data.members && !data.frontHistory && !data.users) {
         Alert.alert(t('share.importFailed'), t('share.notValidSPExport'));

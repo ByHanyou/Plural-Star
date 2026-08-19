@@ -1,6 +1,6 @@
 // Terminology Picker engine. Users type their own word for the app's core
-// terms (Member, Group, Facet, Front, System and plurals) and every t()
-// result gets a whole-word, case-preserving swap. The picker's own labels are
+// terms (Member, Group, Facet, Front, Fronting, System and plurals) and every
+// t() result gets a whole-word, case-preserving swap. The picker's own labels are
 // exempt so the defaults stay discoverable for resetting.
 //
 // TERM_FORMS lists the findable word per language, matching the vocabulary
@@ -8,7 +8,7 @@
 // (safe no-op, disclosed in the picker hint). Declined forms beyond these are
 // deliberately not chased.
 
-export const TERMINOLOGY_TERMS = ['member', 'members', 'group', 'groups', 'facet', 'facets', 'front', 'system'] as const;
+export const TERMINOLOGY_TERMS = ['member', 'members', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system'] as const;
 export type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
 export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
 
@@ -21,6 +21,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     facet: 'Facet',
     facets: 'Facets',
     front: 'Front',
+    fronting: 'Fronting',
     system: 'System',
   },
   es: {
@@ -51,6 +52,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     facet: 'Facette',
     facets: 'Facetten',
     front: 'Front',
+    fronting: 'Fronting',
     system: 'System',
   },
   pt: {
@@ -169,6 +171,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     group: 'समूह',
     facet: 'फ़ेसेट',
     front: 'फ्रंट',
+    fronting: 'फ्रंटिंग',
     system: 'सिस्टम',
   },
   af: {
@@ -179,6 +182,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     facet: 'Faset',
     facets: 'Fasette',
     front: 'Front',
+    fronting: 'Fronting',
     system: 'Sisteem',
   },
   ko: {
@@ -186,6 +190,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     group: '그룹',
     facet: '패싯',
     front: '프런트',
+    fronting: '프런팅',
     system: '시스템',
   },
   ja: {

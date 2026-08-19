@@ -147,7 +147,7 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n')};
 };
 
-const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback: string) => {
+const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback: string, sinceTs?: number) => {
   const base = {
     channelId: NOTIF_CHANNEL_ID,
     ongoing: true,
@@ -160,6 +160,12 @@ const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback:
     color: '#DAA520',
     groupId: FRONT_GROUP_ID,
     sortKey: '0',
+    // The durations written into the text lines are snapshots — they only
+    // change when something re-posts the notification, which is exactly the
+    // "time doesn't update unless you wiggle the app" report. The chronometer
+    // is rendered by the OS itself and counts up live from the front's start
+    // with zero re-posts.
+    ...(sinceTs ? {timestamp: sinceTs, showTimestamp: false, showChronometer: true} : {}),
   };
   if (friendLines.length === 0) {
     const ownLines = (ownBigText ? ownBigText.split('\n') : []).slice(0, 6);
@@ -402,7 +408,7 @@ export const showFrontNotification = async (
       id: NOTIF_ID,
       title,
       body,
-      android: {...frontAndroidConfig(ownBig, [], onlineLabel), ...(canBindFgs ? {asForegroundService: true} : {})},
+      android: {...frontAndroidConfig(ownBig, [], onlineLabel, front?.startTime), ...(canBindFgs ? {asForegroundService: true} : {})},
     });
     fgsBound = canBindFgs;
     lastFrontSig = sig;
@@ -455,7 +461,7 @@ export const scheduleFrontNotificationRefresh = async (
         // stay gone, which is exactly the "vanished and never came back"
         // report. A plain ongoing re-post always succeeds; the FGS re-binds
         // the next time the app is opened (showFrontNotification).
-        android: frontAndroidConfig(content.bigText, [], content.body),
+        android: frontAndroidConfig(content.bigText, [], content.body, front.startTime),
       },
       trigger,
     );
@@ -497,7 +503,7 @@ export const reassertFrontNotification = async () => {
       id: NOTIF_ID,
       title: content.title,
       body: content.body,
-      android: frontAndroidConfig(content.bigText, [], content.body),
+      android: frontAndroidConfig(content.bigText, [], content.body, front.startTime),
     });
   } catch (e) {
     logError('notif', e);

@@ -8,6 +8,8 @@ import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup} from '../net
 import {ThemeColors, fontScale} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
+import {useAppStore} from '../store/appStore';
+import {saveGroupSortMode} from '../store/actions';
 import {MemberModal} from '../modals/MemberModal';
 import {JournalModal} from '../modals/JournalModal';
 import {HistoryScreen} from './HistoryScreen';
@@ -23,6 +25,7 @@ interface Props {
 }
 
 export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, onClose}: Props) => {
+  const groupSortMode = useAppStore(s => s.appSettings.groupSortMode);
   const {t} = useTranslation();
   const fs = fontScale(T);
   const insets = useSafeAreaInsets();
@@ -241,6 +244,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         browseId={browseId}
         onNavigate={setBrowseId}
         onViewMember={setViewMemberId}
+        sortMode={groupSortMode}
+        onSortModeChange={saveGroupSortMode}
         rootTitle={t('members.fieldGroups')}
       />
     </ScrollView>

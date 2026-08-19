@@ -1,10 +1,10 @@
 import React, {ReactNode} from 'react';
-import {View, TouchableOpacity} from 'react-native';
+import {View, ScrollView, TouchableOpacity} from 'react-native';
 import {Text} from './AppText';
 import {Avatar} from './Avatar';
 import {useTranslation} from 'react-i18next';
 import {fontScale, ThemeColors} from '../theme';
-import {Member, MemberGroup, childrenOf, groupKind, isRosterMember} from '../utils';
+import {Member, MemberGroup, MemberSortMode, childrenOf, groupKind, isRosterMember, sortMembers} from '../utils';
 
 interface GroupBrowserProps {
   T: ThemeColors;
@@ -18,6 +18,10 @@ interface GroupBrowserProps {
   banner?: ReactNode;
   memberRow?: (m: Member) => ReactNode;
   memberAction?: (m: Member) => ReactNode;
+  // Same sort options the Members list offers, applied to the members shown
+  // inside the open group. Chips render only when a change handler is wired.
+  sortMode?: MemberSortMode;
+  onSortModeChange?: (mode: MemberSortMode) => void;
 }
 
 export const GroupBrowser = ({
@@ -32,6 +36,8 @@ export const GroupBrowser = ({
   banner,
   memberRow,
   memberAction,
+  sortMode,
+  onSortModeChange,
 }: GroupBrowserProps) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
@@ -41,9 +47,11 @@ export const GroupBrowser = ({
   const listable = members.filter(m => !m.isCustomFront && !m.deleted);
   const roster = members.filter(isRosterMember);
   const folders = childrenOf(groups, browseId);
-  const folderMembers = browseId === null
+  const folderMembersRaw = browseId === null
     ? listable.filter(m => !(m.groupIds || []).length)
     : listable.filter(m => (m.groupIds || []).includes(browseId));
+  // 'manual' = the roster's own order, which is what this list always showed.
+  const folderMembers = sortMembers(folderMembersRaw, sortMode || 'manual');
   const current = browseId ? groups.find(g => g.id === browseId) || null : null;
 
   return (
@@ -72,6 +80,25 @@ export const GroupBrowser = ({
           </TouchableOpacity>
         );
       })}
+      {/* Always visible, same as the Members screen's sort row — never gated
+          on how many members happen to be in view. */}
+      {onSortModeChange && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
+          <View style={{flexDirection: 'row', gap: 6, paddingHorizontal: 2}}>
+            {(['alphabetical', 'reverse-alphabetical', 'age', 'color', 'role', 'manual'] as const).map(mode => (
+              <TouchableOpacity key={mode} onPress={() => onSortModeChange(mode)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityState={{selected: (sortMode || 'manual') === mode}} accessibilityLabel={t(`memberSort.${mode}`)}
+                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                  backgroundColor: (sortMode || 'manual') === mode ? `${T.accent}20` : T.surface,
+                  borderColor: (sortMode || 'manual') === mode ? `${T.accent}50` : T.border}}>
+                <Text style={{fontSize: fs(11), color: (sortMode || 'manual') === mode ? T.accent : T.dim, fontWeight: (sortMode || 'manual') === mode ? '600' : '400'}}>
+                  {t(`memberSort.${mode}`)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      )}
       {folderMembers.map(m => {
         if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
         return (

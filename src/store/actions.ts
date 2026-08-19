@@ -403,6 +403,11 @@ export const saveMemberSortMode = async (mode: MemberSortMode) => {
   const next = {...appSettings, memberSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
 };
 
+export const saveGroupSortMode = async (mode: MemberSortMode) => {
+  const {appSettings, setAppSettings} = useAppStore.getState();
+  const next = {...appSettings, groupSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
+};
+
 export const reorderMember = async (id: string, direction: 'up' | 'down') => {
   const {members} = useAppStore.getState();
   const target = members.find(m => m.id === id);

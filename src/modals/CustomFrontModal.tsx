@@ -67,7 +67,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
             <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 88, height: 88, borderRadius: 20, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
           ) : (
             <View style={{width: 88, height: 88, borderRadius: 20, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
-              <Text style={{fontSize: fs(30), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(f.name || '?')}</Text>
+              <Text style={{fontSize: fs(30), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
             </View>
           )}
           <View style={{position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 9, backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center'}}>

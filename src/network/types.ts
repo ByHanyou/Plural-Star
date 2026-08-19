@@ -24,6 +24,10 @@ export interface Friend {
   notifyLevel?: FriendNotifyLevel;
   /** Protocol version this peer advertised on connect. Absent = pre-versioning build. */
   peerV?: number;
+  /** The peer told us it no longer has this friendship (not_friends bounce).
+   *  The row is kept — removing stored data is the user's call — but the UI
+   *  shows a re-add prompt instead of presenting stale fronts as current. */
+  needsRefriend?: boolean;
 }
 
 /**
@@ -59,6 +63,21 @@ export interface RendezvousRecord {
 export const FRIENDS_STORAGE_KEY = 'ps:networkFriends';
 export const NETWORK_SETTINGS_KEY = 'ps:networkSettings';
 
+/**
+ * Removals, remembered. friends_push only ever adds/updates, so a linked
+ * sibling device used to resurrect a friend the user had removed — leaving a
+ * ghost one-way friendship where this side shows a frozen "last received copy"
+ * forever and the other side silently drops every message. Tombstones ride the
+ * same friends_push channel; last write wins against row timestamps.
+ */
+export interface FriendTombstone {
+  peerId: string;
+  removedAt: number;
+}
+export const FRIEND_TOMBSTONES_KEY = 'ps:networkFriendTombstones';
+export const FRIEND_TOMBSTONE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+export const FRIEND_TOMBSTONE_CAP = 200;
+
 export interface NetworkSettings {
   enabled: boolean;
   relayUrl?: string;
@@ -79,7 +98,14 @@ export type NetMessage =
   // store also holds each device's own link records and live front status, so
   // hash-comparing it whole would churn forever between devices and re-push on
   // every incoming friend front update.
-  | { t: 'friends_push'; friends: Friend[] }
+  | { t: 'friends_push'; friends: Friend[]; removed?: FriendTombstone[] }
+  // Authenticated "I don't have this friendship" bounce, sent (rate-limited)
+  // when an accepted-only message arrives from a peer we have no accepted row
+  // for. Lets the other side stop presenting stale data as live and prompt a
+  // re-add, instead of the eternal "Offline — last received copy". Envelope
+  // auth means only the true peer can say this about itself. Older builds
+  // ignore the unknown type.
+  | { t: 'not_friends' }
   | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean }
   | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean }
   | { t: 'sync_req'; hashes: Record<string, string> }

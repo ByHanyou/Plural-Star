@@ -13,7 +13,7 @@ import {store, KEYS} from '../storage';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {DateTimeEditor} from '../components/DateTimeEditor';
-import {deleteAvatar, saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
+import {deleteAvatar, saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl, avatarFullUri} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useDraft, clearDraft} from '../hooks/useDraft';
@@ -29,6 +29,13 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [f, setF] = useState<Member>(member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []});
   const [confirmDel, setConfirmDel] = useState(false);
   const [viewPfp, setViewPfp] = useState(false);
+  // Full-size local copy for View Photo; the 256px avatar is the fallback for
+  // members picked before the copy existed (or synced from another device).
+  const [pfpFull, setPfpFull] = useState<string | null>(null);
+  const openViewPfp = async () => {
+    setPfpFull(await avatarFullUri(f.id).catch(() => null));
+    setViewPfp(true);
+  };
   const [tagInput, setTagInput] = useState('');
   const [showDescEditor, setShowDescEditor] = useState(false);
   // A banner whose FILE is gone (iOS purged an old tmp-path image, or the
@@ -246,12 +253,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         <View style={{alignItems: 'center', marginBottom: 16}}>
           {/* Read-only viewers had a dead tap here. Now it opens the picture at
               full size, which is the whole point of looking at someone's card. */}
-          <TouchableOpacity onPress={readOnly ? (f.avatar ? () => setViewPfp(true) : undefined) : pickAvatar} activeOpacity={readOnly && !f.avatar ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={readOnly ? t('modal.viewPfp') : t('modal.changePfp')}>
+          <TouchableOpacity onPress={readOnly ? (f.avatar ? openViewPfp : undefined) : pickAvatar} activeOpacity={readOnly && !f.avatar ? 1 : 0.7} accessibilityRole="button" accessibilityLabel={readOnly ? t('modal.viewPfp') : t('modal.changePfp')}>
             {f.avatar ? (
               <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
             ) : (
               <View style={{width: 80, height: 80, borderRadius: 18, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
-                <Text style={{fontSize: fs(28), fontWeight: '700', color: 'rgba(0,0,0,0.75)'}}>{getInitials(f.name || '?')}</Text>
+                <Text style={{fontSize: fs(28), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
               </View>
             )}
             {!readOnly && (
@@ -261,7 +268,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             )}
           </TouchableOpacity>
           {f.avatar && (
-            <TouchableOpacity onPress={() => setViewPfp(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} style={{marginTop: 6}}>
+            <TouchableOpacity onPress={openViewPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} style={{marginTop: 6}}>
               <Text style={{fontSize: fs(11), color: T.accent}}>🔍 {t('modal.viewPfp')}</Text>
             </TouchableOpacity>
           )}
@@ -671,7 +678,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       <Modal visible={viewPfp && !!f.avatar} transparent animationType="fade" onRequestClose={() => setViewPfp(false)}>
         <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: 16}} activeOpacity={1}
           onPress={() => setViewPfp(false)} accessibilityRole="button" accessibilityLabel={t('common.close')}>
-          <Image source={{uri: f.avatar}} style={{width: '100%', height: '80%', borderRadius: 12}} resizeMode="contain"
+          <Image source={{uri: pfpFull || f.avatar}} style={{width: '100%', height: '80%', borderRadius: 12}} resizeMode="contain"
             accessibilityRole="image" accessibilityLabel={t('modal.viewPfpOf', {name: f.name || '?'})} />
           <Text style={{fontSize: fs(13), color: T.dim, marginTop: 16}}>{t('common.close')}</Text>
         </TouchableOpacity>

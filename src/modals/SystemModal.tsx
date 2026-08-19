@@ -350,7 +350,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('terminology.title')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('terminology.hint')}</Text>
         </View>
-        {([['member', 'members'], ['group', 'groups'], ['facet', 'facets'], ['front', 'system']] as const).map(pair => (
+        {([['member', 'members'], ['group', 'groups'], ['facet', 'facets'], ['front', 'fronting'], ['system']] as const).map(pair => (
           <View key={pair[0]} style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
             {pair.map(term => (
               <View key={term} style={{flex: 1}}>

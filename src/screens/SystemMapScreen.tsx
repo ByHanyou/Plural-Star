@@ -173,6 +173,53 @@ const MemberPickerField = ({label, value, onChange, members, T}: {
   );
 };
 
+// Multi-select twin of MemberPickerField for the connection editor's To side:
+// one pass can target several members (poly relationships). Rows toggle and
+// the list stays open; the trigger reads the joined selection.
+const MemberMultiPickerField = ({label, values, onToggle, members, T}: {
+  label: string; values: string[]; onToggle: (id: string) => void; members: Member[]; T: ThemeColors;
+}) => {
+  const {t} = useTranslation();
+  const fs = fontScale(T);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const selected = values.map(id => members.find(m => m.id === id)).filter(Boolean) as Member[];
+  const filtered = sortMembersBySearch(members.filter(m => !search.trim() || m.name.toLowerCase().includes(search.trim().toLowerCase())), search.trim());
+  const summary = selected.map(m => m.name).join(', ');
+  return (
+    <View style={{marginBottom: 12}}>
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
+      <TouchableOpacity onPress={() => {setOpen(!open); setSearch('');}} activeOpacity={0.7}
+        accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={label} accessibilityValue={{text: summary || t('systemMap.selectMember')}}
+        style={{flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8}}>
+        {selected.length === 1 ? <Avatar member={selected[0]} size={22} T={T} /> : null}
+        <Text style={{flex: 1, fontSize: fs(13), color: selected.length ? T.text : T.muted}} numberOfLines={1}>{summary || t('systemMap.selectMember')}</Text>
+        <Text style={{fontSize: fs(12), color: T.dim}}>▾</Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
+          <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('common.search')} placeholder={t('common.search')} placeholderTextColor={T.muted} autoFocus
+            style={{backgroundColor: T.surface, color: T.text, fontSize: fs(13), paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}} />
+          <ScrollView style={{maxHeight: 180}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {filtered.slice(0, 30).map(m => {
+              const on = values.includes(m.id);
+              return (
+                <TouchableOpacity key={m.id} onPress={() => onToggle(m.id)} activeOpacity={0.7}
+                  accessibilityRole="checkbox" accessibilityState={{checked: on}} accessibilityLabel={m.name}
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: on ? `${T.accent}15` : 'transparent'}}>
+                  <Avatar member={m} size={22} T={T} />
+                  <Text style={{flex: 1, fontSize: fs(13), color: on ? T.accent : T.text}}>{m.name}</Text>
+                  {on ? <Text style={{fontSize: fs(13), color: T.accent}} accessibilityElementsHidden importantForAccessibility="no">✓</Text> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+};
+
 const TypeForm = ({T, initial, saveLabel, onSave}: {
   T: ThemeColors; initial?: RelationshipTypeDef | null; saveLabel: string;
   onSave: (d: {name: string; directional: boolean; inverseName?: string; color: string}) => void;
@@ -237,7 +284,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const [showEditor, setShowEditor] = useState(false);
   const [editRel, setEditRel] = useState<Relationship | null>(null);
   const [fromId, setFromId] = useState('');
-  const [toId, setToId] = useState('');
+  const [toIds, setToIds] = useState<string[]>([]);
   const [typeId, setTypeId] = useState('');
   const [relNote, setRelNote] = useState('');
   const [showNewType, setShowNewType] = useState(false);
@@ -515,7 +562,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const openEditor = (rel: Relationship | null, presetFromId?: string) => {
     setEditRel(rel);
     setFromId(rel?.fromId || presetFromId || '');
-    setToId(rel?.toId || '');
+    setToIds(rel?.toId ? [rel.toId] : []);
     setTypeId(rel?.typeId || '');
     setRelNote(rel?.note || '');
     setShowNewType(false);
@@ -524,29 +571,58 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
   const saveRelationship = async () => {
     const td = typeById.get(typeId);
-    if (!fromId || !toId || !td) {
+    if (!fromId || toIds.length === 0 || !td) {
       Alert.alert(t('systemMap.title'), t('systemMap.missingFields'));
       return;
     }
-    if (fromId === toId) {
+    const targets = [...new Set(toIds)].filter(id => id && id !== fromId);
+    if (targets.length === 0) {
       Alert.alert(t('systemMap.title'), t('systemMap.sameMember'));
       return;
     }
-    const dup = relationships.find(r => r.id !== editRel?.id && r.typeId === typeId
-      && ((r.fromId === fromId && r.toId === toId) || (!td.directional && r.fromId === toId && r.toId === fromId)));
-    if (dup) {
-      Alert.alert(t('systemMap.title'), t('systemMap.duplicate'));
+    const findDup = (to: string) => relationships.find(r => r.id !== editRel?.id && r.typeId === typeId
+      && ((r.fromId === fromId && r.toId === to) || (!td.directional && r.fromId === to && r.toId === fromId)));
+    // "It says I've already added relationships I haven't": removing a member
+    // from the map keeps their relationships (they are still selectable, so
+    // they should still be there), which left this guard refusing over
+    // threads the user cannot SEE anywhere. Instead of dead-ending, offer the
+    // existing row for editing and put its endpoints back on the map so it is
+    // visible again.
+    const offerDup = (dup: Relationship) => {
+      Alert.alert(t('systemMap.title'), t('systemMap.duplicate'), [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: t('common.edit'), onPress: async () => {
+          const backOnMap = [dup.fromId, dup.toId].filter(id => !mapIdSet.has(id));
+          if (backOnMap.length > 0) await saveMapIds([...mapIds, ...backOnMap]);
+          openEditor(dup);
+        }},
+      ]);
+    };
+    if (editRel) {
+      const to = targets[0];
+      const dup = findDup(to);
+      if (dup) { offerDup(dup); return; }
+      const entry: Relationship = {id: editRel.id, fromId, toId: to, typeId, note: relNote.trim() || undefined, createdAt: editRel.createdAt};
+      await saveRelationships(relationships.map(r => r.id === editRel.id ? entry : r));
+      const mapAdds = [fromId, to].filter(id => !mapIdSet.has(id));
+      if (mapAdds.length > 0) await saveMapIds([...mapIds, ...mapAdds]);
+      setShowEditor(false);
+      setEditRel(null);
       return;
     }
-    const entry: Relationship = {
-      id: editRel?.id || uid(),
-      fromId, toId, typeId,
-      note: relNote.trim() || undefined,
-      createdAt: editRel?.createdAt || Date.now(),
-    };
-    const next = editRel ? relationships.map(r => r.id === editRel.id ? entry : r) : [...relationships, entry];
-    await saveRelationships(next);
-    const mapAdds = [fromId, toId].filter(id => !mapIdSet.has(id));
+    // Multi-select To (poly relationships): one pass creates the same
+    // relationship to every selected member. Pairs that already have it are
+    // skipped rather than refused; only an all-duplicates save surfaces the
+    // duplicate prompt.
+    const fresh = targets.filter(to => !findDup(to));
+    if (fresh.length === 0) {
+      offerDup(findDup(targets[0])!);
+      return;
+    }
+    const nowTs = Date.now();
+    const entries: Relationship[] = fresh.map(to => ({id: uid(), fromId, toId: to, typeId, note: relNote.trim() || undefined, createdAt: nowTs}));
+    await saveRelationships([...relationships, ...entries]);
+    const mapAdds = [fromId, ...fresh].filter(id => !mapIdSet.has(id));
     if (mapAdds.length > 0) await saveMapIds([...mapIds, ...mapAdds]);
     setShowEditor(false);
     setEditRel(null);
@@ -855,13 +931,19 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 }} />
               )}
 
-              <MemberPickerField label={t('systemMap.to')} value={toId} onChange={setToId} members={eligibleMembers} T={T} />
+              {editRel ? (
+                <MemberPickerField label={t('systemMap.to')} value={toIds[0] || ''} onChange={id => setToIds([id])} members={eligibleMembers} T={T} />
+              ) : (
+                <MemberMultiPickerField label={t('systemMap.to')} values={toIds}
+                  onToggle={id => setToIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
+                  members={eligibleMembers} T={T} />
+              )}
 
-              {selectedTd && fromId && toId && (
+              {selectedTd && fromId && toIds.length > 0 && (
                 <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 12}}>
                   {selectedTd.directional
-                    ? `${memberById.get(fromId)?.name || '?'} (${typeLabel(selectedTd)}) → ${memberById.get(toId)?.name || '?'} (${typeInverseLabel(selectedTd)})`
-                    : `${memberById.get(fromId)?.name || '?'} ⟷ ${memberById.get(toId)?.name || '?'} (${typeLabel(selectedTd)})`}
+                    ? `${memberById.get(fromId)?.name || '?'} (${typeLabel(selectedTd)}) → ${toIds.map(id => memberById.get(id)?.name || '?').join(', ')} (${typeInverseLabel(selectedTd)})`
+                    : `${memberById.get(fromId)?.name || '?'} ⟷ ${toIds.map(id => memberById.get(id)?.name || '?').join(', ')} (${typeLabel(selectedTd)})`}
                 </Text>
               )}
 

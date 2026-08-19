@@ -34,6 +34,10 @@ import {
   ConnStatus,
   RENDEZVOUS_TTL_SECONDS,
   FRIENDS_STORAGE_KEY,
+  FriendTombstone,
+  FRIEND_TOMBSTONES_KEY,
+  FRIEND_TOMBSTONE_TTL_MS,
+  FRIEND_TOMBSTONE_CAP,
   NETWORK_SETTINGS_KEY,
   SYNC_EXCLUDE_KEYS,
   SYNC_STATE_KEY,
@@ -130,6 +134,24 @@ const realMemberCount = (raw: string): number => {
     return Array.isArray(list) ? list.filter((m: any) => m && !m.isCustomFront && !m.isFacet && !m.deleted).length : 0;
   } catch {
     return 0;
+  }
+};
+
+// A wiped device (storage cleared, app reinstalled) boots into fresh EMPTY
+// stores and pushes them; a device that has not changed since its last sync
+// passes the hash floor as "no conflict" and silently applies the empties —
+// that erased a month of someone's journal, history and chat in one round.
+// An empty list therefore never silently replaces a populated one; it has to
+// win a conflict prompt instead. Object-valued keys are untouched, and a
+// legitimate delete-everything still goes through — behind the same prompt.
+const emptyListOverPopulated = (localRaw: string, incomingRaw: string): boolean => {
+  try {
+    const inc = JSON.parse(incomingRaw);
+    if (!Array.isArray(inc) || inc.length > 0) return false;
+    const loc = JSON.parse(localRaw);
+    return Array.isArray(loc) && loc.length > 0;
+  } catch {
+    return false;
   }
 };
 
@@ -237,11 +259,43 @@ class NetworkManagerImpl {
 
   private applyingSiblingFriends = false;
 
+  private friendTombstones: FriendTombstone[] = [];
+  /** not_friends bounce rate limit: at most one per peer per hour. */
+  private notFriendsSentAt: Map<string, number> = new Map();
+
   private async persistFriends(): Promise<void> {
     await store.set(FRIENDS_STORAGE_KEY, this.friends);
     // Echo guard: a merge from a sibling persists too, and pushing that straight
     // back would bounce the list between the two devices forever.
     if (!this.applyingSiblingFriends) this.pushFriendsToSiblings();
+  }
+
+  private pruneTombstones(): void {
+    const cutoff = Date.now() - FRIEND_TOMBSTONE_TTL_MS;
+    this.friendTombstones = this.friendTombstones
+      .filter(tb => tb && typeof tb.peerId === 'string' && tb.removedAt > cutoff)
+      .sort((a, b) => b.removedAt - a.removedAt)
+      .slice(0, FRIEND_TOMBSTONE_CAP);
+  }
+
+  private async persistTombstones(): Promise<void> {
+    this.pruneTombstones();
+    await store.set(FRIEND_TOMBSTONES_KEY, this.friendTombstones);
+  }
+
+  private tombstoneFor(peerId: string): FriendTombstone | undefined {
+    return this.friendTombstones.find(tb => tb.peerId === peerId);
+  }
+
+  private setTombstone(peerId: string, removedAt: number): void {
+    this.friendTombstones = this.friendTombstones.filter(tb => tb.peerId !== peerId);
+    this.friendTombstones.push({ peerId, removedAt });
+  }
+
+  private clearTombstone(peerId: string): void {
+    const before = this.friendTombstones.length;
+    this.friendTombstones = this.friendTombstones.filter(tb => tb.peerId !== peerId);
+    if (this.friendTombstones.length !== before) this.persistTombstones().catch(() => {});
   }
 
   /** Devices that share our identity — after linking, we are literally the same peer. */
@@ -258,20 +312,46 @@ class NetworkManagerImpl {
     if (sibs.length === 0) return;
     const payload = this.friends.filter(f => f.kind !== 'device');
     for (const s of sibs) {
-      this.sendTo(s.peerId, {t: 'friends_push', friends: payload}).catch(() => {});
+      this.sendTo(s.peerId, {t: 'friends_push', friends: payload, removed: this.friendTombstones}).catch(() => {});
     }
   }
 
-  private async mergeSiblingFriends(incoming: Friend[]): Promise<void> {
+  private async mergeSiblingFriends(incoming: Friend[], removed?: FriendTombstone[]): Promise<void> {
     if (!Array.isArray(incoming)) return;
     const byId = new Map(this.friends.map(f => [f.peerId, f]));
     let changed = false;
+    // Sibling removals first: a tombstone newer than our row means the user
+    // removed this friend on another device — honor it here, or the pair rots
+    // into the ghost one-way friendship (frozen "last received copy" on one
+    // side, silent drops on the other) that only refriending used to cure.
+    if (Array.isArray(removed)) {
+      for (const tb of removed) {
+        if (!tb || typeof tb.peerId !== 'string' || typeof tb.removedAt !== 'number') continue;
+        const mine = byId.get(tb.peerId);
+        const mineAt = mine ? (mine.statusUpdatedAt ?? mine.addedAt ?? 0) : 0;
+        if (mine && mine.kind !== 'device' && tb.removedAt > mineAt) {
+          this.friends = this.friends.filter(f => f.peerId !== tb.peerId);
+          byId.delete(tb.peerId);
+          this.clearMirrorCaches(tb.peerId);
+          changed = true;
+        }
+        const local = this.tombstoneFor(tb.peerId);
+        if ((!mine || tb.removedAt > mineAt) && (!local || tb.removedAt > local.removedAt)) {
+          this.setTombstone(tb.peerId, tb.removedAt);
+        }
+      }
+      this.persistTombstones().catch(() => {});
+    }
     for (const inc of incoming) {
       if (!inc || typeof inc.peerId !== 'string' || !inc.peerId) continue;
       if (inc.kind === 'device') continue;
       // Our own system address is us, never a friend.
       if (this.identity && inc.peerId === this.identity.peerId) continue;
       const mine = byId.get(inc.peerId);
+      const incAt0 = inc.statusUpdatedAt ?? inc.addedAt ?? 0;
+      const tb = this.tombstoneFor(inc.peerId);
+      if (tb && tb.removedAt >= incAt0) continue;
+      if (tb) this.clearTombstone(inc.peerId);
       if (!mine) {
         this.friends.push(inc);
         byId.set(inc.peerId, inc);
@@ -316,6 +396,8 @@ class NetworkManagerImpl {
       enabled: false,
     };
     this.friends = (await store.get<Friend[]>(FRIENDS_STORAGE_KEY, null)) || [];
+    this.friendTombstones = (await store.get<FriendTombstone[]>(FRIEND_TOMBSTONES_KEY, null)) || [];
+    this.pruneTombstones();
     this.subId = await getDeviceSubId();
     await this.loadPendingFronts();
     if (this.friends.length > 0) this.persistFriends().catch(() => {});
@@ -514,6 +596,10 @@ class NetworkManagerImpl {
     }
 
     const existing = this.friends.find(f => f.peerId === id.peerId);
+    // Deliberate re-add: the user is holding a fresh code, so any earlier
+    // removal of this peer is over — clear the tombstone before it can fight
+    // the new row across sibling devices.
+    if (kind !== 'device') this.clearTombstone(id.peerId);
     const status: Friend['status'] =
       existing?.status === 'accepted' || existing?.status === 'entered_mine' ? 'accepted' : 'entered_theirs';
     const fallbackName = kind === 'device' ? 'Device' : 'Friend';
@@ -572,14 +658,41 @@ class NetworkManagerImpl {
     };
   }
 
+  /**
+   * Authenticated "we're not friends" bounce for accepted-only traffic from a
+   * peer with no accepted row here. Without it the other side keeps a ghost
+   * accepted row forever: frozen "last received copy", mirrors that spin and
+   * then claim Offline, fronts silently dropped — while gateway alerts (which
+   * don't ride this channel) stay accurate. Sealed to the envelope identity
+   * because sendTo has no stored key for an unknown peer. Rate-limited so a
+   * chatty ghost cannot make us spam.
+   */
+  private maybeSendNotFriends(sender: FriendIdentity): void {
+    const self = this.identity;
+    const client = this.client;
+    if (!self || !client) return;
+    const last = this.notFriendsSentAt.get(sender.peerId) || 0;
+    if (Date.now() - last < 60 * 60 * 1000) return;
+    this.notFriendsSentAt.set(sender.peerId, Date.now());
+    try {
+      const payload = sealMessage(self, sender.boxPublicKey, { t: 'not_friends' }, this.subId || undefined);
+      client.send(sender.peerId, payload).catch(() => {});
+    } catch {}
+  }
+
   private routeMessage(sender: FriendIdentity, msg: NetMessage): void {
     const known = this.friends.find(f => f.peerId === sender.peerId);
     if (known) {
       const ed = encodeBase64(sender.edPublicKey);
       const box = encodeBase64(sender.boxPublicKey);
-      if (known.edPublicKey !== ed || known.boxPublicKey !== box) {
-        this.upsertFriend({ ...known, edPublicKey: ed, boxPublicKey: box });
+      // Any opened message that isn't the bounce itself proves the peer is
+      // talking to us again — drop the re-add prompt; a live ghost will just
+      // re-flag on the next bounce.
+      const clearFlag = !!known.needsRefriend && msg.t !== 'not_friends';
+      if (known.edPublicKey !== ed || known.boxPublicKey !== box || clearFlag) {
+        this.upsertFriend({ ...known, edPublicKey: ed, boxPublicKey: box, ...(clearFlag ? { needsRefriend: false } : {}) });
         this.persistFriends();
+        if (clearFlag) this.notify();
       }
     }
     switch (msg.t) {
@@ -653,6 +766,11 @@ class NetworkManagerImpl {
           this.upsertFriend({ ...existing, lastStatus: msg.status, statusUpdatedAt: Date.now() });
           this.persistFriends();
           this.notify();
+        } else {
+          // No row, or a half-open row we never accepted: the sender clearly
+          // believes we are friends. Tell it so its side stops showing stale
+          // data as live and prompts a re-add.
+          this.maybeSendNotFriends(sender);
         }
         break;
       }
@@ -669,13 +787,23 @@ class NetworkManagerImpl {
           f => f.peerId === sender.peerId && f.kind !== 'device' && f.status === 'accepted',
         );
         if (asker && this.myFrontKnown) this.sendMyFrontTo(sender.peerId);
+        else if (!asker) this.maybeSendNotFriends(sender);
         break;
       }
       case 'friends_push': {
         // Only a device that shares our identity can hand us friend records:
         // its pairings are literally ours, because we are the same peer.
         if (!this.identity || sender.peerId !== this.identity.peerId) break;
-        this.mergeSiblingFriends(msg.friends).catch(e => logError('network', e));
+        this.mergeSiblingFriends(msg.friends, msg.removed).catch(e => logError('network', e));
+        break;
+      }
+      case 'not_friends': {
+        const f = this.friends.find(x => x.peerId === sender.peerId && x.kind !== 'device');
+        if (f && f.status === 'accepted' && !f.needsRefriend) {
+          this.upsertFriend({ ...f, needsRefriend: true });
+          this.persistFriends();
+          this.notify();
+        }
         break;
       }
       case 'sync': {
@@ -694,6 +822,16 @@ class NetworkManagerImpl {
         break;
       }
       case 'mirror_req': {
+        const requester = this.friends.find(
+          f => f.peerId === sender.peerId && f.kind !== 'device' && f.status === 'accepted',
+        );
+        if (!requester) {
+          // The handler's own guard just returns silently, which is what left
+          // the requester spinning on "Requesting…" until it declared the
+          // friend offline. Bounce so their side learns the truth.
+          this.maybeSendNotFriends(sender);
+          break;
+        }
         this.handleMirrorReq(sender.peerId, msg.feature).catch(e => console.warn('[NETWORK] mirror_req failed:', e));
         break;
       }
@@ -762,7 +900,14 @@ class NetworkManagerImpl {
       await this.sendTo(peerId, { t: 'disconnect' });
     } catch {
     }
+    const removed = this.friends.find(f => f.peerId === peerId);
     this.friends = this.friends.filter(f => f.peerId !== peerId);
+    // Tombstone the removal so linked sibling devices delete their copy too
+    // instead of pushing the friend right back on the next friends_push.
+    if (removed && removed.kind !== 'device') {
+      this.setTombstone(peerId, Date.now());
+      await this.persistTombstones();
+    }
     this.clearMirrorCaches(peerId);
     await this.persistFriends();
     this.notify();
@@ -2242,6 +2387,10 @@ class NetworkManagerImpl {
         continue;
       }
       if (k === KEYS.members && localRaw != null && realMemberCount(incoming.v) === 0 && realMemberCount(localRaw) > 0) {
+        conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
+        continue;
+      }
+      if (localRaw != null && emptyListOverPopulated(localRaw, incoming.v)) {
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
         continue;
       }

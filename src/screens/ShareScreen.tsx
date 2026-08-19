@@ -4,13 +4,14 @@ import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
+import {readFileText} from '../utils/fileBytes';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
 import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
 import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory, fmtTime} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
-type ImportSource = 'backup' | 'journal' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace';
+type ImportSource = 'backup' | 'journal' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace' | 'plurallog';
 
 import {saveAvatarFromUrl, saveAvatar, saveBannerFromBase64, saveBannerFromUrl, migrateInlineChatMedia} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
@@ -28,6 +29,7 @@ import {handleExtImport} from '../import/extApply';
 import {handlePluralSpacePick, handlePluralSpaceConfirm, handlePluralSpaceAvatarsPick} from '../import/pluralspace';
 import {handleAmpersandPick, handleAmpersandConfirm} from '../import/ampersand';
 import {handleTupperboxPick, handleTupperboxConfirm} from '../import/tupperbox';
+import {handlePluralLogPick, handlePluralLogConfirm} from '../import/plurallog';
 import {handleSPFileImport, handleSPFileConfirmImport} from '../import/spFile';
 
 interface Props {
@@ -125,8 +127,10 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const [importSource, setImportSource] = useState<ImportSource>('backup');
   const [extToken, setExtToken] = useState('');
   const [extLoading, setExtLoading] = useState(false);
-  const [extPreview, setExtPreview] = useState<{members: any[]; switches: any[]; system: any; customFields?: any[]; groups?: any[]; journal?: any[]; chat?: any[]; polls?: any[]; tuppers?: any[]; systems?: any[]} | null>(null);
-  const [extSel, setExtSel] = useState({system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true, displayNames: true});
+  // Loose on purpose: every import source parks its own preview shape here and
+  // the per-source render blocks know which one they are looking at.
+  const [extPreview, setExtPreview] = useState<any | null>(null);
+  const [extSel, setExtSel] = useState({system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true, mailbox: true, displayNames: true, pronouns: true});
   const [psAvatarIndex, setPsAvatarIndex] = useState<Record<string, string> | null>(null);
   const [psZipFiles, setPsZipFiles] = useState<Record<string, Uint8Array> | null>(null);
 
@@ -219,12 +223,10 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
         setRestorePreview(true);
         return;
       }
-      let content: string;
-      try {
-        content = await ReactNativeBlobUtil.fs.readFile(pickedPath, 'utf8');
-      } catch {
-        content = await ReactNativeBlobUtil.fs.readFile(res.uri || pickedPath, 'utf8');
-      }
+      // readFileText tries every plausible percent-encoding of both paths:
+      // pickers and blob-util disagree about encoded spaces in filenames, and
+      // the mismatch read as "No such file …%20…" in the field.
+      const content: string = await readFileText(pickedPath, res.uri);
       let parsed: any;
       try { parsed = JSON.parse(content); } catch {
         let zb: {files: Record<string, Uint8Array>; data: any | null; manifest: any | null} | null = null;
@@ -492,6 +494,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
             <SourceBtn id="ampersand" label={t('share.ampersand')} />
             <SourceBtn id="tupperbox" label={t('share.tupperbox')} />
             <SourceBtn id="pluralspace" label={t('share.pluralSpace')} />
+            <SourceBtn id="plurallog" label={t('share.pluralLog')} />
           </View>
           {importSource === 'journal' && (
             <View>
@@ -560,10 +563,21 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       const control = new ImportControl(setRestoreProgress);
                       // Estimate from what the user actually ticked, so the bar
                       // isn't pacing against phases this run will never do.
-                      control.plan(Math.max(3, Object.values(restoreSel).filter(Boolean).length));
-                      importControlRef.current = control;
-                      setImportProgress({label: '', phase: 0, phases: Math.max(3, Object.values(restoreSel).filter(Boolean).length)});
-                      handleRestore({restorePath, restorePreview, restoreIsBundle, restoreSel, setRestoring, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history, control});
+                      const phases = Math.max(3, Object.values(restoreSel).filter(Boolean).length);
+                      control.plan(phases);
+                      // Arm the overlay only when the run actually starts.
+                      // handleRestore opens a confirm Alert first, and arming
+                      // here used to leave a controller with nothing running
+                      // when the user declined it — the "Importing… 0%" overlay
+                      // that never went away.
+                      const setRestoringArmed = (v: boolean) => {
+                        if (v) {
+                          importControlRef.current = control;
+                          setImportProgress({label: '', phase: 0, phases});
+                        }
+                        setRestoring(v);
+                      };
+                      handleRestore({restorePath, restorePreview, restoreIsBundle, restoreSel, setRestoring: setRestoringArmed, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history, control});
                     }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
                 </>
               )}
@@ -649,6 +663,9 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
                     {importSource === 'pluralkit' && (
                       <SectionRow label={t('share.usePkDisplayNames')} sublabel={t('share.usePkDisplayNamesHint')} value={extSel.displayNames} onToggle={() => togE('displayNames')} />
+                    )}
+                    {importSource === 'pluralkit' && (
+                      <SectionRow label={t('share.importPronouns')} sublabel={t('share.importPronounsHint')} value={extSel.pronouns} onToggle={() => togE('pronouns')} />
                     )}
                     <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
                     {importSource === 'pluralkit' && (
@@ -804,6 +821,49 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     )}
                   </View>
                   <TouchableOpacity onPress={() => handlePluralSpaceConfirm({extPreview, extSel, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                    <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          )}
+          {importSource === 'plurallog' && (
+            <View>
+              <Divider label={t('share.pluralLog')} />
+              <Text style={[s.para, {color: T.dim}]}>{t('share.plurallogHint')}</Text>
+              <TouchableOpacity onPress={() => handlePluralLogPick({extPreview, extSel, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.plurallogPick')}
+                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.plurallogPick')}</Text>
+              </TouchableOpacity>
+              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {restoreProgress ? <View style={{alignItems: 'center', paddingVertical: 12}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress}</Text></View> : null}
+              {extPreview && extPreview.source === 'plurallog' && (
+                <View>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 14}}>
+                    <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>{String(extPreview.db?.config?.systemName || 'PluralLog')}</Text>
+                    <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: (extPreview.db?.members || []).length})} · {t('share.frontEntries', {count: (extPreview.db?.switchEvents || []).length})}</Text>
+                  </View>
+                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
+                    <SectionRow label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.db?.members || []).length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
+                    <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: (extPreview.db?.switchEvents || []).length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    {(extPreview.db?.folders || []).length > 0 && (
+                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.db?.folders || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
+                    )}
+                    {(extPreview.db?.journal || []).length > 0 && (
+                      <SectionRow label={t('share.journalEntries')} value={extSel.journal} onToggle={() => togE('journal')} />
+                    )}
+                    {(extPreview.db?.messages || []).length > 0 && (
+                      <SectionRow label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
+                    )}
+                    {(extPreview.db?.frontMessages || []).length > 0 && (
+                      <SectionRow label={t('mailbox.title')} value={extSel.mailbox} onToggle={() => togE('mailbox')} />
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={() => handlePluralLogConfirm({extPreview, extSel, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>

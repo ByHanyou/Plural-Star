@@ -4,6 +4,7 @@ import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
+import {useMinuteTick} from '../hooks/useMinuteTick';
 import {Member, FrontState, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, translateMood} from '../utils';
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
 }
 
 export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Props) => {
+  // The current status duration freezes without a tick.
+  useMinuteTick();
   const front = useAppStore(s => s.front);
   const members = useAppStore(s => s.members);
   const getMember = (id: string) => members.find(m => m.id === id);

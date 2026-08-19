@@ -7,6 +7,7 @@ import {useTranslation} from 'react-i18next';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import Share from 'react-native-share';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
+import {readFileBase64} from '../utils/fileBytes';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveChatChannels} from '../store/actions';
@@ -142,7 +143,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
       const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
       const isImage = imageExts.includes(ext);
-      const base64 = await ReactNativeBlobUtil.fs.readFile(getPickedFilePath(res), 'base64');
+      const base64 = await readFileBase64(getPickedFilePath(res), (res as any)?.uri);
       const msgId = uid();
       const fileUri = await saveChatMedia(msgId, base64, ext);
       const msg: ChatMessage = {

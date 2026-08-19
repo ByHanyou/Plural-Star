@@ -67,6 +67,11 @@ const MemberCard = React.memo(function MemberCard({
     [groups, m.groupIds],
   );
   const isFirst = index === 0;
+  // The 2-line preview: blank and whitespace-only lines in a description eat
+  // the whole preview (and a "\n\n" description rendered a card with a bare
+  // gap in it), so they are dropped here. The full profile shows the
+  // description untouched.
+  const descPreview = (m.description || '').split('\n').filter(l => l.trim()).join('\n');
   const cardBorder = selectionMode
     ? (isSelected ? T.accent : T.border)
     : (isFronting ? `${m.color}60` : T.border);
@@ -92,7 +97,7 @@ const MemberCard = React.memo(function MemberCard({
         <TouchableOpacity
           activeOpacity={0.75}
           accessibilityRole="button"
-          accessibilityLabel={[m.name, badgeCfg ? t(badgeCfg.i18nKey) : null, fields?.pronouns !== false ? m.pronouns : null, fields?.roles !== false ? m.role : null, fields?.groups !== false && memberGroups.length ? memberGroups.map(g => g.name).join(', ') : null, fields?.descriptions !== false ? m.description : null].filter(Boolean).join(', ')}
+          accessibilityLabel={[m.name, badgeCfg ? t(badgeCfg.i18nKey) : null, fields?.pronouns !== false ? m.pronouns : null, fields?.roles !== false ? m.role : null, fields?.groups !== false && memberGroups.length ? memberGroups.map(g => g.name).join(', ') : null, fields?.descriptions !== false ? descPreview : null].filter(Boolean).join(', ')}
           accessibilityState={selectionMode ? {selected: isSelected} : undefined}
           onPress={selectionMode ? () => onToggleSelect(m.id) : () => onActivate(m)}
           onLongPress={() => onEnterSelection(m.id)}
@@ -112,7 +117,7 @@ const MemberCard = React.memo(function MemberCard({
             {badgeCfg && (<View style={{paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: `${badgeColor}18`, borderWidth: 1, borderColor: `${badgeColor}35`, flexShrink: 0}}><Text style={{fontSize: fs(10), color: badgeColor, fontWeight: '500'}} numberOfLines={1} maxFontSizeMultiplier={1.3}>{t(badgeCfg.i18nKey)}</Text></View>)}
           </View>
           {[fields?.pronouns !== false ? m.pronouns : null, fields?.roles !== false ? m.role : null].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(12), color: T.dim}}>{[fields?.pronouns !== false ? m.pronouns : null, fields?.roles !== false ? m.role : null].filter(Boolean).join(' · ')}</Text> : null}
-          {fields?.descriptions !== false && m.description ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}} numberOfLines={2}>{m.description}</Text> : null}
+          {fields?.descriptions !== false && descPreview ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}} numberOfLines={2}>{descPreview}</Text> : null}
           {fields?.groups !== false && memberGroups.length > 0 && (
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4}}>
               {memberGroups.map(g => (<View key={g.id} style={{flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: `${g.color || T.accent}15`}}><View style={{width: 5, height: 5, borderRadius: 2.5, backgroundColor: g.color || T.accent}} /><Text style={{fontSize: fs(10), color: g.color || T.accent}}>{g.name}</Text></View>))}
@@ -160,17 +165,7 @@ interface Props {
 }
 
 export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
-  // The System Profile is NOT a roster member. Observatory needs a member
-  // record to hold it, and the record it creates (or adopts) is a plain member
-  // in ps:members, so it leaked into this list, the counts, and the tabs.
-  // It is identified by settings.selfMemberId and is excluded here; Observatory
-  // renders it through ProfileScreen instead and never shows this screen.
-  const allMembers = useAppStore(s => s.members);
-  const selfMemberId = useAppStore(s => s.appSettings.selfMemberId);
-  const members = useMemo(
-    () => (selfMemberId ? allMembers.filter(m => m.id !== selfMemberId) : allMembers),
-    [allMembers, selfMemberId],
-  );
+  const members = useAppStore(s => s.members);
   const front = useAppStore(s => s.front);
   const groups = useAppStore(s => s.groups);
   const {t} = useTranslation();

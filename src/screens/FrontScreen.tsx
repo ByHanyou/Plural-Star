@@ -10,6 +10,7 @@ import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
+import {useMinuteTick} from '../hooks/useMinuteTick';
 import {updateFront} from '../store/actions';
 import {
   FrontState,
@@ -182,6 +183,9 @@ export const FrontScreen = ({
   const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
   const fs = fontScale(T);
+  // Fronting durations are computed at render; without this they freeze until
+  // the user "wiggles" the app (Devon's report).
+  useMinuteTick();
 
   const empty = isFrontEmpty(front);
 

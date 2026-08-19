@@ -1,9 +1,9 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
-import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
+import {readFileText} from '../utils/fileBytes';
 import {normHex} from './convert';
 
 export type TupperboxCtx = {
@@ -45,9 +45,7 @@ export const handleTupperboxPick = async (ctx: TupperboxCtx) => {
     const path = getPickedFilePath(res);
     let parsed: any = null;
     try {
-      let txt: string;
-      try { txt = await ReactNativeBlobUtil.fs.readFile(path, 'utf8'); }
-      catch { txt = await ReactNativeBlobUtil.fs.readFile(res.uri || path, 'utf8'); }
+      const txt: string = await readFileText(path, res.uri);
       parsed = JSON.parse(txt);
     } catch {}
     // PluralKit's own sniffer for these files is simply "has a tuppers array".

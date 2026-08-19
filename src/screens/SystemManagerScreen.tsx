@@ -5,7 +5,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {PALETTE, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {saveGroups, quickAddToFront, removeFromFront, bulkAddGroups, bulkRemoveFromGroup} from '../store/actions';
+import {saveGroups, quickAddToFront, removeFromFront, bulkAddGroups, bulkRemoveFromGroup, saveGroupSortMode} from '../store/actions';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {PlusMinusIcon} from '../components/Glyphs';
@@ -23,6 +23,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const members = useAppStore(s => s.members);
   const groups = useAppStore(s => s.groups);
   const front = useAppStore(s => s.front);
+  const groupSortMode = useAppStore(s => s.appSettings.groupSortMode);
   const onSaveGroups = saveGroups;
   const onQuickFront = quickAddToFront;
   const onRemoveFromFront = removeFromFront;
@@ -324,6 +325,8 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
           browseId={browseId}
           onNavigate={goBrowseTo}
           onViewMember={id => onViewMember && onViewMember(id)}
+          sortMode={groupSortMode}
+          onSortModeChange={saveGroupSortMode}
           rootTitle={t('systemManager.title')}
           headerRight={<>
           {current && !removeMode && (
