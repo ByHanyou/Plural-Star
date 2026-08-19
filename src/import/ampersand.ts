@@ -473,7 +473,10 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
                 name: (a.name && String(a.name).trim()) || 'Unnamed member',
                 // role only exists in the JSON export; the binary path leaves it blank.
                 pronouns: String(a.pronouns || ''), role: String(a.role || ''), color: normHex(a.color),
-                description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!a.isCustomFront,
+                // Ampersand 0.3.0 (AMPAR v2 / current JSON) renamed
+                // isCustomFront → isDissociativeState; read both so old and
+                // new exports import identically.
+                description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!(a.isCustomFront || a.isDissociativeState),
                 tags: [], customFields: cf,
                 groupIds: [
                   ...(a.system != null && sysGroupMap[String(a.system)] ? [sysGroupMap[String(a.system)]] : []),
@@ -489,7 +492,8 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           }
 
           if (extSel.frontHistory) {
-            const switches = amFronts.map((f: any) => ({content: {member: String(f.member), startTime: f.startTime, endTime: f.endTime ?? null, comment: f.comment}}));
+            // 0.3.0 renamed the fronting `comment` to `summary`; read both.
+            const switches = amFronts.map((f: any) => ({content: {member: String(f.member), startTime: f.startTime, endTime: f.endTime ?? null, comment: f.comment ?? f.summary}}));
             const newH = convertSPSwitches(switches, idMap);
             await applyImportedHistory(newH, ctx);
           }
