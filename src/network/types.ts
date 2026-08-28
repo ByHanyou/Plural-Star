@@ -20,6 +20,12 @@ export interface Friend {
   initStartedAt?: number;
   lastStatus?: FrontShare | null;
   statusUpdatedAt?: number;
+  /** The AUTHOR's clock when they produced this front, carried on both the
+   *  socket message and the gateway cache. Two phones are rarely awake at the
+   *  same moment, so a front often arrives by whichever lane wins; comparing
+   *  one author's own timestamps is the only skew-free way to tell which copy
+   *  is newer. Absent for peers on builds that predate it. */
+  statusAuthoredAt?: number;
   showInNotification?: boolean;
   notifyLevel?: FriendNotifyLevel;
   /** Protocol version this peer advertised on connect. Absent = pre-versioning build. */
@@ -84,13 +90,13 @@ export interface NetworkSettings {
   token?: string;
 }
 
-export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal' | 'history';
+export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal' | 'history' | 'systemProfile';
 
 export type NetMessage =
   | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target'; v?: number }
   | { t: 'disconnect' }
   | { t: 'ping' }
-  | { t: 'front'; status: FrontShare | null }
+  | { t: 'front'; status: FrontShare | null; at?: number }
   | { t: 'front_req' }
   | { t: 'device_adopt'; identity: {v: number; edSecretKey: string; boxSecretKey: string}; friends: Friend[] }
   // Friend records only (never device records, never the identity). Sent to
@@ -125,6 +131,26 @@ export interface MirrorMember {
   customFields?: {name: string; value: string | number | boolean | null; type?: string; markdown?: boolean; fieldId?: string}[];
   connections?: {id: string; otherId: string; otherName: string; label: string; labelKey?: string; color?: string; note?: string}[];
 }
+
+/**
+ * What a friend receives for the systemProfile mirror. Deliberately just the
+ * four fields the profile screen shows: no settings, no palettes, no passwords.
+ * Avatar and banner arrive separately as mirror_media under the synthetic ids
+ * below, because the payload itself is chunked as text.
+ */
+export interface MirrorSystemProfile {
+  name: string;
+  description?: string;
+  // Which images this payload is followed by. The receiver keeps exactly these
+  // and drops the rest: clearing everything on arrival would race the images,
+  // which land ~400ms later on their own path, and keeping everything would
+  // leave a banner on screen after it was removed.
+  hasAvatar?: boolean;
+  hasBanner?: boolean;
+}
+
+export const MIRROR_SYSTEM_AVATAR_ID = '__systemAvatar__';
+export const MIRROR_SYSTEM_BANNER_ID = '__systemBanner__';
 
 export interface MirrorGroup {
   id: string;
@@ -199,6 +225,11 @@ export interface PrivacyBucket {
   customFields: PrivacyScope;
   medical: PrivacyScope;
   connections: PrivacyScope;
+  // All-or-nothing: the system profile is one object, so there is nothing to
+  // select within it. Absent on buckets saved before this existed, which
+  // normalizeBucket reads as 'none' — an old bucket never starts sharing the
+  // profile because the app updated.
+  systemProfile?: PrivacyScope;
   friendPeerIds: string[];
   createdAt: number;
 }

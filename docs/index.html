@@ -21,7 +21,7 @@
 
 <span class="logo">Plural Star</span>
 <h1>Privacy Policy</h1>
-<span class="updated">Last updated: June 2026</span>
+<span class="updated">Last updated: August 2026</span>
 
 <div class="rename-note">
   <strong>Renamed from Plural Space.</strong> The app, repository, and subreddit were renamed to Plural Star for community clarity — another app was also using the Plural Space name. Your installation, data, backups, and any links continue to work; the app behavior and privacy practices described below have not changed as part of the rename.
@@ -43,15 +43,17 @@
   <li><strong>Settings and preferences</strong> — theme, language, notification toggles, front-check interval, custom palettes, custom moods, saved locations</li>
   <li><strong>Approximate location</strong> — only when GPS is explicitly enabled in Settings (off by default). Your device's coordinates are reverse-geocoded to a neighbourhood or city name via OpenStreetMap Nominatim. Raw GPS coordinates are never stored.</li>
   <li><strong>Network and Sync Data (optional)</strong> — when using Friends &amp; Syncing, the app handles cryptographic Peer IDs, friend lists, connection metadata, and encrypted sync payloads.</li>
+  <li><strong>Push delivery data (optional, iOS)</strong> — if you turn on friend notifications or the Dynamic Island front display, the app registers an Apple push token and the list of friend Peer IDs you have chosen to watch, and announces the names of who is currently fronting so those notifications have something to say.</li>
 </ul>
 
 <h2>2. How Your Data Is Used</h2>
 <p>All data is used solely to provide app features — tracking fronting sessions, maintaining a system journal, managing custom fields and noteboards, running polls, generating history and insights, and facilitating secure peer-to-peer synchronization and friend interactions when explicitly enabled. Your data is never used for advertising, analytics, profiling, or any purpose beyond what you see in the app.</p>
 
 <h2>3. Data Storage and Transmission</h2>
-<p>All data is fundamentally stored locally on your device. Plural Star does not operate any centralized storage servers, does not require an account, and does not transmit your data to any third party, with four narrow exceptions:</p>
+<p>All data is fundamentally stored locally on your device. Plural Star does not hold your system data on any server, does not require an account, and does not transmit your data to any third party, with five narrow exceptions:</p>
 <ul>
   <li><strong>Decentralized Sync &amp; Friends (optional):</strong> If you enable online features, your device communicates through our Decentralized LibP2P Relay Node Network (<a href="https://github.com/ByHanyou/Plural-Star-Node">Plural-Star-Node</a>). Your data is transmitted using end-to-end encryption (E2EE) and is only accessible to the specific peers (your other devices or explicitly approved friends) you authorize. Relay nodes merely facilitate the connection and NAT traversal; they cannot read, decrypt, or permanently store your system data.</li>
+  <li><strong>Push notifications for friends (optional, iOS):</strong> Apple does not allow an app to be woken by another phone, so iOS friend alerts and the Dynamic Island front display are delivered through a small push gateway operated by the developer, and then by Apple's push service (APNs). This lane is separate from your synced data and carries far less: the gateway holds your device's push token, the friend Peer IDs you chose to watch, and a short-lived cache of the fronter names, system name and front start time each system announces. It never receives your journal, chat, history, medical data or any other synced content, and it cannot read the encrypted traffic on the relay network. Names sent down this lane are visible to the gateway and to Apple in order to be displayed, so the app deliberately sends only what the notification needs, and only the names every friend you are sharing with is permitted to see. Turning off friend notifications stops the registration; removing a friend stops them being announced to that friend.</li>
   <li><strong>GPS location (optional):</strong> If you enable the GPS feature, your device's coordinates are sent over HTTPS to <a href="https://nominatim.openstreetmap.org">Nominatim (OpenStreetMap)</a> to resolve a neighbourhood or city name. Only coordinates are sent — no identifiers, no account information, no system data.</li>
   <li><strong>Simply Plural / PluralKit token import (optional):</strong> If you use the import feature with a token, the token is used for one-time API requests to those services to fetch your data. The token is not stored by Plural Star after the import completes.</li>
   <li><strong>Simply Plural file import (optional):</strong> If you import a Simply Plural JSON export file, the file is read from your device's local storage only. No network traffic occurs during file import.</li>
@@ -61,11 +63,12 @@
 <p>Plural Star does not sell, share, or transmit your personal data to any third parties for any purpose beyond what is described in Section 3. When utilizing the Friends &amp; Syncing network, you retain absolute control over which cryptographic peers receive your encrypted data.</p>
 
 <h2>5. Notifications</h2>
-<p>Plural Star can display local notifications on your device. All notifications are generated entirely on-device and are not transmitted anywhere.</p>
+<p>Almost every notification Plural Star shows is generated entirely on your device and is not transmitted anywhere. The one exception is friend notifications on iOS, described at the end of this section and in Section 3.</p>
 <ul>
   <li><strong>Front status notification:</strong> A persistent notification showing who is currently fronting across all three tiers. Displays when someone is fronting and updates when the front changes.</li>
   <li><strong>Front-check reminders (optional):</strong> If you set a front-check interval in Settings (1, 2, 4, 8, 12, or 24 hours), the app schedules a recurring local reminder to prompt you to update the front. Notifications can be disabled at any time by clearing the interval or turning off notifications in Settings.</li>
   <li><strong>Noteboard notifications (optional):</strong> When a new noteboard entry is created for a member, the app can surface a local notification. Disabled by turning off notifications in Settings.</li>
+  <li><strong>Friend front alerts and the Dynamic Island (optional, iOS):</strong> The only notifications that are not purely local. When a friend's front changes, their device announces the fronter names to the developer's push gateway, which asks Apple to deliver a notification to yours. Android friend notifications are built on your own device from data already received over the encrypted connection and use no push service. See Section 3 for exactly what the gateway holds.</li>
 </ul>
 
 <h2>6. Export &amp; Backup</h2>
@@ -73,6 +76,7 @@
 
 <h2>7. Data Deletion</h2>
 <p>You can permanently erase all app data at any time using <strong>Share → Delete All Data</strong>. Uninstalling the app also removes all locally stored data from your device.</p>
+<p>The push gateway's copy is cleared separately. Turning friend notifications off removes your registration, and uninstalling invalidates the push token at Apple, after which the gateway discards it. Each new front you announce replaces the previous cached one, and a cached front is dropped entirely after 30 days without a new announcement. That window exists so a friend who has not opened the app for a while still learns what they missed; nothing older than it is kept or served.</p>
 
 <h2>8. Children's Privacy</h2>
 <p>Plural Star is not directed at children under 13. We do not knowingly collect information from children under 13.</p>
@@ -87,8 +91,8 @@
 <div class="footer">
   <p>
     Plural Star is open source under the
-    <a href="https://github.com/TheHanyou/Plural-Star/blob/main/LICENSE">GNU Affero General Public License v3.0</a>.<br>
-    Source code: <a href="https://github.com/TheHanyou/Plural-Star">github.com/TheHanyou/Plural-Star</a>
+    <a href="https://github.com/ByHanyou/Plural-Star/blob/main/LICENSE">GNU Affero General Public License v3.0</a>.<br>
+    Source code: <a href="https://github.com/ByHanyou/Plural-Star">github.com/ByHanyou/Plural-Star</a>
   </p>
 </div>
 

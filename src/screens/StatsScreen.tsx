@@ -1,10 +1,11 @@
-import React, {useState, useMemo} from 'react';
+import React, {useState, useMemo, useEffect} from 'react';
 import {View, ScrollView, TouchableOpacity} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
+import {loadChatMessages} from '../store/actions';
 import {Member, HistoryEntry, ChatMessage, fmtDur, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
@@ -24,6 +25,18 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
   const history = useAppStore(s => s.history);
   const members = useAppStore(s => s.members);
   const chatMessages = useAppStore(s => s.allChatMessages);
+  const chatChannels = useAppStore(s => s.chatChannels);
+  // Chat history is loaded HERE rather than at startup: it is the heaviest read
+  // in the app and this screen is its only consumer. Loading it on the launch
+  // path cost minutes of blank screen on mid-range Android. Runs once per visit
+  // and leaves the counts empty until it lands, which is a fraction of a second
+  // for a normal history and never blocks anything.
+  useEffect(() => {
+    let cancelled = false;
+    if (chatChannels.length === 0) return;
+    loadChatMessages(chatChannels).catch(e => console.error('[PS] stats chat load:', e));
+    return () => { cancelled = true; void cancelled; };
+  }, [chatChannels]);
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [range, setRange] = useState<TimeRange>('all');
@@ -416,19 +429,37 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
 
       <View style={{marginBottom: 16}}>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.statusDetails') : t('stats.topCoMembers')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
-          <View style={{flexDirection: 'row', gap: 6}}>
-            {members.filter((m: Member) => !m.archived && (!singlet || (m.isCustomFront && !SINGLET_HIDDEN_STATUS_NAMES.includes(m.name)))).map((m: Member) => (
-              <TouchableOpacity key={m.id} onPress={() => setSelectedStatMember(selectedStatMember === m.id ? null : m.id)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: selectedStatMember === m.id}}
-                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-                  backgroundColor: selectedStatMember === m.id ? `${m.color}20` : T.surface,
-                  borderColor: selectedStatMember === m.id ? `${m.color}50` : T.border}}>
-                <Text style={{fontSize: fs(11), color: selectedStatMember === m.id ? m.color : T.dim}}>{m.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+        {(() => {
+          const eligible = (m: Member) => !m.archived && (!singlet || (m.isCustomFront && !SINGLET_HIDDEN_STATUS_NAMES.includes(m.name)));
+          const chip = (m: Member) => (
+            <TouchableOpacity key={m.id} onPress={() => setSelectedStatMember(selectedStatMember === m.id ? null : m.id)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: selectedStatMember === m.id}}
+              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                backgroundColor: selectedStatMember === m.id ? `${m.color}20` : T.surface,
+                borderColor: selectedStatMember === m.id ? `${m.color}50` : T.border}}>
+              <Text style={{fontSize: fs(11), color: selectedStatMember === m.id ? m.color : T.dim}}>{m.name}</Text>
+            </TouchableOpacity>
+          );
+          // Facets keep their own row: out of the member list, still selectable.
+          const facets = members.filter((m: Member) => m.isFacet && eligible(m));
+          return (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: facets.length > 0 ? 4 : 10, flexGrow: 0}}>
+                <View style={{flexDirection: 'row', gap: 6}}>
+                  {members.filter((m: Member) => !m.isFacet && eligible(m)).map(chip)}
+                </View>
+              </ScrollView>
+              {facets.length > 0 && (
+                <>
+                  <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('members.facets')}</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
+                    <View style={{flexDirection: 'row', gap: 6}}>{facets.map(chip)}</View>
+                  </ScrollView>
+                </>
+              )}
+            </>
+          );
+        })()}
 
         {selectedStatMember && (() => {
           const entries = filteredHistory.filter(e =>

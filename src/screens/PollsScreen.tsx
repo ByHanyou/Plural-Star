@@ -18,7 +18,8 @@ export const PollsScreen = ({theme: T}: Props) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const behavior = useKeyboardBehavior();
-  const activeMembers = members.filter(m => !m.archived && !m.isCustomFront);
+  const activeMembers = members.filter(m => !m.archived && !m.isCustomFront && !m.isFacet);
+  const facetMembers = members.filter(m => !m.archived && !m.isCustomFront && m.isFacet);
   const [polls, setPolls] = useState<MemberPoll[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [question, setQuestion] = useState('');
@@ -104,15 +105,31 @@ export const PollsScreen = ({theme: T}: Props) => {
             }}
           />
           <ScrollView style={{maxHeight: 220}} keyboardShouldPersistTaps="handled">
-            {sortMembersBySearch(activeMembers.filter(m => !voterSearch.trim() || m.name.toLowerCase().includes(voterSearch.trim().toLowerCase())), voterSearch.trim())
-              .map(m => (
+            {(() => {
+              const q = voterSearch.trim().toLowerCase();
+              const match = (m: Member) => !q || m.name.toLowerCase().includes(q);
+              const row = (m: Member) => (
                 <TouchableOpacity key={m.id} onPress={() => {setVoterId(m.id); setVoterPickerOpen(false); setVoterSearch('');}} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: voterId === m.id}}
                   style={{paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border,
                     backgroundColor: voterId === m.id ? `${T.accent}15` : 'transparent'}}>
                   <Text style={{fontSize: fs(13), color: voterId === m.id ? T.accent : T.text}}>{m.name}</Text>
                 </TouchableOpacity>
-              ))}
+              );
+              // Facets keep their own section: out of the member list, still pickable.
+              const facets = sortMembersBySearch(facetMembers.filter(match), voterSearch.trim());
+              return (
+                <>
+                  {sortMembersBySearch(activeMembers.filter(match), voterSearch.trim()).map(row)}
+                  {facets.length > 0 && (
+                    <>
+                      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4}}>{t('members.facets')}</Text>
+                      {facets.map(row)}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </ScrollView>
         </View>
       )}

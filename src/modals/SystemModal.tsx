@@ -1,18 +1,15 @@
 import React, {useState} from 'react';
-import {View, TouchableOpacity, Image, Alert} from 'react-native';
+import {View, TouchableOpacity, Alert} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {pickImageFromGallery} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
 import {BUILTIN_PALETTES, FONT_OPTIONS, fontScale, ensureReadable} from '../theme';
 import type {CustomPalette, FontChoice, ThemeColors} from '../theme';
 import {uid, isValidHex, normalizeHex, TextScale, TEXT_SCALE_OPTIONS} from '../utils';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
-import {saveBannerImage, saveBioImageFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
-import {useDraft, clearDraft} from '../hooks/useDraft';
 
 const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => (
   <View style={{flex: 1}}>
@@ -25,10 +22,14 @@ const HexField = ({label, value, onChange, T}: {label: string; value: string; on
   </View>
 );
 
-export const SystemModal = ({visible, theme: T, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onClose}: any) => {
+export const SystemModal = ({visible, theme: T, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onOpenProfile, onClose}: any) => {
   const fs = fontScale(T);
   const {t} = useTranslation();
-  const [f, setF] = useState({...system}); const [showJournalPw, setShowJournalPw] = useState(!!system.journalPassword);
+  const [journalPw, setJournalPw] = useState<string>(system.journalPassword || ''); const [showJournalPw, setShowJournalPw] = useState(!!system.journalPassword);
+  // Singlets have no System Profile — they have the Profile tab. Their name and
+  // goals stay here, where they have always been.
+  const [sysName, setSysName] = useState<string>(system.name || '');
+  const [sysDesc, setSysDesc] = useState<string>(system.description || '');
   const [newLocation, setNewLocation] = useState(''); const [newMood, setNewMood] = useState('');
   const [locs, setLocs] = useState<string[]>(settings?.locations || []); const [moods, setMoods] = useState<string[]>(settings?.customMoods || []);
   const [selectedLang, setSelectedLang] = useState<SupportedLanguage>(settings?.language || 'en');
@@ -51,17 +52,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [paletteName, setPaletteName] = useState('');
   const [palBg, setPalBg] = useState(''); const [palAccent, setPalAccent] = useState('');
   const [palText, setPalText] = useState(''); const [palMid, setPalMid] = useState('');
-  const [showAvatarLink, setShowAvatarLink] = useState(false); const [avatarLinkInput, setAvatarLinkInput] = useState(''); const [avatarLinking, setAvatarLinking] = useState(false);
-  const applyAvatarLink = async () => {
-    const url = avatarLinkInput.trim();
-    if (!/^https?:\/\//i.test(url)) { Alert.alert(t('modal.pfpFailed')); return; }
-    setAvatarLinking(true);
-    try { const uri = await saveAvatarFromUrl('system-avatar', url); if (uri) { setF((x: any) => ({...x, avatar: uri})); setShowAvatarLink(false); setAvatarLinkInput(''); } else { Alert.alert(t('modal.pfpFailed')); } }
-    catch (e: any) { Alert.alert(t('modal.pfpFailed'), e?.message || ''); }
-    finally { setAvatarLinking(false); }
-  };
-
-  React.useEffect(() => { if (visible) { setShowAvatarLink(false); setAvatarLinkInput(''); setAvatarLinking(false); setF({...system}); setShowJournalPw(!!system.journalPassword); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setTermMap(settings?.terminology || {}); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (visible) { setJournalPw(system.journalPassword || ''); setShowJournalPw(!!system.journalPassword); setSysName(system.name || ''); setSysDesc(system.description || ''); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setTermMap(settings?.terminology || {}); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
   // Depends on `visible` ONLY, deliberately. `settings` is a fresh object on
   // every store write (a sync apply, a GPS location update, any other setting
   // saved), so keeping it in the deps re-ran this while the sheet was open and
@@ -104,65 +95,29 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   };
 
 
-  useDraft<any>('system', 'system', visible, f, d => setF(d));
-
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn instant T={T} onPress={() => {
-      onSave({...f, journalPassword: showJournalPw && f.journalPassword ? f.journalPassword : undefined});
-      clearDraft('system', 'system');
+      // Merged onto the live record, not onto a copy taken when this sheet
+      // opened: the profile is edited elsewhere now, and a stale copy would
+      // quietly undo a name or avatar change made in between.
+      onSave({...system, ...(singletMode ? {name: sysName, description: sysDesc} : {}), journalPassword: showJournalPw && journalPw ? journalPw : undefined});
       onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
-      <Field label={singletMode ? t('modal.name') : t('modal.systemName')} value={f.name} onChange={(v: string) => setF((x: any) => ({...x, name: v}))} placeholder={singletMode ? t('setup.yourNamePlaceholder') : t('modal.systemNamePlaceholder')} T={T} />
-      <Field label={singletMode ? t('modal.goals') : t('modal.descriptionLabel')} value={f.description} onChange={(v: string) => setF((x: any) => ({...x, description: v}))} placeholder={singletMode ? t('setup.goalsPlaceholder') : t('modal.descriptionFieldPlaceholder')} multiline numberOfLines={3} T={T} />
-
-      {!singletMode && (<>
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, marginTop: 14, fontWeight: '600'}}>{t('systemProfile.title')}</Text>
-      <View style={{flexDirection: 'row', gap: 12, marginBottom: 14, alignItems: 'flex-start'}}>
-        <TouchableOpacity onPress={async () => {
-          try {
-            const img = await pickImageFromGallery();
-            if (!img) return;
-            const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
-              ? img.uri
-              : `file://${img.uri}`;
-            const uri = await saveBioImageFromUri('system-avatar', sourceFileUri);
-            setF((x: any) => ({...x, avatar: uri}));
-          } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
-        }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.changeAvatar')}>
-          <View style={{width: 64, height: 64, borderRadius: 14, borderWidth: 2, borderColor: T.accent, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
-            {f.avatar ? <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 64, height: 64, borderRadius: 14}} resizeMode="cover" /> : <Text style={{fontSize: fs(22), color: T.dim}}>📷</Text>}
-          </View>
-        </TouchableOpacity>
-        <View style={{flex: 1}}>
-          <TouchableOpacity onPress={async () => {
-            try {
-              const img = await pickImageFromGallery();
-              if (!img) return;
-              const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
-                ? img.uri
-                : `file://${img.uri}`;
-              const uri = await saveBannerImage('system-banner', sourceFileUri);
-              setF((x: any) => ({...x, banner: uri}));
-            } catch (e: any) { Alert.alert(t('modal.pfpFailed')); }
-          }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.changeBanner')}>
-            <View style={{width: '100%', aspectRatio: 3, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: T.border, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
-              {f.banner ? <Image source={{uri: f.banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', height: '100%', borderRadius: 8}} resizeMode="cover" /> : <Text style={{fontSize: fs(11), color: T.dim}}>{t('systemProfile.changeBanner')}</Text>}
-            </View>
-          </TouchableOpacity>
-          {f.banner && <TouchableOpacity onPress={() => Alert.alert(t('systemProfile.removeBanner'), t('modal.removeImageMsg'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.remove'), style: 'destructive', onPress: () => setF((x: any) => ({...x, banner: undefined}))}])} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeBanner')}><Text style={{fontSize: fs(10), color: T.danger, marginTop: 4}}>{t('systemProfile.removeBanner')}</Text></TouchableOpacity>}
-        </View>
-      </View>
-      {f.avatar && <TouchableOpacity onPress={() => Alert.alert(t('systemProfile.removeAvatar'), t('modal.removeImageMsg'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.remove'), style: 'destructive', onPress: () => setF((x: any) => ({...x, avatar: undefined}))}])} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeAvatar')} style={{marginBottom: 8}}><Text style={{fontSize: fs(10), color: T.danger}}>{t('systemProfile.removeAvatar')}</Text></TouchableOpacity>}
-      <TouchableOpacity onPress={() => setShowAvatarLink(!showAvatarLink)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.linkPfp')} style={{marginBottom: 8}}><Text style={{fontSize: fs(11), color: T.accent}}>🔗 {t('modal.linkPfp')}</Text></TouchableOpacity>
-      {showAvatarLink && (
-        <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10}}>
-          <TextInput value={avatarLinkInput} onChangeText={setAvatarLinkInput} accessibilityLabel={t('modal.linkPfp')} placeholder="https://…" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url"
-            style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}} onSubmitEditing={applyAvatarLink} returnKeyType="done" />
-          <Btn T={T} disabled={avatarLinking || !avatarLinkInput.trim()} onPress={applyAvatarLink} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
-        </View>
+      {/* Name, description, avatar and banner moved to the System Profile,
+          reached by tapping the system name in the header. A profile is not a
+          setting. This sheet still owns the journal password, which lives on
+          the same record — so it saves onto the CURRENT system rather than a
+          copy taken when the sheet opened, or it would revert a profile edit
+          made while the sheet sat open. */}
+      {singletMode ? (
+        <>
+          <Field label={t('modal.name')} value={sysName} onChange={setSysName} placeholder={t('setup.yourNamePlaceholder')} T={T} />
+          <Field label={t('modal.goals')} value={sysDesc} onChange={setSysDesc} placeholder={t('setup.goalsPlaceholder')} multiline numberOfLines={3} T={T} />
+        </>
+      ) : (
+        <Btn T={T} onPress={onOpenProfile} style={{marginBottom: 14}}>{t('systemProfile.title')}</Btn>
       )}
-      </>)}
 
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.palette')}</Text>
@@ -247,8 +202,8 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
 
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.globalJournalPassword')}</Text><TouchableOpacity onPress={() => {setShowJournalPw(!showJournalPw); if (showJournalPw) setF((x: any) => ({...x, journalPassword: undefined}));}} accessibilityRole="button" accessibilityLabel={`${showJournalPw ? t('common.remove') : t('common.add')} ${t('modal.globalJournalPassword')}`}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showJournalPw ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
-        {showJournalPw && <TextInput value={f.journalPassword || ''} onChangeText={(v: string) => setF((x: any) => ({...x, journalPassword: v || undefined}))} accessibilityLabel={t('modal.lockJournal')} placeholder={t('modal.lockJournal')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />}
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.globalJournalPassword')}</Text><TouchableOpacity onPress={() => {setShowJournalPw(!showJournalPw); if (showJournalPw) setJournalPw('');}} accessibilityRole="button" accessibilityLabel={`${showJournalPw ? t('common.remove') : t('common.add')} ${t('modal.globalJournalPassword')}`}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showJournalPw ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
+        {showJournalPw && <TextInput value={journalPw} onChangeText={setJournalPw} accessibilityLabel={t('modal.lockJournal')} placeholder={t('modal.lockJournal')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />}
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>

@@ -5,7 +5,7 @@ import {store, KEYS} from '../storage';
 import {saveBannerFromUrl} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
 import {normalizeSpAvatarUrl, spAvatarCandidates, downloadFirstAvatar} from './spApi';
-import {convertSPSwitches, convertPKSwitches, finalizeMemberReplace, findClaimableByName, reviveIfTombstoned} from './convert';
+import {convertSPSwitches, convertPKSwitches, finalizeMemberReplace, findClaimableByName, reviveIfTombstoned, ImportMode} from './convert';
 import {isImportStopped} from './progress';
 import {applyImportedHistory} from './restore';
 
@@ -13,6 +13,7 @@ export type ExtApplyCtx = {
   extPreview: any;
   importSource: string;
   extSel: Record<string, boolean>;
+  importMode: ImportMode;
   system: SystemInfo;
   members: Member[];
   history: HistoryEntry[];
@@ -24,10 +25,10 @@ export type ExtApplyCtx = {
 };
 
 export const handleExtImport = (ctx: ExtApplyCtx) => {
-  const {extPreview, importSource, extSel, system, members, t, setRestoreProgress, setExtPreview, setExtToken, onDataImported} = ctx;
+  const {extPreview, importSource, extSel, importMode, system, members, t, setRestoreProgress, setExtPreview, setExtToken, onDataImported} = ctx;
     if (!extPreview) return;
     const isPK = importSource === 'pluralkit';
-    Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+    Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('share.importBtn'), onPress: async () => {
         try {
@@ -90,7 +91,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
             if (extId) idMap[extId] = newId;
             if (isPK && m.id && m.id !== extId) idMap[m.id] = newId;
           });
-          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap));
+          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
           const avatarCandidates: Record<string, string[]> = {};
           if (extSel.avatars) {
             const spFallbackUid = String((extPreview.system && (extPreview.system.id || extPreview.system.uid || extPreview.system.content?.uid)) || extPreview.members.find((x: any) => x.content?.uid || x.uid)?.content?.uid || extPreview.members.find((x: any) => x.uid)?.uid || '');
@@ -115,7 +116,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               const avatar = await downloadFirstAvatar(memberId, urls as string[]);
               if (avatar) avatarResults[memberId] = avatar;
             }, 4, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total})));
-            const withAvatars = finalizeMemberReplace(merged, idMap).map(m => avatarResults[m.id] ? {...m, avatar: avatarResults[m.id]} : m);
+            const withAvatars = finalizeMemberReplace(merged, idMap, importMode).map(m => avatarResults[m.id] ? {...m, avatar: avatarResults[m.id]} : m);
             await store.set(KEYS.members, withAvatars);
             const avOk = Object.keys(avatarResults).length;
             if (avOk < avatarEntries.length) Alert.alert(t('share.profilePictures'), t('share.avatarsDownloaded', {done: avOk, total: avatarEntries.length}));

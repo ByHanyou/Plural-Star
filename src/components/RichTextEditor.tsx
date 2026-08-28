@@ -53,11 +53,15 @@ const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => 
 const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]; theme: ThemeColors; onPick: (m: Member) => void; onCancel: () => void}) => {
   const fs = fontScale(T);
   const [search, setSearch] = useState('');
+  const match = (m: Member, q: string) => !m.archived && !m.isCustomFront && (!q || m.name.toLowerCase().includes(q));
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const active = members.filter(m => !m.archived && !m.isCustomFront);
-    if (!q) return active;
-    return active.filter(m => m.name.toLowerCase().includes(q));
+    return members.filter(m => !m.isFacet && match(m, q));
+  }, [members, search]);
+  // Facets keep their own section: out of the member list, still mentionable.
+  const filteredFacets = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return members.filter(m => m.isFacet && match(m, q));
   }, [members, search]);
 
   return (
@@ -90,20 +94,36 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
             />
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" style={{maxHeight: 320}}>
-            {filtered.length === 0 ? (
+            {filtered.length === 0 && filteredFacets.length === 0 ? (
               <Text style={{fontSize: fs(13), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20}}>
                 {i18n.t('mention.noMembers')}
               </Text>
             ) : (
-              filtered.map(m => (
-                <TouchableOpacity key={m.id} onPress={() => onPick(m)} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={m.name}
-                  style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                  <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
-                  <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{m.name}</Text>
-                  {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
-                </TouchableOpacity>
-              ))
+              <>
+                {filtered.map(m => (
+                  <TouchableOpacity key={m.id} onPress={() => onPick(m)} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityLabel={m.name}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
+                    <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
+                    <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{m.name}</Text>
+                    {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
+                  </TouchableOpacity>
+                ))}
+                {filteredFacets.length > 0 && (
+                  <>
+                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4}}>{i18n.t('members.facets')}</Text>
+                    {filteredFacets.map(m => (
+                      <TouchableOpacity key={m.id} onPress={() => onPick(m)} activeOpacity={0.7}
+                        accessibilityRole="button" accessibilityLabel={m.name}
+                        style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
+                        <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
+                        <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{m.name}</Text>
+                        {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
+              </>
             )}
           </ScrollView>
         </TouchableOpacity>

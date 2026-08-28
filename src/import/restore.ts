@@ -1,13 +1,13 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {Member, MemberGroup, HistoryEntry, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, AppSettings, uid, findOpenFrontInHistory} from '../utils';
+import {Member, MemberGroup, HistoryEntry, JournalEntry, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, AppSettings, uid, findOpenFrontInHistory} from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
-import {importZipBundle} from '../export/exportUtils';
+import {importZipBundle, readZipBundle, zipTextOf, base64FromU8} from '../export/exportUtils';
 import {saveAvatar, saveBannerFromBase64, migrateInlineChatMedia} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
 import {ImportControl, stoppedSummary} from './progress';
-import {convertSPSwitches, normHex, mergeForeignMember, finalizeMemberReplace, mergeHistoryEntries, getStoredMembers, mergeMediaIntoMembers} from './convert';
+import {convertSPSwitches, normHex, mergeForeignMember, finalizeMemberReplace, mergeHistoryEntries, getStoredMembers, mergeMediaIntoMembers, ImportMode} from './convert';
 import {spAvatarCandidates, downloadFirstAvatar} from './spApi';
 
 export type RestoreCtx = {
@@ -15,6 +15,7 @@ export type RestoreCtx = {
   restorePreview: boolean;
   restoreIsBundle: boolean;
   restoreSel: Record<string, boolean>;
+  importMode: ImportMode;
   setRestoring: any;
   setRestoreDone: any;
   setRestoreProgress: any;
@@ -76,28 +77,81 @@ export const applyImportedHistory = async (newHistory: HistoryEntry[], ctx: Pick
     if (importedOpenFront) await store.set(KEYS.front, importedOpenFront);
   };
 
+/** Update-mode list merge: incoming rows refresh matches (by id, then by the
+ *  optional key) and append; nothing local is removed. */
+const mergeById = <T extends {id?: any}>(existing: T[] | null | undefined, incoming: T[], sameKey?: (a: T, b: T) => boolean): T[] => {
+  const out = [...(existing || [])];
+  incoming.forEach(inc => {
+    if (!inc) return;
+    const at = out.findIndex(e => !!e && ((inc.id != null && e.id === inc.id) || (sameKey ? sameKey(e, inc) : false)));
+    if (at >= 0) out[at] = {...out[at], ...inc, id: out[at].id ?? inc.id};
+    else out.push(inc);
+  });
+  return out;
+};
+
+/** Update-mode roster merge for our OWN backups: match by id (same account
+ *  lineage), then by claimable name; locals the backup doesn't carry stay
+ *  untouched. Restoring a member over their tombstone revives them. */
+export const mergeBackupMembers = (existing: Member[], incoming: Member[]): Member[] => {
+  const out = [...existing];
+  const claimed = new Set<string>();
+  incoming.forEach(im => {
+    if (!im || !im.id) return;
+    let at = out.findIndex(m => m.id === im.id);
+    if (at < 0) {
+      const nm = String(im.name || '').trim().toLowerCase();
+      at = nm ? out.findIndex(m => !claimed.has(m.id) && !m.isCustomFront && !m.isFacet && String(m.name || '').trim().toLowerCase() === nm) : -1;
+    }
+    if (at >= 0) { out[at] = {...out[at], ...im, id: out[at].id, deleted: im.deleted ?? false}; claimed.add(out[at].id); }
+    else { out.push(im); claimed.add(im.id); }
+  });
+  return out;
+};
+
 export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCtx) => {
-  const {restoreSel, setRestoreProgress, t} = ctx;
+  const {restoreSel, importMode, setRestoreProgress, t} = ctx;
+    const upd = importMode === 'update';
     // Each of these is a phase boundary: the wait screen advances here, and a
     // stop request is honoured here rather than mid-write.
     if (restoreSel.journal && data.journal) {
       if (!(await runPhase(ctx, t('share.progressJournal', {defaultValue: 'Restoring journal…'}), async () => {
-        await store.set(KEYS.journal, data.journal);
+        const next = upd
+          ? mergeById(await store.get<JournalEntry[]>(KEYS.journal, []), data.journal!, (a, b) => a.timestamp === b.timestamp && a.title === b.title).sort((a, b) => b.timestamp - a.timestamp)
+          : data.journal;
+        await store.set(KEYS.journal, next);
       }))) return;
     }
     if (restoreSel.frontHistory && data.frontHistory) {
       if (!(await runPhase(ctx, t('share.progressHistory', {defaultValue: 'Restoring front history…'}), async () => {
-        await store.set(KEYS.history, data.frontHistory);
+        const next = upd
+          ? mergeHistoryEntries(data.frontHistory!, await store.get<HistoryEntry[]>(KEYS.history, []) || [])
+          : data.frontHistory;
+        await store.set(KEYS.history, next);
       }))) return;
     }
     if (restoreSel.groups && data.groups) {
       if (!(await runPhase(ctx, t('share.progressGroups', {defaultValue: 'Restoring groups…'}), async () => {
-        await store.set(KEYS.groups, data.groups);
+        const next = upd
+          ? mergeById(await store.get<MemberGroup[]>(KEYS.groups, []), data.groups!, (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase())
+          : data.groups;
+        await store.set(KEYS.groups, next);
       }))) return;
     }
     if (ctx.control?.shouldStop()) return;
     if (restoreSel.chat) {
-      if (data.chatChannels) await store.set(KEYS.chatChannels, data.chatChannels);
+      if (data.chatChannels) {
+        const nextCh = upd
+          ? mergeById(await store.get<any[]>(KEYS.chatChannels, []), data.chatChannels as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase())
+          : data.chatChannels;
+        await store.set(KEYS.chatChannels, nextCh);
+      }
+      if (data.chatCategories) {
+        const nextCat = upd
+          ? mergeById(await store.get<any[]>(KEYS.chatCategories, []), data.chatCategories as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase())
+          : data.chatCategories;
+        await store.set(KEYS.chatCategories, nextCat);
+      }
       if (data.chatMessages) {
         setRestoreProgress(t('share.progressChat'));
         const channelIds = Object.keys(data.chatMessages).filter(id => {
@@ -108,7 +162,10 @@ export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: Re
           try {
             const msgs = data.chatMessages![chId];
             const {messages: migrated} = await migrateInlineChatMedia(msgs);
-            await store.set(chatMsgKey(chId), migrated);
+            const nextMsgs = upd
+              ? mergeById(await store.get<any[]>(chatMsgKey(chId), []), migrated as any[], (a, b) => a.timestamp === b.timestamp && a.authorId === b.authorId && a.content === b.content).sort((a: any, b: any) => a.timestamp - b.timestamp)
+              : migrated;
+            await store.set(chatMsgKey(chId), nextMsgs);
           } catch (chErr) {
             console.error(`[RESTORE] failed channel ${chId}:`, chErr);
           }
@@ -127,18 +184,45 @@ export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: Re
       if (restoreSel.moods) newSettings.customMoods = data.customMoods || data.settings?.customMoods || [];
       await store.set(KEYS.settings, newSettings);
     }
-    if (restoreSel.palettes && data.palettes) await store.set(KEYS.palettes, data.palettes);
+    if (restoreSel.palettes && data.palettes) await store.set(KEYS.palettes, upd ? mergeById(await store.get<any[]>(KEYS.palettes, []), data.palettes as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase()) : data.palettes);
     if (restoreSel.frontHistory && data.front !== undefined) await store.set(KEYS.front, data.front);
-    if (restoreSel.customFields && data.customFieldDefs) await store.set(KEYS.customFieldDefs, data.customFieldDefs);
-    if (restoreSel.noteboards && data.noteboards) await store.set(KEYS.noteboards, data.noteboards);
-    if (restoreSel.polls && data.polls) await store.set(KEYS.polls, data.polls);
-    if (restoreSel.journalTemplates && data.journalTemplates) await store.set(KEYS.journalTemplates, data.journalTemplates);
-    if (restoreSel.relationships && data.relationships) await store.set(KEYS.relationships, data.relationships);
-    if (restoreSel.relationships && data.relationshipTypes) await store.set(KEYS.relationshipTypes, data.relationshipTypes);
-    if (restoreSel.relationships && data.systemMapMembers) await store.set(KEYS.systemMapMembers, data.systemMapMembers);
-    if (restoreSel.medical && data.medical) await store.set(KEYS.medical, data.medical);
-    if (restoreSel.planner !== false && data.planner) await store.set(KEYS.planner, data.planner);
-    if (restoreSel.relationships && data.systemMapPositions) await store.set(KEYS.systemMapPositions, data.systemMapPositions);
+    if (restoreSel.customFields && data.customFieldDefs) await store.set(KEYS.customFieldDefs, upd ? mergeById(await store.get<any[]>(KEYS.customFieldDefs, []), data.customFieldDefs as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase()) : data.customFieldDefs);
+    if (restoreSel.noteboards && data.noteboards) await store.set(KEYS.noteboards, upd ? mergeById(await store.get<any[]>(KEYS.noteboards, []), data.noteboards as any[], (a, b) => a.timestamp === b.timestamp && a.authorId === b.authorId && a.content === b.content) : data.noteboards);
+    if (restoreSel.polls && data.polls) await store.set(KEYS.polls, upd ? mergeById(await store.get<any[]>(KEYS.polls, []), data.polls as any[]) : data.polls);
+    if (restoreSel.journalTemplates && data.journalTemplates) await store.set(KEYS.journalTemplates, upd ? mergeById(await store.get<any[]>(KEYS.journalTemplates, []), data.journalTemplates as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase()) : data.journalTemplates);
+    if (restoreSel.relationships && data.relationships) await store.set(KEYS.relationships, upd ? mergeById(await store.get<any[]>(KEYS.relationships, []), data.relationships as any[]) : data.relationships);
+    if (restoreSel.relationships && data.relationshipTypes) await store.set(KEYS.relationshipTypes, upd ? mergeById(await store.get<any[]>(KEYS.relationshipTypes, []), data.relationshipTypes as any[]) : data.relationshipTypes);
+    if (restoreSel.relationships && data.systemMapMembers) await store.set(KEYS.systemMapMembers, upd ? [...new Set([...(await store.get<string[]>(KEYS.systemMapMembers, []) || []), ...data.systemMapMembers])] : data.systemMapMembers);
+    if (restoreSel.medical && data.medical) {
+      if (upd) {
+        const cur = (await store.get<any>(KEYS.medical, null)) || {};
+        const inc: any = data.medical;
+        await store.set(KEYS.medical, {
+          ...cur,
+          ...inc,
+          medications: mergeById(cur.medications, Array.isArray(inc.medications) ? inc.medications : []),
+          appointments: mergeById(cur.appointments, Array.isArray(inc.appointments) ? inc.appointments : []),
+          history: mergeById(cur.history, Array.isArray(inc.history) ? inc.history : []),
+        });
+      } else {
+        await store.set(KEYS.medical, data.medical);
+      }
+    }
+    if (restoreSel.planner !== false && data.planner) {
+      if (upd) {
+        const cur = (await store.get<any>(KEYS.planner, null)) || {};
+        const inc: any = data.planner;
+        await store.set(KEYS.planner, {
+          ...cur,
+          ...inc,
+          appointments: mergeById(cur.appointments, Array.isArray(inc.appointments) ? inc.appointments : []),
+          reminders: mergeById(cur.reminders, Array.isArray(inc.reminders) ? inc.reminders : []),
+        });
+      } else {
+        await store.set(KEYS.planner, data.planner);
+      }
+    }
+    if (restoreSel.relationships && data.systemMapPositions) await store.set(KEYS.systemMapPositions, upd ? {...((await store.get<any>(KEYS.systemMapPositions, null)) || {}), ...(data.systemMapPositions as any)} : data.systemMapPositions);
     if (restoreSel.whiteboard !== false && data.whiteboard) await store.set(KEYS.whiteboard, data.whiteboard);
     if (restoreSel.palettes && data.customColors) await store.set(KEYS.customColors, data.customColors);
     if (restoreSel.settings && data.shareSettings) await store.set(KEYS.share, data.shareSettings);
@@ -171,8 +255,10 @@ export const downloadAvatarsTo = async (urls: Record<string, string>, ctx: Pick<
 const normalizeOurcana = (raw: any): any => {
   if (!raw || !raw.graph || !Array.isArray(raw.graph.nodes)) return raw;
   const nodes: any[] = raw.graph.nodes;
+  const edges: any[] = Array.isArray(raw.graph.edges) ? raw.graph.edges : [];
   const byType = (t: string) => nodes.filter((n: any) => n && n.type === t);
-  const sysProps = byType('system')[0]?.properties || {};
+  const sysNode = byType('system')[0];
+  const sysProps = sysNode?.properties || {};
   const fieldDefs = byType('customField')
     .slice()
     .sort((a: any, b: any) => (a.properties?.order ?? 0) - (b.properties?.order ?? 0))
@@ -182,7 +268,33 @@ const normalizeOurcana = (raw: any): any => {
       order: n.properties?.order ?? i,
       type: String(n.properties?.type || 'text'),
     }));
-  const members = byType('member').map((n: any) => {
+  const memberNodes = byType('member');
+  const memberIdSet = new Set(memberNodes.map((n: any) => String(n.id)));
+  // Ourcana mints a personal tag per member (id tag_default_<memberId>, labelled
+  // with the member's own name); importing those would create one junk
+  // single-member group per member, so only the real organizational tags survive.
+  const tags = byType('tag')
+    .filter((n: any) => !String(n.id).startsWith('tag_default_'))
+    .map((n: any) => {
+      const p = n.properties || {};
+      return {
+        id: String(n.id),
+        label: p.label,
+        color: p.color,
+        parentId: p.parentId != null ? String(p.parentId) : null,
+      };
+    });
+  const tagIdSet = new Set(tags.map(tg => tg.id));
+  const tagIdsByMember: Record<string, string[]> = {};
+  edges.forEach((e: any) => {
+    if (!e || e.type !== 'taggedWith') return;
+    const from = String(e.from);
+    const to = String(e.to);
+    if (!memberIdSet.has(from) || !tagIdSet.has(to)) return;
+    if (!tagIdsByMember[from]) tagIdsByMember[from] = [];
+    tagIdsByMember[from].push(to);
+  });
+  const members = memberNodes.map((n: any) => {
     const p = n.properties || {};
     return {
       id: String(n.id),
@@ -193,12 +305,17 @@ const normalizeOurcana = (raw: any): any => {
       desc: p.desc,
       color: p.color,
       archived: p.archived,
-      // localAvatarPath points at a file on THEIR device and cannot travel.
+      // localAvatarPath points at a file on THEIR device and cannot travel;
+      // the archive's avatars/<memberId> files are attached at import time.
       avatarUrl: p.avatarUrl,
+      tagIds: tagIdsByMember[String(n.id)] || [],
       ourcanaFieldValues: p.customFields && typeof p.customFields === 'object' ? p.customFields : {},
     };
   });
-  const frontHistory = byType('front')
+  // v3 splits fronting into raw ourcanaSwitchAtom records and the frontEvent
+  // rows aggregated from them — read the events only, or every span doubles.
+  const frontHistory = byType('frontEvent')
+    .concat(byType('front'))
     .concat(byType('frontEntry'))
     .map((n: any) => {
       const p = n.properties || {};
@@ -211,16 +328,90 @@ const normalizeOurcana = (raw: any): any => {
     });
   return {
     ...raw,
-    system: {name: sysProps.username, desc: sysProps.desc},
+    system: {name: sysProps.username, desc: sysProps.desc, ourcanaId: sysNode ? String(sysNode.id) : ''},
     members,
-    tags: [],
+    tags,
     frontHistory,
     ourcanaFieldDefs: fieldDefs,
   };
 };
 
-export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx) => {
-  const {restoreSel} = ctx;
+/** The database json inside an .our archive — never image_assets/index.json. */
+export const findOurcanaJsonEntry = (files: Record<string, Uint8Array>): string | undefined => {
+  const names = Object.keys(files);
+  return names.find(n => /(^|\/)ourcana[^/]*\.json$/i.test(n))
+    || names.find(n => !n.includes('/') && n.toLowerCase().endsWith('.json'))
+    || names.find(n => n.toLowerCase().endsWith('.json') && !n.toLowerCase().endsWith('index.json'));
+};
+
+/** Resolve an image_assets entry by owner + role (system banner etc.). */
+const ourAssetFor = (zipFiles: Record<string, Uint8Array>, ownerId: string, role: string): Uint8Array | null => {
+  if (!ownerId) return null;
+  const idxName = Object.keys(zipFiles).find(n => n.endsWith('image_assets/index.json'));
+  if (!idxName) return null;
+  try {
+    const idx = JSON.parse(zipTextOf(zipFiles[idxName]));
+    const assets: any[] = Array.isArray(idx?.assets) ? idx.assets : [];
+    const hit = assets
+      .filter(a => a && a.role === role && String(a.ownerId) === ownerId && typeof a.localPath === 'string')
+      .sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0))[0];
+    if (!hit) return null;
+    const entry = Object.keys(zipFiles).find(n => n === hit.localPath || n.endsWith(`/${hit.localPath}`));
+    return entry ? zipFiles[entry] : null;
+  } catch { return null; }
+};
+
+/**
+ * Ourcana frontEvents are already whole switches with real end times, and the
+ * spans legitimately overlap (per-member fronting records over days). Feeding
+ * them through the SP coalescer fuses every overlapping span into one giant
+ * union entry, so they are mapped directly: rows sharing a start instant and
+ * an end merge into one switch, everything else stays its own entry, and only
+ * a genuinely live row is left open.
+ */
+export const ourFrontEventsToHistory = (ouFronts: any[], idMap: Record<string, string>): HistoryEntry[] => {
+  const rows = ouFronts
+    .map((f: any) => ({
+      ids: (Array.isArray(f.memberIds) ? f.memberIds : []).map((eid: any) => idMap[String(eid)]).filter(Boolean) as string[],
+      startTime: typeof f.startTime === 'number' ? f.startTime : (f.startTime ? new Date(f.startTime).getTime() : 0),
+      endTime: f.isLive ? null : (typeof f.endTime === 'number' ? f.endTime : (f.endTime ? new Date(f.endTime).getTime() : null)),
+      isLive: !!f.isLive,
+    }))
+    .filter(r => r.startTime > 0 && r.ids.length > 0)
+    .sort((a, b) => a.startTime - b.startTime);
+  const TOL = 60 * 1000;
+  const merged: {e: HistoryEntry; live: boolean}[] = [];
+  for (const r of rows) {
+    const last = merged[merged.length - 1];
+    if (last && Math.abs(r.startTime - last.e.startTime) <= TOL && (last.e.endTime ?? null) === (r.endTime ?? null)) {
+      last.e.memberIds = [...new Set([...last.e.memberIds, ...r.ids])];
+      last.live = last.live || r.isLive;
+      continue;
+    }
+    merged.push({e: {memberIds: r.ids, startTime: r.startTime, endTime: r.endTime, note: '', mood: undefined, location: undefined} as HistoryEntry, live: r.isLive});
+  }
+  for (let i = 0; i < merged.length; i++) {
+    if (merged[i].e.endTime != null || merged[i].live) continue;
+    for (let j = i + 1; j < merged.length; j++) {
+      if (merged[j].e.startTime > merged[i].e.startTime) { merged[i].e.endTime = merged[j].e.startTime; break; }
+    }
+  }
+  return merged.map(m => m.e);
+};
+
+/** Pick the bytes of `avatars/<ownerId>.<ext>` out of an .our archive. */
+const ourZipAvatarFor = (zipFiles: Record<string, Uint8Array>, ownerId: string): Uint8Array | null => {
+  if (!ownerId) return null;
+  const name = Object.keys(zipFiles).find(n => {
+    const parts = n.split('/');
+    const file = parts[parts.length - 1];
+    return parts[parts.length - 2] === 'avatars' && file.startsWith(`${ownerId}.`);
+  });
+  return name ? zipFiles[name] : null;
+};
+
+export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: Record<string, Uint8Array> | null) => {
+  const {restoreSel, importMode, setRestoreProgress, t} = ctx;
     const rawData = normalizeOurcana(rawDataIn);
     const ouSys = rawData.system || {};
     const ouMembers: any[] = Array.isArray(rawData.members) ? rawData.members : [];
@@ -228,7 +419,25 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx) => {
     const ouTags: any[] = Array.isArray(rawData.tags) ? rawData.tags : [];
     if (restoreSel.system) {
       const sys = await store.get<any>(KEYS.system, {}) || {};
-      await store.set(KEYS.system, {...sys, name: ouSys.name || sys.name, description: ouSys.desc || sys.description || ''});
+      const next: any = {...sys, name: ouSys.name || sys.name, description: ouSys.desc || sys.description || ''};
+      const sysId = String(ouSys.ourcanaId || '');
+      if (zipFiles && sysId) {
+        if (restoreSel.avatars) {
+          const bytes = ourZipAvatarFor(zipFiles, sysId) || ourAssetFor(zipFiles, sysId, 'avatar');
+          if (bytes) {
+            const uri = await saveAvatar('system-avatar', base64FromU8(bytes)).catch(() => null);
+            if (uri) next.avatar = uri;
+          }
+        }
+        if (restoreSel.banners) {
+          const bytes = ourAssetFor(zipFiles, sysId, 'banner');
+          if (bytes) {
+            const uri = await saveBannerFromBase64('system-banner', base64FromU8(bytes)).catch(() => null);
+            if (uri) next.banner = uri;
+          }
+        }
+      }
+      await store.set(KEYS.system, next);
     }
     const idMap: Record<string, string> = {};
     if (restoreSel.members) {
@@ -242,7 +451,7 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx) => {
           description: String(m.desc || ''), archived: !!m.archived,
         });
       });
-      await store.set(KEYS.members, finalizeMemberReplace(merged, idMap));
+      await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
     }
     if (restoreSel.groups && ouTags.length > 0) {
       const existingGroups = await store.get<MemberGroup[]>(KEYS.groups, []) || [];
@@ -256,6 +465,14 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx) => {
         else { g.name = name; g.sourceId = srcId; }
         groupIdMap[String(tg.id)] = g.id;
       });
+      ouTags.forEach((tg: any) => {
+        if (!tg.parentId) return;
+        const childId = groupIdMap[String(tg.id)];
+        const parentId = groupIdMap[String(tg.parentId)];
+        if (!childId || !parentId || childId === parentId) return;
+        const g = mergedGroups.find(x => x.id === childId);
+        if (g) g.parentId = parentId;
+      });
       await store.set(KEYS.groups, mergedGroups);
       const membersForGroups = await store.get<Member[]>(KEYS.members, []) || [];
       const withGroups = membersForGroups.map(lm => {
@@ -268,9 +485,7 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx) => {
       await store.set(KEYS.members, withGroups);
     }
     if (restoreSel.frontHistory && ouFronts.length > 0) {
-      const switches = ouFronts.map((f: any) => ({content: {members: Array.isArray(f.memberIds) ? f.memberIds : [], startTime: f.startTime, endTime: f.isLive ? null : (f.endTime ?? null)}}));
-      const newH = convertSPSwitches(switches, idMap);
-      await applyImportedHistory(newH, ctx);
+      await applyImportedHistory(ourFrontEventsToHistory(ouFronts, idMap), ctx);
     }
     const ouFieldDefs: any[] = Array.isArray(rawData.ourcanaFieldDefs) ? rawData.ourcanaFieldDefs : [];
     if (restoreSel.customFields && restoreSel.members && ouFieldDefs.length > 0) {
@@ -313,14 +528,33 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx) => {
       await store.set(KEYS.members, withCF);
     }
     if (restoreSel.avatars) {
+      // The .our archive carries the pictures as avatars/<memberId>.<ext>;
+      // members without one fall back to their remote avatarUrl.
+      const zipDone = new Set<string>();
+      if (zipFiles) {
+        const jobs = ouMembers.filter((m: any) => idMap[String(m.id)] && ourZipAvatarFor(zipFiles, String(m.id)));
+        if (jobs.length > 0) {
+          setRestoreProgress(t('share.progressAvatars'));
+          const saved: Record<string, string> = {};
+          await parallelMap(jobs, async (m: any) => {
+            const bytes = ourZipAvatarFor(zipFiles, String(m.id));
+            if (!bytes) return;
+            const uri = await saveAvatar(idMap[String(m.id)], base64FromU8(bytes)).catch(() => null);
+            if (uri) { saved[idMap[String(m.id)]] = uri; zipDone.add(String(m.id)); }
+          }, 4, (done, total) => setRestoreProgress(t('share.progressAvatarsN', {done, total})));
+          if (Object.keys(saved).length > 0) {
+            await store.set(KEYS.members, mergeMediaIntoMembers(await getStoredMembers(), 'avatar', saved));
+          }
+        }
+      }
       const urls: Record<string, string> = {};
-      ouMembers.forEach((m: any) => { const localId = idMap[String(m.id)]; const url = String(m.avatarUrl || ''); if (localId && /^https?:\/\//.test(url)) urls[localId] = url; });
+      ouMembers.forEach((m: any) => { if (zipDone.has(String(m.id))) return; const localId = idMap[String(m.id)]; const url = String(m.avatarUrl || ''); if (localId && /^https?:\/\//.test(url)) urls[localId] = url; });
       await downloadAvatarsTo(urls, ctx);
     }
   };
 
 export const importMultiplicity = async (rawData: any, ctx: RestoreCtx) => {
-  const {restoreSel, setRestoreProgress, t} = ctx;
+  const {restoreSel, importMode, setRestoreProgress, t} = ctx;
     const sys = rawData.system || {};
     const alters: any[] = Array.isArray(rawData.alters) ? rawData.alters : [];
     const fronts: any[] = Array.isArray(rawData.front_entries) ? rawData.front_entries : [];
@@ -339,7 +573,7 @@ export const importMultiplicity = async (rawData: any, ctx: RestoreCtx) => {
           description: String(a.description || ''), archived: !!a.is_archived,
         });
       });
-      await store.set(KEYS.members, finalizeMemberReplace(merged, idMap));
+      await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
     }
     if (restoreSel.frontHistory && fronts.length > 0) {
       const switches = fronts.map((f: any) => ({content: {member: String(f.alter_id), startTime: f.start_time, endTime: f.end_time ?? null, comment: f.notes || ''}}));
@@ -374,9 +608,9 @@ export const importMultiplicity = async (rawData: any, ctx: RestoreCtx) => {
   };
 
 export const handleRestore = (ctx: RestoreCtx) => {
-  const {restorePath, restorePreview, restoreIsBundle, restoreSel, setRestoring, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history} = ctx;
+  const {restorePath, restorePreview, restoreIsBundle, restoreSel, importMode, setRestoring, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history} = ctx;
     if (!restorePath || !restorePreview) return;
-    Alert.alert(t('share.restoreData'), t('share.restoreDataMsg'), [
+    Alert.alert(t('share.restoreData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.restoreDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('share.restore'), style: 'destructive', onPress: async () => {
         setRestoring(true);
@@ -395,7 +629,9 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 mem = mem.map(m => bannerMap[m.id] ? {...m, banner: bannerMap[m.id]} : m);
               }
               setRestoreProgress(t('share.progressSavingMembers'));
-              await store.set(KEYS.members, mem);
+              await store.set(KEYS.members, importMode === 'update'
+                ? mergeBackupMembers(await store.get<Member[]>(KEYS.members, []) || [], mem as Member[])
+                : mem);
             }
             await restoreSharedPayload(data, ctx);
             // A stop is not a failure and not a clean success — say which steps
@@ -404,12 +640,24 @@ export const handleRestore = (ctx: RestoreCtx) => {
             setRestoreDone(true); setTimeout(() => onDataImported(), 800);
             return;
           }
-          const content = await ReactNativeBlobUtil.fs.readFile(restorePath, 'utf8');
-          const rawData: any = JSON.parse(content);
+          let content = '';
+          try { content = await ReactNativeBlobUtil.fs.readFile(restorePath, 'utf8'); } catch {}
+          let ourZipFiles: Record<string, Uint8Array> | null = null;
+          let rawData: any;
+          try { rawData = JSON.parse(content); } catch {
+            // An .our archive keeps the whole zip as the pending file so the
+            // member avatars can be pulled from it below; the database json
+            // sits inside the archive.
+            const zb = await readZipBundle(restorePath);
+            const inner = findOurcanaJsonEntry(zb.files);
+            if (!inner) throw new Error(t('share.invalidJsonBackup'));
+            rawData = JSON.parse(zipTextOf(zb.files[inner]));
+            ourZipFiles = zb.files;
+          }
 
-          const looksLikeOurcana = (rawData.format === 'ourcana') || (!rawData._meta && Array.isArray(rawData.members) && Array.isArray(rawData.frontHistory) && rawData.members[0]?.id !== undefined);
+          const looksLikeOurcana = (rawData.format === 'ourcana') || (rawData.graph && Array.isArray(rawData.graph.nodes)) || (!rawData._meta && Array.isArray(rawData.members) && Array.isArray(rawData.frontHistory) && rawData.members[0]?.id !== undefined);
           if (looksLikeOurcana) {
-            await importOurcana(rawData, ctx);
+            await importOurcana(rawData, ctx, ourZipFiles);
             setRestoreDone(true); setRestoring(false); setTimeout(() => onDataImported(), 800);
             return;
           }
@@ -463,7 +711,15 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 sortOrder: existing?.sortOrder,
               } as Member;
             });
-            if (restoreSel.members) await store.set(KEYS.members, newMembers);
+            // The old wholesale store.set(newMembers) hard-dropped every local
+            // member the file didn't carry, custom fronts and facets included.
+            // Unmatched locals now follow the standard replace semantics:
+            // tombstoned in Overwrite, kept untouched in Update.
+            const spMatched = new Set(newMembers.map(m => m.id));
+            const spKeptLocals = existingMembers
+              .filter(lm => !spMatched.has(lm.id))
+              .map(lm => (importMode === 'update' || lm.isCustomFront || lm.isFacet || lm.deleted) ? lm : {...lm, archived: true, deleted: true});
+            if (restoreSel.members) await store.set(KEYS.members, [...newMembers, ...spKeptLocals]);
             const idMap: Record<string, string> = {};
             rawData.members.forEach((sp: any, i: number) => { const sid = normId(sp._id); if (sid) idMap[sid] = newMembers[i].id; });
             if (restoreSel.members && restoreSel.avatars) {
@@ -591,7 +847,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 merged.push({id: nid, sourceId: extId, tags: [], groupIds: [], customFields: [], ...incoming});
                 idMap[extId] = nid;
               });
-              await store.set(KEYS.members, finalizeMemberReplace(merged, idMap));
+              await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
             }
             if (restoreSel.customFields && ocFields.length > 0) {
               const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
@@ -706,7 +962,9 @@ export const handleRestore = (ctx: RestoreCtx) => {
               data.banners = {};
             }
             setRestoreProgress(t('share.progressSavingMembers'));
-            await store.set(KEYS.members, membersAccum);
+            await store.set(KEYS.members, importMode === 'update'
+              ? mergeBackupMembers(await store.get<Member[]>(KEYS.members, []) || [], membersAccum as Member[])
+              : membersAccum);
           } else if (restoreSel.avatars && !restoreSel.members) {
             if (data.avatars && Object.keys(data.avatars).length > 0) {
               const existing = await getStoredMembers();

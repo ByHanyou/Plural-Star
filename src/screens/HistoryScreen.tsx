@@ -417,7 +417,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
   const pickerMembers = singlet
     ? [...members.filter(m => m.id === selfId), ...singletStatuses(members)]
-    : members;
+    : members.filter(m => !m.isFacet);
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
@@ -505,19 +505,35 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                 {memberSearch.length > 0 && (
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginTop: 4, maxHeight: 280}}>
                     <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={true}>
-                      {sortMembersBySearch(pickerMembers.filter(m => m.name.toLowerCase().includes(memberSearch.toLowerCase())), memberSearch).map(m => (
-                        <TouchableOpacity key={m.id}
-                          onPress={() => {setSelectedMemberId(m.id); setMemberSearch('');}}
-                          activeOpacity={0.7}
-                          accessibilityRole="button" accessibilityState={{selected: selectedMemberId === m.id}} accessibilityLabel={m.name}
-                          style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12,
-                            borderBottomWidth: 1, borderBottomColor: T.border,
-                            backgroundColor: selectedMemberId === m.id ? `${m.color}12` : 'transparent'}}>
-                          <Avatar member={m} size={28} T={T} />
-                          <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}>{m.name}</Text>
-                          {selectedMemberId === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
-                        </TouchableOpacity>
-                      ))}
+                      {(() => {
+                        const q = memberSearch.toLowerCase();
+                        const row = (m: Member) => (
+                          <TouchableOpacity key={m.id}
+                            onPress={() => {setSelectedMemberId(m.id); setMemberSearch('');}}
+                            activeOpacity={0.7}
+                            accessibilityRole="button" accessibilityState={{selected: selectedMemberId === m.id}} accessibilityLabel={m.name}
+                            style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12,
+                              borderBottomWidth: 1, borderBottomColor: T.border,
+                              backgroundColor: selectedMemberId === m.id ? `${m.color}12` : 'transparent'}}>
+                            <Avatar member={m} size={28} T={T} />
+                            <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}>{m.name}</Text>
+                            {selectedMemberId === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                          </TouchableOpacity>
+                        );
+                        // Facets keep their own section: out of the member list, still selectable.
+                        const facets = singlet ? [] : sortMembersBySearch(members.filter(m => m.isFacet && m.name.toLowerCase().includes(q)), memberSearch);
+                        return (
+                          <>
+                            {sortMembersBySearch(pickerMembers.filter(m => m.name.toLowerCase().includes(q)), memberSearch).map(row)}
+                            {facets.length > 0 && (
+                              <>
+                                <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
+                                {facets.map(row)}
+                              </>
+                            )}
+                          </>
+                        );
+                      })()}
                     </ScrollView>
                   </View>
                 )}

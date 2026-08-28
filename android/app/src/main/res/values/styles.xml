@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- DayNight gives a WHITE window background in day mode, and that is
+             what the OS paints from Activity start until React's first frame.
+             On a slow load that is minutes of blank white (reported on a Redmi
+             Note 13). Pin it to the splash colour so the pre-JS window matches
+             SplashView, which paints this same #0A1F2E. -->
+        <item name="android:windowBackground">@color/launch_background</item>
     </style>
 </resources>

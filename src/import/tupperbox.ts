@@ -4,11 +4,12 @@ import {Member, MemberGroup, SystemInfo, HistoryEntry, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readFileText} from '../utils/fileBytes';
-import {normHex} from './convert';
+import {normHex, mergeForeignMember, finalizeMemberReplace, ImportMode} from './convert';
 
 export type TupperboxCtx = {
   extPreview: any;
   extSel: Record<string, boolean>;
+  importMode: ImportMode;
   system: SystemInfo;
   history: HistoryEntry[];
   t: TFunction;
@@ -62,9 +63,9 @@ export const handleTupperboxPick = async (ctx: TupperboxCtx) => {
 };
 
 export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
-  const {extPreview, extSel, t, setImportStatus, setImportMsg, setExtPreview, onDataImported} = ctx;
+  const {extPreview, extSel, importMode, t, setImportStatus, setImportMsg, setExtPreview, onDataImported} = ctx;
   if (!extPreview) return;
-  Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+  Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
     {text: t('common.cancel'), style: 'cancel'},
     {text: t('share.importBtn'), onPress: async () => {
       try {
@@ -89,7 +90,14 @@ export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
         }
 
         if (extSel.members) {
-          const newMembers: Member[] = tuppers.map((tp: any) => {
+          // Through the shared merge pipeline — the old wholesale
+          // store.set(newMembers) REPLACED the entire roster with only the
+          // tuppers, hard-deleting custom fronts, facets, and any local
+          // member the file didn't carry.
+          const existing = await store.get<Member[]>(KEYS.members, []) || [];
+          const merged: Member[] = [...existing];
+          const idMap: Record<string, string> = {};
+          tuppers.forEach((tp: any) => {
             // Brackets arrive as a flat even-length array of prefix/suffix
             // pairs; preserved as pkProxyTags for PK round-trips.
             const rawBr: any[] = Array.isArray(tp?.brackets) ? tp.brackets : [];
@@ -99,18 +107,20 @@ export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
                 proxyTags.push({prefix: rawBr[i] == null ? null : String(rawBr[i]), suffix: rawBr[i + 1] == null ? null : String(rawBr[i + 1])});
               }
             }
-            return {
-              id: uid(), sourceId: 'tb:' + String(tp?.id ?? uid()),
+            // Tupperbox has no pronouns/role/color, so they are OMITTED: a
+            // matched local member keeps what they have instead of being
+            // blanked; brand-new rows get defaults below.
+            mergeForeignMember(merged, idMap, 'tb:' + String(tp?.id ?? uid()), {
               name: (tp?.name && String(tp.name).trim()) || 'Unnamed member',
-              pronouns: '', role: '', color: normHex(undefined),
               description: String(tp?.description || ''),
-              tags: [], customFields: [],
               groupIds: tp?.group_id != null && groupIdMap[String(tp.group_id)] ? [groupIdMap[String(tp.group_id)]] : [],
               ...(proxyTags.length > 0 ? {pkProxyTags: proxyTags} : {}),
               ...(tp?.avatar_url ? {pkAvatarUrl: String(tp.avatar_url)} : {}),
-            } as Member;
+            });
           });
-          await store.set(KEYS.members, newMembers);
+          const preexisting = new Set(existing.map(m => m.id));
+          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode).map(m =>
+            preexisting.has(m.id) ? m : {...m, pronouns: m.pronouns ?? '', role: m.role ?? '', color: m.color ?? normHex(undefined)}));
         }
 
         setImportStatus('success'); setImportMsg(t('share.importComplete'));

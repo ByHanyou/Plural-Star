@@ -269,9 +269,19 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   // links keep resolving to a name. They must never be offered for selection,
   // including when Archived is switched on, or they show up as members that
   // cannot be found or archived anywhere else in the app.
-  const eligibleMembers = useMemo(() => members.filter(m => !m.isCustomFront && !m.deleted && (showArchived || !m.archived)), [members, showArchived]);
   const [mapIds, setMapIds] = useState<string[]>([]);
   const mapIdSet = useMemo(() => new Set(mapIds), [mapIds]);
+  /** The plain roster. This is what any LIST of members offers, here and everywhere. */
+  const rosterEligible = useMemo(() => members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted && (showArchived || !m.archived)), [members, showArchived]);
+  /** Facets, reachable only through their own Add control — never by appearing in the list. */
+  const facetEligible = useMemo(() => members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted && (showArchived || !m.archived)), [members, showArchived]);
+  /** Everything allowed to sit ON the map: the roster, plus the facets someone
+   *  deliberately added. Keeping the added ones here is what lets a facet render
+   *  and take relationships once it has been put there on purpose. */
+  const eligibleMembers = useMemo(
+    () => [...rosterEligible, ...facetEligible.filter(m => mapIdSet.has(m.id))],
+    [rosterEligible, facetEligible, mapIdSet],
+  );
   const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id)), [eligibleMembers, mapIdSet]);
   const memberById = useMemo(() => new Map(eligibleMembers.map(m => [m.id, m])), [eligibleMembers]);
 
@@ -440,6 +450,24 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     if (!hopDistances) return false;
     const d = hopDistances.get(id);
     return d !== undefined && d <= depth;
+  };
+
+  /**
+   * A relationship belongs to the rings being shown only if it is one of the
+   * hops that GOT us there. Lighting every edge whose two ends are both in
+   * reach also lights the relationships BETWEEN two neighbours, which is not
+   * the selected member's relationship at all: at depth 1, picking someone
+   * related to both Jay and Jayne lit the Jay-Jayne line too. A lit edge is one
+   * that steps OUTWARD a ring; two members sitting in the same ring are related
+   * to each other, not to the selection, so their line stays quiet.
+   */
+  const edgeLit = (fromId: string, toId: string): boolean => {
+    if (!hopDistances || !selectedId) return false;
+    const a = hopDistances.get(fromId);
+    const b = hopDistances.get(toId);
+    if (a === undefined || b === undefined) return false;
+    if (a > depth || b > depth) return false;
+    return Math.abs(a - b) === 1;
   };
 
   const panRef = useRef({tx: 0, ty: 0, scale: 1, startTx: 0, startTy: 0, startScale: 1, startDist: 0, moved: false});
@@ -727,7 +755,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               const dy = b.y - a.y;
               const len = Math.hypot(dx, dy) || 1;
               const angle = Math.atan2(dy, dx);
-              const lit = !!selectedId && inReach(r.fromId) && inReach(r.toId);
+              const lit = edgeLit(r.fromId, r.toId);
               const relColor = typeById.get(r.typeId)?.color || DEFAULT_REL_COLOR;
               return (
                 <View key={r.id} style={{
@@ -1083,30 +1111,46 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             <ScrollView contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 28}} keyboardShouldPersistTaps="handled">
               {(() => {
                 const q = memberPickerSearch.trim().toLowerCase();
-                const candidates = sortMembersBySearch(
-                  eligibleMembers.filter(m => !mapIdSet.has(m.id) && (!q || m.name.toLowerCase().includes(q))),
-                  memberPickerSearch.trim(),
-                );
-                if (candidates.length === 0) {
+                const match = (m: Member) => !mapIdSet.has(m.id) && (!q || m.name.toLowerCase().includes(q));
+                const candidates = sortMembersBySearch(rosterEligible.filter(match), memberPickerSearch.trim());
+                // Facets get their own section, exactly like the front picker:
+                // out of the member list, still addable on purpose.
+                const facetCandidates = sortMembersBySearch(facetEligible.filter(match), memberPickerSearch.trim());
+                if (candidates.length === 0 && facetCandidates.length === 0) {
                   return <Text style={{fontSize: fs(12), color: T.muted, paddingVertical: 12}}>{t('mention.noMembers')}</Text>;
                 }
                 const PICKER_CAP = 60;
                 const shown = candidates.slice(0, PICKER_CAP);
+                const shownFacets = facetCandidates.slice(0, PICKER_CAP);
+                const row = (m: Member) => (
+                  <TouchableOpacity key={m.id} onPress={() => addToMap(m.id)} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityLabel={m.name}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.border}}>
+                    <Avatar member={m} size={26} T={T} />
+                    <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
+                    <Text style={{fontSize: fs(14), lineHeight: fs(14), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}}>＋</Text>
+                  </TouchableOpacity>
+                );
                 return (
                   <>
-                    {shown.map(m => (
-                      <TouchableOpacity key={m.id} onPress={() => addToMap(m.id)} activeOpacity={0.7}
-                        accessibilityRole="button" accessibilityLabel={m.name}
-                        style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                        <Avatar member={m} size={26} T={T} />
-                        <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                        <Text style={{fontSize: fs(14), lineHeight: fs(14), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}}>＋</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {shown.map(row)}
                     {candidates.length > PICKER_CAP && (
                       <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', paddingVertical: 10, textAlign: 'center'}}>
                         {t('members.refineSearch', {count: candidates.length - PICKER_CAP})}
                       </Text>
+                    )}
+                    {shownFacets.length > 0 && (
+                      <>
+                        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 16, marginBottom: 6}}>
+                          {t('members.facets')}
+                        </Text>
+                        {shownFacets.map(row)}
+                        {facetCandidates.length > PICKER_CAP && (
+                          <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', paddingVertical: 10, textAlign: 'center'}}>
+                            {t('members.refineSearch', {count: facetCandidates.length - PICKER_CAP})}
+                          </Text>
+                        )}
+                      </>
                     )}
                   </>
                 );

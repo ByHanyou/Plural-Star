@@ -7,20 +7,39 @@ import {AccentText} from './AccentText';
 import {readableAccent} from '../theme';
 import type {ThemeColors} from '../theme';
 
-export const AppHeader = ({C, systemName, canLock, onLock, onOpenSettings}: {C: ThemeColors; systemName: string; canLock: boolean; onLock: () => void; onOpenSettings: () => void}) => {
+export const AppHeader = ({C, systemName, canLock, onLock, onOpenSettings, onOpenProfile}: {C: ThemeColors; systemName: string; canLock: boolean; onLock: () => void; onOpenSettings: () => void; onOpenProfile?: () => void}) => {
   const {t} = useTranslation();
   const insets = useSafeAreaInsets();
+  const title = (
+    <AccentText
+      T={C}
+      style={[styles.headerTitle, {color: readableAccent(C), flex: 1}]}
+      numberOfLines={1}
+      importantForAccessibility={onOpenProfile ? 'no-hide-descendants' : undefined}
+      accessibilityElementsHidden={!!onOpenProfile}
+      accessibilityRole={onOpenProfile ? undefined : 'header'}
+      maxFontSizeMultiplier={1.2}>{systemName}</AccentText>
+  );
   return (
     <View style={{backgroundColor: C.bg, paddingTop: Platform.OS === 'ios' ? Math.max(insets.top - 6, 0) : Math.max(StatusBar.currentHeight || 0, insets.top || 0, 28)}}>
       <View style={[styles.header, {borderBottomColor: C.border, backgroundColor: C.bg}]}>
-        <View style={{flex: 1, minWidth: 0, marginRight: 8, overflow: 'hidden'}}>
-          <AccentText
-            T={C}
-            style={[styles.headerTitle, {color: readableAccent(C), flex: 1}]}
-            numberOfLines={1}
-            accessibilityRole="header"
-            maxFontSizeMultiplier={1.2}>{systemName}</AccentText>
-        </View>
+        {/* The name is the way into the system profile, so it carries the
+            button role and a hint saying what it opens rather than nesting a
+            header inside a button. Singlets have no system profile — for them
+            it stays a plain heading with nothing to press. */}
+        {onOpenProfile ? (
+          <TouchableOpacity
+            onPress={onOpenProfile}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={systemName}
+            accessibilityHint={t('systemProfile.openHint')}
+            style={{flex: 1, minWidth: 0, marginRight: 8, overflow: 'hidden'}}>
+            {title}
+          </TouchableOpacity>
+        ) : (
+          <View style={{flex: 1, minWidth: 0, marginRight: 8, overflow: 'hidden'}}>{title}</View>
+        )}
         <View style={styles.headerRight} accessibilityRole="toolbar" accessibilityLabel={t('a11y.toolbar')}>
           <TouchableOpacity
             onPress={() => { if (canLock) onLock(); }}

@@ -76,7 +76,12 @@ export const mergeForeignMember = (merged: Member[], idMap: Record<string, strin
   idMap[extId.replace(/^[a-z]+:/, '')] = nid;
 };
 
-export const finalizeMemberReplace = (merged: Member[], idMap: Record<string, string>): Member[] => {
+export type ImportMode = 'overwrite' | 'update';
+
+export const finalizeMemberReplace = (merged: Member[], idMap: Record<string, string>, mode: ImportMode = 'overwrite'): Member[] => {
+  // Update mode refreshes matched members and adds new ones but never removes
+  // anything local — only Overwrite treats the file as the whole roster.
+  if (mode !== 'overwrite') return merged;
   const kept = new Set(Object.values(idMap));
   return merged.map(m => {
     if (m.isCustomFront || m.isFacet || m.deleted || kept.has(m.id)) return m;

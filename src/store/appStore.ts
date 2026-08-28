@@ -1,5 +1,5 @@
 import {create} from 'zustand';
-import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, MemberGroup, ChatChannel, ChatMessage, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER} from '../utils';
+import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, MemberGroup, ChatChannel, ChatCategory, ChatMessage, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER} from '../utils';
 import type {CustomPalette} from '../theme';
 
 export const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: false};
@@ -19,6 +19,7 @@ type AppStore = {
   palettes: CustomPalette[];
   activePaletteId: string;
   chatChannels: ChatChannel[];
+  chatCategories: ChatCategory[];
   allChatMessages: ChatMessage[];
   medical: MedicalData;
   planner: PlannerData;
@@ -35,6 +36,7 @@ type AppStore = {
   setPalettes: (v: CustomPalette[]) => void;
   setActivePaletteId: (v: string) => void;
   setChatChannels: (v: ChatChannel[]) => void;
+  setChatCategories: (v: ChatCategory[]) => void;
   setAllChatMessages: (v: ChatMessage[]) => void;
   setMedical: (v: MedicalData) => void;
   setPlanner: (v: PlannerData) => void;
@@ -56,6 +58,7 @@ export const useAppStore = create<AppStore>()(set => ({
   palettes: [],
   activePaletteId: '__dark__',
   chatChannels: [],
+  chatCategories: [],
   allChatMessages: [],
   medical: DEFAULT_MEDICAL,
   planner: DEFAULT_PLANNER,
@@ -72,6 +75,7 @@ export const useAppStore = create<AppStore>()(set => ({
   setPalettes: v => set({palettes: v}),
   setActivePaletteId: v => set({activePaletteId: v}),
   setChatChannels: v => set({chatChannels: v}),
+  setChatCategories: v => set({chatCategories: v}),
   setAllChatMessages: v => set({allChatMessages: v}),
   setMedical: v => set({medical: v}),
   setPlanner: v => set({planner: v}),

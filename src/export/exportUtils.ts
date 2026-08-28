@@ -8,6 +8,7 @@ import {
   HistoryEntry,
   JournalEntry,
   ChatChannel,
+  ChatCategory,
   ChatMessage,
   MemberGroup,
   AppSettings,
@@ -18,7 +19,10 @@ import {
 } from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
 import {parallelMap} from '../utils/concurrency';
+import {readFileBytes, u8FromBase64} from '../utils/fileBytes';
 import {Zip, ZipPassThrough, strToU8, strFromU8, unzipSync} from 'fflate';
+
+export {u8FromBase64};
 
 export interface ExportCategories {
   system?: boolean;
@@ -104,9 +108,10 @@ export const buildExportBase = async (
   categories: ExportCategories = ALL_CATEGORIES,
 ): Promise<Record<string, any>> => {
   const cat = { ...ALL_CATEGORIES, ...categories };
-  const [groups, channels, settings, front, palettes, customFieldDefs, noteboards, polls, journalTemplates, relationships, relationshipTypes, medical, planner, systemMapMembers, systemMapPositions, whiteboard, customColors, shareSettings] = await Promise.all([
+  const [groups, channels, chatCats, settings, front, palettes, customFieldDefs, noteboards, polls, journalTemplates, relationships, relationshipTypes, medical, planner, systemMapMembers, systemMapPositions, whiteboard, customColors, shareSettings] = await Promise.all([
     store.get<MemberGroup[]>(KEYS.groups),
     store.get<ChatChannel[]>(KEYS.chatChannels),
+    store.get<ChatCategory[]>(KEYS.chatCategories),
     store.get<AppSettings>(KEYS.settings),
     store.get<FrontState>(KEYS.front),
     store.get<any[]>(KEYS.palettes),
@@ -151,6 +156,7 @@ export const buildExportBase = async (
     journal: cat.journal ? journal : [],
     groups: cat.groups ? (groups || []) : [],
     chatChannels: cat.chat ? (channels || []) : [],
+    chatCategories: cat.chat ? (chatCats || []) : [],
     chatMessages: cat.chat ? chatMessages : {},
     settings: cat.settings ? (settings || undefined) : undefined,
     front: cat.frontHistory ? (front || undefined) : undefined,
@@ -459,38 +465,6 @@ export const exportPluralKit = async (
 };
 
 const B64C = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-const B64INV = (() => {
-  const a = new Int16Array(256);
-  for (let i = 0; i < 256; i++) a[i] = -1;
-  for (let i = 0; i < B64C.length; i++) a[B64C.charCodeAt(i)] = i;
-  return a;
-})();
-
-export const u8FromBase64 = (b64: string): Uint8Array => {
-  const clean = b64.replace(/[^A-Za-z0-9+/]/g, '');
-  const full = Math.floor(clean.length / 4);
-  const rem = clean.length - full * 4;
-  const out = new Uint8Array(full * 3 + (rem >= 2 ? rem - 1 : 0));
-  let o = 0;
-  let i = 0;
-  for (let f = 0; f < full; f++) {
-    const n = (B64INV[clean.charCodeAt(i)] << 18) | (B64INV[clean.charCodeAt(i + 1)] << 12) | (B64INV[clean.charCodeAt(i + 2)] << 6) | B64INV[clean.charCodeAt(i + 3)];
-    out[o++] = (n >> 16) & 255;
-    out[o++] = (n >> 8) & 255;
-    out[o++] = n & 255;
-    i += 4;
-  }
-  if (rem >= 2) {
-    const c0 = B64INV[clean.charCodeAt(i)];
-    const c1 = B64INV[clean.charCodeAt(i + 1)];
-    out[o++] = (c0 << 2) | (c1 >> 4);
-    if (rem === 3) {
-      const c2 = B64INV[clean.charCodeAt(i + 2)];
-      out[o++] = ((c1 & 15) << 4) | (c2 >> 2);
-    }
-  }
-  return out;
-};
 
 const b64Aligned = (bytes: Uint8Array, end: number): string => {
   let out = '';
@@ -679,38 +653,15 @@ const isPluralStarBundleData = (data: any, manifest?: any | null): boolean => {
     || manifestApp === 'Plural Space';
 };
 
-const readFileBytes = (path: string): Promise<Uint8Array> => new Promise((resolve, reject) => {
-  const clean = path.replace(/^file:\/\//, '');
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  ReactNativeBlobUtil.fs.readStream(clean, 'base64', 99999)
-    .then((stream: any) => {
-      stream.open();
-      stream.onData((chunk: string) => {
-        const u = u8FromBase64(chunk);
-        chunks.push(u);
-        total += u.length;
-      });
-      stream.onError((err: any) => reject(err));
-      stream.onEnd(() => {
-        const out = new Uint8Array(total);
-        let o = 0;
-        for (const c of chunks) { out.set(c, o); o += c.length; }
-        resolve(out);
-      });
-    })
-    .catch(reject);
-});
-
 export const base64FromU8 = (bytes: Uint8Array): string => {
   const aligned = bytes.length - (bytes.length % 3);
   return b64Aligned(bytes, aligned) + b64Tail(bytes, aligned);
 };
 
 export const readZipBundle = async (
-  zipPath: string,
+  ...zipPaths: (string | undefined)[]
 ): Promise<{files: Record<string, Uint8Array>; data: any | null; manifest: any | null}> => {
-  const bytes = await readFileBytes(zipPath);
+  const bytes = await readFileBytes(...zipPaths);
   const files = unzipSync(bytes);
   const manifest = parseZipJson(files, 'manifest.json');
   const data = parseZipJson(files, 'data.json');

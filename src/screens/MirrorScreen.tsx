@@ -4,7 +4,8 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {NetworkManager} from '../network/NetworkManager';
-import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup} from '../network/types';
+import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup, MirrorSystemProfile, MIRROR_SYSTEM_AVATAR_ID, MIRROR_SYSTEM_BANNER_ID} from '../network/types';
+import {SystemProfileCard} from '../components/SystemProfileCard';
 import {ThemeColors, fontScale} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
@@ -106,6 +107,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     feature === 'members' ? t('tabs.members')
     : feature === 'groups' ? t('members.fieldGroups')
     : feature === 'history' ? t('tabs.history')
+    : feature === 'systemProfile' ? t('systemProfile.title')
     : t('tabs.journal');
 
   const mirrorMembers: MirrorMember[] =
@@ -297,6 +299,22 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           renderItem={renderMemberRow}
           contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}
           ListEmptyComponent={<Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>}
+        />
+      );
+    }
+    if (feature === 'systemProfile') {
+      const sp = (entry.data && typeof entry.data === 'object' && !Array.isArray(entry.data)
+        ? entry.data
+        : {}) as MirrorSystemProfile;
+      const media = entry.media || {};
+      return (
+        <SystemProfileCard
+          T={T}
+          name={sp.name || displayName}
+          description={sp.description}
+          avatar={media[MIRROR_SYSTEM_AVATAR_ID]}
+          banner={media[MIRROR_SYSTEM_BANNER_ID]}
+          bottomInset={insets.bottom}
         />
       );
     }

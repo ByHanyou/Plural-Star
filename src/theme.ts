@@ -32,8 +32,14 @@ export interface CustomPalette {
 }
 
 const hexToRgb = (hex: string): [number, number, number] => {
-  const h = hex.replace('#', '');
-  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  // Guarded like contrastRatio below: a stored palette that somehow holds a
+  // non-string (or missing) colour would otherwise throw on .replace right
+  // here — and this runs at module scope and on every palette change, so it
+  // takes the whole app down, not one screen. NaN channels are clamped to 0.
+  const raw = String(hex ?? '').replace('#', '');
+  const h = (raw.length === 3 ? raw.split('').map(c => c + c).join('') : raw).padEnd(6, '0');
+  const n = (s: string) => { const v = parseInt(s, 16); return Number.isFinite(v) ? v : 0; };
+  return [n(h.slice(0, 2)), n(h.slice(2, 4)), n(h.slice(4, 6))];
 };
 
 const rgbToHex = (r: number, g: number, b: number): string =>
@@ -78,7 +84,18 @@ export const contrastRatio = (hexA: string, hexB: string): number => {
 // as the floor allows; palettes that already pass come back untouched.
 export const ensureReadable = (color: string, bg: string, min: number): string => {
   if (contrastRatio(color, bg) >= min) return color;
-  const pole = contrastRatio('#000000', bg) >= contrastRatio('#FFFFFF', bg) ? '#000000' : '#FFFFFF';
+  // Nudge toward the pole the CHOSEN COLOUR is already heading for: dark text
+  // gets darker, light text gets lighter. Picking the hardest-contrasting pole
+  // instead flipped a near-black purple to #FCFCFD on bg #7170A1, where the two
+  // poles sit 4.53 vs 4.63 apart — the reported "text is always white-ish".
+  // Only when the chosen direction cannot reach the floor do we cross over.
+  const preferred = luminance(color) <= luminance(bg) ? '#000000' : '#FFFFFF';
+  const other = preferred === '#000000' ? '#FFFFFF' : '#000000';
+  const pole = contrastRatio(preferred, bg) >= min
+    ? preferred
+    : contrastRatio(other, bg) >= min
+      ? other
+      : (contrastRatio(preferred, bg) >= contrastRatio(other, bg) ? preferred : other);
   if (contrastRatio(pole, bg) < min) return pole; // mid-grey bg: closest possible
   let lo = 0;
   let hi = 1;

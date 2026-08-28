@@ -29,7 +29,7 @@ export const groupParent = (g: MemberGroup): string | null => g.parentId ?? null
 export const childrenOf = (nodes: MemberGroup[], parentId: string | null): MemberGroup[] =>
   nodes
     .filter(n => groupParent(n) === parentId)
-    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name));
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || nameCompare(a.name, b.name));
 
 export const groupDisplayOrder = (nodes: MemberGroup[]): Map<string, number> => {
   const order = new Map<string, number>();
@@ -713,6 +713,7 @@ export interface ExportPayload {
   journal: JournalEntry[];
   groups?: MemberGroup[];
   chatChannels?: ChatChannel[];
+  chatCategories?: ChatCategory[];
   chatMessages?: Record<string, ChatMessage[]>;
   settings?: AppSettings;
   front?: FrontState | null;
@@ -751,10 +752,59 @@ export interface ChatMessage {
 export interface ChatChannel {
   id: string;
   name: string;
+  /** Undefined, or an id no category owns, means the channel sits above every category. */
+  categoryId?: string;
+  sortOrder?: number;
   archived?: boolean;
   archivedAt?: number;
   createdAt: number;
 }
+
+export interface ChatCategory {
+  id: string;
+  name: string;
+  sortOrder?: number;
+  collapsed?: boolean;
+  createdAt: number;
+}
+
+/**
+ * Ordering for both chat lists. sortOrder is optional because every channel
+ * that existed before categories has none, and an import can hand us rows with
+ * gaps or duplicates; falling back to createdAt keeps those in the order they
+ * were made rather than collapsing them all to position zero.
+ */
+const byOrderThenAge = <T extends {sortOrder?: number; createdAt?: number; name?: string}>(a: T, b: T): number => {
+  const ao = typeof a.sortOrder === 'number' ? a.sortOrder : Number.MAX_SAFE_INTEGER;
+  const bo = typeof b.sortOrder === 'number' ? b.sortOrder : Number.MAX_SAFE_INTEGER;
+  if (ao !== bo) return ao - bo;
+  const ac = typeof a.createdAt === 'number' ? a.createdAt : 0;
+  const bc = typeof b.createdAt === 'number' ? b.createdAt : 0;
+  if (ac !== bc) return ac - bc;
+  return nameCompare(a.name, b.name);
+};
+
+export const sortChatCategories = (cats: ChatCategory[]): ChatCategory[] =>
+  [...(cats || [])].sort(byOrderThenAge);
+
+/**
+ * Channels of one category, in order. `categoryId` null/undefined asks for the
+ * uncategorized ones, which includes channels pointing at a category that has
+ * been deleted — an orphan must never become invisible.
+ */
+export const chatChannelsIn = (
+  channels: ChatChannel[],
+  categoryId: string | null | undefined,
+  categories: ChatCategory[],
+): ChatChannel[] => {
+  const known = new Set((categories || []).map(c => c.id));
+  return [...(channels || [])]
+    .filter(c => {
+      const own = c.categoryId && known.has(c.categoryId) ? c.categoryId : null;
+      return own === (categoryId || null);
+    })
+    .sort(byOrderThenAge);
+};
 
 export const DEFAULT_CHANNELS: {name: string}[] = [
   {name: 'General'},
@@ -865,6 +915,28 @@ export const isFrontEmpty = (f: FrontState | null): boolean =>
 export const allFrontMemberIds = (f: FrontState | null): string[] =>
   f ? [...f.primary.memberIds, ...f.coFront.memberIds, ...f.coConscious.memberIds] : [];
 
+/**
+ * Picker ordering: whoever is in front floats to the top, in tier order
+ * (primary, then co-front, then co-conscious); everyone else keeps the order
+ * the caller already chose. Membership is matched by id against the list it is
+ * given, so anyone the caller filtered out (archived, custom fronts) stays out.
+ * The tiers are read defensively rather than through allFrontMemberIds because
+ * a stored or synced front can be missing one, and this runs inside a render.
+ */
+export const frontersFirst = <T extends {id: string}>(items: T[], front: FrontState | null): T[] => {
+  const tier = (x: any): string[] => (x && Array.isArray(x.memberIds) ? x.memberIds : []);
+  const f = front as any;
+  const ids = f ? [...tier(f.primary), ...tier(f.coFront), ...tier(f.coConscious)] : [];
+  if (ids.length === 0) return items;
+  const rank = new Map<string, number>();
+  ids.forEach((id, i) => { if (!rank.has(id)) rank.set(id, i); });
+  const fronting: T[] = [];
+  const rest: T[] = [];
+  for (const it of items) (rank.has(it.id) ? fronting : rest).push(it);
+  fronting.sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
+  return [...fronting, ...rest];
+};
+
 export const withMemberSince = (next: FrontState | null, prev: FrontState | null, now: number): FrontState | null => {
   if (!next) return next;
   const prevSince = prev?.memberSince || {};
@@ -904,16 +976,38 @@ export const uid = (): string =>
 
 const LOCALE_OVERRIDES: Record<string, string> = {en: 'en-US', pt: 'pt-BR', zh: 'zh-Hans', zhHant: 'zh-Hant'};
 
+/**
+ * Memoised per language. The validity probe below formats a Date, and this is
+ * called once per rendered timestamp and once per comparison in every sorted
+ * list — doing that work again for an answer that only changes when the user
+ * switches language was pure waste on the hottest paths in the app.
+ */
+let localeCache: {lang: string; tag: string} | null = null;
+
 export const getLocale = (): string => {
   const lang = i18n.language || 'en';
-  const tag = LOCALE_OVERRIDES[lang] || lang;
+  if (localeCache && localeCache.lang === lang) return localeCache.tag;
+  const candidate = LOCALE_OVERRIDES[lang] || lang;
+  let tag = 'en-US';
   try {
-    new Date(0).toLocaleDateString(tag);
-    return tag;
+    new Date(0).toLocaleDateString(candidate);
+    tag = candidate;
   } catch (e) {
-    return 'en-US';
+    tag = 'en-US';
   }
+  localeCache = {lang, tag};
+  return tag;
 };
+
+/**
+ * Sort display text in the APP's language rather than the device's. A Swedish
+ * system on an English phone was getting English collation, so å sorted next to
+ * a instead of after z. Only for human-readable text: time strings and hex
+ * colours are deliberately left on plain comparison, where locale rules would
+ * be meaningless at best.
+ */
+export const nameCompare = (a: unknown, b: unknown): number =>
+  String(a ?? '').localeCompare(String(b ?? ''), getLocale());
 
 export const fmtTime = (ts: number): string =>
   new Date(ts).toLocaleString(getLocale(), {
@@ -944,28 +1038,34 @@ export const isValidHex = (hex: string): boolean =>
 export const normalizeHex = (input: string): string =>
   (input.startsWith('#') ? input : `#${input}`).toUpperCase();
 
+// String() everywhere: imported or synced records can carry a non-string name
+// or a missing color, and (42).localeCompare is "undefined is not a function"
+// at render time — the whole Members tab dies on one bad record.
+const asStr = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
+
 export const sortMembersBySearch = <T extends {name: string}>(items: T[], search: string): T[] => {
-  if (!search) return [...items].sort((a, b) => a.name.localeCompare(b.name));
+  if (!search) return [...items].sort((a, b) => nameCompare(a.name, b.name));
   const q = search.toLowerCase();
   return [...items].sort((a, b) => {
-    const an = a.name.toLowerCase();
-    const bn = b.name.toLowerCase();
+    const an = asStr(a.name).toLowerCase();
+    const bn = asStr(b.name).toLowerCase();
     const aStarts = an.startsWith(q);
     const bStarts = bn.startsWith(q);
     if (aStarts && !bStarts) return -1;
     if (!aStarts && bStarts) return 1;
-    return an.localeCompare(bn);
+    return nameCompare(an, bn);
   });
 };
 
 export const sortMembers = (members: Member[], mode: MemberSortMode = 'alphabetical'): Member[] => {
   const sorted = [...members];
   switch (mode) {
-    case 'alphabetical': return sorted.sort((a, b) => a.name.localeCompare(b.name));
-    case 'reverse-alphabetical': return sorted.sort((a, b) => b.name.localeCompare(a.name));
+    case 'alphabetical': return sorted.sort((a, b) => nameCompare(a.name, b.name));
+    case 'reverse-alphabetical': return sorted.sort((a, b) => nameCompare(b.name, a.name));
     case 'age': return sorted.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    case 'color': return sorted.sort((a, b) => a.color.localeCompare(b.color));
-    case 'role': return sorted.sort((a, b) => (a.role || '').localeCompare(b.role || ''));
+    // Colours stay on plain comparison: these are hex codes, not language.
+    case 'color': return sorted.sort((a, b) => asStr(a.color).localeCompare(asStr(b.color)));
+    case 'role': return sorted.sort((a, b) => nameCompare(a.role, b.role));
     case 'manual': return sorted.sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
     default: return sorted;
   }

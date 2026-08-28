@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useMemo} from 'react';
 import {View, ScrollView, TouchableOpacity, Modal, Alert, Image, StyleSheet} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
@@ -68,18 +68,46 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
     ]);
   };
 
-  const getMember = (id: string) => members.find(m => m.id === id);
-  const allTags = [...new Set(journal.flatMap(e => e.hashtags || []))].sort();
-  const activeAuthors = members.filter(m => journal.some(e => (e.authorIds || []).includes(m.id)));
+  const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
+  const getMember = (id: string) => memberById.get(id);
+  const allTags = useMemo(() => [...new Set(journal.flatMap(e => e.hashtags || []))].sort(), [journal]);
 
-  const filteredJournal = journal.filter(e => {
+  // One pass over the journal to learn who has written, then one pass over the
+  // roster. This was `members.filter(… journal.some(…))` TWICE, which is
+  // members × entries on every single render — hundreds of thousands of
+  // iterations per keystroke on a real journal.
+  const authorIdsInJournal = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of journal) for (const id of e.authorIds || []) ids.add(id);
+    return ids;
+  }, [journal]);
+  const activeAuthors = useMemo(
+    () => members.filter(m => !m.isCustomFront && !m.isFacet && authorIdsInJournal.has(m.id)),
+    [members, authorIdsInJournal],
+  );
+  const facetAuthors = useMemo(
+    () => members.filter(m => !m.isCustomFront && m.isFacet && authorIdsInJournal.has(m.id)),
+    [members, authorIdsInJournal],
+  );
+
+  const filteredJournal = useMemo(() => journal.filter(e => {
     const tagMatch = !activeTag || (e.hashtags || []).includes(activeTag);
     const authorMatch = !activeAuthor || (e.authorIds || []).includes(activeAuthor);
     return tagMatch && authorMatch;
-  }).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+  }).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)), [journal, activeTag, activeAuthor]);
 
-  const filteredTags = allTags.filter(tag => !tagSearch || tag.toLowerCase().includes(tagSearch.toLowerCase()));
-  const filteredAuthors = sortMembersBySearch(activeAuthors.filter(m => !authorSearch || m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch);
+  const filteredTags = useMemo(
+    () => allTags.filter(tag => !tagSearch || tag.toLowerCase().includes(tagSearch.toLowerCase())),
+    [allTags, tagSearch],
+  );
+  const filteredAuthors = useMemo(
+    () => sortMembersBySearch(activeAuthors.filter(m => !authorSearch || m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch),
+    [activeAuthors, authorSearch],
+  );
+  const filteredFacetAuthors = useMemo(
+    () => sortMembersBySearch(facetAuthors.filter(m => !authorSearch || m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch),
+    [facetAuthors, authorSearch],
+  );
 
   const handleGlobalUnlock = () => {
     if (globalPwInput === systemJournalPassword) {setJournalUnlocked(true); setGlobalPwError(false); setGlobalPwInput('');}
@@ -261,7 +289,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
         </View>
       )}
 
-      {activeAuthors.length > 0 && (
+      {(activeAuthors.length > 0 || facetAuthors.length > 0) && (
         <View style={{marginBottom: 14}}>
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4}}>
             {activeAuthor && (() => {
@@ -292,6 +320,21 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
                     {activeAuthor === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                   </TouchableOpacity>
                 ))}
+                {/* Facets keep their own section: out of the member list, still filterable. */}
+                {filteredFacetAuthors.length > 0 && (
+                  <>
+                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
+                    {filteredFacetAuthors.map(m => (
+                      <TouchableOpacity key={m.id} onPress={() => {setActiveAuthor(activeAuthor === m.id ? null : m.id); setAuthorSearch(''); setShowAuthorResults(false);}} activeOpacity={0.7}
+                        accessibilityRole="button" accessibilityState={{selected: activeAuthor === m.id}} accessibilityLabel={m.name}
+                        style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeAuthor === m.id ? `${m.color}12` : 'transparent'}}>
+                        <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
+                        <Text style={{fontSize: fs(12), color: activeAuthor === m.id ? m.color : T.text}}>{m.name}</Text>
+                        {activeAuthor === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                      </TouchableOpacity>
+                    ))}
+                  </>
+                )}
               </ScrollView>
             </View>
           )}

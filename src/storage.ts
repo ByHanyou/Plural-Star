@@ -29,6 +29,7 @@ export const KEYS = {
   groups:   'ps:groups',
   palettes: 'ps:palettes',
   chatChannels: 'ps:chatChannels',
+  chatCategories: 'ps:chatCategories',
   customFieldDefs: 'ps:customFieldDefs',
   noteboards: 'ps:noteboards',
   lastNoteboardSeen: 'ps:lastNoteboardSeen',
@@ -47,7 +48,7 @@ export const KEYS = {
 
 const CRITICAL_KEYS = new Set([
   KEYS.system, KEYS.members, KEYS.front, KEYS.history,
-  KEYS.journal, KEYS.groups, KEYS.chatChannels, KEYS.relationships,
+  KEYS.journal, KEYS.groups, KEYS.chatChannels, KEYS.chatCategories, KEYS.relationships,
   KEYS.deviceCodes, KEYS.medical, KEYS.planner,
   'ps:networkIdentity', 'ps:networkFriends', 'ps:networkSettings',
 ]);

@@ -4,13 +4,14 @@ import {Member, MemberGroup, SystemInfo, HistoryEntry, CustomFieldDef, CustomFie
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readFileText} from '../utils/fileBytes';
-import {convertSPSwitches, normHex, finalizeMemberReplace, findClaimableByName, reviveIfTombstoned} from './convert';
+import {convertSPSwitches, normHex, finalizeMemberReplace, findClaimableByName, reviveIfTombstoned, ImportMode} from './convert';
 import {spAvatarCandidates, downloadFirstAvatar} from './spApi';
 import {applyImportedHistory} from './restore';
 
 export type SPFileCtx = {
   extPreview: any;
   extSel: Record<string, boolean>;
+  importMode: ImportMode;
   system: SystemInfo;
   members: Member[];
   history: HistoryEntry[];
@@ -49,9 +50,9 @@ export const handleSPFileImport = async (ctx: SPFileCtx) => {
   };
 
 export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
-  const {extPreview, extSel, system, members, t, setExtPreview, onDataImported} = ctx;
+  const {extPreview, extSel, importMode, system, members, t, setExtPreview, onDataImported} = ctx;
     if (!extPreview) return;
-    Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+    Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('share.importBtn'), onPress: async () => {
         const spMembers = extPreview.members;
@@ -102,7 +103,7 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
             });
             if (spId) idMap[spId] = newId;
           });
-          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap));
+          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
           const avatarUrls: Record<string, string[]> = {};
           if (extSel.avatars) {
             const spFallbackUid = String(spMembers.find((x: any) => x.uid)?.uid || '');

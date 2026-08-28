@@ -11,7 +11,13 @@ interface AvatarProps {
   T: ThemeColors;
 }
 
-export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
+/**
+ * Memoised: this renders in every row of every list in the app — the member
+ * list, chat messages, every picker — so without it one parent re-render
+ * rebuilds hundreds of these and their style objects for nothing. The theme
+ * object is memoised at the top of App, so the comparison actually holds.
+ */
+export const Avatar = React.memo(function Avatar({member, size = 28, pulse = false, T}: AvatarProps) {
   const [imgError, setImgError] = useState(false);
   // Keyed on id as well as uri: FlashList recycles row components, so this
   // instance can be handed a different member while imgError is still true from
@@ -90,4 +96,4 @@ export const Avatar = ({member, size = 28, pulse = false, T}: AvatarProps) => {
       </Text>
     </View>
   );
-};
+});

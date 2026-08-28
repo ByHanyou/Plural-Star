@@ -4,7 +4,7 @@ import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, CustomField
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readFileBytes, readFileText} from '../utils/fileBytes';
-import {convertSPSwitches, normHex} from './convert';
+import {convertSPSwitches, normHex, mergeForeignMember, finalizeMemberReplace, ImportMode} from './convert';
 import {base64FromU8} from '../export/exportUtils';
 import {saveAvatar, saveBannerFromBase64} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
@@ -14,6 +14,7 @@ import {applyImportedHistory} from './restore';
 export type AmpersandCtx = {
   extPreview: any;
   extSel: Record<string, boolean>;
+  importMode: ImportMode;
   system: SystemInfo;
   history: HistoryEntry[];
   t: TFunction;
@@ -371,9 +372,9 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
   };
 
 export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
-  const {extPreview, extSel, system, t, setImportStatus, setImportMsg, setExtPreview, onDataImported, setRestoreProgress} = ctx;
+  const {extPreview, extSel, importMode, system, t, setImportStatus, setImportMsg, setExtPreview, onDataImported, setRestoreProgress} = ctx;
     if (!extPreview) return;
-    Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+    Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('share.importBtn'), onPress: async () => {
         try {
@@ -452,9 +453,13 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           }
 
           if (extSel.members) {
-            const newMembers: Member[] = amMembers.map((a: any) => {
-              const localId = uid();
-              idMap[String(a.uuid)] = localId;
+            // Through the shared merge pipeline — the old wholesale
+            // store.set(newMembers) REPLACED the entire roster with only the
+            // archive's members, hard-deleting custom fronts, facets, and any
+            // local member the file didn't carry.
+            const existing = await store.get<Member[]>(KEYS.members, []) || [];
+            const merged: Member[] = [...existing];
+            amMembers.forEach((a: any) => {
               const cf: CustomFieldValue[] = [];
               const pairs = a.customFields?.value;
               if (extSel.customFields && Array.isArray(pairs)) {
@@ -468,8 +473,7 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
               if (ageFieldId && a.age != null && String(a.age).trim() !== '') {
                 cf.push({fieldId: ageFieldId, value: String(a.age) as any});
               }
-              return {
-                id: localId, sourceId: 'amp:' + String(a.uuid),
+              mergeForeignMember(merged, idMap, 'amp:' + String(a.uuid), {
                 name: (a.name && String(a.name).trim()) || 'Unnamed member',
                 // role only exists in the JSON export; the binary path leaves it blank.
                 pronouns: String(a.pronouns || ''), role: String(a.role || ''), color: normHex(a.color),
@@ -477,14 +481,14 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
                 // isCustomFront → isDissociativeState; read both so old and
                 // new exports import identically.
                 description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!(a.isCustomFront || a.isDissociativeState),
-                tags: [], customFields: cf,
+                customFields: cf,
                 groupIds: [
                   ...(a.system != null && sysGroupMap[String(a.system)] ? [sysGroupMap[String(a.system)]] : []),
                   ...(Array.isArray(a.tags) ? a.tags.map((tid: any) => tagGroupMap[String(tid)]).filter(Boolean) : []),
                 ],
-              } as Member;
+              });
             });
-            await store.set(KEYS.members, newMembers);
+            await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
             await attachAmparMedia(amMembers, idMap, setRestoreProgress, t);
           } else {
             const existing = await store.get<Member[]>(KEYS.members, []) || [];

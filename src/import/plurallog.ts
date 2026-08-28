@@ -6,12 +6,13 @@ import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
 import {saveAvatar} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
-import {mergeForeignMember, finalizeMemberReplace, normHex} from './convert';
+import {mergeForeignMember, finalizeMemberReplace, normHex, ImportMode} from './convert';
 import {applyImportedHistory} from './restore';
 
 export type PluralLogCtx = {
   extPreview: any;
   extSel: Record<string, boolean>;
+  importMode: ImportMode;
   system: SystemInfo;
   history: HistoryEntry[];
   t: TFunction;
@@ -78,8 +79,7 @@ export const handlePluralLogPick = async (ctx: PluralLogCtx) => {
     if (!res) return;
     const path = getPickedFilePath(res);
     let bundle: {files: Record<string, Uint8Array>; data: any | null; manifest: any | null} | null = null;
-    try { bundle = await readZipBundle(path); }
-    catch { bundle = await readZipBundle((res as any).uri || path); }
+    bundle = await readZipBundle(path, (res as any).uri);
     const files = bundle?.files || {};
     // The database file name carries an export timestamp; find it rather than
     // hardcode it. manifest.exportJson names it too when present.
@@ -101,9 +101,9 @@ export const handlePluralLogPick = async (ctx: PluralLogCtx) => {
 };
 
 export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
-  const {extPreview, extSel, system, t, setExtPreview, setImportStatus, setImportMsg, setRestoreProgress, onDataImported} = ctx;
+  const {extPreview, extSel, importMode, system, t, setExtPreview, setImportStatus, setImportMsg, setRestoreProgress, onDataImported} = ctx;
   if (!extPreview || extPreview.source !== 'plurallog') return;
-  Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+  Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
     {text: t('common.cancel'), style: 'cancel'},
     {text: t('share.importBtn'), onPress: async () => {
       try {
@@ -133,7 +133,7 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
               ...(m.parentMemberId ? {isFacet: true} : {}),
             });
           });
-          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap));
+          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
 
           if (extSel.avatars) {
             const withAvatar = plMembers.filter((m: any) => idMap[String(m.id)] && m.profileImagePath && files[`stored_media/${baseName(m.profileImagePath)}`]);

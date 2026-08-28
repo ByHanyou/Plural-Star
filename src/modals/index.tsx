@@ -5,4 +5,5 @@ export {MemberModal} from './MemberModal';
 export {JournalModal} from './JournalModal';
 export {JournalTemplateModal} from './JournalTemplateModal';
 export {SystemModal} from './SystemModal';
+export {SystemProfileModal} from './SystemProfileModal';
 export {CustomFrontModal} from './CustomFrontModal';

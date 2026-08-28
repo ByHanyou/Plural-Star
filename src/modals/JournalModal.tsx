@@ -129,18 +129,35 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
         {authorSearch.length > 0 && (
           <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 160, overflow: 'hidden', marginBottom: 8}}>
             <ScrollView nestedScrollEnabled>
-              {sortMembersBySearch<Member>(members.filter((m: Member) => !m.archived && !m.isCustomFront && m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch).map((m: Member) => {
-                const active = (f.authorIds || []).includes(m.id);
+              {(() => {
+                const q = authorSearch.toLowerCase();
+                const match = (m: Member) => !m.archived && !m.isCustomFront && m.name.toLowerCase().includes(q);
+                const row = (m: Member) => {
+                  const active = (f.authorIds || []).includes(m.id);
+                  return (
+                    <TouchableOpacity key={m.id} onPress={() => {togAuthor(m.id); setAuthorSearch('');}} activeOpacity={0.7}
+                      accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={m.name}
+                      style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
+                      <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
+                      <Text style={{fontSize: fs(13), color: active ? m.color : T.text, fontWeight: active ? '600' : '400'}}>{m.name}</Text>
+                      {active && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                    </TouchableOpacity>
+                  );
+                };
+                // Facets keep their own section: out of the member list, still selectable.
+                const facets = sortMembersBySearch<Member>(members.filter((m: Member) => m.isFacet && match(m)), authorSearch);
                 return (
-                  <TouchableOpacity key={m.id} onPress={() => {togAuthor(m.id); setAuthorSearch('');}} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={m.name}
-                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                    <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
-                    <Text style={{fontSize: fs(13), color: active ? m.color : T.text, fontWeight: active ? '600' : '400'}}>{m.name}</Text>
-                    {active && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
-                  </TouchableOpacity>
+                  <>
+                    {sortMembersBySearch<Member>(members.filter((m: Member) => !m.isFacet && match(m)), authorSearch).map(row)}
+                    {facets.length > 0 && (
+                      <>
+                        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
+                        {facets.map(row)}
+                      </>
+                    )}
+                  </>
                 );
-              })}
+              })()}
             </ScrollView>
           </View>
         )}

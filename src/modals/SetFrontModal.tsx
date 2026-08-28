@@ -10,9 +10,14 @@ import type {TFunction} from 'i18next';
 import {Btn, Field, SectionDivider, MoodPicker, EnergyRow, LocationPicker} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allAssigned, T, t}: {
+const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allAssigned, T, t, kindLabel}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
   members: Member[]; groups: MemberGroup[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
+  /** What this particular picker lists. The same component runs three times per
+   *  tier — members, facets, custom fronts — and every one of them said "search
+   *  members", so the section headers named one thing and the box under them
+   *  another. Omitted for the plain members list, which keeps its own wording. */
+  kindLabel?: string;
 }) => {
   const fs = fontScale(T);
   const [search, setSearch] = useState('');
@@ -38,6 +43,12 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   };
 
   const selectedMembers = members.filter(m => selected.has(m.id));
+  const searchLabel = kindLabel
+    ? t('members.searchToAddKind', {kind: kindLabel, defaultValue: `Type to search ${kindLabel}…`})
+    : t('members.searchToAdd');
+  const hintLabel = kindLabel
+    ? t('members.searchHintKind', {kind: kindLabel, defaultValue: `Type a name or select a tag to find ${kindLabel}`})
+    : t('members.searchHint');
 
   return (
     <View style={{marginBottom: 10}}>
@@ -70,7 +81,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
         </ScrollView>
       )}
 
-      <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('members.searchToAdd')} placeholder={t('members.searchToAdd')} placeholderTextColor={T.muted}
+      <TextInput value={search} onChangeText={setSearch} accessibilityLabel={searchLabel} placeholder={searchLabel} placeholderTextColor={T.muted}
         autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 6}} />
 
@@ -97,7 +108,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
       )}
 
       {!search && !filterTag && members.length > 0 && selectedMembers.length === 0 && (
-        <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 6}}>{t('members.searchHint')}</Text>
+        <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 6}}>{hintLabel}</Text>
       )}
     </View>
   );
@@ -200,10 +211,10 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
       <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
-      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
-        <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+        <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
       </>)}
       <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
@@ -216,10 +227,10 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       <SectionDivider label={t('tier.coFront')} color={T.info} T={T} />
       <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
-      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
-        <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+        <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
       </>)}
       <MoodPicker mood={coFrontMood} setMood={setCoFrontMood} customMood={coFrontCustomMood} setCustomMood={setCoFrontCustomMood} showCustom={coFrontShowCustom} setShowCustom={setCoFrontShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
@@ -232,10 +243,10 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
       <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
-      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
-        <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+        <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
       </>)}
       <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />

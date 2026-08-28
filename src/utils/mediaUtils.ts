@@ -1,6 +1,7 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
 import {logError} from './log';
+import {parallelMap} from './concurrency';
 
 const AVATAR_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars`;
 const CHAT_MEDIA_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_chat_media`;
@@ -453,71 +454,86 @@ export const rebaseChatMessageMedia = (messages: any[]): {messages: any[]; chang
 
 export const migrateInlineAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
   let changed = false;
-  const updated = [];
   await ensureDir(AVATAR_DIR);
-  for (const m of members) {
-    if (m.avatar && m.avatar.startsWith('data:')) {
-      try {
-        const uri = await saveAvatar(m.id, m.avatar);
-        updated.push({...m, avatar: uri});
-        changed = true;
-      } catch {
-        updated.push({...m, avatar: undefined});
-        changed = true;
-      }
-    } else {
-      updated.push(m);
+  // parallelMap, not a sequential for-await: this is one image decode + resize
+  // + file write per member, and on a few hundred members the serial version
+  // took minutes of blank startup on mid-range Android.
+  const updated = await parallelMap(members, async (m: any) => {
+    if (!m?.avatar || !String(m.avatar).startsWith('data:')) return m;
+    changed = true;
+    try {
+      const uri = await saveAvatar(m.id, m.avatar);
+      return {...m, avatar: uri};
+    } catch {
+      return {...m, avatar: undefined};
     }
-  }
+  }, 4);
   return {members: updated, changed};
 };
+
+// A 256px avatar lands well under this; anything at or below it is already
+// downsized, so re-encoding it is pure wasted startup time.
+const DOWNSIZE_SKIP_BYTES = 150 * 1024;
 
 export const downsizeExistingAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
   let changed = false;
-  const updated: any[] = [];
   await ensureDir(AVATAR_DIR);
-  for (const m of members) {
+  // Was a sequential loop that re-encoded EVERY file:// avatar with no
+  // already-small check, so a big roster paid hundreds of decode+resize+write
+  // ops on the startup path. Now: stat first (cheap), skip anything already
+  // small, and run what is left 4 at a time.
+  const updated = await parallelMap(members, async (m: any) => {
     const av = m?.avatar;
-    if (av && typeof av === 'string' && av.startsWith('file://')) {
-      const path = av.replace('file://', '').split('?')[0];
-      try {
-        if (await ReactNativeBlobUtil.fs.exists(path)) {
-          const next = await downscaleOrCopy(`file://${path}`, path);
-          updated.push({...m, avatar: next});
-          changed = true;
-          continue;
-        }
-      } catch (e) { logError('media', e); }
-    }
-    updated.push(m);
-  }
+    if (!av || typeof av !== 'string' || !av.startsWith('file://')) return m;
+    const path = av.replace('file://', '').split('?')[0];
+    try {
+      const stat = await ReactNativeBlobUtil.fs.stat(path).catch(() => null);
+      if (!stat) return m;
+      if (Number(stat.size) <= DOWNSIZE_SKIP_BYTES) return m;
+      const next = await downscaleOrCopy(`file://${path}`, path);
+      changed = true;
+      return {...m, avatar: next};
+    } catch (e) { logError('media', e); }
+    return m;
+  }, 4);
   return {members: updated, changed};
 };
 
+const needsChatMediaMigration = (msg: any): boolean =>
+  !!msg && (msg.type === 'image' || msg.type === 'file')
+  && typeof msg.content === 'string' && msg.content.startsWith('data:');
+
 export const migrateInlineChatMedia = async (messages: any[]): Promise<{messages: any[]; changed: boolean}> => {
+  const list = messages || [];
+  // Cheap scan FIRST. This runs for every channel on every launch, and after
+  // the one-time migration nothing matches, so the common case must cost a
+  // string comparison per message and nothing else — no directory creation,
+  // no file system calls at all.
+  if (!list.some(needsChatMediaMigration)) return {messages: list, changed: false};
+
   let changed = false;
-  const updated = [];
   await ensureDir(CHAT_MEDIA_DIR);
-  for (const msg of messages) {
-    if ((msg.type === 'image' || msg.type === 'file') && msg.content && msg.content.startsWith('data:')) {
-      try {
-        const mimeMatch = msg.content.match(/^data:([^;]+);/);
-        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-        const extMap: Record<string, string> = {
-          'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
-          'application/pdf': 'pdf', 'text/plain': 'txt', 'application/json': 'json',
-        };
-        const ext = extMap[mime] || mime.split('/')[1] || 'bin';
-        const uri = await saveChatMedia(msg.id, msg.content, ext);
-        updated.push({...msg, content: uri});
-        changed = true;
-      } catch {
-        updated.push(msg);
-      }
-    } else {
-      updated.push(msg);
+  // parallelMap, not a sequential for-await: this is one base64 decode + file
+  // write per attachment, and a chat history full of images took minutes of
+  // blank startup on mid-range Android. Same fix the avatar migration already
+  // carries; this path was missed.
+  const updated = await parallelMap(list, async (msg: any) => {
+    if (!needsChatMediaMigration(msg)) return msg;
+    try {
+      const mimeMatch = msg.content.match(/^data:([^;]+);/);
+      const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+      const extMap: Record<string, string> = {
+        'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+        'application/pdf': 'pdf', 'text/plain': 'txt', 'application/json': 'json',
+      };
+      const ext = extMap[mime] || mime.split('/')[1] || 'bin';
+      const uri = await saveChatMedia(msg.id, msg.content, ext);
+      changed = true;
+      return {...msg, content: uri};
+    } catch {
+      return msg;
     }
-  }
+  }, 4);
   return {messages: updated, changed};
 };
 

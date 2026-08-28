@@ -8,7 +8,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveHistory, applyFrontState} from '../store/actions';
-import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, singletStatuses} from '../utils';
+import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, singletStatuses, isRosterMember} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {PlannerScreen} from './PlannerScreen';
 import {EnergyRow} from '../modals/shared';
@@ -128,8 +128,11 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   const {t} = useTranslation();
   const fs = fontScale(T);
   const isEditing = editIndex !== undefined && editIndex >= 0 && !!editEntry;
-  const regularMembers = members.filter(m => !m.isCustomFront && !m.deleted);
+  const regularMembers = members.filter(isRosterMember);
   const customFronts = members.filter(m => m.isCustomFront && !m.archived && !m.deleted);
+  // Facets get their own picker section, exactly like custom fronts: out of the
+  // member list, still selectable on purpose.
+  const facetMembers = members.filter(m => m.isFacet && !m.isCustomFront && !m.archived && !m.deleted);
   const statusPool = singletStatuses(members);
 
   const editingActiveFront = !!(
@@ -341,14 +344,23 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       ) : (
         <>
           <TierMemberPicker tierKey="primary" label={t('tier.primaryFront')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={regularMembers} allSelected={allSelected} T={T} />
+          {facetMembers.length > 0 && (
+            <TierMemberPicker tierKey="primary" label={t('members.facets')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={facetMembers} allSelected={allSelected} T={T} />
+          )}
           {customFronts.length > 0 && (
             <TierMemberPicker tierKey="primary" label={t('members.customFronts')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={customFronts} allSelected={allSelected} T={T} />
           )}
           <TierMemberPicker tierKey="coFront" label={t('tier.coFront')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={regularMembers} allSelected={allSelected} T={T} />
+          {facetMembers.length > 0 && (
+            <TierMemberPicker tierKey="coFront" label={t('members.facets')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={facetMembers} allSelected={allSelected} T={T} />
+          )}
           {customFronts.length > 0 && (
             <TierMemberPicker tierKey="coFront" label={t('members.customFronts')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={customFronts} allSelected={allSelected} T={T} />
           )}
           <TierMemberPicker tierKey="coConscious" label={t('tier.coConscious')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={regularMembers} allSelected={allSelected} T={T} />
+          {facetMembers.length > 0 && (
+            <TierMemberPicker tierKey="coConscious" label={t('members.facets')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={facetMembers} allSelected={allSelected} T={T} />
+          )}
         </>
       )}
 

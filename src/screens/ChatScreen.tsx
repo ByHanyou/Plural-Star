@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef, useCallback} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, FlatList, Image, Linking, Platform, Keyboard, Dimensions} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, FlatList, Image, Linking, Platform, Keyboard, Dimensions, AccessibilityInfo} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
@@ -10,8 +10,10 @@ import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readFileBase64} from '../utils/fileBytes';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {saveChatChannels} from '../store/actions';
-import {Member, ChatChannel, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMembersBySearch} from '../utils';
+import {saveChatChannels, saveChatCategories} from '../store/actions';
+import {Member, ChatChannel, ChatCategory, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMembersBySearch, frontersFirst, sortChatCategories, chatChannelsIn} from '../utils';
+import {useDragReorder} from '../hooks/useDragReorder';
+import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {store, chatMsgKey} from '../storage';
 import {RichText as RichContent} from '../components/MarkdownRenderer';
 import {saveChatMedia, getChatMediaFileName} from '../utils/mediaUtils';
@@ -28,6 +30,8 @@ interface Props {
 export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const members = useAppStore(s => s.members);
   const channels = useAppStore(s => s.chatChannels);
+  const categories = useAppStore(s => s.chatCategories);
+  const front = useAppStore(s => s.front);
   const onSaveChannels = saveChatChannels;
   const {t} = useTranslation();
   const fs = fontScale(T);
@@ -86,6 +90,12 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [editChannelId, setEditChannelId] = useState<string | null>(null);
   const [editChannelName, setEditChannelName] = useState('');
+  const [reorderOn, setReorderOn] = useState(false);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editCategoryId, setEditCategoryId] = useState<string | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [moveChannelId, setMoveChannelId] = useState<string | null>(null);
   const [showFormatBar, setShowFormatBar] = useState(false);
   const [actionsForMessage, setActionsForMessage] = useState<string | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -96,6 +106,127 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const activeMember = members.find(m => m.id === activeMemberId);
   const activeChannels = channels.filter(c => !c.archived);
   const archivedChannels = channels.filter(c => c.archived);
+  const sortedCategories = sortChatCategories(categories);
+  const uncategorized = chatChannelsIn(activeChannels, null, categories);
+
+  /**
+   * Reorder writes sortOrder only for the ids handed in, so each list numbers
+   * itself from 0 and a channel's position is meaningful only inside its own
+   * category. Nothing outside the dragged list is touched.
+   */
+  const applyChannelOrder = (orderedIds: string[]) => {
+    const pos = new Map(orderedIds.map((id, i) => [id, i] as const));
+    onSaveChannels(channels.map(c => (pos.has(c.id) ? {...c, sortOrder: pos.get(c.id)} : c)));
+  };
+
+  const applyCategoryOrder = (orderedIds: string[]) => {
+    const pos = new Map(orderedIds.map((id, i) => [id, i] as const));
+    saveChatCategories(categories.map(c => (pos.has(c.id) ? {...c, sortOrder: pos.get(c.id)} : c)));
+  };
+
+  // `list` must be the order AFTER the move: "moved below X" names the row that
+  // ends up above it.
+  const announceMove = (list: {name: string}[], to: number) => {
+    const msg = to <= 0
+      ? t('common.movedToTop')
+      : to >= list.length - 1
+        ? t('common.movedToBottom')
+        : t('common.movedBelow', {name: list[to - 1].name});
+    AccessibilityInfo.announceForAccessibility(msg);
+  };
+
+  const reorderIds = (ids: string[], from: number, to: number): string[] => {
+    const next = [...ids];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  };
+
+  const channelsOf = (categoryId: string | null | undefined) => chatChannelsIn(activeChannels, categoryId, categories);
+
+  const onDropChannel = (_key: string, from: number, to: number, siblings: string[]) => {
+    const ordered = reorderIds(siblings, from, to);
+    applyChannelOrder(ordered);
+    announceMove(ordered.map(id => channels.find(c => c.id === id)).filter(Boolean) as ChatChannel[], to);
+  };
+
+  const stepChannel = (ch: ChatChannel, dir: 1 | -1) => {
+    const list = channelsOf(ch.categoryId);
+    const from = list.findIndex(c => c.id === ch.id);
+    const to = from + dir;
+    if (from < 0 || to < 0 || to >= list.length) return;
+    const ordered = reorderIds(list.map(c => c.id), from, to);
+    applyChannelOrder(ordered);
+    announceMove(ordered.map(id => channels.find(c => c.id === id)).filter(Boolean) as ChatChannel[], to);
+  };
+
+  const onDropCategory = (_key: string, from: number, to: number, siblings: string[]) => {
+    const ordered = reorderIds(siblings, from, to);
+    applyCategoryOrder(ordered);
+    announceMove(ordered.map(id => categories.find(c => c.id === id)).filter(Boolean) as ChatCategory[], to);
+  };
+
+  const stepCategory = (cat: ChatCategory, dir: 1 | -1) => {
+    const from = sortedCategories.findIndex(c => c.id === cat.id);
+    const to = from + dir;
+    if (from < 0 || to < 0 || to >= sortedCategories.length) return;
+    const ordered = reorderIds(sortedCategories.map(c => c.id), from, to);
+    applyCategoryOrder(ordered);
+    announceMove(ordered.map(id => categories.find(c => c.id === id)).filter(Boolean) as ChatCategory[], to);
+  };
+
+  const chDrag = useDragReorder({enabled: reorderOn, onDrop: onDropChannel});
+  const catDrag = useDragReorder({enabled: reorderOn, onDrop: onDropCategory});
+
+  // One channel hook serves every category's list, so a drop target must belong
+  // to the SAME list as the row being dragged — index 2 of one category is not
+  // index 2 of another.
+  const isChannelDropTarget = (ch: ChatChannel, i: number) =>
+    chDrag.dragging && chDrag.drag.key !== ch.id && chDrag.drag.target === i && chDrag.drag.siblings.includes(ch.id);
+
+  const createCategory = () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    const cat: ChatCategory = {id: uid(), name, sortOrder: sortedCategories.length, createdAt: Date.now()};
+    saveChatCategories([...categories, cat]);
+    setNewCategoryName('');
+    setShowNewCategory(false);
+  };
+
+  const renameCategory = (id: string) => {
+    const name = editCategoryName.trim();
+    if (!name) return;
+    saveChatCategories(categories.map(c => (c.id === id ? {...c, name} : c)));
+    setEditCategoryId(null);
+    setEditCategoryName('');
+  };
+
+  const toggleCategory = (id: string) => {
+    saveChatCategories(categories.map(c => (c.id === id ? {...c, collapsed: !c.collapsed} : c)));
+  };
+
+  const deleteCategory = (id: string) => {
+    Alert.alert(t('chat.deleteCategory'), t('chat.deleteCategoryMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('common.delete'), style: 'destructive', onPress: () => {
+        // Deleting a category never deletes a channel. Its channels move to the
+        // uncategorized list, appended after whatever is already there.
+        const inside = channels.filter(c => c.categoryId === id);
+        if (inside.length > 0) {
+          let next = uncategorized.length;
+          const moved = new Map(inside.map(c => [c.id, next++] as const));
+          onSaveChannels(channels.map(c => (moved.has(c.id) ? {...c, categoryId: undefined, sortOrder: moved.get(c.id)} : c)));
+        }
+        saveChatCategories(categories.filter(c => c.id !== id));
+      }},
+    ]);
+  };
+
+  const assignChannel = (chId: string, categoryId: string | null) => {
+    const target = channelsOf(categoryId).filter(c => c.id !== chId);
+    onSaveChannels(channels.map(c => (c.id === chId ? {...c, categoryId: categoryId || undefined, sortOrder: target.length} : c)));
+    setMoveChannelId(null);
+  };
 
   const insertFormat = (before: string, after: string) => {
     setInput(prev => prev + before + (after ? t('editor.textPlaceholder') : '') + after);
@@ -273,7 +404,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
       Alert.alert(t('chat.channelLimit'), t('chat.channelLimitMsg'));
       return;
     }
-    const ch: ChatChannel = {id: uid(), name, createdAt: Date.now()};
+    const ch: ChatChannel = {id: uid(), name, sortOrder: uncategorized.length, createdAt: Date.now()};
     onSaveChannels([...channels, ch]);
     setNewChannelName('');
     setShowNewChannel(false);
@@ -437,34 +568,120 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     );
   };
 
+  const renderChannelRow = (ch: ChatChannel, i: number, list: ChatChannel[]) => (
+    <View
+      key={ch.id}
+      onLayout={e => chDrag.registerHeight(ch.id, e.nativeEvent.layout.height + 6)}
+      style={{marginBottom: 6, ...(chDrag.drag.key === ch.id ? {transform: [{translateY: chDrag.drag.dy}], zIndex: 10, elevation: 6} : null)}}>
+      <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+        {editChannelId === ch.id ? (
+          <View style={{flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center'}}>
+            <TextInput value={editChannelName} onChangeText={setEditChannelName} autoFocus accessibilityLabel={t('chat.channelName')}
+              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: fs(13)}}
+              onSubmitEditing={() => renameChannel(ch.id)} returnKeyType="done" />
+            <TouchableOpacity onPress={() => renameChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text style={{fontSize: fs(14), color: T.success}}>✓</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setEditChannelId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.dim}}>✕</Text></TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <DragHandle T={T} active={reorderOn}
+              panHandlers={chDrag.makeHandlePanHandlers(ch.id, () => channelsOf(ch.categoryId).map(c => c.id))}
+              name={ch.name} position={i + 1} count={list.length}
+              onStep={dir => stepChannel(ch, dir)} />
+            <TouchableOpacity onPress={() => {setActiveChannelId(ch.id); setShowChannelList(false);}} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityState={{selected: activeChannelId === ch.id}} accessibilityLabel={ch.name}
+              style={{flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, backgroundColor: T.card,
+                borderColor: isChannelDropTarget(ch, i) ? T.accent : activeChannelId === ch.id ? `${T.accent}50` : T.border}}>
+              <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}># {ch.name}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setMoveChannelId(moveChannelId === ch.id ? null : ch.id)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityState={{expanded: moveChannelId === ch.id}} accessibilityLabel={`${t('chat.moveToCategory')}, ${ch.name}`}>
+              <Text style={{fontSize: fs(12), color: moveChannelId === ch.id ? T.accent : T.dim}}>🗂</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => {setEditChannelId(ch.id); setEditChannelName(ch.name);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${ch.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => archiveChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('chat.archiveChannel')}><Text style={{fontSize: fs(12), color: T.info}}>▼</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => deleteChannel(ch.id)} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${ch.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
+          </>
+        )}
+      </View>
+      {moveChannelId === ch.id && (
+        <View style={{marginTop: 6, marginLeft: 30, padding: 8, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border}}>
+          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('chat.moveToCategory')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{flexDirection: 'row', gap: 6}}>
+              {[{id: null as string | null, name: t('chat.uncategorized')}, ...sortedCategories.map(c => ({id: c.id as string | null, name: c.name}))].map(opt => {
+                const current = (ch.categoryId || null) === opt.id;
+                return (
+                  <TouchableOpacity key={opt.id ?? '__none__'} onPress={() => assignChannel(ch.id, opt.id)} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityState={{selected: current}} accessibilityLabel={opt.name}
+                    style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                      backgroundColor: current ? T.accentBg : T.bg, borderColor: current ? `${T.accent}50` : T.border}}>
+                    <Text style={{fontSize: fs(11), color: current ? T.accent : T.text}}>{opt.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+
   if (showChannelList) {
     return (
       <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}} bottomOffset={24}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.channels')}</Text>
-        {activeChannels.map(ch => (
-          <View key={ch.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
-            {editChannelId === ch.id ? (
-              <View style={{flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center'}}>
-                <TextInput value={editChannelName} onChangeText={setEditChannelName} autoFocus accessibilityLabel={t('chat.channelName')}
-                  style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: fs(13)}}
-                  onSubmitEditing={() => renameChannel(ch.id)} returnKeyType="done" />
-                <TouchableOpacity onPress={() => renameChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text style={{fontSize: fs(14), color: T.success}}>✓</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => setEditChannelId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.dim}}>✕</Text></TouchableOpacity>
+        <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
+          <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('chat.channels')}</Text>
+          <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
+        </View>
+
+        {sortedCategories.length > 0 && uncategorized.length > 0 && (
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, fontWeight: '600', marginBottom: 8}}>{t('chat.uncategorized')}</Text>
+        )}
+        {uncategorized.map((ch, i) => renderChannelRow(ch, i, uncategorized))}
+
+        {sortedCategories.map((cat, ci) => {
+          const list = channelsOf(cat.id);
+          const catTarget = catDrag.dragging && catDrag.drag.key !== cat.id && catDrag.drag.target === ci;
+          return (
+            <View key={cat.id}
+              onLayout={e => catDrag.registerHeight(cat.id, e.nativeEvent.layout.height + 14)}
+              style={{marginTop: 14, ...(catDrag.drag.key === cat.id ? {transform: [{translateY: catDrag.drag.dy}], zIndex: 10, elevation: 6} : null)}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: catTarget ? T.accent : T.border}}>
+                {editCategoryId === cat.id ? (
+                  <View style={{flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center'}}>
+                    <TextInput value={editCategoryName} onChangeText={setEditCategoryName} autoFocus accessibilityLabel={t('chat.categoryName')}
+                      style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: fs(13)}}
+                      onSubmitEditing={() => renameCategory(cat.id)} returnKeyType="done" />
+                    <TouchableOpacity onPress={() => renameCategory(cat.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text style={{fontSize: fs(14), color: T.success}}>✓</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => setEditCategoryId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.dim}}>✕</Text></TouchableOpacity>
+                  </View>
+                ) : (
+                  <>
+                    <DragHandle T={T} active={reorderOn}
+                      panHandlers={catDrag.makeHandlePanHandlers(cat.id, () => sortedCategories.map(c => c.id))}
+                      name={cat.name} position={ci + 1} count={sortedCategories.length}
+                      onStep={dir => stepCategory(cat, dir)} />
+                    <TouchableOpacity onPress={() => toggleCategory(cat.id)} activeOpacity={0.7}
+                      accessibilityRole="button" accessibilityState={{expanded: !cat.collapsed}} accessibilityLabel={cat.name}
+                      accessibilityValue={{text: String(list.length)}}
+                      style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4}}>
+                      <Text style={{fontSize: fs(11), color: T.dim}}>{cat.collapsed ? '▸' : '▾'}</Text>
+                      <Text style={{flex: 1, fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{cat.name}</Text>
+                      <Text style={{fontSize: fs(10), color: T.muted}}>{list.length}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {setEditCategoryId(cat.id); setEditCategoryName(cat.name);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${cat.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => deleteCategory(cat.id)} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${cat.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
+                  </>
+                )}
               </View>
-            ) : (
-              <>
-                <TouchableOpacity onPress={() => {setActiveChannelId(ch.id); setShowChannelList(false);}} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityState={{selected: activeChannelId === ch.id}} accessibilityLabel={ch.name}
-                  style={{flex: 1, padding: 12, borderRadius: 10, borderWidth: 1, backgroundColor: T.card, borderColor: activeChannelId === ch.id ? `${T.accent}50` : T.border}}>
-                  <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}># {ch.name}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => {setEditChannelId(ch.id); setEditChannelName(ch.name);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${ch.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => archiveChannel(ch.id)} accessibilityRole="button" accessibilityLabel={t('chat.archiveChannel')}><Text style={{fontSize: fs(12), color: T.info}}>▼</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => deleteChannel(ch.id)} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${ch.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
-              </>
-            )}
-          </View>
-        ))}
+              {!cat.collapsed && list.map((ch, i) => renderChannelRow(ch, i, list))}
+              {!cat.collapsed && list.length === 0 && (
+                <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginBottom: 6}}>{t('chat.categoryEmpty')}</Text>
+              )}
+            </View>
+          );
+        })}
 
         {showNewChannel ? (
           <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8}}>
@@ -480,6 +697,23 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
           <TouchableOpacity onPress={() => setShowNewChannel(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.newChannel')}
             style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: T.border, marginTop: 8}}>
             <Text style={{fontSize: fs(12), color: T.dim}}>+ {t('chat.newChannel')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {showNewCategory ? (
+          <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8}}>
+            <TextInput value={newCategoryName} onChangeText={setNewCategoryName} accessibilityLabel={t('chat.categoryName')} placeholder={t('chat.categoryName')} placeholderTextColor={T.muted}
+              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}}
+              onSubmitEditing={createCategory} returnKeyType="done" autoFocus />
+            <TouchableOpacity onPress={createCategory} activeOpacity={0.7} accessibilityRole="button"
+              style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`}}>
+              <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{t('common.add')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity onPress={() => setShowNewCategory(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.newCategory')}
+            style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: T.border, marginTop: 8}}>
+            <Text style={{fontSize: fs(12), color: T.dim}}>+ {t('chat.newCategory')}</Text>
           </TouchableOpacity>
         )}
 
@@ -518,19 +752,37 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
         <View style={{paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}>
           <TextInput value={memberSearch} onChangeText={setMemberSearch} accessibilityLabel={t('chat.searchSpeaker')} placeholder={t('chat.searchSpeaker')} placeholderTextColor={T.muted}
             style={{backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(13), marginBottom: 6}} />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{flexDirection: 'row', gap: 6}}>
-              {sortMembersBySearch(members.filter(m => !m.archived && !m.isCustomFront && (!memberSearch || m.name.toLowerCase().includes(memberSearch.toLowerCase()))), memberSearch).map(m => (
-                <TouchableOpacity key={m.id} onPress={() => {setActiveMemberId(m.id); setShowMemberPicker(false); setMemberSearch('');}} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityState={{selected: activeMemberId === m.id}} accessibilityLabel={m.name}
-                  style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-                    backgroundColor: activeMemberId === m.id ? `${m.color}20` : T.bg, borderColor: activeMemberId === m.id ? `${m.color}50` : T.border}}>
-                  <Avatar member={m} size={18} T={T} />
-                  <Text style={{fontSize: fs(11), color: activeMemberId === m.id ? m.color : T.text}}>{m.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+          {(() => {
+            const q = memberSearch.toLowerCase();
+            const match = (m: Member) => !m.archived && !m.isCustomFront && (!memberSearch || m.name.toLowerCase().includes(q));
+            const chip = (m: Member) => (
+              <TouchableOpacity key={m.id} onPress={() => {setActiveMemberId(m.id); setShowMemberPicker(false); setMemberSearch('');}} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityState={{selected: activeMemberId === m.id}} accessibilityLabel={m.name}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                  backgroundColor: activeMemberId === m.id ? `${m.color}20` : T.bg, borderColor: activeMemberId === m.id ? `${m.color}50` : T.border}}>
+                <Avatar member={m} size={18} T={T} />
+                <Text style={{fontSize: fs(11), color: activeMemberId === m.id ? m.color : T.text}}>{m.name}</Text>
+              </TouchableOpacity>
+            );
+            const roster = frontersFirst(sortMembersBySearch(members.filter(m => match(m) && !m.isFacet), memberSearch), front);
+            // Facets keep their own row: out of the member list, still pickable.
+            const facets = sortMembersBySearch(members.filter(m => match(m) && m.isFacet), memberSearch);
+            return (
+              <>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{flexDirection: 'row', gap: 6}}>{roster.map(chip)}</View>
+                </ScrollView>
+                {facets.length > 0 && (
+                  <>
+                    <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 8, marginBottom: 4}}>{t('members.facets')}</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={{flexDirection: 'row', gap: 6}}>{facets.map(chip)}</View>
+                    </ScrollView>
+                  </>
+                )}
+              </>
+            );
+          })()}
         </View>
       )}
 

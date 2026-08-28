@@ -294,7 +294,11 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     );
   };
 
-  const browseEligible = members.filter(m => !m.archived && !m.isCustomFront);
+  // Facets are their own category with their own tab and their own front
+  // picker section; they must not turn up mixed into a plain list of members
+  // ("fragments appear when selecting members for groups"). Excluded here the
+  // same way custom fronts already are.
+  const browseEligible = members.filter(m => !m.archived && !m.isCustomFront && !m.isFacet);
   if (browse) {
     const folderMembers = browseId === null
       ? browseEligible.filter(m => !(m.groupIds || []).length)
@@ -302,6 +306,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     const current = browseId ? groups.find(g => g.id === browseId) || null : null;
     const addCandidates = current
       ? sortMembersBySearch(browseEligible.filter(m => !(m.groupIds || []).includes(current.id) && (!addSearch || m.name.toLowerCase().includes(addSearch.toLowerCase()))), addSearch)
+      : [];
+    // Facets get their own section here: out of the member list, still addable.
+    const addFacetCandidates = current
+      ? sortMembersBySearch(members.filter(m => !m.archived && !m.isCustomFront && m.isFacet && !(m.groupIds || []).includes(current.id) && (!addSearch || m.name.toLowerCase().includes(addSearch.toLowerCase()))), addSearch)
       : [];
     const toggleAddPick = (id: string) => setAddPickIds(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
     const toggleRemovePick = (id: string) => setRemoveIds(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
@@ -446,7 +454,24 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                     </TouchableOpacity>
                   );
                 })}
-                {addCandidates.length === 0 && (
+                {addFacetCandidates.length > 0 && (
+                  <>
+                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingTop: 12, paddingBottom: 4}}>{t('members.facets')}</Text>
+                    {addFacetCandidates.map(m => {
+                      const checked = addPickIds.includes(m.id);
+                      return (
+                        <TouchableOpacity key={m.id} onPress={() => toggleAddPick(m.id)} activeOpacity={0.7}
+                          accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={m.name}
+                          style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8}}>
+                          <Text style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
+                          <Avatar member={m} size={26} T={T} />
+                          <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </>
+                )}
+                {addCandidates.length === 0 && addFacetCandidates.length === 0 && (
                   <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', paddingVertical: 8}}>{t('members.noMembers')}</Text>
                 )}
               </ScrollView>

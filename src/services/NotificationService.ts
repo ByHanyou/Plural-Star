@@ -103,10 +103,13 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   const coFrontNames = resolveNames(coFrontIds, members);
   const coConsciousNames = resolveNames(coConsciousIds, members);
 
-  const duration = fmtDur(front.startTime);
   const titleNames = primaryNames || coFrontNames || coConsciousNames ||
     i18n.t('common.unknown', {defaultValue: 'Unknown'});
-  const title = `◈ ${titleNames}  ·  ${duration}`;
+  // No duration in the text. It was a snapshot taken when the notification was
+  // posted and then sat there being wrong ("says 1 min when we've been in front
+  // for 6"); the OS chronometer in the timestamp slot counts the same thing
+  // live. Absolute times below are safe because they never go stale.
+  const title = `◈ ${titleNames}`;
 
   const primaryTimed = resolveNamesWithSince(primaryIds, members, front);
   const coFrontTimed = resolveNamesWithSince(coFrontIds, members, front);
@@ -130,7 +133,8 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
     lines.push(i18n.t('notification.at', {location: primaryLocation, defaultValue: `At: ${primaryLocation}`}));
   if (primaryNote)
     lines.push(i18n.t('notification.note', {note: primaryNote, defaultValue: `Note: ${primaryNote}`}));
-  lines.push(i18n.t('notification.since', {time: fmtTime(front.startTime), defaultValue: `Since ${fmtTime(front.startTime)}`}));
+  const sinceLabel = i18n.t('notification.since', {time: fmtTime(front.startTime), defaultValue: `Since ${fmtTime(front.startTime)}`});
+  lines.push(sinceLabel);
 
   if (emergencyLine) lines.push(emergencyLine);
 
@@ -142,7 +146,10 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
     summaryParts.push(i18n.t('notification.ccShort', {names: coConsciousNames, defaultValue: `CC: ${coConsciousNames}`}));
   if (primaryMood)
     summaryParts.push(i18n.t('notification.mood', {mood: primaryMood, defaultValue: `Mood: ${primaryMood}`}));
-  summaryParts.push(duration);
+  // Never return an empty body. A notification with a title and nothing under
+  // it is the "it shows legit nothing" report, and with the live duration gone
+  // from the text a solo primary fronter with no mood would leave this empty.
+  if (summaryParts.length === 0) summaryParts.push(sinceLabel);
 
   return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n')};
 };
@@ -159,13 +166,22 @@ const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback:
     pressAction: {id: 'default'},
     color: '#DAA520',
     groupId: FRONT_GROUP_ID,
+    // The own front notification IS this group's summary. Posting a separate
+    // summary notification with the same text is what made the fronting line
+    // render twice whenever a friend was pinned.
+    groupSummary: true,
     sortKey: '0',
     // The durations written into the text lines are snapshots — they only
     // change when something re-posts the notification, which is exactly the
     // "time doesn't update unless you wiggle the app" report. The chronometer
     // is rendered by the OS itself and counts up live from the front's start
     // with zero re-posts.
-    ...(sinceTs ? {timestamp: sinceTs, showTimestamp: false, showChronometer: true} : {}),
+    // showTimestamp MUST be true: the chronometer is drawn INTO the timestamp
+    // slot, so with it false the OS is free to fall back to a plain clock time
+    // ("says 1 min when we've been in front for 6"). Notifee's own timer docs
+    // set both together, and the two devices that reported this disagreed
+    // precisely because the fallback is OEM-dependent.
+    ...(sinceTs ? {timestamp: sinceTs, showTimestamp: true, showChronometer: true} : {}),
   };
   if (friendLines.length === 0) {
     const ownLines = (ownBigText ? ownBigText.split('\n') : []).slice(0, 6);
@@ -231,22 +247,25 @@ const friendStatusLines = (s: FrontShare): string[] => {
   return lines;
 };
 
-const buildFriendNotifs = (): {id: string; title: string; body: string; big: string}[] => {
+const buildFriendNotifs = (): {id: string; title: string; body: string; big: string; since?: number}[] => {
   const st = NetworkManager.getState();
   if (!st.enabled) return [];
-  const out: {id: string; title: string; body: string; big: string}[] = [];
+  const out: {id: string; title: string; body: string; big: string; since?: number}[] = [];
   for (const f of st.friends) {
     if (out.length >= MAX_NOTIF_FRIENDS) break;
     if (friendNotifyLevel(f) !== 'full' || f.status !== 'accepted') continue;
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
-    const dur = s.startTime ? fmtDur(s.startTime) : '';
     const lines = friendStatusLines(s);
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
       title: f.displayName,
-      body: `${s.fronters}${dur ? `  ·  ${dur}` : ''}`,
+      // No frozen duration here either; these rows get the same OS chronometer
+      // as our own, so a friend's timer stops being a snapshot from whenever
+      // their last update happened to land.
+      body: s.fronters,
       big: lines.join('\n'),
+      since: typeof s.startTime === 'number' && s.startTime > 0 ? s.startTime : undefined,
     });
   }
   return out;
@@ -326,6 +345,7 @@ const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
         color: '#DAA520',
         groupId: FRONT_GROUP_ID,
         sortKey: `1${String(i).padStart(4, '0')}`,
+        ...(d.since ? {timestamp: d.since, showTimestamp: true, showChronometer: true} : {}),
         style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
     });
@@ -364,33 +384,26 @@ export const showFrontNotification = async (
     const body = content ? content.body : (emergencyLine || onlineLabel);
     const ownBig = content ? content.bigText : (emergencyLine || '');
 
-    const friendNotifs = buildFriendNotifs();
-    await syncFriendNotifications(friendNotifs);
-    if (friendNotifs.length > 0) {
-      await notifee.displayNotification({
-        id: FRONT_SUMMARY_ID,
-        title: systemName,
-        body,
-        android: {
-          channelId: NOTIF_CHANNEL_ID,
-          groupId: FRONT_GROUP_ID,
-          groupSummary: true,
-          ongoing: true,
-          onlyAlertOnce: true,
-          autoCancel: false,
-          smallIcon: 'ic_stat_notification',
-          importance: AndroidImportance.LOW,
-          visibility: AndroidVisibility.PUBLIC,
-          pressAction: {id: 'default'},
-          color: '#DAA520',
-        },
-      });
-    } else {
-      try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
-    }
+    // There is NO separate summary notification any more. The old one carried
+    // `title: systemName` + the SAME `body` as the own front notification and
+    // sat in the same group, so with any friend pinned the shade showed the
+    // fronting line TWICE (reported, fixed, and reported again — the earlier
+    // `friendNotifs.length > 0` gate only hid it for people with no friends).
+    // The own front notification IS the group summary now, so a duplicate is
+    // structurally impossible: collapsed it is the header, expanded it is the
+    // header with the friend rows under it.
+    try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
 
     const sig = JSON.stringify([title, body, ownBig]);
-    if (frontDismissGuard !== null && sig === frontDismissGuard) return;
+    if (frontDismissGuard !== null && sig === frontDismissGuard) {
+      // The user swiped the front notification away. The friend rows sit in the
+      // SAME group and are ongoing, so leaving them behind gives Android a
+      // group with children and no summary, and it draws its own empty header:
+      // a notification that appears from nowhere and "shows legit nothing".
+      // Dismissing the summary dismisses the group.
+      await cancelStaleFriendNotifs(new Set());
+      return;
+    }
 
     // Android 12+ forbids starting a foreground service from the background.
     // Sync-applied front changes run exactly there, and posting with
@@ -410,6 +423,11 @@ export const showFrontNotification = async (
       body,
       android: {...frontAndroidConfig(ownBig, [], onlineLabel, front?.startTime), ...(canBindFgs ? {asForegroundService: true} : {})},
     });
+    // Children go up only AFTER their summary exists. Posting them first left a
+    // window — and, if this post then threw (the foreground-service start
+    // restriction is a live hazard here), a permanent state — where the group
+    // had rows but no header, which Android papers over with a blank one.
+    await syncFriendNotifications();
     fgsBound = canBindFgs;
     lastFrontSig = sig;
     frontDismissGuard = null;

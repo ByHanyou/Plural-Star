@@ -1,7 +1,7 @@
 <h1 align="center">Plural Star</h1>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/TheHanyou/Plural-Star/main/docs/icon.png" width="120" alt="Plural Star icon" />
+  <img src="https://raw.githubusercontent.com/ByHanyou/Plural-Star/main/docs/icon.png" width="120" alt="Plural Star icon" />
 </p>
 
 <p align="center">
@@ -147,7 +147,7 @@ The only outbound requests are:
 - **Avatar downloads during import** (optional) — when an export references profile pictures by URL rather than embedding them, those images are fetched once so they end up on your device. File-based imports that carry their own images, such as Ampersand `.ampar` archives and PluralSpace bundles, make no network requests at all.
 - **Friends & Syncing** (optional, off by default) — end-to-end encrypted; the relay only ever sees sealed blobs it cannot read.
 
-Full privacy policy: [https://thehanyou.github.io/Plural-Star/](https://byhanyou.github.io/Plural-Star/)
+Full privacy policy: [https://byhanyou.github.io/Plural-Star/](https://byhanyou.github.io/Plural-Star/)
 
 ---
 
@@ -229,4 +229,4 @@ Plural Star is free, always. If it's been useful to you, a contribution helps co
 ## Contact
 
 **The Hanyou System**  
-[Discord](https://discord.gg/FFQw33cu8m) · [r/PluralStar](https://www.reddit.com/r/PluralStar/) · [GitHub Issues](https://github.com/TheHanyou/Plural-Star/issues)
+[Discord](https://discord.gg/FFQw33cu8m) · [r/PluralStar](https://www.reddit.com/r/PluralStar/) · [GitHub Issues](https://github.com/ByHanyou/Plural-Star/issues)

@@ -8,13 +8,14 @@ import {saveAvatar} from '../utils/mediaUtils';
 import {parallelMap} from '../utils/concurrency';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readFileText, readFileBase64} from '../utils/fileBytes';
-import {mergeForeignMember, normHex, psTime, finalizeMemberReplace, convertPluralSpaceFronts, normalizeOpenPlural, isOpenPluralSystem} from './convert';
+import {mergeForeignMember, normHex, psTime, finalizeMemberReplace, convertPluralSpaceFronts, normalizeOpenPlural, isOpenPluralSystem, ImportMode} from './convert';
 import {isImportStopped} from './progress';
 import {applyImportedHistory, downloadAvatarsTo} from './restore';
 
 export type PluralSpaceCtx = {
   extPreview: any;
   extSel: Record<string, boolean>;
+  importMode: ImportMode;
   system: SystemInfo;
   history: HistoryEntry[];
   psZipFiles: Record<string, Uint8Array> | null;
@@ -41,8 +42,7 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
       let parsed: any;
       if (isZip) {
         let bundle: {files: Record<string, Uint8Array>; data: any | null} | null = null;
-        try { bundle = await readZipBundle(path); }
-        catch { bundle = await readZipBundle(res.uri || path); }
+        bundle = await readZipBundle(path, res.uri);
         parsed = bundle?.data;
         // Newer PluralSpace exports are OpenPlural bundles: no data.json at the
         // root, the system sits at systems/<slug>/openplural.json and its media
@@ -80,9 +80,9 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
   };
 
 export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
-  const {extPreview, extSel, system, psZipFiles, t, setRestoreProgress, setPsAvatarIndex, setImportStatus, setImportMsg, setExtPreview, onDataImported} = ctx;
+  const {extPreview, extSel, importMode, system, psZipFiles, t, setRestoreProgress, setPsAvatarIndex, setImportStatus, setImportMsg, setExtPreview, onDataImported} = ctx;
     if (!extPreview) return;
-    Alert.alert(t('share.importData'), t('share.importAddDataMsg'), [
+    Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('share.importBtn'), onPress: async () => {
         try {
@@ -114,7 +114,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
                 createdAt: psTime(m.created_at) || undefined,
               });
             });
-            await store.set(KEYS.members, finalizeMemberReplace(merged, idMap));
+            await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
           } else {
             const existing = await store.get<Member[]>(KEYS.members, []) || [];
             psMembers.forEach((m: any) => { const ex = existing.find(em => em.sourceId === 'ps:' + String(m.id)); if (ex) idMap[String(m.id)] = ex.id; });

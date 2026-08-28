@@ -22,7 +22,7 @@ Outbound requests are limited.
 ## Privacy Policy
 
 - Published site: `docs/index.html`
-- Public URL: `https://thehanyou.github.io/Plural-Star/`
+- Public URL: `https://byhanyou.github.io/Plural-Star/`
 
 ## Destructive Actions
 

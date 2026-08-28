@@ -15,9 +15,9 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 const getMemberTier = (id: string, front: FrontState | null): FrontTierKey | null => {
   if (!front) return null;
-  if (front.primary.memberIds.includes(id)) return 'primary';
-  if (front.coFront.memberIds.includes(id)) return 'coFront';
-  if (front.coConscious.memberIds.includes(id)) return 'coConscious';
+  if (front.primary?.memberIds?.includes(id)) return 'primary';
+  if (front.coFront?.memberIds?.includes(id)) return 'coFront';
+  if (front.coConscious?.memberIds?.includes(id)) return 'coConscious';
   return null;
 };
 
@@ -71,7 +71,12 @@ const MemberCard = React.memo(function MemberCard({
   // the whole preview (and a "\n\n" description rendered a card with a bare
   // gap in it), so they are dropped here. The full profile shows the
   // description untouched.
-  const descPreview = (m.description || '').split('\n').filter(l => l.trim()).join('\n');
+  // String(), not `|| ''`: a truthy NON-STRING description (imported or synced
+  // data has carried numbers and objects) sails through `||` and then .split
+  // does not exist on it — Hermes reports that as "undefined is not a
+  // function" and the error boundary eats the whole Members tab on every
+  // render, surviving cache clears because the cause is the data.
+  const descPreview = String(m.description ?? '').split('\n').filter(l => l.trim()).join('\n');
   const cardBorder = selectionMode
     ? (isSelected ? T.accent : T.border)
     : (isFronting ? `${m.color}60` : T.border);
@@ -170,7 +175,11 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   const groups = useAppStore(s => s.groups);
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
-  const [memberTab, setMemberTab] = useState<'active' | 'archived' | 'facets' | 'customFronts'>(archiveOnly ? 'archived' : 'active');
+  // The tab picks the CATEGORY; `archiveOnly` picks the state. Archive is the
+  // same screen with the same three tabs, showing what is archived, so an
+  // archived facet is found where a facet is expected instead of in one
+  // undifferentiated pile.
+  const [memberTab, setMemberTab] = useState<'active' | 'facets' | 'customFronts'>('active');
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -208,7 +217,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       return next;
     });
   }, []);
-  const switchTab = (tab: 'active' | 'archived' | 'facets' | 'customFronts') => {
+  const switchTab = (tab: 'active' | 'facets' | 'customFronts') => {
     setMemberTab(tab);
     setQuery(''); setActiveGroup(null); setActiveTag(null);
     searchRef.current?.clear();
@@ -266,30 +275,54 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
   const deferredQuery = useDeferredValue(query);
 
-  const tabMembers = members.filter(m => {
+  // Memoised, and that matters more than it looks: `filtered` below lists this
+  // in its dependency array, so while this was a fresh array on every render
+  // that useMemo could never hit and the whole filter + sort ran again for
+  // every keystroke, every selection toggle and every parent re-render.
+  const tabMembers = useMemo(() => members.filter(m => {
     if (m.deleted) return false;
+    // State first, category second. The per-kind checks used to run BEFORE the
+    // archived test, so every custom front and every facet returned early and
+    // Archive could only ever contain plain members: archive a custom front and
+    // it vanished from Archive while still sitting in its own tab looking
+    // active. Now this one filter serves both screens.
+    if (archiveOnly !== !!m.archived) return false;
     if (m.isCustomFront) return memberTab === 'customFronts';
     if (memberTab === 'customFronts') return false;
     if (m.isFacet) return memberTab === 'facets';
     if (memberTab === 'facets') return false;
-    return memberTab === 'archived' ? m.archived : !m.archived;
-  });
+    return true;
+  }), [members, memberTab, archiveOnly]);
   const allFrontIds = useMemo(() => new Set(allFrontMemberIds(front)), [front]);
-  const allTags = [...new Set(tabMembers.flatMap(m => m.tags || []))].sort();
-  const archivedCount = members.filter(m => m.archived && !m.isCustomFront && !m.isFacet && !m.deleted).length;
-  const customFrontCount = members.filter(m => m.isCustomFront && !m.deleted).length;
-  const facetCount = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted).length;
+  const allTags = useMemo(() => [...new Set(tabMembers.flatMap(m => m.tags || []))].sort(), [tabMembers]);
+  // The tab badges count within the screen you are on: on Archive they count
+  // archived facets and custom fronts, on Members the ones still in use.
+  // One pass instead of a full scan per category per render.
+  const {customFrontCount, facetCount} = useMemo(() => {
+    let cf = 0, fac = 0;
+    for (const m of members) {
+      if (m.deleted || archiveOnly !== !!m.archived) continue;
+      if (m.isCustomFront) cf++;
+      else if (m.isFacet) fac++;
+    }
+    return {customFrontCount: cf, facetCount: fac};
+  }, [members, archiveOnly]);
 
   const activeGroupIds = useMemo(() => activeGroup ? new Set([activeGroup, ...descendantsOf(groups, activeGroup).map(g => g.id)]) : null, [activeGroup, groups]);
 
   const filtered = useMemo(() => sortMembers(tabMembers.filter(m => {
-    const nameMatch = !deferredQuery || m.name.toLowerCase().includes(deferredQuery.toLowerCase()) || m.role?.toLowerCase().includes(deferredQuery.toLowerCase());
+    // Same hazard as descPreview: a non-string name or role from imported or
+    // synced data makes .toLowerCase() undefined and takes the tab down.
+    const q = deferredQuery.toLowerCase();
+    const nameMatch = !deferredQuery || String(m.name ?? '').toLowerCase().includes(q) || String(m.role ?? '').toLowerCase().includes(q);
     const groupMatch = !activeGroupIds || (m.groupIds || []).some(id => activeGroupIds.has(id));
     const tagMatch = !activeTag || (m.tags || []).includes(activeTag);
     return nameMatch && groupMatch && tagMatch;
   }), sortMode), [tabMembers, deferredQuery, activeGroupIds, activeTag, sortMode]);
 
-  const showReorder = sortMode === 'manual' && (memberTab === 'active' || memberTab === 'facets' || memberTab === 'customFronts') && !query && !activeGroup && !activeTag;
+  // Never in Archive: manual order is the roster's own arrangement, and
+  // dragging archived rows would write sortOrder for people who are put away.
+  const showReorder = !archiveOnly && sortMode === 'manual' && !query && !activeGroup && !activeTag;
 
   useEffect(() => {
     const id = setTimeout(() => scrollToTop(false), 0);
@@ -400,7 +433,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     </View>
   ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields, onQuickAddToFront, onRemoveFromFront, reorderOn, drag, dragging, registerHeight, makeHandlePanHandlers]);
 
-  const allVisibleIds = filtered.map(m => m.id);
+  const allVisibleIds = useMemo(() => filtered.map(m => m.id), [filtered]);
   const allSelectedInView = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));
 
   const flashExtraData = useMemo(
@@ -491,13 +524,15 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.assignGroup')}</Text>
             </TouchableOpacity>
           )}
-          {(memberTab === 'active' || memberTab === 'customFronts') && (
+          {/* Archivable from every category tab, facets included — they were the
+              one kind with no way to archive at all. */}
+          {!archiveOnly && (
             <TouchableOpacity onPress={confirmBulkArchive} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.archive')}</Text>
             </TouchableOpacity>
           )}
-          {(memberTab === 'archived' || memberTab === 'customFronts') && (
+          {archiveOnly && (
             <TouchableOpacity onPress={confirmBulkRestore} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.restore')}</Text>
@@ -510,7 +545,9 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         </View>
       )}
 
-      {!archiveOnly && (
+      {/* Archive gets the SAME tab row: same three categories, filtered to what
+          is archived. Only the reorder lock is withheld, since archived order
+          is not something you arrange. */}
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}} contentContainerStyle={{alignItems: 'center'}}>
           {(['active', 'facets', 'customFronts'] as const).map(tab => (
@@ -518,7 +555,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
               style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
               <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}} numberOfLines={1}>
-                {tab === 'active' ? t('members.active')
+                {tab === 'active' ? t('members.title')
                   : tab === 'facets' ? `${t('members.facets')}${facetCount > 0 ? ` (${facetCount})` : ''}`
                   : `${t('members.customFronts')}${customFrontCount > 0 ? ` (${customFrontCount})` : ''}`}
               </Text>
@@ -527,7 +564,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         </ScrollView>
         {showReorder && <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />}
       </View>
-      )}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
         <View style={{flexDirection: 'row', gap: 6, paddingHorizontal: 2}}>
@@ -612,8 +648,8 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       ListEmptyComponent={tabMembers.length === 0 ? (
         <View style={s.empty}>
           <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◇</Text>
-          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{memberTab === 'archived' ? t('members.noArchived') : memberTab === 'customFronts' ? t('members.noCustomFronts') : memberTab === 'facets' ? t('members.noFacets') : t('members.noMembers')}</Text>
-          {memberTab === 'active' && (
+          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{archiveOnly ? t('members.noArchived') : memberTab === 'customFronts' ? t('members.noCustomFronts') : memberTab === 'facets' ? t('members.noFacets') : t('members.noMembers')}</Text>
+          {memberTab === 'active' && !archiveOnly && (
             <TouchableOpacity onPress={onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addMember')}</Text>
             </TouchableOpacity>

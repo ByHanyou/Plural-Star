@@ -45,8 +45,9 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
     store.get<NoteboardEntry[]>(KEYS.noteboards, []).then(n => setNotes(n || []));
   }, []);
 
-  const real = (members || []).filter(m => !m.isCustomFront);
+  const real = (members || []).filter(m => !m.isCustomFront && !m.isFacet);
   const active = real.filter(m => !m.archived);
+  const activeFacets = (members || []).filter(m => !m.isCustomFront && m.isFacet && !m.archived);
   const byId = (id: string) => (members || []).find(m => m.id === id);
 
   const save = async (updated: NoteboardEntry[]) => {
@@ -171,6 +172,21 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           <Text style={{fontSize: fs(11), color: selected === m.id ? m.color : T.dim}}>{m.name}</Text>
         </TouchableOpacity>
       ))}
+      {/* Facets keep their own row: out of the member list, still pickable. */}
+      {activeFacets.length > 0 && (
+        <>
+          <Text accessibilityRole="header" style={{width: '100%', fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 6}}>{t('members.facets')}</Text>
+          {activeFacets.map(m => (
+            <TouchableOpacity key={m.id} onPress={() => onSelect(m.id)} activeOpacity={0.7}
+              accessibilityRole="button" accessibilityState={{selected: selected === m.id}} accessibilityLabel={m.name}
+              style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                backgroundColor: selected === m.id ? `${m.color}20` : T.bg,
+                borderColor: selected === m.id ? `${m.color}50` : T.border}}>
+              <Text style={{fontSize: fs(11), color: selected === m.id ? m.color : T.dim}}>{m.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
     </View>
   );
 

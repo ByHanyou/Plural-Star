@@ -14,7 +14,7 @@ import {setTerminologyOverrides} from './src/i18n/terminology';
 import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {store, KEYS, storageLooksWiped, restoreAllBackups, storageReadFailures, anyPsKeysExist} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, DeviceCodes, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, DeviceCodes, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
 import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars, restoreMissingMediaFiles} from './src/utils/mediaUtils';
 import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, reschedulePlannerNotifications} from './src/services/NotificationService';
 import {waitForProtectedData} from './src/services/LiveActivityService';
@@ -40,7 +40,7 @@ import {StatusScreen} from './src/screens/StatusScreen';
 import {ProfileScreen} from './src/screens/ProfileScreen';
 import {NetworkScreen} from './src/screens/NetworkScreen';
 import {NetworkManager} from './src/network/NetworkManager';
-import {SetFrontModal, SetStatusModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal, CustomFrontModal} from './src/modals';
+import {SetFrontModal, SetStatusModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal, SystemProfileModal, CustomFrontModal} from './src/modals';
 import {AppErrorBoundary} from './src/components/AppErrorBoundary';
 import {SplashView} from './src/components/SplashView';
 import {AppHeader} from './src/components/AppHeader';
@@ -48,8 +48,9 @@ import {TabBar, Tab, TAB_IDS} from './src/components/TabBar';
 import {useFrontNotifications} from './src/hooks/useFrontNotifications';
 import {useNoteboardNotifications} from './src/hooks/useNoteboardNotifications';
 import {useAppStore, DEFAULT_SETTINGS} from './src/store/appStore';
-import {loadChatMessages, saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkRemoveFromGroup, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
+import {saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkRemoveFromGroup, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
 import {requestPermissions} from './src/utils/permissions';
+import {mergeHistoryEntries} from './src/import/convert';
 
 function MainAppContent() {
   const {t} = useTranslation();
@@ -109,7 +110,10 @@ function MainAppContent() {
   const setActivePaletteId = useAppStore(s => s.setActivePaletteId);
   const chatChannels = useAppStore(s => s.chatChannels);
   const setChatChannels = useAppStore(s => s.setChatChannels);
-  const allChatMessages = useAppStore(s => s.allChatMessages);
+  const setChatCategories = useAppStore(s => s.setChatCategories);
+  // No subscription to allChatMessages here. App renders every mounted tab, and
+  // subscribing to a slice this component does not read meant the Stats chat
+  // load re-rendered the entire app for data nothing here uses.
   const setAllChatMessages = useAppStore(s => s.setAllChatMessages);
   const medical = useAppStore(s => s.medical);
   const setMedical = useAppStore(s => s.setMedical);
@@ -131,6 +135,7 @@ function MainAppContent() {
   const [showJournal, setShowJournal] = useState(false);
   const [editJournal, setEditJournal] = useState<JournalEntry | null>(null);
   const [showSystem, setShowSystem] = useState(false);
+  const [showSystemProfile, setShowSystemProfile] = useState(false);
   const [, setDyslexicTick] = useState(0);
 
   const openMemberById = (id: string) => {
@@ -174,7 +179,7 @@ function MainAppContent() {
     storageSuspectRef.current = storageSuspect;
     const readFailuresBefore = storageReadFailures();
     try {
-      const [sys, mem, fr, hist, jour, jourTemplates, share, settings, savedLang, grps, savedPalettes, savedChannels] = await Promise.all([
+      const [sys, mem, fr, hist, jour, jourTemplates, share, settings, savedLang, grps, savedPalettes, savedChannels, savedChatCats] = await Promise.all([
         store.get<SystemInfo>(KEYS.system),
         store.get<Member[]>(KEYS.members, []),
         store.get<any>(KEYS.front),
@@ -187,6 +192,7 @@ function MainAppContent() {
         store.get<MemberGroup[]>(KEYS.groups, []),
         store.get<CustomPalette[]>(KEYS.palettes, []),
         store.get<ChatChannel[]>(KEYS.chatChannels, []),
+        store.get<ChatCategory[]>(KEYS.chatCategories, []),
       ]);
       console.log(`[STARTUP] loadAll begin — sys:${!!sys} members:${(mem||[]).length} groups:${(grps||[]).length} journal:${(jour||[]).length} history:${(hist||[]).length} channels:${(savedChannels||[]).length}`);
       if (!storageSuspect && !sys && (mem || []).length === 0 && (hist || []).length === 0 && AppState.currentState !== 'active') {
@@ -201,11 +207,20 @@ function MainAppContent() {
       }
       let loadedSystem = sys;
       let loadedMembers = mem || [];
+      // The image migrations below are the single most expensive thing in
+      // startup: one decode+resize+write per member. They were running even
+      // when storageSuspect was set, and a suspect load DELIBERATELY skips the
+      // store.set that saves the result — so on a roster of a few hundred they
+      // burned minutes on a white screen and threw the work away, every single
+      // launch. Suspect storage means we cannot keep the result, so don't pay
+      // for it; the foreground retry re-runs the whole load anyway.
       try {
-        const {members: migratedMembers, changed: avatarsChanged} = await migrateInlineAvatars(loadedMembers);
-        if (avatarsChanged) {
-          loadedMembers = migratedMembers;
-          if (!storageSuspect) await store.set(KEYS.members, loadedMembers);
+        if (!storageSuspect) {
+          const {members: migratedMembers, changed: avatarsChanged} = await migrateInlineAvatars(loadedMembers);
+          if (avatarsChanged) {
+            loadedMembers = migratedMembers;
+            await store.set(KEYS.members, loadedMembers);
+          }
         }
       } catch (e) {
         console.error('[PS] avatar migration error:', e);
@@ -298,12 +313,24 @@ function MainAppContent() {
           console.log('[STARTUP] re-downloaded missing avatar/banner files from source URLs');
         }).catch(e => console.error('[PS] media restore error:', e));
       }
-      const migratedFront = migrateFrontState(fr) || findOpenFrontInHistory(hist || []);
+      // Collapse history rows that are the SAME event (identical start, tier
+      // membership, change type and change time) — the doubled member-history
+      // entries. mergeHistoryEntries is the signature dedupe imports already
+      // use; running it over stored history heals rows that reached the store
+      // by a path that bypassed it (sync apply, retro edit) instead of only
+      // hiding them at render.
+      const rawHist = hist || [];
+      const dedupedHist = mergeHistoryEntries([], rawHist);
+      if (dedupedHist.length !== rawHist.length && !storageSuspect) {
+        console.warn(`[STARTUP] collapsed ${rawHist.length - dedupedHist.length} duplicate history entries`);
+        await store.set(KEYS.history, dedupedHist);
+      }
+      const migratedFront = migrateFrontState(fr) || findOpenFrontInHistory(dedupedHist);
       setFront(migratedFront);
       if (((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) && !storageSuspect) {
         await store.set(KEYS.front, migratedFront);
       }
-      setHistory(hist || []);
+      setHistory(dedupedHist);
       setJournal(jour || []);
       setJournalTemplates(jourTemplates || []);
       setShareSettings(share || {showFront: true, showMembers: true, showDescriptions: false});
@@ -318,7 +345,13 @@ function MainAppContent() {
         if (!storageSuspect) await store.set(KEYS.chatChannels, channels);
       }
       setChatChannels(channels);
-      await loadChatMessages(channels);
+      // Channels pointing at a category that no longer exists are shown as
+      // uncategorized at render time rather than rewritten here — a launch-time
+      // repair write is exactly the pattern that cost minutes of startup.
+      setChatCategories(savedChatCats || []);
+      // Deliberately NOT awaited, and deliberately not started here at all:
+      // reading every channel's history is the heaviest thing the app does and
+      // only the Stats tab consumes it, so it now loads when Stats opens.
 
       const paletteId = mergedSettings.activePaletteId || '__dark__';
       if (mergedSettings.lightMode && !mergedSettings.activePaletteId) {
@@ -378,6 +411,7 @@ function MainAppContent() {
       setGroups([]);
       setPalettes([]);
       setChatChannels(DEFAULT_CHANNELS.map(c => ({id: uid(), name: c.name, createdAt: Date.now()})));
+      setChatCategories([]);
       setAllChatMessages([]);
       if (recoveredSystem) {
         setSystem(recoveredSystem);
@@ -478,7 +512,7 @@ function MainAppContent() {
     setHistory([]); setJournal([]); setJournalTemplates([]);
     setShareSettings({showFront: true, showMembers: true, showDescriptions: false});
     setAppSettings(DEFAULT_SETTINGS); setGroups([]); setPalettes([]); setActivePaletteId('__dark__');
-    setChatChannels([]); setAllChatMessages([]);
+    setChatChannels([]); setChatCategories([]); setAllChatMessages([]);
     setMedical(DEFAULT_MEDICAL); setEmergencyNotificationInfo(null);
     setPlanner(DEFAULT_PLANNER);
     await rescheduleMedicationReminders([]);
@@ -631,7 +665,11 @@ function MainAppContent() {
   return (
     <View style={[styles.root, {backgroundColor: C.bg}]}>
       <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor="transparent" translucent />
-      <AppHeader C={C} systemName={system.name} canLock={!!appSettings.appLockPassword} onLock={() => setLocked(true)} onOpenSettings={() => setShowSystem(true)} />
+      {/* Falls back so the title is never blank: the name is now the button
+          that opens the profile, and an empty one is an unlabelled control.
+          Singlets have no system profile, so for them it stays plain text. */}
+      <AppHeader C={C} systemName={system.name || t('systemProfile.unnamed')} canLock={!!appSettings.appLockPassword} onLock={() => setLocked(true)} onOpenSettings={() => setShowSystem(true)}
+        onOpenProfile={appSettings.accountMode === 'singlet' ? undefined : () => setShowSystemProfile(true)} />
       <View style={styles.content}>
         {TAB_IDS.map(id => mountedTabs.includes(id) ? (
           <View key={id} style={{flex: 1, display: tab === id ? 'flex' : 'none'}}>
@@ -697,7 +735,13 @@ function MainAppContent() {
         }}
         onSavePalettes={savePalettes}
         onSelectPalette={selectPalette}
+        onOpenProfile={() => { setShowSystem(false); setShowSystemProfile(true); }}
         onClose={() => setShowSystem(false)} />
+      {/* Systems only. A singlet's profile is the Profile tab, and their name
+          and goals stay in the System settings sheet where they were. */}
+      <SystemProfileModal visible={showSystemProfile && appSettings.accountMode !== 'singlet'} theme={C} system={system}
+        onSave={(s: SystemInfo) => { saveSystem(s).catch(e => console.warn('[PS] system profile save failed:', e)); }}
+        onClose={() => setShowSystemProfile(false)} />
     </View>
   );
 }

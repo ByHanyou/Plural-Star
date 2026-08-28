@@ -44,14 +44,19 @@ export const GroupBrowser = ({
 
   // Two lists on purpose: facets are LISTED (they have groups and can front) but
   // never COUNTED toward the roster. Custom fronts and deleted are in neither.
-  const listable = members.filter(m => !m.isCustomFront && !m.deleted);
+  const listable = members.filter(isRosterMember);
   const roster = members.filter(isRosterMember);
+  // Facets are LISTED in their own section (they have groups and can front) and
+  // never COUNTED toward the roster. Custom fronts and deleted are in neither.
+  const facetListable = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted);
   const folders = childrenOf(groups, browseId);
-  const folderMembersRaw = browseId === null
-    ? listable.filter(m => !(m.groupIds || []).length)
-    : listable.filter(m => (m.groupIds || []).includes(browseId));
+  const inFolder = (list: Member[]) => (browseId === null
+    ? list.filter(m => !(m.groupIds || []).length)
+    : list.filter(m => (m.groupIds || []).includes(browseId)));
+  const folderMembersRaw = inFolder(listable);
   // 'manual' = the roster's own order, which is what this list always showed.
   const folderMembers = sortMembers(folderMembersRaw, sortMode || 'manual');
+  const folderFacets = sortMembers(inFolder(facetListable), sortMode || 'manual');
   const current = browseId ? groups.find(g => g.id === browseId) || null : null;
 
   return (
@@ -116,7 +121,29 @@ export const GroupBrowser = ({
           </View>
         );
       })}
-      {folders.length === 0 && folderMembers.length === 0 && (
+      {folderFacets.length > 0 && (
+        <>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 12, marginBottom: 6}}>{t('members.facets')}</Text>
+          {folderFacets.map(m => {
+            if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
+            return (
+              <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
+                <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
+                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')}
+                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                  <Avatar member={m} size={30} T={T} />
+                  <View style={{flex: 1}}>
+                    <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
+                    {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
+                  </View>
+                </TouchableOpacity>
+                {memberAction && memberAction(m)}
+              </View>
+            );
+          })}
+        </>
+      )}
+      {folders.length === 0 && folderMembers.length === 0 && folderFacets.length === 0 && (
         <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', marginTop: 8}}>{t('memberGroups.none')}</Text>
       )}
     </>
