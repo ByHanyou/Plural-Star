@@ -1,5 +1,5 @@
 import React, {useState, useMemo, useCallback, useDeferredValue, useRef, useEffect} from 'react';
-import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, AccessibilityInfo} from 'react-native';
+import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, AccessibilityInfo, Image} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {FlashList, FlashListRef} from '@shopify/flash-list';
@@ -47,7 +47,7 @@ interface MemberCardProps {
   onEditMember: (m: Member) => void;
   onQuickFront?: (m: Member) => void;
   onRemoveFromFront?: (m: Member) => void;
-  fields: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean};
+  fields: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; background?: 'plain' | 'color' | 'banner'};
   prevName?: string;
   nextName?: string;
   dragHandle?: React.ReactNode;
@@ -80,13 +80,28 @@ const MemberCard = React.memo(function MemberCard({
   const cardBorder = selectionMode
     ? (isSelected ? T.accent : T.border)
     : (isFronting ? `${m.color}60` : T.border);
+  // Card background per the display option: plain (default), a wash of the
+  // member's colour, or their banner behind the row. Banner falls back to the
+  // colour wash when the member has none, and the scrim is the card colour at
+  // ~78% so the theme's own text contrast still holds on top of any image.
+  const bgMode = fields?.background || 'plain';
+  const bannerBg = bgMode === 'banner' && m.banner ? m.banner : null;
+  const cardBg = bgMode === 'plain' || selectionMode
+    ? T.card
+    : bannerBg ? T.card : `${m.color}18`;
   return (
     // The whole card used to be one labeled touchable, which on iOS hid the
     // reorder arrows and quick-front button from VoiceOver entirely. The card
     // press now lives on a flex:1 content touchable; arrows, drag handle and
     // quick-front are reachable siblings. Visuals unchanged.
     <View
-      style={[s.card, {backgroundColor: T.card, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8}]}>
+      style={[s.card, {backgroundColor: cardBg, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8, overflow: 'hidden'}]}>
+      {bannerBg && !selectionMode && (
+        <>
+          <Image source={{uri: bannerBg}} accessibilityElementsHidden importantForAccessibility="no" style={StyleSheet.absoluteFill as any} resizeMode="cover" />
+          <View style={[StyleSheet.absoluteFill as any, {backgroundColor: `${T.card}C8`}]} accessibilityElementsHidden importantForAccessibility="no" />
+        </>
+      )}
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
         {dragHandle}
         {!selectionMode && showReorder && (
@@ -163,8 +178,8 @@ interface Props {
   onBulkRestore?: (ids: string[]) => void | Promise<void>;
   onBulkDelete?: (ids: string[]) => void | Promise<void>;
   onBulkAddGroups?: (ids: string[], groupIds: string[]) => void | Promise<void>;
-  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean};
-  onSaveListFields?: (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean}) => void;
+  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'};
+  onSaveListFields?: (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'}) => void;
   onQuickAddToFront?: (id: string, tier: FrontTierKey) => void | Promise<void>;
   onRemoveFromFront?: (id: string) => void | Promise<void>;
 }
@@ -190,7 +205,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   const [groupAssignSel, setGroupAssignSel] = useState<Set<string>>(new Set());
   const [showDisplayOptions, setShowDisplayOptions] = useState(false);
   const [quickFrontFor, setQuickFrontFor] = useState<Member | null>(null);
-  const [listFields, setListFields] = useState({groups: true, descriptions: true, pronouns: true, roles: true, count: true, ...(memberListFields || {})});
+  const [listFields, setListFields] = useState<{groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'}>({groups: true, descriptions: true, pronouns: true, roles: true, count: true, ...(memberListFields || {})});
   const toggleListField = (k: 'groups' | 'descriptions' | 'pronouns' | 'roles' | 'count') => {
     const next = {...listFields, [k]: !listFields[k]};
     setListFields(next);
@@ -314,7 +329,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     // Same hazard as descPreview: a non-string name or role from imported or
     // synced data makes .toLowerCase() undefined and takes the tab down.
     const q = deferredQuery.toLowerCase();
-    const nameMatch = !deferredQuery || String(m.name ?? '').toLowerCase().includes(q) || String(m.role ?? '').toLowerCase().includes(q);
+    const nameMatch = !deferredQuery || String(m.name ?? '').toLowerCase().includes(q) || String(m.nickname ?? '').toLowerCase().includes(q) || String(m.role ?? '').toLowerCase().includes(q);
     const groupMatch = !activeGroupIds || (m.groupIds || []).some(id => activeGroupIds.has(id));
     const tagMatch = !activeTag || (m.tags || []).includes(activeTag);
     return nameMatch && groupMatch && tagMatch;
@@ -418,7 +433,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       onRemoveFromFront={onRemoveFromFront ? (mm: Member) => {
         Alert.alert(t('members.removeFromFront'), t('members.removeFromFrontMsg', {name: mm.name}), [
           {text: t('common.cancel'), style: 'cancel'},
-          {text: t('network.remove'), style: 'destructive', onPress: () => { onRemoveFromFront(mm.id); }},
+          {text: t('network.remove'), style: 'destructive', onPress: () => { Promise.resolve(onRemoveFromFront(mm.id)).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''))); }},
         ]);
       } : undefined}
       fields={listFields}
@@ -732,7 +747,9 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
                 onPress={() => {
                   const mm = quickFrontFor;
                   setQuickFrontFor(null);
-                  if (mm && onQuickAddToFront) onQuickAddToFront(mm.id, k);
+                  // Awaited with a visible failure: a transient throw in the
+                  // front update was an unhandled rejection before.
+                  if (mm && onQuickAddToFront) Promise.resolve(onQuickAddToFront(mm.id, k)).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
                 }}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>
                 <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: color}} accessibilityElementsHidden importantForAccessibility="no" />
@@ -763,6 +780,23 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               </TouchableOpacity>
             );
           })}
+          <View style={{paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: T.border}}>
+            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('members.cardBackground')}</Text>
+            <View style={{flexDirection: 'row', gap: 7}}>
+              {([['plain', t('members.bgPlain')], ['color', t('members.bgMemberColor')], ['banner', t('members.bgBanner')]] as ['plain' | 'color' | 'banner', string][]).map(([mode, label]) => {
+                const sel = (listFields.background || 'plain') === mode;
+                return (
+                  <TouchableOpacity key={mode} activeOpacity={0.7}
+                    onPress={() => { const next = {...listFields, background: mode}; setListFields(next); onSaveListFields && onSaveListFields(next); }}
+                    accessibilityRole="radio" accessibilityState={{selected: sel, checked: sel}} accessibilityLabel={label}
+                    style={{flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 8, borderWidth: 1,
+                      backgroundColor: sel ? T.accentBg : T.surface, borderColor: sel ? `${T.accent}60` : T.border}}>
+                    <Text style={{fontSize: fs(12), color: sel ? T.accent : T.dim, fontWeight: sel ? '600' : '400'}} numberOfLines={1}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
           <TouchableOpacity onPress={() => setShowDisplayOptions(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
             style={{alignItems: 'center', paddingVertical: 12, borderTopWidth: 1, borderTopColor: T.border}}>
             <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.close')}</Text>

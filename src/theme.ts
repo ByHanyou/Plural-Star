@@ -56,6 +56,12 @@ const luminance = (hex: string): number => {
   return 0.299 * r + 0.587 * g + 0.114 * b;
 };
 
+/** Ink for an initial/glyph sitting ON an arbitrary member colour: dark on
+ *  light fills, near-white on dark fills. Every initial used to hardcode the
+ *  dark ink, which vanished on near-black colours. */
+export const initialOn = (bg: string): string =>
+  luminance(bg) > 0.35 ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.92)';
+
 // Defined ABOVE deriveTheme on purpose: the module-scope default theme calls
 // deriveTheme during import, so everything it uses must already exist.
 export const contrastRatio = (hexA: string, hexB: string): number => {

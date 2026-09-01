@@ -25,9 +25,17 @@ const resolveNames = (ids: string[], members: Member[]): string =>
  * all — rather than a redacted shell, and mood/location/note travel with the
  * primary tier, so they go only to someone allowed to see a primary fronter.
  */
-export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<string> | null): FrontShare | null => {
+export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<string> | null, facetAllowedIds?: Set<string> | null): FrontShare | null => {
   if (!front) return null;
-  const permit = (ids: string[]) => (allowedIds ? ids.filter(id => allowedIds.has(id)) : ids);
+  // Facets can carry their OWN scope ("share all my main alters but not the
+  // fragments"): when `facetAllowedIds` is given, facet fronters answer to it
+  // and everyone else answers to `allowedIds`. Omitted (undefined), facets
+  // follow `allowedIds` exactly as they always did.
+  const facetIds = facetAllowedIds === undefined ? null : new Set(members.filter(m => m.isFacet && !m.isCustomFront).map(m => m.id));
+  const permit = (ids: string[]) => ids.filter(id => {
+    if (facetIds && facetIds.has(id)) return facetAllowedIds === null ? true : !!facetAllowedIds?.has(id);
+    return allowedIds ? allowedIds.has(id) : true;
+  });
   const primaryIds = permit(getTierIds(front, 'primary'));
   const coFrontIds = permit(getTierIds(front, 'coFront'));
   const coConsciousIds = permit(getTierIds(front, 'coConscious'));

@@ -105,11 +105,15 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
 
   const titleNames = primaryNames || coFrontNames || coConsciousNames ||
     i18n.t('common.unknown', {defaultValue: 'Unknown'});
-  // No duration in the text. It was a snapshot taken when the notification was
-  // posted and then sat there being wrong ("says 1 min when we've been in front
-  // for 6"); the OS chronometer in the timestamp slot counts the same thing
-  // live. Absolute times below are safe because they never go stale.
-  const title = `◈ ${titleNames}`;
+  // Duration back in the TEXT, chronometer gone. The chronometer needed
+  // `timestamp: startTime`, and Android sorts the shade by that value — a
+  // front running for days pinned the notification BELOW day-old
+  // notifications, where no silent re-post could ever surface it ("refresh
+  // does nothing", "it went to the bottom"). Text durations go stale between
+  // re-posts, which is why every re-post path rebuilds this content fresh:
+  // the in-app 5-minute interval, the WorkManager refresh trigger, and the
+  // headless reassert.
+  const title = front.startTime ? `◈ ${titleNames}  ·  ${fmtDur(front.startTime)}` : `◈ ${titleNames}`;
 
   const primaryTimed = resolveNamesWithSince(primaryIds, members, front);
   const coFrontTimed = resolveNamesWithSince(coFrontIds, members, front);
@@ -154,7 +158,7 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n')};
 };
 
-const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback: string, sinceTs?: number) => {
+const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback: string) => {
   const base = {
     channelId: NOTIF_CHANNEL_ID,
     ongoing: true,
@@ -171,17 +175,14 @@ const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback:
     // render twice whenever a friend was pinned.
     groupSummary: true,
     sortKey: '0',
-    // The durations written into the text lines are snapshots — they only
-    // change when something re-posts the notification, which is exactly the
-    // "time doesn't update unless you wiggle the app" report. The chronometer
-    // is rendered by the OS itself and counts up live from the front's start
-    // with zero re-posts.
-    // showTimestamp MUST be true: the chronometer is drawn INTO the timestamp
-    // slot, so with it false the OS is free to fall back to a plain clock time
-    // ("says 1 min when we've been in front for 6"). Notifee's own timer docs
-    // set both together, and the two devices that reported this disagreed
-    // precisely because the fallback is OEM-dependent.
-    ...(sinceTs ? {timestamp: sinceTs, showTimestamp: true, showChronometer: true} : {}),
+    // NO timestamp / showChronometer here, deliberately. The chronometer only
+    // renders when `timestamp` is the front's start — and Android RANKS the
+    // shade by that same value, so a days-old front sat pinned under
+    // yesterday's notifications and silent re-posts could never lift it. It
+    // also reordered the GROUP: a friend whose front started more recently
+    // sorted ABOVE the own summary row ("it replaced the notification of my
+    // own with his"). Post time is the sort key now, so each interval re-post
+    // surfaces the group again, and sortKey orders the rows within it.
   };
   if (friendLines.length === 0) {
     const ownLines = (ownBigText ? ownBigText.split('\n') : []).slice(0, 6);
@@ -216,6 +217,25 @@ export const noteFrontNotifDismissed = async () => {
 
 let lastFrontSig = '';
 
+// The dismiss guard compares WHAT the front is, never how it is rendered.
+// The rendered text now carries live durations, so a text-based signature
+// changed on every re-post and a swiped-away notification resurrected on the
+// next 5-minute interval — the exact behavior the guard exists to prevent.
+// This stays identical until the front itself changes.
+const frontStructureSig = (front: FrontState | null): string => {
+  if (!front) return 'none';
+  return JSON.stringify([
+    getTierIds(front, 'primary'),
+    getTierIds(front, 'coFront'),
+    getTierIds(front, 'coConscious'),
+    getTierField(front, 'primary', 'mood') || '',
+    getTierField(front, 'primary', 'location') || '',
+    getTierField(front, 'primary', 'note') || '',
+    front.startTime || 0,
+    emergencyLine || '',
+  ]);
+};
+
 const buildFriendLines = (): string[] => {
   const st = NetworkManager.getState();
   if (!st.enabled) return [];
@@ -247,25 +267,26 @@ const friendStatusLines = (s: FrontShare): string[] => {
   return lines;
 };
 
-const buildFriendNotifs = (): {id: string; title: string; body: string; big: string; since?: number}[] => {
+const buildFriendNotifs = (): {id: string; title: string; body: string; big: string}[] => {
   const st = NetworkManager.getState();
   if (!st.enabled) return [];
-  const out: {id: string; title: string; body: string; big: string; since?: number}[] = [];
+  const out: {id: string; title: string; body: string; big: string}[] = [];
   for (const f of st.friends) {
     if (out.length >= MAX_NOTIF_FRIENDS) break;
     if (friendNotifyLevel(f) !== 'full' || f.status !== 'accepted') continue;
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const lines = friendStatusLines(s);
+    const dur = typeof s.startTime === 'number' && s.startTime > 0 ? fmtDur(s.startTime) : '';
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
       title: f.displayName,
-      // No frozen duration here either; these rows get the same OS chronometer
-      // as our own, so a friend's timer stops being a snapshot from whenever
-      // their last update happened to land.
-      body: s.fronters,
+      // Duration in the text, same trade as the own row: a chronometer
+      // timestamp re-sorted these rows by front age and pushed the whole
+      // group to the bottom of the shade. The text refreshes whenever the
+      // group re-posts (friend updates, the 5-minute interval, foreground).
+      body: dur ? `${s.fronters}  ·  ${dur}` : s.fronters,
       big: lines.join('\n'),
-      since: typeof s.startTime === 'number' && s.startTime > 0 ? s.startTime : undefined,
     });
   }
   return out;
@@ -345,7 +366,6 @@ const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
         color: '#DAA520',
         groupId: FRONT_GROUP_ID,
         sortKey: `1${String(i).padStart(4, '0')}`,
-        ...(d.since ? {timestamp: d.since, showTimestamp: true, showChronometer: true} : {}),
         style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
     });
@@ -394,7 +414,7 @@ export const showFrontNotification = async (
     // header with the friend rows under it.
     try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
 
-    const sig = JSON.stringify([title, body, ownBig]);
+    const sig = frontStructureSig(front);
     if (frontDismissGuard !== null && sig === frontDismissGuard) {
       // The user swiped the front notification away. The friend rows sit in the
       // SAME group and are ongoing, so leaving them behind gives Android a
@@ -417,18 +437,33 @@ export const showFrontNotification = async (
     // next foreground update.
     const canBindFgs =
       fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
-    await notifee.displayNotification({
-      id: NOTIF_ID,
-      title,
-      body,
-      android: {...frontAndroidConfig(ownBig, [], onlineLabel, front?.startTime), ...(canBindFgs ? {asForegroundService: true} : {})},
-    });
+    const cfg = frontAndroidConfig(ownBig, [], onlineLabel);
+    let bound = canBindFgs;
+    try {
+      await notifee.displayNotification({
+        id: NOTIF_ID,
+        title,
+        body,
+        android: {...cfg, ...(canBindFgs ? {asForegroundService: true} : {})},
+      });
+    } catch (e) {
+      // fgsBound can go STALE: Android stops the service while the app is
+      // backgrounded, the flag still says bound, and the next background
+      // re-post tries to START an FGS from the background — which throws and
+      // used to leave the shade with nothing at all ("my fronting
+      // notification isn't showing whatsoever"). Post the same content plain;
+      // the FGS re-binds on the next foreground update.
+      if (!canBindFgs) throw e;
+      logError('notif', e);
+      bound = false;
+      await notifee.displayNotification({id: NOTIF_ID, title, body, android: cfg});
+    }
     // Children go up only AFTER their summary exists. Posting them first left a
     // window — and, if this post then threw (the foreground-service start
     // restriction is a live hazard here), a permanent state — where the group
     // had rows but no header, which Android papers over with a blank one.
     await syncFriendNotifications();
-    fgsBound = canBindFgs;
+    fgsBound = bound;
     lastFrontSig = sig;
     frontDismissGuard = null;
   } catch (e) {
@@ -479,7 +514,7 @@ export const scheduleFrontNotificationRefresh = async (
         // stay gone, which is exactly the "vanished and never came back"
         // report. A plain ongoing re-post always succeeds; the FGS re-binds
         // the next time the app is opened (showFrontNotification).
-        android: frontAndroidConfig(content.bigText, [], content.body, front.startTime),
+        android: frontAndroidConfig(content.bigText, [], content.body),
       },
       trigger,
     );
@@ -511,6 +546,12 @@ export const reassertFrontNotification = async () => {
     const settings = await store.get(KEYS.settings, null);
     if (settings && settings.notificationsEnabled === false) return;
     if (settings && settings.persistentFrontNotif === false) return;
+    // Headless context: App's effects never ran here, so the i18n overrides
+    // (Terminology Picker words, custom tier names) are unset unless hydrated
+    // from the settings just loaded. Same lazy-require rule as above.
+    const {setTerminologyOverrides, setTierNameOverrides} = require('../i18n/terminology');
+    setTerminologyOverrides(settings?.terminology);
+    setTierNameOverrides(settings?.tierNames);
     const front = await store.get(KEYS.front, null);
     if (!front) return;
     const members = await store.get(KEYS.members, []);
@@ -521,7 +562,7 @@ export const reassertFrontNotification = async () => {
       id: NOTIF_ID,
       title: content.title,
       body: content.body,
-      android: frontAndroidConfig(content.bigText, [], content.body, front.startTime),
+      android: frontAndroidConfig(content.bigText, [], content.body),
     });
   } catch (e) {
     logError('notif', e);

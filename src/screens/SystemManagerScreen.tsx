@@ -12,7 +12,7 @@ import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 import {GroupBrowser} from '../components/GroupBrowser';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, colorName, isRosterMember} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName, isRosterMember} from '../utils';
 
 interface Props {
   theme: ThemeColors;
@@ -25,11 +25,15 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const front = useAppStore(s => s.front);
   const groupSortMode = useAppStore(s => s.appSettings.groupSortMode);
   const onSaveGroups = saveGroups;
-  const onQuickFront = quickAddToFront;
-  const onRemoveFromFront = removeFromFront;
   const onAddToGroup = (memberIds: string[], groupId: string) => bulkAddGroups(memberIds, [groupId]);
   const onRemoveFromGroup = bulkRemoveFromGroup;
   const {t} = useTranslation();
+  // Visible failure instead of an unhandled rejection when a front write
+  // throws transiently.
+  const onQuickFront = (id: string, tier: Parameters<typeof quickAddToFront>[1]) =>
+    quickAddToFront(id, tier).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
+  const onRemoveFromFront = (id: string) =>
+    removeFromFront(id).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
   const fs = fontScale(T);
 
   const [newName, setNewName] = useState('');
@@ -305,11 +309,16 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
       : browseEligible.filter(m => (m.groupIds || []).includes(browseId));
     const current = browseId ? groups.find(g => g.id === browseId) || null : null;
     const addCandidates = current
-      ? sortMembersBySearch(browseEligible.filter(m => !(m.groupIds || []).includes(current.id) && (!addSearch || m.name.toLowerCase().includes(addSearch.toLowerCase()))), addSearch)
+      ? sortMembersBySearch(browseEligible.filter(m => !(m.groupIds || []).includes(current.id) && memberMatchesSearch(m, addSearch)), addSearch)
       : [];
     // Facets get their own section here: out of the member list, still addable.
     const addFacetCandidates = current
-      ? sortMembersBySearch(members.filter(m => !m.archived && !m.isCustomFront && m.isFacet && !(m.groupIds || []).includes(current.id) && (!addSearch || m.name.toLowerCase().includes(addSearch.toLowerCase()))), addSearch)
+      ? sortMembersBySearch(members.filter(m => !m.archived && !m.isCustomFront && m.isFacet && !(m.groupIds || []).includes(current.id) && memberMatchesSearch(m, addSearch)), addSearch)
+      : [];
+    // Custom fronts group like members now ("put said fronts into a group"):
+    // their own section, same pattern as facets.
+    const addCfCandidates = current
+      ? sortMembersBySearch(members.filter(m => !m.archived && m.isCustomFront && !(m.groupIds || []).includes(current.id) && memberMatchesSearch(m, addSearch)), addSearch)
       : [];
     const toggleAddPick = (id: string) => setAddPickIds(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
     const toggleRemovePick = (id: string) => setRemoveIds(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
@@ -471,7 +480,24 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                     })}
                   </>
                 )}
-                {addCandidates.length === 0 && addFacetCandidates.length === 0 && (
+                {addCfCandidates.length > 0 && (
+                  <>
+                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingTop: 12, paddingBottom: 4}}>{t('members.customFronts')}</Text>
+                    {addCfCandidates.map(m => {
+                      const checked = addPickIds.includes(m.id);
+                      return (
+                        <TouchableOpacity key={m.id} onPress={() => toggleAddPick(m.id)} activeOpacity={0.7}
+                          accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={m.name}
+                          style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8}}>
+                          <Text style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
+                          <Avatar member={m} size={26} T={T} />
+                          <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </>
+                )}
+                {addCandidates.length === 0 && addFacetCandidates.length === 0 && addCfCandidates.length === 0 && (
                   <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', paddingVertical: 8}}>{t('members.noMembers')}</Text>
                 )}
               </ScrollView>

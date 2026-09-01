@@ -21,7 +21,6 @@ interface Props {
 }
 
 const OUTLINE_MIN_SIZE = 14;
-const OUTLINE_COLOR = '#0A1F2E';
 
 /**
  * Light-theme legibility for accent-coloured text. This USED TO stack six
@@ -32,9 +31,11 @@ const OUTLINE_COLOR = '#0A1F2E';
  *   - the real layer was position:absolute inside a wrapper sized by the
  *     transparent layer, so a constrained parent could collapse or clip it,
  *     and a low-contrast accent left only the dark ghosts — the missing name.
- * One Text with a text shadow keeps the outlined look with a single render, and
- * the colour is clamped to the large-text floor so it can never vanish into a
- * light background.
+ * The interim replacement was one Text with a dark textShadow, but the 1.5px
+ * blur read as fuzzy, eye-straining text on every light theme ("some fonts
+ * have a drop shadow"). NO shadow now: the ensureReadable clamp alone keeps
+ * the colour above the large-text floor, which is the part that actually
+ * stops it vanishing into a light background.
  */
 export const AccentText = ({children, style, T, numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling, accessibilityRole, accessibilityElementsHidden, importantForAccessibility}: Props) => {
   const flat = StyleSheet.flatten(style) || ({} as any);
@@ -49,12 +50,7 @@ export const AccentText = ({children, style, T, numberOfLines, adjustsFontSizeTo
   const chosen = typeof flat.color === 'string' ? flat.color : T.text;
   return (
     <Text
-      style={[style, {
-        color: ensureReadable(chosen, T.bg, 3),
-        textShadowColor: OUTLINE_COLOR,
-        textShadowOffset: {width: 0, height: 0},
-        textShadowRadius: 1.5,
-      }]}
+      style={[style, {color: ensureReadable(chosen, T.bg, 3)}]}
       {...textProps}>
       {children}
     </Text>

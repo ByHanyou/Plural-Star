@@ -34,6 +34,10 @@ export interface Friend {
    *  The row is kept — removing stored data is the user's call — but the UI
    *  shows a re-add prompt instead of presenting stale fronts as current. */
   needsRefriend?: boolean;
+  /** Manual position in the friends list. Absent = after all numbered rows,
+   *  in addedAt order — exactly where unnumbered rows always sat. Rides
+   *  friends_push like every other row field. */
+  sortOrder?: number;
 }
 
 /**
@@ -90,7 +94,7 @@ export interface NetworkSettings {
   token?: string;
 }
 
-export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal' | 'history' | 'systemProfile';
+export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal' | 'history' | 'systemProfile' | 'whiteboard';
 
 export type NetMessage =
   | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target'; v?: number }
@@ -230,6 +234,13 @@ export interface PrivacyBucket {
   // normalizeBucket reads as 'none' — an old bucket never starts sharing the
   // profile because the app updated.
   systemProfile?: PrivacyScope;
+  // Same rules as systemProfile: one board, all or nothing, absent = none.
+  whiteboard?: PrivacyScope;
+  // Facet visibility on the FRONT lane, separate from members ("share all my
+  // main alters but not the fragments"). ABSENT = follows this bucket's
+  // members scope — exactly the behavior before the field existed, so no
+  // bucket changes what it shares because the app updated.
+  facets?: PrivacyScope;
   friendPeerIds: string[];
   createdAt: number;
 }

@@ -4,7 +4,7 @@ import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
 import {RichText} from './MarkdownRenderer';
 import {getInitials} from '../utils';
-import {fontScale} from '../theme';
+import {fontScale, initialOn} from '../theme';
 import type {ThemeColors} from '../theme';
 
 interface Props {
@@ -43,7 +43,7 @@ export const SystemProfileCard = ({T, name, description, avatar, banner, childre
               style={{width: 88, height: 88, borderRadius: 20, borderWidth: 2, borderColor: T.accent}} resizeMode="cover" />
           ) : (
             <View style={{width: 88, height: 88, borderRadius: 20, backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
-              <Text style={{fontSize: fs(30), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}
+              <Text style={{fontSize: fs(30), fontWeight: '700', color: initialOn(T.accent), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}
                 accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                 {getInitials(name || '?')}
               </Text>

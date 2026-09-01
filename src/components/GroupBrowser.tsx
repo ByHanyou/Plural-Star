@@ -47,8 +47,10 @@ export const GroupBrowser = ({
   const listable = members.filter(isRosterMember);
   const roster = members.filter(isRosterMember);
   // Facets are LISTED in their own section (they have groups and can front) and
-  // never COUNTED toward the roster. Custom fronts and deleted are in neither.
+  // never COUNTED toward the roster. Custom fronts now group like members do
+  // ("put said fronts into a group") — their own section too, never counted.
   const facetListable = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted);
+  const cfListable = members.filter(m => m.isCustomFront && !m.deleted);
   const folders = childrenOf(groups, browseId);
   const inFolder = (list: Member[]) => (browseId === null
     ? list.filter(m => !(m.groupIds || []).length)
@@ -57,6 +59,9 @@ export const GroupBrowser = ({
   // 'manual' = the roster's own order, which is what this list always showed.
   const folderMembers = sortMembers(folderMembersRaw, sortMode || 'manual');
   const folderFacets = sortMembers(inFolder(facetListable), sortMode || 'manual');
+  // Only INSIDE a group, never at root: an ungrouped custom front is not
+  // "loose in the system" the way an ungrouped member is.
+  const folderCustomFronts = browseId === null ? [] : sortMembers(inFolder(cfListable), sortMode || 'manual');
   const current = browseId ? groups.find(g => g.id === browseId) || null : null;
 
   return (
@@ -143,7 +148,29 @@ export const GroupBrowser = ({
           })}
         </>
       )}
-      {folders.length === 0 && folderMembers.length === 0 && folderFacets.length === 0 && (
+      {folderCustomFronts.length > 0 && (
+        <>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 12, marginBottom: 6}}>{t('members.customFronts')}</Text>
+          {folderCustomFronts.map(m => {
+            if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
+            return (
+              <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
+                <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
+                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')}
+                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                  <Avatar member={m} size={30} T={T} />
+                  <View style={{flex: 1}}>
+                    <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
+                    {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
+                  </View>
+                </TouchableOpacity>
+                {memberAction && memberAction(m)}
+              </View>
+            );
+          })}
+        </>
+      )}
+      {folders.length === 0 && folderMembers.length === 0 && folderFacets.length === 0 && folderCustomFronts.length === 0 && (
         <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', marginTop: 8}}>{t('memberGroups.none')}</Text>
       )}
     </>

@@ -3,7 +3,7 @@ import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, Style
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useTranslation} from 'react-i18next';
-import {Member, Relationship, RelationshipTypeDef, allRelationshipTypes, relationshipDegrees, uid, sortMembersBySearch, DEFAULT_REL_COLOR, PRESET_RELATIONSHIP_TYPES} from '../utils';
+import {Member, Relationship, RelationshipTypeDef, allRelationshipTypes, relationshipDegrees, uid, sortMembersBySearch, memberMatchesSearch, DEFAULT_REL_COLOR, PRESET_RELATIONSHIP_TYPES} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {TogglePill} from '../components/ToggleSwitch';
@@ -134,15 +134,21 @@ const buildLayout = (ms: Member[], rels: Relationship[]): {nodes: MapNode[]; byI
   return {nodes, byId, maxExtent};
 };
 
-const MemberPickerField = ({label, value, onChange, members, T}: {
-  label: string; value: string; onChange: (id: string) => void; members: Member[]; T: ThemeColors;
+const MemberPickerField = ({label, value, onChange, members, facets = [], T}: {
+  label: string; value: string; onChange: (id: string) => void; members: Member[];
+  /** Their own labeled section, off-map ones included: a relationship used to
+   *  be impossible to CREATE until both facets were manually added to the map
+   *  first. Picking one here puts it on the map when the relationship saves. */
+  facets?: Member[]; T: ThemeColors;
 }) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const sel = members.find(m => m.id === value);
-  const filtered = sortMembersBySearch(members.filter(m => !search.trim() || m.name.toLowerCase().includes(search.trim().toLowerCase())), search.trim());
+  const sel = members.find(m => m.id === value) || facets.find(m => m.id === value);
+  const q = search.trim().toLowerCase();
+  const filtered = sortMembersBySearch(members.filter(m => memberMatchesSearch(m, q)), search.trim());
+  const filteredFacets = sortMembersBySearch(facets.filter(m => memberMatchesSearch(m, q)), search.trim());
   return (
     <View style={{marginBottom: 12}}>
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
@@ -166,6 +172,17 @@ const MemberPickerField = ({label, value, onChange, members, T}: {
                 <Text style={{fontSize: fs(13), color: value === m.id ? T.accent : T.text}}>{m.name}</Text>
               </TouchableOpacity>
             ))}
+            {filteredFacets.length > 0 && (
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.border}}>{t('members.facets')}</Text>
+            )}
+            {filteredFacets.slice(0, 30).map(m => (
+              <TouchableOpacity key={m.id} onPress={() => {onChange(m.id); setOpen(false); setSearch('');}} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: value === m.id}}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: value === m.id ? `${T.accent}15` : 'transparent'}}>
+                <Avatar member={m} size={22} T={T} />
+                <Text style={{fontSize: fs(13), color: value === m.id ? T.accent : T.text}}>{m.name}</Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
       )}
@@ -176,15 +193,21 @@ const MemberPickerField = ({label, value, onChange, members, T}: {
 // Multi-select twin of MemberPickerField for the connection editor's To side:
 // one pass can target several members (poly relationships). Rows toggle and
 // the list stays open; the trigger reads the joined selection.
-const MemberMultiPickerField = ({label, values, onToggle, members, T}: {
-  label: string; values: string[]; onToggle: (id: string) => void; members: Member[]; T: ThemeColors;
+const MemberMultiPickerField = ({label, values, onToggle, members, facets = [], T}: {
+  label: string; values: string[]; onToggle: (id: string) => void; members: Member[];
+  /** Their own labeled section, off-map ones included — same rule as the
+   *  single picker above. */
+  facets?: Member[]; T: ThemeColors;
 }) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const selected = values.map(id => members.find(m => m.id === id)).filter(Boolean) as Member[];
-  const filtered = sortMembersBySearch(members.filter(m => !search.trim() || m.name.toLowerCase().includes(search.trim().toLowerCase())), search.trim());
+  const pool = useMemo(() => [...members, ...facets], [members, facets]);
+  const selected = values.map(id => pool.find(m => m.id === id)).filter(Boolean) as Member[];
+  const q = search.trim().toLowerCase();
+  const filtered = sortMembersBySearch(members.filter(m => memberMatchesSearch(m, q)), search.trim());
+  const filteredFacets = sortMembersBySearch(facets.filter(m => memberMatchesSearch(m, q)), search.trim());
   const summary = selected.map(m => m.name).join(', ');
   return (
     <View style={{marginBottom: 12}}>
@@ -202,6 +225,21 @@ const MemberMultiPickerField = ({label, values, onToggle, members, T}: {
             style={{backgroundColor: T.surface, color: T.text, fontSize: fs(13), paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}} />
           <ScrollView style={{maxHeight: 180}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             {filtered.slice(0, 30).map(m => {
+              const on = values.includes(m.id);
+              return (
+                <TouchableOpacity key={m.id} onPress={() => onToggle(m.id)} activeOpacity={0.7}
+                  accessibilityRole="checkbox" accessibilityState={{checked: on}} accessibilityLabel={m.name}
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: on ? `${T.accent}15` : 'transparent'}}>
+                  <Avatar member={m} size={22} T={T} />
+                  <Text style={{flex: 1, fontSize: fs(13), color: on ? T.accent : T.text}}>{m.name}</Text>
+                  {on ? <Text style={{fontSize: fs(13), color: T.accent}} accessibilityElementsHidden importantForAccessibility="no">✓</Text> : null}
+                </TouchableOpacity>
+              );
+            })}
+            {filteredFacets.length > 0 && (
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.border}}>{t('members.facets')}</Text>
+            )}
+            {filteredFacets.slice(0, 30).map(m => {
               const on = values.includes(m.id);
               return (
                 <TouchableOpacity key={m.id} onPress={() => onToggle(m.id)} activeOpacity={0.7}
@@ -264,6 +302,10 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const winH = useWindowDimensions().height;
   const editorScrollRef = useRef<ScrollView>(null);
   const [showArchived, setShowArchived] = useState(false);
+  // Default ON: facets have always rendered once added, so the toggle only
+  // ever hides them on request. Hiding leaves mapIds untouched — toggling
+  // back restores every facet exactly where it was.
+  const [showFacets, setShowFacets] = useState(true);
   const [colorAll, setColorAll] = useState(false);
   // Tombstoned members (deleted) stay in storage only so history, chat and map
   // links keep resolving to a name. They must never be offered for selection,
@@ -282,8 +324,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     () => [...rosterEligible, ...facetEligible.filter(m => mapIdSet.has(m.id))],
     [rosterEligible, facetEligible, mapIdSet],
   );
-  const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id)), [eligibleMembers, mapIdSet]);
-  const memberById = useMemo(() => new Map(eligibleMembers.map(m => [m.id, m])), [eligibleMembers]);
+  const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id) && (showFacets || !m.isFacet)), [eligibleMembers, mapIdSet, showFacets]);
+  // Name lookups cover ALL facets, not just on-map ones: the relationship
+  // editor can now pick an off-map facet, and its preview line needs the name
+  // before the save puts them on the map.
+  const memberById = useMemo(() => new Map([...rosterEligible, ...facetEligible].map(m => [m.id, m])), [rosterEligible, facetEligible]);
 
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [posOverrides, setPosOverrides] = useState<Record<string, {x: number; y: number}>>({});
@@ -312,16 +357,18 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
   useEffect(() => {
     (async () => {
-      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll] = await Promise.all([
+      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets] = await Promise.all([
         store.get<Relationship[]>(KEYS.relationships, []),
         store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []),
         store.get<string[]>(KEYS.systemMapMembers),
         store.get<Record<string, {x: number; y: number}>>(KEYS.systemMapPositions),
         store.get<boolean>('ps.mapShowArchived', false),
         store.get<boolean>('ps.mapColorThreads', false),
+        store.get<boolean>('ps.mapShowFacets', true),
       ]);
       setShowArchived(!!savedShowArchived);
       setColorAll(!!savedColorAll);
+      setShowFacets(savedShowFacets !== false);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
       const ids = new Set(members.map(m => m.id));
@@ -349,6 +396,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     const v = !showArchived;
     setShowArchived(v);
     store.set('ps.mapShowArchived', v).catch(() => {});
+  };
+  const toggleShowFacets = () => {
+    const v = !showFacets;
+    setShowFacets(v);
+    store.set('ps.mapShowFacets', v).catch(() => {});
   };
   const toggleColorAll = () => {
     const v = !colorAll;
@@ -694,6 +746,20 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     ]);
   };
 
+  const deletePresetType = (td: RelationshipTypeDef) => {
+    Alert.alert(t('systemMap.deleteType'), t('systemMap.deleteTypeMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('common.delete'), style: 'destructive', onPress: async () => {
+        // A preset cannot be removed from the constant, so the deletion is
+        // stored as a tombstoned override on the same id; allRelationshipTypes
+        // drops it. Any prior rename/recolor override is replaced.
+        await saveCustomTypes([...customTypes.filter(x => x.id !== td.id), {id: td.id, name: td.name, directional: td.directional, preset: true, deleted: true}]);
+        await saveRelationships(relationships.filter(r => r.typeId !== td.id));
+        if (typeId === td.id) setTypeId('');
+      }},
+    ]);
+  };
+
   const selectedMember = selectedId ? memberById.get(selectedId) : undefined;
   const selectedRels = selectedId ? relationships.filter(r => r.fromId === selectedId || r.toId === selectedId) : [];
   const selectedTd = typeById.get(typeId);
@@ -720,6 +786,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
           accessibilityRole="switch" accessibilityState={{checked: showArchived}} accessibilityLabel={t('members.archived')}
           style={{borderWidth: 1, borderColor: showArchived ? `${T.accent}40` : T.border, backgroundColor: showArchived ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: showArchived ? T.accent : T.dim}}>{t('members.archived')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={toggleShowFacets} activeOpacity={0.7}
+          accessibilityRole="switch" accessibilityState={{checked: showFacets}} accessibilityLabel={t('members.facets')}
+          style={{borderWidth: 1, borderColor: showFacets ? `${T.accent}40` : T.border, backgroundColor: showFacets ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          <Text style={{fontSize: fs(12), fontWeight: '600', color: showFacets ? T.accent : T.dim}}>{t('members.facets')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={toggleColorAll} activeOpacity={0.7}
           accessibilityRole="switch" accessibilityState={{checked: colorAll}} accessibilityLabel={t('systemMap.showColors')}
@@ -921,7 +992,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 {editRel ? t('systemMap.editRelationship') : t('systemMap.addRelationship')}
               </Text>
 
-              <MemberPickerField label={t('systemMap.from')} value={fromId} onChange={setFromId} members={eligibleMembers} T={T} />
+              {/* All facets, not just on-map ones: a relationship between two
+                  facets was impossible to create until both were manually
+                  added to the map first (found on Desktop, same architecture
+                  here). Saving already puts every endpoint on the map. */}
+              <MemberPickerField label={t('systemMap.from')} value={fromId} onChange={setFromId} members={rosterEligible} facets={facetEligible} T={T} />
 
               <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.type')}</Text>
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6}}>
@@ -960,11 +1035,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               )}
 
               {editRel ? (
-                <MemberPickerField label={t('systemMap.to')} value={toIds[0] || ''} onChange={id => setToIds([id])} members={eligibleMembers} T={T} />
+                <MemberPickerField label={t('systemMap.to')} value={toIds[0] || ''} onChange={id => setToIds([id])} members={rosterEligible} facets={facetEligible} T={T} />
               ) : (
                 <MemberMultiPickerField label={t('systemMap.to')} values={toIds}
                   onToggle={id => setToIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
-                  members={eligibleMembers} T={T} />
+                  members={rosterEligible} facets={facetEligible} T={T} />
               )}
 
               {selectedTd && fromId && toIds.length > 0 && (
@@ -1078,6 +1153,9 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                         style={{borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5}}>
                         <Text style={{fontSize: fs(11), color: T.accent}}>{t('common.edit')}</Text>
                       </TouchableOpacity>
+                      <TouchableOpacity onPress={() => deletePresetType(td)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.deleteType')} style={{padding: 4}}>
+                        <Text style={{fontSize: fs(13), color: T.danger}}>✕</Text>
+                      </TouchableOpacity>
                     </View>
                     {editTypeId === td.id && (
                       <View style={{paddingHorizontal: 12, paddingBottom: 12}}>
@@ -1097,7 +1175,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
       {showMemberPicker && (
         <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kb}}>
-          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(winH * 0.75, winH - kb - 16)}}>
+          {/* Fixed height, not maxHeight: sized to content, the whole sheet —
+              search box included — jumped taller and shorter as every
+              keystroke changed the result count ("search bar bounces around
+              when typing"). The list scrolls inside a stable frame instead. */}
+          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(winH * 0.75, winH - kb - 16))}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('members.addMember')}</Text>
               <TouchableOpacity onPress={() => setShowMemberPicker(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{padding: 4}}>
@@ -1111,7 +1193,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             <ScrollView contentContainerStyle={{paddingHorizontal: 16, paddingBottom: 28}} keyboardShouldPersistTaps="handled">
               {(() => {
                 const q = memberPickerSearch.trim().toLowerCase();
-                const match = (m: Member) => !mapIdSet.has(m.id) && (!q || m.name.toLowerCase().includes(q));
+                const match = (m: Member) => !mapIdSet.has(m.id) && memberMatchesSearch(m, q);
                 const candidates = sortMembersBySearch(rosterEligible.filter(match), memberPickerSearch.trim());
                 // Facets get their own section, exactly like the front picker:
                 // out of the member list, still addable on purpose.

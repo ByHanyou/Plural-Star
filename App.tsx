@@ -9,7 +9,8 @@ import {useTranslation} from 'react-i18next';
 import './src/i18n/i18n';
 import {changeLanguage} from './src/i18n/i18n';
 import type {SupportedLanguage} from './src/i18n/i18n';
-import {setTerminologyOverrides} from './src/i18n/terminology';
+import {setTerminologyOverrides, setTierNameOverrides} from './src/i18n/terminology';
+import {ImageCropHost} from './src/components/ImageCropModal';
 
 import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
@@ -121,6 +122,7 @@ function MainAppContent() {
   // Push the Terminology Picker's words into the i18n post-processor whenever
   // settings change, including the initial load and incoming syncs.
   useEffect(() => { setTerminologyOverrides(appSettings.terminology); }, [appSettings.terminology]);
+  useEffect(() => { setTierNameOverrides(appSettings.tierNames); }, [appSettings.tierNames]);
 
   const [showSetFront, setShowSetFront] = useState(false);
   const [showEditFrontDetail, setShowEditFrontDetail] = useState(false);
@@ -161,6 +163,15 @@ function MainAppContent() {
   }, [activePaletteId, palettes, appSettings.textScale]);
 
   const loadAll = useCallback(async () => {
+    // FIRST storage op of the load, before anything can write: did this
+    // install have ANY ps: data when we started? The custom-front seeding and
+    // the network identity are both created DURING this very load, so probing
+    // at decision time below always found our own fresh writes — a truly
+    // fresh install never saw first-run and the header showed the unnamed
+    // fallback instead. (A locked-protected-data launch can make this read
+    // false, but that launch is marked storageSuspect, and the suspect branch
+    // wins before this value is ever consulted.)
+    const hadAnyPsKeys = await anyPsKeysExist();
     let storageSuspect = false;
     if (!(await waitForProtectedData())) {
       console.warn('[STARTUP] Protected data still locked (pre-unlock background launch) — marking storage suspect.');
@@ -273,8 +284,8 @@ function MainAppContent() {
         } else if (storageSuspect) {
           console.warn('[STARTUP] Blank load with suspect storage — staying OUT of first-run; will retry on foreground.');
           setSystem({name: '', description: ''});
-        } else if (await anyPsKeysExist()) {
-          console.warn('[STARTUP] Blank load BUT ps: keys exist in AsyncStorage — this is not a fresh install. Staying OUT of first-run; will retry on foreground.');
+        } else if (hadAnyPsKeys) {
+          console.warn('[STARTUP] Blank load BUT ps: keys existed BEFORE this load — this is not a fresh install. Staying OUT of first-run; will retry on foreground.');
           storageSuspect = true;
           storageSuspectRef.current = true;
           setSystem({name: '', description: ''});
@@ -682,18 +693,33 @@ function MainAppContent() {
       {isSinglet ? (
         <SetStatusModal visible={showSetFront} theme={C} statuses={singletStatuses(members)} selfId={selfMember?.id} current={front} settings={appSettings}
           lastKnownLocation={lastKnownLocation}
-          onSave={async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {await updateFront(primary, coFront, coConscious); setShowSetFront(false);}}
+          onSave={async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
+            // A transient throw here (storage hiccup, GPS resolver) used to be
+            // an unhandled rejection with the sheet left open — surface it as
+            // the normal save-failed alert instead. (MIKHAIL's one-off.)
+            try { await updateFront(primary, coFront, coConscious); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); return; }
+            setShowSetFront(false);
+          }}
           onClose={() => setShowSetFront(false)} />
       ) : (
         <SetFrontModal visible={showSetFront} theme={C} members={members.filter(m => !m.archived)} groups={groups} current={front} settings={appSettings}
           lastKnownLocation={lastKnownLocation}
-          onSave={async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {await updateFront(primary, coFront, coConscious); setShowSetFront(false);}}
+          onSave={async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
+            // A transient throw here (storage hiccup, GPS resolver) used to be
+            // an unhandled rejection with the sheet left open — surface it as
+            // the normal save-failed alert instead. (MIKHAIL's one-off.)
+            try { await updateFront(primary, coFront, coConscious); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); return; }
+            setShowSetFront(false);
+          }}
           onClose={() => setShowSetFront(false)} />
       )}
       {front && (
         <EditFrontDetailModal visible={showEditFrontDetail} theme={C} front={front} tier={editTier} settings={appSettings} statusMode={isSinglet}
           lastKnownLocation={lastKnownLocation}
-          onSave={async (mood: string, location: string, note: string, energyLevel?: number) => {await updateFrontDetails(editTier, mood, location, note, energyLevel); setShowEditFrontDetail(false);}}
+          onSave={async (mood: string, location: string, note: string, energyLevel?: number) => {
+            try { await updateFrontDetails(editTier, mood, location, note, energyLevel); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); return; }
+            setShowEditFrontDetail(false);
+          }}
           onClose={() => setShowEditFrontDetail(false)} />
       )}
       <MemberModal key={`${editMember?.id || 'new-member'}-${viewOnlyMember ? 'view' : 'edit'}`} visible={showMember} theme={C} member={editMember} members={members} groups={groups} settings={appSettings}
@@ -707,7 +733,7 @@ function MainAppContent() {
         onSave={async (m: Member) => {await saveMember(addCustomFront && !editMember ? {...m, isCustomFront: true} : addFacet && !editMember ? {...m, isFacet: true} : m); setShowMember(false); setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setAddFacet(false);}}
         onDelete={async (id: string) => {await deleteMember(id); setShowMember(false); setEditMember(null); setViewOnlyMember(false);}}
         onClose={() => {setShowMember(false); setEditMember(null); setViewOnlyMember(false); setAddFacet(false);}} />
-      <CustomFrontModal visible={showCustomFront} theme={C} customFront={editCustomFront} statusMode={isSinglet}
+      <CustomFrontModal visible={showCustomFront} theme={C} customFront={editCustomFront} statusMode={isSinglet} groups={groups}
         isFronting={!!editCustomFront && allFrontMemberIds(front).includes(editCustomFront.id)}
         onSave={async (m: Member) => {await saveMember({...m, isCustomFront: true}); setShowCustomFront(false); setEditCustomFront(null);}}
         onDelete={async (id: string) => {await deleteMember(id); setShowCustomFront(false); setEditCustomFront(null);}}
@@ -742,6 +768,8 @@ function MainAppContent() {
       <SystemProfileModal visible={showSystemProfile && appSettings.accountMode !== 'singlet'} theme={C} system={system}
         onSave={(s: SystemInfo) => { saveSystem(s).catch(e => console.warn('[PS] system profile save failed:', e)); }}
         onClose={() => setShowSystemProfile(false)} />
+      {/* One crop editor for every picture upload; opened via requestImageCrop. */}
+      <ImageCropHost theme={C} />
     </View>
   );
 }

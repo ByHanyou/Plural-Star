@@ -6,7 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveJournalTemplates} from '../store/actions';
-import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch} from '../utils';
+import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {exportEntryTxt, exportEntryMd, exportEntryJSON} from '../export/exportUtils';
 import {RichText} from '../components/MarkdownRenderer';
 import {JournalTemplateModal} from '../modals';
@@ -101,11 +101,11 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
     [allTags, tagSearch],
   );
   const filteredAuthors = useMemo(
-    () => sortMembersBySearch(activeAuthors.filter(m => !authorSearch || m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch),
+    () => sortMembersBySearch(activeAuthors.filter(m => memberMatchesSearch(m, authorSearch)), authorSearch),
     [activeAuthors, authorSearch],
   );
   const filteredFacetAuthors = useMemo(
-    () => sortMembersBySearch(facetAuthors.filter(m => !authorSearch || m.name.toLowerCase().includes(authorSearch.toLowerCase())), authorSearch),
+    () => sortMembersBySearch(facetAuthors.filter(m => memberMatchesSearch(m, authorSearch)), authorSearch),
     [facetAuthors, authorSearch],
   );
 

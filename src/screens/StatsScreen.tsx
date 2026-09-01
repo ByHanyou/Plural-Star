@@ -94,6 +94,18 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
     const coConCounts: Record<string, number> = {};
     const moodCounts: Record<string, number> = {};
     const locCounts: Record<string, number> = {};
+    // "Home" and "Home " and "home" are one place. GPS-written locations and
+    // hand-typed ones differ in whitespace and case, which split a location
+    // into duplicate leaderboard rows. Count under a normalized key; display
+    // the first spelling seen.
+    const locDisplay: Record<string, string> = {};
+    const countLocation = (raw: string) => {
+      const trimmed = raw.trim();
+      if (!trimmed) return;
+      const norm = trimmed.toLocaleLowerCase();
+      const disp = locDisplay[norm] || (locDisplay[norm] = trimmed);
+      locCounts[disp] = (locCounts[disp] || 0) + 1;
+    };
 
     const lastSeen: Record<string, {end: number | null; tier: string}> = {};
     [...filteredHistory].sort((a, b) => a.startTime - b.startTime).forEach(e => {
@@ -113,7 +125,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       (e.coFrontIds || []).forEach(id => { if (isNewSession(id, 'coFront')) coFrontCounts[id] = (coFrontCounts[id] || 0) + 1; });
       (e.coConsciousIds || []).forEach(id => { if (isNewSession(id, 'coConscious')) coConCounts[id] = (coConCounts[id] || 0) + 1; });
       if (e.mood) moodCounts[e.mood] = (moodCounts[e.mood] || 0) + 1;
-      if (e.location) locCounts[e.location] = (locCounts[e.location] || 0) + 1;
+      if (e.location) countLocation(e.location);
     });
 
     const chatCounts: Record<string, number> = {};

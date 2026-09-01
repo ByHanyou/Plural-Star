@@ -5,6 +5,7 @@ import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts, fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {Member} from '../utils';
+import {memberMatchesSearch} from '../utils';
 import i18n from '../i18n/i18n';
 
 interface Props {
@@ -53,7 +54,7 @@ const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => 
 const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]; theme: ThemeColors; onPick: (m: Member) => void; onCancel: () => void}) => {
   const fs = fontScale(T);
   const [search, setSearch] = useState('');
-  const match = (m: Member, q: string) => !m.archived && !m.isCustomFront && (!q || m.name.toLowerCase().includes(q));
+  const match = (m: Member, q: string) => !m.archived && !m.isCustomFront && memberMatchesSearch(m, q);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return members.filter(m => !m.isFacet && match(m, q));
@@ -148,13 +149,27 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
     return () => { s1.remove(); s2.remove(); };
   }, []);
 
+  // At the CURSOR, not the end. The tracked selection was sitting right there
+  // in selEndRef and every insert ignored it — a tag or image dropped from the
+  // toolbar always landed at the bottom of the document no matter where the
+  // caret was.
+  const insertAtCursor = (build: (prior: string) => string) => {
+    setText(prev => {
+      const at = Math.min(Math.max(selEndRef.current, 0), prev.length);
+      const prior = prev.slice(0, at);
+      const snippet = build(prior);
+      selEndRef.current = at + snippet.length;
+      return prior + snippet + prev.slice(at);
+    });
+  };
+
   const insertFormat = (before: string, after: string) => {
     const placeholder = before.includes('<img') ? i18n.t('editor.urlPlaceholder') : (after ? i18n.t('editor.textPlaceholder') : '');
-    setText(prev => prev + before + placeholder + after);
+    insertAtCursor(() => before + placeholder + after);
   };
 
   const insertMention = (m: Member) => {
-    setText(prev => `${prev}${prev && !prev.endsWith(' ') && !prev.endsWith('\n') ? ' ' : ''}@[${m.name}](member:${m.id}) `);
+    insertAtCursor(prior => `${prior && !prior.endsWith(' ') && !prior.endsWith('\n') ? ' ' : ''}@[${m.name}](member:${m.id}) `);
     setShowMentionPicker(false);
   };
 

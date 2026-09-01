@@ -6,7 +6,7 @@ import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {Member, MemberPoll, PollOption, uid, fmtTime, sortMembersBySearch} from '../utils';
+import {Member, MemberPoll, PollOption, uid, fmtTime, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {store, KEYS} from '../storage';
 
 interface Props {
@@ -107,7 +107,7 @@ export const PollsScreen = ({theme: T}: Props) => {
           <ScrollView style={{maxHeight: 220}} keyboardShouldPersistTaps="handled">
             {(() => {
               const q = voterSearch.trim().toLowerCase();
-              const match = (m: Member) => !q || m.name.toLowerCase().includes(q);
+              const match = (m: Member) => memberMatchesSearch(m, q);
               const row = (m: Member) => (
                 <TouchableOpacity key={m.id} onPress={() => {setVoterId(m.id); setVoterPickerOpen(false); setVoterSearch('');}} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: voterId === m.id}}

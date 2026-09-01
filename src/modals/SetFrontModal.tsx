@@ -3,7 +3,7 @@ import {View, TouchableOpacity, ScrollView, Keyboard, Alert} from 'react-native'
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {Member, MemberGroup, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch} from '../utils';
+import {Member, MemberGroup, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {TFunction} from 'i18next';
@@ -28,7 +28,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   const filtered = useMemo(() => {
     const matches = members.filter(m => {
       if (selected.has(m.id)) return false;
-      const nameMatch = !search || m.name.toLowerCase().includes(search.toLowerCase());
+      const nameMatch = memberMatchesSearch(m, search);
       const tagMatch = !filterTag || (m.tags || []).includes(filterTag);
       return nameMatch && tagMatch;
     });
@@ -46,8 +46,12 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   const searchLabel = kindLabel
     ? t('members.searchToAddKind', {kind: kindLabel, defaultValue: `Type to search ${kindLabel}…`})
     : t('members.searchToAdd');
+  // The kind hint must not promise tags: only members carry them, so under
+  // Facets and Custom Fronts "select a tag to find X" pointed at a control
+  // that never appears ("tags suggested when unavailable"). The search line
+  // already says everything a tagless kind can do.
   const hintLabel = kindLabel
-    ? t('members.searchHintKind', {kind: kindLabel, defaultValue: `Type a name or select a tag to find ${kindLabel}`})
+    ? t('members.searchToAddKind', {kind: kindLabel, defaultValue: `Type to search ${kindLabel}…`})
     : t('members.searchHint');
 
   return (

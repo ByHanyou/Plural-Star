@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {View, ScrollView, StyleSheet, TouchableOpacity, Image} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
 import {AccentText} from '../components/AccentText';
 import {RichText} from '../components/MarkdownRenderer';
 import {Member, FrontState, getInitials, allFrontMemberIds, singletStatuses} from '../utils';
@@ -70,7 +70,7 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
                 <Image source={{uri: member.avatar}} accessibilityRole="image" accessibilityLabel={member.name} style={{width: 88, height: 88, borderRadius: 20, borderWidth: 2, borderColor: member.color || T.accent}} resizeMode="cover" />
               ) : (
                 <View style={{width: 88, height: 88, borderRadius: 20, backgroundColor: member?.color || T.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
-                  <Text style={{fontSize: fs(30), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(member?.name || '?')}</Text>
+                  <Text style={{fontSize: fs(30), fontWeight: '700', color: initialOn(member?.color || T.accent), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(member?.name || '?')}</Text>
                 </View>
               )}
               <Text style={{fontSize: fs(22), fontWeight: '600', color: T.text, marginTop: 10, textAlign: 'center'}} numberOfLines={2}>

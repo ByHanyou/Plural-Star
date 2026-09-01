@@ -3,6 +3,7 @@ import {View, Image} from 'react-native';
 import {Text} from './AppText';
 import {Member, getInitials} from '../utils';
 import type {ThemeColors} from '../theme';
+import {initialOn} from '../theme';
 
 interface AvatarProps {
   member?: Member | null;
@@ -80,7 +81,7 @@ export const Avatar = React.memo(function Avatar({member, size = 28, pulse = fal
         style={{
           fontSize: size * 0.35,
           fontWeight: '700',
-          color: 'rgba(0,0,0,0.75)',
+          color: initialOn(member?.color || T.toggleOff),
           // Android reserves ascender/descender padding inside the glyph box,
           // which floats a single centered initial visibly off middle (worse
           // under the custom font choices). Both props are Android-only no-ops

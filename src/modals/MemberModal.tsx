@@ -2,12 +2,12 @@ import React, {useState, useEffect} from 'react';
 import {View, TouchableOpacity, ScrollView, Image, Alert, Modal} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {pickImageFromGallery} from '../utils/imagePicker';
+import {pickImageForUpload} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
 import {Avatar} from '../components/Avatar';
 import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
-import {PALETTE, fontScale} from '../theme';
+import {PALETTE, fontScale, ensureReadable, initialOn} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, isValidHex, normalizeHex} from '../utils';
 import {store, KEYS} from '../storage';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
@@ -53,6 +53,11 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [showHexEntry, setShowHexEntry] = useState(false);
   const [hexInput, setHexInput] = useState('');
 
+  // The read page is themed after the member's colour. Clamped against the
+  // sheet background so a colour near the theme's own tone never renders
+  // unreadable text — same rule the palette preview uses.
+  const mc = ensureReadable(f.color || T.accent, T.card, 3);
+
   type MemberTab = 'main' | 'fields' | 'connections';
   const [memberTab, setMemberTab] = useState<MemberTab>('main');
   const [relList, setRelList] = useState<Relationship[]>([]);
@@ -85,6 +90,9 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       description: cloneSel.description ? (f.description || '') : '',
       tags: [],
       groupIds: [],
+      // Cloning a facet makes a facet. Without this the copy landed in the
+      // members roster as a full alter.
+      isFacet: f.isFacet || undefined,
     };
     setShowClone(false);
     try { await onSave(clone); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); }
@@ -92,7 +100,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
   const pickAvatar = async () => {
     try {
-      const img = await pickImageFromGallery();
+      const img = await pickImageForUpload();
       if (!img) return;
       const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
         ? img.uri
@@ -125,11 +133,13 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
   React.useEffect(() => {
     if (connectionsOverride) return;
-    if (visible && memberTab === 'connections' && !isNew) {
+    // readMode too: the read page shows connections inline, without the tab
+    // ever being selected.
+    if (visible && (memberTab === 'connections' || readMode) && !isNew) {
       store.get<Relationship[]>(KEYS.relationships, []).then(r => setRelList(r || []));
       store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []).then(tt => setRelTypes(tt || []));
     }
-  }, [visible, memberTab, isNew]);
+  }, [visible, memberTab, isNew, readMode]);
 
   const setFieldVal = (fieldId: string, newVal: string | number | boolean | null) => {
     const existing = f.customFields || [];
@@ -141,7 +151,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
   const pickCfImage = async (fieldId: string) => {
     try {
-      const img = await pickImageFromGallery();
+      const img = await pickImageForUpload();
       if (!img) return;
       const src = img.uri.startsWith('file://') || img.uri.startsWith('content://') ? img.uri : `file://${img.uri}`;
       const uri = await saveBioImageFromUri(`cf-${f.id}-${fieldId}`, src);
@@ -204,7 +214,11 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('member', draftId); onClose();}}>{t('common.cancel')}</Btn>}
       {!confirmDel && <Btn instant T={T} onPress={async () => {const nm = (f.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...f, name: nm}); clearDraft('member', draftId); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
 
-      {!isNew && !profileMode && (
+      {/* No tabs in read mode: the profile reads as ONE page — banner, then
+          avatar beside the name/pronouns/role stack, then description, custom
+          fields and connections in that order down the page. Edit mode keeps
+          the tabbed editor untouched. */}
+      {!isNew && !profileMode && !readOnly && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}}
           contentContainerStyle={{borderBottomWidth: 1, borderBottomColor: T.border}}>
           {(['main', 'fields', 'connections'] as MemberTab[]).map(tab => (
@@ -249,7 +263,83 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         </TouchableOpacity>
       )}
 
-      {(memberTab === 'main' || isNew) && (<>
+      {readOnly && !isNew && (<>
+        {f.banner && !bannerBroken && (
+          <View style={{width: '100%', aspectRatio: 3, borderRadius: 8, overflow: 'hidden', backgroundColor: T.surface, marginBottom: 12}}>
+            <Image source={{uri: f.banner}} onError={() => setBannerBroken(true)} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', height: '100%'}} resizeMode="cover" />
+          </View>
+        )}
+
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 8}}>
+          <TouchableOpacity onPress={f.avatar ? openViewPfp : undefined} activeOpacity={f.avatar ? 0.7 : 1}
+            accessibilityRole={f.avatar ? 'button' : 'image'} accessibilityLabel={f.avatar ? t('modal.viewPfp') : (f.name || '?')}>
+            {f.avatar ? (
+              <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
+            ) : (
+              <View style={{width: 80, height: 80, borderRadius: 18, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
+                <Text style={{fontSize: fs(28), fontWeight: '700', color: initialOn(f.color), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <View style={{flex: 1, alignItems: 'center'}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(20), fontWeight: '700', color: mc, textAlign: 'center'}} numberOfLines={2}>{f.name}</Text>
+            {f.pronouns ? <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginTop: 2}} numberOfLines={1}>{f.pronouns}</Text> : null}
+            {!profileMode && f.role ? <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic', textAlign: 'center', marginTop: 2}} numberOfLines={2}>{f.role}</Text> : null}
+          </View>
+        </View>
+        {f.avatar && (
+          <TouchableOpacity onPress={openViewPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} style={{alignSelf: 'flex-start', marginBottom: 8}}>
+            <Text style={{fontSize: fs(11), color: mc}}>🔍 {t('modal.viewPfp')}</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={{flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginBottom: 10}}>
+          <View accessibilityLabel={`${profileMode ? t('profile.favoriteColor') : t('modal.color')}: ${f.color}`} style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: `${f.color}40`, backgroundColor: T.surface}}>
+            <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: f.color, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'}} />
+            <Text style={{fontSize: fs(11), color: T.dim, fontFamily: 'monospace'}} accessibilityElementsHidden importantForAccessibility="no">{f.color}</Text>
+          </View>
+        </View>
+
+        {/* Tag row, then Group row, directly above the Description. Tags take
+            the member's colour — the whole read page is themed by it. */}
+        {!profileMode && (f.tags || []).length > 0 && (
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10}}>
+            {(f.tags || []).map((tag: string) => (
+              <View key={tag} style={{paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${f.color}18`, borderWidth: 1, borderColor: `${f.color}40`}}>
+                <Text style={{fontSize: fs(11), color: mc}}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+        {(() => {
+          const activeGroups = sortGroupsForDisplay((groups || []).filter((g: MemberGroup) => (f.groupIds || []).includes(g.id)), groups || []);
+          if (activeGroups.length === 0) return null;
+          return (
+            <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 12}}>
+              {activeGroups.map((g: MemberGroup) => (
+                <TouchableOpacity key={g.id} onPress={g.description ? () => setGroupInfo(g) : undefined} activeOpacity={g.description ? 0.7 : 1}
+                  accessibilityRole="button" accessibilityLabel={g.name}
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
+                    backgroundColor: `${g.color || T.accent}20`, borderColor: `${g.color || T.accent}50`}}>
+                  <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: g.color || T.accent}} />
+                  <Text style={{fontSize: fs(11), color: g.color || T.accent}}>{g.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          );
+        })()}
+
+        {f.description ? (
+          <View style={{marginBottom: 14}}>
+            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
+            <View style={{backgroundColor: T.surface, borderWidth: 1, borderColor: `${f.color}40`, borderRadius: 8, padding: 12, minHeight: 80}}>
+              <RichDescription text={f.description} T={T} members={members} onMentionPress={onMentionPress} />
+            </View>
+          </View>
+        ) : null}
+      </>)}
+
+      {!readOnly && (memberTab === 'main' || isNew) && (<>
         <View style={{alignItems: 'center', marginBottom: 16}}>
           {/* Read-only viewers had a dead tap here. Now it opens the picture at
               full size, which is the whole point of looking at someone's card. */}
@@ -258,7 +348,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
               <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
             ) : (
               <View style={{width: 80, height: 80, borderRadius: 18, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
-                <Text style={{fontSize: fs(28), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
+                <Text style={{fontSize: fs(28), fontWeight: '700', color: initialOn(f.color), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
               </View>
             )}
             {!readOnly && (
@@ -294,7 +384,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         {(!readOnly || (f.banner && !bannerBroken)) && (
           <TouchableOpacity onPress={readOnly ? undefined : async () => {
             try {
-              const img = await pickImageFromGallery();
+              const img = await pickImageForUpload();
               if (!img) return;
               const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
                 ? img.uri
@@ -311,6 +401,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         {f.banner && !readOnly && <TouchableOpacity onPress={() => Alert.alert(t('memberProfile.removeBanner'), t('modal.removeImageMsg'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.remove'), style: 'destructive', onPress: () => set('banner', undefined)}])} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberProfile.removeBanner')} style={{marginBottom: 8}}><Text style={{fontSize: fs(10), color: T.danger}}>{t('memberProfile.removeBanner')}</Text></TouchableOpacity>}
 
         <Field label={t('modal.name')} value={f.name} onChange={(v: string) => set('name', v)} placeholder={t('modal.headmateName')} readOnly={readOnly} T={T} />
+        {/* Search-only alias: shown here in EDIT, never on the read view.
+            Lets someone whose name is symbols or a styled font be found by
+            typing. */}
+        {!readOnly && (
+          <Field label={t('modal.nickname')} value={f.nickname || ''} onChange={(v: string) => set('nickname', v || undefined)} placeholder={t('modal.nickname')} T={T} />
+        )}
         <Field label={t('modal.pronouns')} value={f.pronouns} onChange={(v: string) => set('pronouns', v)} placeholder={t('modal.pronounsPlaceholder')} readOnly={readOnly} T={T} />
         {!profileMode && <Field label={t('modal.role')} value={f.role} onChange={(v: string) => set('role', v)} placeholder={t('modal.rolePlaceholder')} readOnly={readOnly} T={T} />}
 
@@ -441,13 +537,20 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         )}
       </>)}
 
-      {memberTab === 'fields' && !isNew && (
+      {(memberTab === 'fields' || (readOnly && !profileMode)) && !isNew && (
         <View>
           {(() => {
           const visibleDefs = readOnly
             ? fieldDefs.filter(vfd => { const vv = (f.customFields || []).find(c => c.fieldId === vfd.id)?.value; return !(vv === undefined || vv === null || vv === ''); })
             : fieldDefs;
-          return visibleDefs.length > 0 ? visibleDefs.map((fd, fdIndex) => {
+          // Inline on the read page: nothing to show means no section at all,
+          // not a centered "no fields" placeholder mid-profile.
+          if (readOnly && visibleDefs.length === 0) return null;
+          return (<>
+          {readOnly && (
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 8, fontWeight: '600', borderTopWidth: 1, borderTopColor: `${f.color}40`, paddingTop: 14}}>{t('customFields.title')}</Text>
+          )}
+          {visibleDefs.length > 0 ? visibleDefs.map((fd, fdIndex) => {
             const cfv = (f.customFields || []).find(v => v.fieldId === fd.id);
             const val = cfv?.value ?? '';
 
@@ -641,13 +744,17 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             <View style={{alignItems: 'center', paddingVertical: 40}}>
               <Text style={{fontSize: fs(13), color: T.muted}}>{t('customFields.noFieldsInfo')}</Text>
             </View>
-          );
+          )}
+          </>);
           })()}
         </View>
       )}
 
-      {memberTab === 'connections' && !isNew && (
+      {(memberTab === 'connections' || (readOnly && !profileMode)) && !isNew && (!readOnly || connRows.length > 0 || onShowOnMap) && (
         <View>
+          {readOnly && (
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 8, fontWeight: '600', borderTopWidth: 1, borderTopColor: `${f.color}40`, paddingTop: 14}}>{t('systemMap.connections')}</Text>
+          )}
           {onShowOnMap && (
             <TouchableOpacity onPress={() => onShowOnMap(f.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.showOnMap')}
               style={{alignSelf: 'flex-start', borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14}}>
@@ -655,7 +762,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             </TouchableOpacity>
           )}
           {connRows.length === 0 ? (
-            <Text style={{fontSize: fs(12), color: T.dim, paddingVertical: 8}}>{t('systemMap.noneForMember')}</Text>
+            !readOnly && <Text style={{fontSize: fs(12), color: T.dim, paddingVertical: 8}}>{t('systemMap.noneForMember')}</Text>
           ) : connRows.map(row => (
             <TouchableOpacity key={row.key} onPress={() => onMentionPress && onMentionPress(row.otherId)} activeOpacity={0.7}
               accessibilityRole="button" accessibilityLabel={`${row.label}: ${row.name}`}

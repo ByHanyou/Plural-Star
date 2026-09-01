@@ -6,6 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {NetworkManager} from '../network/NetworkManager';
 import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup, MirrorSystemProfile, MIRROR_SYSTEM_AVATAR_ID, MIRROR_SYSTEM_BANNER_ID} from '../network/types';
 import {SystemProfileCard} from '../components/SystemProfileCard';
+import Svg, {Path} from 'react-native-svg';
 import {ThemeColors, fontScale} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
@@ -108,6 +109,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     : feature === 'groups' ? t('members.fieldGroups')
     : feature === 'history' ? t('tabs.history')
     : feature === 'systemProfile' ? t('systemProfile.title')
+    : feature === 'whiteboard' ? t('whiteboard.title')
     : t('tabs.journal');
 
   const mirrorMembers: MirrorMember[] =
@@ -300,6 +302,58 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}
           ListEmptyComponent={<Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>}
         />
+      );
+    }
+    if (feature === 'whiteboard') {
+      const strokes: {id: string; c: string; w: number; pts: number[]}[] = Array.isArray(entry.data) ? entry.data : [];
+      if (strokes.length === 0) {
+        return (
+          <View style={{padding: 24, alignItems: 'center'}}>
+            <Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>
+          </View>
+        );
+      }
+      // World half-size matches WhiteboardScreen's HALF: a w === -1 stroke is
+      // a whole-board fill and needs the full board box to mean anything.
+      const HALF_W = 2000;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let boardFill = false;
+      for (const s of strokes) {
+        if (!s || !Array.isArray(s.pts)) continue;
+        if (s.w === -1) { boardFill = true; continue; }
+        for (let i = 0; i + 1 < s.pts.length; i += 2) {
+          if (s.pts[i] < minX) minX = s.pts[i];
+          if (s.pts[i] > maxX) maxX = s.pts[i];
+          if (s.pts[i + 1] < minY) minY = s.pts[i + 1];
+          if (s.pts[i + 1] > maxY) maxY = s.pts[i + 1];
+        }
+      }
+      if (!Number.isFinite(minX) || boardFill) { minX = -HALF_W; minY = -HALF_W; maxX = HALF_W; maxY = HALF_W; }
+      const pad = 40;
+      const vw = Math.max(1, maxX - minX + pad * 2);
+      const vh = Math.max(1, maxY - minY + pad * 2);
+      const sp = (pts: number[]): string => {
+        if (pts.length < 2) return '';
+        let d = `M ${pts[0]} ${pts[1]}`;
+        if (pts.length === 2) d += ` L ${pts[0] + 0.1} ${pts[1] + 0.1}`;
+        for (let i = 2; i < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
+        return d;
+      };
+      return (
+        <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}>
+          <View accessibilityRole="image" accessibilityLabel={t('whiteboard.title')}
+            style={{width: '100%', aspectRatio: Math.min(3, Math.max(0.4, vw / vh)), backgroundColor: T.surface, borderRadius: 8, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+            <Svg width="100%" height="100%" viewBox={`${minX - pad} ${minY - pad} ${vw} ${vh}`}>
+              {strokes.map(s => !s || !Array.isArray(s.pts) ? null : s.w === -1 ? (
+                <Path key={s.id} d={`M ${-HALF_W} ${-HALF_W} H ${HALF_W} V ${HALF_W} H ${-HALF_W} Z`} fill={s.c} stroke="none" />
+              ) : s.w === -2 ? (
+                <Path key={s.id} d={`${sp(s.pts)} Z`} fill={s.c} stroke="none" />
+              ) : (
+                <Path key={s.id} d={sp(s.pts)} stroke={s.c} strokeWidth={s.w} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              ))}
+            </Svg>
+          </View>
+        </ScrollView>
       );
     }
     if (feature === 'systemProfile') {

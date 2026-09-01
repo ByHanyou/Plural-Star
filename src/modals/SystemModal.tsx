@@ -40,6 +40,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [showNotifRefreshPicker, setShowNotifRefreshPicker] = useState(false);
   const [noteboardNotifs, setNoteboardNotifs] = useState<boolean>(settings?.noteboardNotifications ?? false);
   const [termMap, setTermMap] = useState<Record<string, string>>(settings?.terminology || {});
+  const [tierMap, setTierMap] = useState<Record<string, string>>(settings?.tierNames || {});
   const [appLockPw, setAppLockPw] = useState<string>(settings?.appLockPassword || '');
   const [showAppLockPw, setShowAppLockPw] = useState<boolean>(!!settings?.appLockPassword);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
@@ -52,7 +53,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [paletteName, setPaletteName] = useState('');
   const [palBg, setPalBg] = useState(''); const [palAccent, setPalAccent] = useState('');
   const [palText, setPalText] = useState(''); const [palMid, setPalMid] = useState('');
-  React.useEffect(() => { if (visible) { setJournalPw(system.journalPassword || ''); setShowJournalPw(!!system.journalPassword); setSysName(system.name || ''); setSysDesc(system.description || ''); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setTermMap(settings?.terminology || {}); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (visible) { setJournalPw(system.journalPassword || ''); setShowJournalPw(!!system.journalPassword); setSysName(system.name || ''); setSysDesc(system.description || ''); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setTermMap(settings?.terminology || {}); setTierMap(settings?.tierNames || {}); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
   // Depends on `visible` ONLY, deliberately. `settings` is a fresh object on
   // every store write (a sync apply, a GPS location update, any other setting
   // saved), so keeping it in the deps re-ran this while the sheet was open and
@@ -101,7 +102,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       // opened: the profile is edited elsewhere now, and a stale copy would
       // quietly undo a name or avatar change made in between.
       onSave({...system, ...(singletMode ? {name: sysName, description: sysDesc} : {}), journalPassword: showJournalPw && journalPw ? journalPw : undefined});
-      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
+      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, tierNames: tierMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
       {/* Name, description, avatar and banner moved to the System Profile,
@@ -321,6 +322,23 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
                 />
               </View>
             ))}
+          </View>
+        ))}
+        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginTop: 6, marginBottom: 8}}>{t('terminology.tierHint')}</Text>
+        {/* terminology.* label keys: exempt from both override passes, so the
+            defaults stay visible for resetting, same as the fields above. */}
+        {([['primary', 'tierPrimary'], ['coFront', 'tierCoFront'], ['coConscious', 'tierCoConscious']] as const).map(([tier, labelKey]) => (
+          <View key={tier} style={{marginBottom: 8}}>
+            <Text style={{fontSize: fs(10), color: T.dim, marginBottom: 3}}>{t(`terminology.${labelKey}`)}</Text>
+            <TextInput
+              value={tierMap[tier] || ''}
+              onChangeText={v => setTierMap(m => ({...m, [tier]: v}))}
+              placeholder={t(`terminology.${labelKey}`)}
+              placeholderTextColor={T.muted}
+              accessibilityLabel={t(`terminology.${labelKey}`)}
+              autoCapitalize="none"
+              style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}}
+            />
           </View>
         ))}
       </View>

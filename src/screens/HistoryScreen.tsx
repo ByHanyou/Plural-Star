@@ -8,7 +8,7 @@ import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
 import {saveHistory} from '../store/actions';
 import {AccentText} from '../components/AccentText';
-import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, TIER_LABELS, translateMood, sortMembersBySearch, singletStatuses, buildEffectiveEnd} from '../utils';
+import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, TIER_LABELS, translateMood, sortMembersBySearch, memberMatchesSearch, singletStatuses, buildEffectiveEnd} from '../utils';
 import {store, KEYS} from '../storage';
 import {FlashList} from '@shopify/flash-list';
 import {FrontTimeline} from '../components/FrontTimeline';
@@ -521,10 +521,10 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                           </TouchableOpacity>
                         );
                         // Facets keep their own section: out of the member list, still selectable.
-                        const facets = singlet ? [] : sortMembersBySearch(members.filter(m => m.isFacet && m.name.toLowerCase().includes(q)), memberSearch);
+                        const facets = singlet ? [] : sortMembersBySearch(members.filter(m => m.isFacet && memberMatchesSearch(m, q)), memberSearch);
                         return (
                           <>
-                            {sortMembersBySearch(pickerMembers.filter(m => m.name.toLowerCase().includes(q)), memberSearch).map(row)}
+                            {sortMembersBySearch(pickerMembers.filter(m => memberMatchesSearch(m, q)), memberSearch).map(row)}
                             {facets.length > 0 && (
                               <>
                                 <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>

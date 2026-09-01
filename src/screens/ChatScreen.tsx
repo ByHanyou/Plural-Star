@@ -11,7 +11,7 @@ import {readFileBase64} from '../utils/fileBytes';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveChatChannels, saveChatCategories} from '../store/actions';
-import {Member, ChatChannel, ChatCategory, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMembersBySearch, frontersFirst, sortChatCategories, chatChannelsIn} from '../utils';
+import {Member, ChatChannel, ChatCategory, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMembersBySearch, memberMatchesSearch, frontersFirst, sortChatCategories, chatChannelsIn} from '../utils';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {store, chatMsgKey} from '../storage';
@@ -754,7 +754,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
             style={{backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(13), marginBottom: 6}} />
           {(() => {
             const q = memberSearch.toLowerCase();
-            const match = (m: Member) => !m.archived && !m.isCustomFront && (!memberSearch || m.name.toLowerCase().includes(q));
+            const match = (m: Member) => !m.archived && !m.isCustomFront && (!memberSearch || memberMatchesSearch(m, q));
             const chip = (m: Member) => (
               <TouchableOpacity key={m.id} onPress={() => {setActiveMemberId(m.id); setShowMemberPicker(false); setMemberSearch('');}} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityState={{selected: activeMemberId === m.id}} accessibilityLabel={m.name}

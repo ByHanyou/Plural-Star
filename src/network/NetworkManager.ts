@@ -242,7 +242,8 @@ class NetworkManagerImpl {
       enabled: this.settings.enabled,
       status: this.status,
       peerId: this.identity?.peerId ?? null,
-      friends: this.friends.filter(f => f.kind !== 'device'),
+      friends: this.friends.filter(f => f.kind !== 'device')
+        .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || (a.addedAt - b.addedAt)),
       devices: this.friends.filter(f => f.kind === 'device'),
       onlinePeers: this.identity && this.status === 'online'
         ? Array.from(new Set([...this.online, this.identity.peerId]))
@@ -967,6 +968,22 @@ class NetworkManagerImpl {
     this.registerWithGateway().catch(() => {});
   }
 
+  /** Swap a friend with its neighbour in the displayed order. The whole lane
+   *  is renumbered on every move: rows that predate sortOrder have none, and
+   *  a single swap among unnumbered rows would land in arbitrary order.
+   *  Devices are untouched — only the friends list is orderable. */
+  async moveFriend(peerId: string, dir: -1 | 1): Promise<void> {
+    const list = this.friends.filter(f => f.kind !== 'device')
+      .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || (a.addedAt - b.addedAt));
+    const idx = list.findIndex(f => f.peerId === peerId);
+    const swap = idx + dir;
+    if (idx < 0 || swap < 0 || swap >= list.length) return;
+    [list[idx], list[swap]] = [list[swap], list[idx]];
+    list.forEach((f, i) => this.upsertFriend({ ...f, sortOrder: i }));
+    await this.persistFriends();
+    this.notify();
+  }
+
   private gatewayFetch(path: string, body: Record<string, unknown>): Promise<unknown> {
     const timeout = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('gateway timeout')), 10000),
@@ -992,15 +1009,27 @@ class NetworkManagerImpl {
     const watchers = this.friends.filter(f => f.kind !== 'device' && f.status === 'accepted');
     if (watchers.length === 0) return this.myFront;
     const buckets = await this.loadPrivacyBuckets();
+    // Per watcher, the EFFECTIVE visible-id set is kind-aware: members answer
+    // to the members scope, facets to the facets scope (which falls back to
+    // members when never set). Materialize only when a watcher is restricted;
+    // fully-unrestricted watchers stay `null` and never narrow the payload.
+    const roster = this.myFrontRaw.members;
+    const facetIdsAll = roster.filter(m => m.isFacet && !m.isCustomFront).map(m => m.id);
+    const nonFacetIdsAll = roster.filter(m => !(m.isFacet && !m.isCustomFront)).map(m => m.id);
     let allowed: Set<string> | null = null; // null = unrestricted so far
     for (const f of watchers) {
-      const ids = this.allowedMemberIdsFor(buckets, f.peerId);
-      if (ids === null) continue;
+      const mIds = this.allowedMemberIdsFor(buckets, f.peerId);
+      const fIds = this.allowedFacetIdsFor(buckets, f.peerId);
+      if (mIds === null && fIds === null) continue;
+      const eff = new Set<string>([
+        ...(mIds === null ? nonFacetIdsAll : Array.from(mIds)),
+        ...(fIds === null ? facetIdsAll : Array.from(fIds)),
+      ]);
       if (allowed === null) {
-        allowed = new Set<string>(Array.from(ids));
+        allowed = eff;
       } else {
         const next = new Set<string>();
-        allowed.forEach(id => { if (ids.has(id)) next.add(id); });
+        allowed.forEach(id => { if (eff.has(id)) next.add(id); });
         allowed = next;
       }
       if (allowed.size === 0) break;
@@ -1034,6 +1063,14 @@ class NetworkManagerImpl {
       .filter(f => f.kind !== 'device' && f.status === 'accepted')
       .map(f => f.peerId)
       .slice(0, 500);
+    // Content-gated: updateMyFront runs on every MEMBER edit too (names have
+    // to stay fresh), and each announce fans an iOS push to every watcher —
+    // so editing headmates sprayed friends with "the same front status every
+    // 3 minutes". If nothing a watcher can SEE has changed, there is nothing
+    // to announce. The stamp (ts) is deliberately outside the gate; a re-stamp
+    // alone is not news.
+    const contentSig = `${fronters}|${startTime}|${name}|${primary}|${coFront}|${coConscious}|${readers.join(',')}`;
+    if (contentSig === this.gwAnnouncedSig) return;
     // The SAME stamp the socket copy carries, not a fresh one, so the two lanes
     // never look like different generations of the same front.
     const ts = this.myFrontAt || Date.now();
@@ -1069,6 +1106,8 @@ class NetworkManagerImpl {
           name,
         });
       }
+      // Only a SENT announce arms the gate; a failed one must retry next time.
+      this.gwAnnouncedSig = contentSig;
     } catch {}
   }
 
@@ -1249,6 +1288,9 @@ class NetworkManagerImpl {
   /** Raw front + roster, kept so every send can be re-scoped per recipient. */
   private myFrontRaw: {front: any; members: Member[]} | null = null;
 
+  /** Content of the last announce the gateway accepted; unchanged ⇒ skip. */
+  private gwAnnouncedSig: string | null = null;
+
   private async loadPrivacyBuckets(): Promise<PrivacyBucket[]> {
     try {
       const raw = await AsyncStorage.getItem(PRIVACY_BUCKETS_KEY);
@@ -1259,16 +1301,46 @@ class NetworkManagerImpl {
 
   /** null = may see everyone; a Set = only those member ids. */
   private allowedMemberIdsFor(buckets: PrivacyBucket[], peerId: string): Set<string> | null {
+    // A friend NO bucket refers to may see everyone. Buckets are an opt-in
+    // restriction; treating the unbucketed as 'none' silenced the front lane
+    // for every pair that never set one up ("can't see my friend's front,
+    // mood, note and etc"), and because the gateway announce is the
+    // intersection across ALL watchers, one unbucketed friend emptied the
+    // push/offline lane for the rest too. A friend who IS in buckets follows
+    // the intersection exactly — including all the way down to nothing, when
+    // that is what their buckets say.
+    if (!buckets.some(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId))) return null;
     const scope = this.effectiveScope(buckets, peerId, 'members');
     if (scope.mode === 'all') return null;
     if (scope.mode === 'none') return new Set();
     return scope.ids;
   }
 
+  /**
+   * Facet visibility for the front lane. Per bucket, the facets scope FALLS
+   * BACK to that bucket's members scope when absent — the exact pre-field
+   * behavior — so only buckets deliberately edited diverge. Unbucketed peers
+   * are unrestricted, same rule as members.
+   */
+  private allowedFacetIdsFor(buckets: PrivacyBucket[], peerId: string): Set<string> | null {
+    if (!buckets.some(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId))) return null;
+    const mine = buckets.filter(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId));
+    const ids = new Set<string>();
+    let all = false;
+    for (const b of mine) {
+      const scope = (b.facets ?? b.members) as PrivacyScope | undefined;
+      if (!scope || scope.mode === 'none') continue;
+      if (scope.mode === 'all') { all = true; continue; }
+      for (const id of scope.ids || []) ids.add(id);
+    }
+    if (all) return null;
+    return ids;
+  }
+
   /** The front as THIS recipient is permitted to see it. */
   private scopedFrontFor(buckets: PrivacyBucket[], peerId: string): FrontShare | null {
     if (!this.myFrontRaw) return this.myFront;
-    return buildFrontShare(this.myFrontRaw.front, this.myFrontRaw.members, this.allowedMemberIdsFor(buckets, peerId));
+    return buildFrontShare(this.myFrontRaw.front, this.myFrontRaw.members, this.allowedMemberIdsFor(buckets, peerId), this.allowedFacetIdsFor(buckets, peerId));
   }
 
   async updateMyFront(front: any, members: Member[]): Promise<void> {
@@ -1562,7 +1634,7 @@ class NetworkManagerImpl {
   }
 
   private clearMirrorCaches(peerId: string): void {
-    for (const feat of ['members', 'groups', 'journal', 'history', 'systemProfile'] as MirrorFeature[]) {
+    for (const feat of ['members', 'groups', 'journal', 'history', 'systemProfile', 'whiteboard'] as MirrorFeature[]) {
       AsyncStorage.removeItem(this.mirrorCacheKey(peerId, feat)).catch(() => {});
       this.clearMirrorMedia(peerId, feat).catch(() => {});
       this.mirrorSentHash.delete(`${peerId}|${feat}`);
@@ -1621,7 +1693,7 @@ class NetworkManagerImpl {
   private mirrorSentHash: Map<string, string> = new Map();
 
   private async handleMirrorReq(peerId: string, feature: MirrorFeature, skipIfUnchanged?: boolean): Promise<void> {
-    if (feature !== 'members' && feature !== 'groups' && feature !== 'journal' && feature !== 'history' && feature !== 'systemProfile') return;
+    if (feature !== 'members' && feature !== 'groups' && feature !== 'journal' && feature !== 'history' && feature !== 'systemProfile' && feature !== 'whiteboard') return;
     const fr = this.friends.find(x => x.peerId === peerId && x.kind !== 'device' && x.status === 'accepted');
     if (!fr) return;
     const gateKey = `${peerId}|${feature}`;
@@ -1651,7 +1723,18 @@ class NetworkManagerImpl {
     // of a full profile, not as a 28px row avatar.
     let profileImages: {id: string; src: string; maxDim: number}[] = [];
     try {
-      if (feature === 'systemProfile') {
+      if (feature === 'whiteboard') {
+        // The board as-is: an array of strokes, chunked like any other mirror.
+        // Validated to an array so a corrupt value sends nothing rather than
+        // junk a friend's viewer chokes on.
+        const rawWb = await AsyncStorage.getItem(KEYS.whiteboard);
+        let strokes: any[] = [];
+        try {
+          const parsed = rawWb ? JSON.parse(rawWb) : [];
+          if (Array.isArray(parsed)) strokes = parsed;
+        } catch {}
+        payload = JSON.stringify(strokes);
+      } else if (feature === 'systemProfile') {
         const rawSys = await AsyncStorage.getItem(KEYS.system);
         let sys: any = {};
         try {
@@ -2244,6 +2327,25 @@ class NetworkManagerImpl {
     } catch {}
   }
 
+  /** True when incoming's roster is missing ids that exist locally and are not
+   *  tombstoned — the fingerprint of a stale device's list, never of a real
+   *  edit stream. Parse failures answer false so a corrupt value falls through
+   *  to the ordinary gates rather than being silently trusted. */
+  private rosterDropsLiveMembers(localRaw: string, incomingRaw: string): boolean {
+    try {
+      const loc = JSON.parse(localRaw);
+      const inc = JSON.parse(incomingRaw);
+      if (!Array.isArray(loc) || !Array.isArray(inc)) return false;
+      const incIds = new Set(inc.filter((m: any) => m && m.id).map((m: any) => m.id));
+      for (const m of loc) {
+        if (m && m.id && !m.deleted && !incIds.has(m.id)) return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   private frontStartTime(raw: string | null | undefined): number | null {
     if (!raw) return null;
     try {
@@ -2434,42 +2536,70 @@ class NetworkManagerImpl {
     this.syncing = true;
     this.lastPushAt = now;
     try {
-      const sendOne = async (msg: NetMessage) => {
+      // Resolves true only when at least one device PLAUSIBLY received the
+      // message: sendTo resolved and the peer is reachable right now. sendTo
+      // can resolve for an offline peer (the relay has no store-and-forward),
+      // so resolution alone proves nothing.
+      const sendOne = async (msg: NetMessage): Promise<boolean> => {
+        let delivered = false;
         for (const d of devices) {
           try {
             await this.sendTo(d.peerId, msg);
+            if (this.isReachable(d.peerId)) delivered = true;
           } catch {}
         }
         await sleep(SYNC_PACE_MS);
+        return delivered;
       };
 
       let batch: Record<string, {v: string; h: string}> = {};
+      let batchKeys: {k: string; h: string}[] = [];
       let size = 0;
+      let advanced = false;
       const flush = async () => {
         if (Object.keys(batch).length === 0) return;
         const payload = batch;
+        const sentKeys = batchKeys;
         batch = {};
+        batchKeys = [];
         size = 0;
-        await sendOne({t: 'sync', keys: payload});
+        const ok = await sendOne({t: 'sync', keys: payload});
+        // lastHashes means "what the other devices have SEEN", and it is what
+        // the conflict gate on the far side is measured against. Advancing it
+        // for a push nobody received is how months of edits made while the
+        // other device was offline stopped counting as local changes — the
+        // stale device's old data then sailed through the gate on reconnect
+        // and wiped both sides. No delivery, no advance: the keys stay dirty
+        // and are re-pushed until a device is actually there to take them.
+        if (ok) {
+          for (const {k, h} of sentKeys) this.lastHashes[k] = h;
+          advanced = true;
+        }
       };
 
       for (const c of changed) {
         if (c.v.length > SYNC_MSG_BUDGET) {
           await flush();
           const total = Math.ceil(c.v.length / SYNC_CHUNK_SIZE);
+          let allOk = total > 0;
           for (let seq = 0; seq < total; seq++) {
             const data = c.v.slice(seq * SYNC_CHUNK_SIZE, (seq + 1) * SYNC_CHUNK_SIZE);
-            await sendOne({t: 'sync_chunk', key: c.k, h: c.h, seq, total, data});
+            const ok = await sendOne({t: 'sync_chunk', key: c.k, h: c.h, seq, total, data});
+            if (!ok) allOk = false;
+          }
+          if (allOk) {
+            this.lastHashes[c.k] = c.h;
+            advanced = true;
           }
         } else {
           if (size + c.v.length > SYNC_MSG_BUDGET && Object.keys(batch).length) await flush();
           batch[c.k] = {v: c.v, h: c.h};
+          batchKeys.push({k: c.k, h: c.h});
           size += c.v.length;
         }
-        this.lastHashes[c.k] = c.h;
       }
       await flush();
-      await store.set(SYNC_STATE_KEY, this.lastHashes);
+      if (advanced) await store.set(SYNC_STATE_KEY, this.lastHashes);
     } finally {
       this.syncing = false;
     }
@@ -2688,6 +2818,16 @@ class NetworkManagerImpl {
         continue;
       }
       if (k === KEYS.members && localRaw != null && realMemberCount(incoming.v) === 0 && realMemberCount(localRaw) > 0) {
+        conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
+        continue;
+      }
+      // A legitimate roster never simply LOSES someone: deletion tombstones the
+      // record in place (deleted: true), so a real deletion still carries the
+      // id. An incoming list where local, live members are absent entirely is
+      // a stale device's roster arriving after a long gap — the exact shape
+      // that silently erased months of alters from both devices — so it goes
+      // to the conflict prompt instead of applying.
+      if (k === KEYS.members && localRaw != null && this.rosterDropsLiveMembers(localRaw, incoming.v)) {
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
         continue;
       }

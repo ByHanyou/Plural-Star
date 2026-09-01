@@ -12,10 +12,15 @@ export const TERMINOLOGY_TERMS = ['member', 'members', 'group', 'groups', 'facet
 export type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
 export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
 
-export const TERM_FORMS: Record<string, TerminologyMap> = {
+/** Findable forms per language: one word or several. The app's own synonyms
+ *  count as forms of the term they mean — "Headmate" IS the member term, and
+ *  strings using it never picked up the user's word until it was listed. */
+type TermFormsMap = Partial<Record<TerminologyTerm, string | string[]>>;
+
+export const TERM_FORMS: Record<string, TermFormsMap> = {
   en: {
-    member: 'Member',
-    members: 'Members',
+    member: ['Member', 'Headmate'],
+    members: ['Members', 'Headmates'],
     group: 'Group',
     groups: 'Groups',
     facet: 'Facet',
@@ -25,7 +30,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'System',
   },
   es: {
-    member: 'Miembro',
+    member: ['Miembro', 'Compañero'],
     members: 'Miembros',
     group: 'Grupo',
     groups: 'Grupos',
@@ -35,7 +40,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'Sistema',
   },
   fr: {
-    member: 'Membre',
+    member: ['Membre', 'Compagnon'],
     members: 'Membres',
     group: 'Groupe',
     groups: 'Groupes',
@@ -45,7 +50,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'Système',
   },
   de: {
-    member: 'Mitglied',
+    member: ['Mitglied', 'Kopfbewohner', 'Kopfbewohners'],
     members: 'Mitglieder',
     group: 'Gruppe',
     groups: 'Gruppen',
@@ -96,7 +101,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'System',
   },
   nl: {
-    member: 'Lid',
+    member: ['Lid', 'Headmate'],
     members: 'Leden',
     group: 'Groep',
     groups: 'Groepen',
@@ -106,7 +111,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'Systeem',
   },
   is: {
-    member: 'Meðlimur',
+    member: ['Meðlimur', 'Headmate'],
     members: 'Meðlimir',
     group: 'Hópur',
     groups: 'Hópar',
@@ -116,7 +121,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'Kerfi',
   },
   it: {
-    member: 'Membro',
+    member: ['Membro', 'Headmate'],
     members: 'Membri',
     group: 'Gruppo',
     groups: 'Gruppi',
@@ -126,7 +131,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'Sistema',
   },
   pl: {
-    member: 'Członek',
+    member: ['Członek', 'Headmate'],
     members: 'Członkowie',
     group: 'Grupa',
     groups: 'Grupy',
@@ -136,7 +141,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'System',
   },
   tr: {
-    member: 'Üye',
+    member: ['Üye', 'Headmate'],
     members: 'Üyeler',
     group: 'Grup',
     groups: 'Gruplar',
@@ -146,28 +151,28 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'Sistem',
   },
   ms: {
-    member: 'Ahli',
+    member: ['Ahli', 'Headmate'],
     group: 'Kumpulan',
     facet: 'Facet',
     front: 'Front',
     system: 'Sistem',
   },
   vi: {
-    member: 'Thành viên',
+    member: ['Thành viên', 'Headmate'],
     group: 'Nhóm',
     facet: 'Diện',
     front: 'Front',
     system: 'Hệ thống',
   },
   th: {
-    member: 'สมาชิก',
+    member: ['สมาชิก', 'เฮดเมท'],
     group: 'กลุ่ม',
     facet: 'แง่มุม',
     front: 'ฟรอนต์',
     system: 'ระบบ',
   },
   hi: {
-    member: 'सदस्य',
+    member: ['सदस्य', 'हेडमेट'],
     group: 'समूह',
     facet: 'फ़ेसेट',
     front: 'फ्रंट',
@@ -175,7 +180,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'सिस्टम',
   },
   af: {
-    member: 'Lid',
+    member: ['Lid', 'Headmate'],
     members: 'Lede',
     group: 'Groep',
     groups: 'Groepe',
@@ -186,7 +191,7 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'Sisteem',
   },
   ko: {
-    member: '멤버',
+    member: ['멤버', '헤드메이트'],
     group: '그룹',
     facet: '패싯',
     front: '프런트',
@@ -201,14 +206,14 @@ export const TERM_FORMS: Record<string, TerminologyMap> = {
     system: 'システム',
   },
   zh: {
-    member: '成员',
+    member: ['成员', '伙伴'],
     group: '组',
     facet: '侧面',
     front: '前台',
     system: '系统',
   },
   zhHant: {
-    member: '成員',
+    member: ['成員', '腦內夥伴', '夥伴'],
     group: '群組',
     facet: '側面',
     front: '前台',
@@ -249,6 +254,68 @@ export const setTerminologyOverrides = (map?: TerminologyMap | null): void => {
 
 export const hasTerminologyOverrides = (): boolean => Object.keys(overrides).length > 0;
 
+// Fronting level renames ("Primary Front" → whatever the system calls it).
+// Unlike the word swaps above these are matched by i18n KEY, not by text, so
+// they work in every language: wherever a tier label is rendered it comes from
+// one of a small fixed set of keys. The picker's own labels live under
+// terminology.* keys and are therefore never intercepted, keeping the
+// defaults discoverable for resetting.
+export type TierNameKey = 'primary' | 'coFront' | 'coConscious';
+export type TierNameMap = Partial<Record<TierNameKey, string>>;
+
+let tierNames: TierNameMap = {};
+
+export const setTierNameOverrides = (map?: TierNameMap | null): void => {
+  const clean: TierNameMap = {};
+  for (const k of ['primary', 'coFront', 'coConscious'] as TierNameKey[]) {
+    const v = map?.[k]?.trim();
+    if (v) clean[k] = v;
+  }
+  tierNames = clean;
+};
+
+export const hasTierNameOverrides = (): boolean => Object.keys(tierNames).length > 0;
+
+// Full/short forms both get the custom word: an abbreviation of an arbitrary
+// user word is not derivable, and showing the full word beats inventing one.
+const TIER_LABEL_KEYS: Record<string, TierNameKey> = {
+  'tier.primaryFront': 'primary',
+  'tier.primaryShort': 'primary',
+  'tier.coFront': 'coFront',
+  'tier.coFrontShort': 'coFront',
+  'tier.coConscious': 'coConscious',
+  'tier.coConShort': 'coConscious',
+};
+const TIER_BADGE_KEYS: Record<string, TierNameKey> = {
+  'tier.primaryBadge': 'primary',
+  'tier.coFrontBadge': 'coFront',
+  'tier.coConBadge': 'coConscious',
+};
+// "Label: names" notification lines. The whole line is rebuilt rather than
+// word-swapped inside the localized template, because the template's label
+// word differs per language and the custom name replaces all of them.
+const TIER_LINE_KEYS: Record<string, TierNameKey> = {
+  'notification.primary': 'primary',
+  'notification.coFront': 'coFront',
+  'notification.cfShort': 'coFront',
+  'notification.coConscious': 'coConscious',
+  'notification.ccShort': 'coConscious',
+};
+
+export const applyTierNames = (value: string, key: string, options: unknown): string => {
+  if (!hasTierNameOverrides()) return value;
+  const label = TIER_LABEL_KEYS[key];
+  if (label && tierNames[label]) return tierNames[label]!;
+  const badge = TIER_BADGE_KEYS[key];
+  if (badge && tierNames[badge]) return tierNames[badge]!.toLocaleUpperCase();
+  const line = TIER_LINE_KEYS[key];
+  if (line && tierNames[line]) {
+    const names = (options as {names?: unknown} | null | undefined)?.names;
+    return `${tierNames[line]}: ${typeof names === 'string' ? names : String(names ?? '')}`;
+  }
+  return value;
+};
+
 const isWordChar = (ch: string | undefined): boolean => !!ch && /[\p{L}\p{N}]/u.test(ch);
 
 /** Whole-word, case-preserving replace. Hand-rolled scan instead of regex
@@ -287,13 +354,17 @@ export const applyTerminology = (value: string, language: string): string => {
   if (!hasTerminologyOverrides()) return value;
   const forms = TERM_FORMS[language] || TERM_FORMS[(language || '').split('-')[0]];
   if (!forms) return value;
-  // Longest form first, so in languages where the plural contains the
-  // singular without a word boundary (CJK) the plural wins.
-  const entries = (Object.entries(forms) as [TerminologyTerm, string][])
-    .filter(([term]) => overrides[term])
-    .sort((a, b) => b[1].length - a[1].length);
+  // Flatten to (term, form) pairs, longest form first, so in languages where
+  // the plural (or a compound synonym) contains a shorter form the long one
+  // wins.
+  const pairs: [TerminologyTerm, string][] = [];
+  for (const [term, f] of Object.entries(forms) as [TerminologyTerm, string | string[]][]) {
+    if (!overrides[term]) continue;
+    for (const one of Array.isArray(f) ? f : [f]) pairs.push([term, one]);
+  }
+  pairs.sort((a, b) => b[1].length - a[1].length);
   let out = value;
-  for (const [term, form] of entries) {
+  for (const [term, form] of pairs) {
     out = replaceTerm(out, form, overrides[term]!);
   }
   return out;
@@ -308,10 +379,17 @@ const EXEMPT_KEYS = new Set(['modal.systemSettings', 'share.filesDisabled']);
 export const terminologyPostProcessor = {
   type: 'postProcessor' as const,
   name: 'terminology',
-  process(value: unknown, key: string | string[], _options: unknown, i18nInstance: {language?: string}): unknown {
-    if (typeof value !== 'string' || !hasTerminologyOverrides()) return value;
+  process(value: unknown, key: string | string[], options: unknown, i18nInstance: {language?: string}): unknown {
+    if (typeof value !== 'string') return value;
     const k = Array.isArray(key) ? key[0] : key;
     if (typeof k === 'string' && (k.startsWith('terminology.') || EXEMPT_KEYS.has(k))) return value;
+    if (typeof k === 'string') {
+      const tiered = applyTierNames(value, k, options);
+      // A custom tier name is returned exactly as the user typed it — the
+      // word swaps below must not rewrite it.
+      if (tiered !== value) return tiered;
+    }
+    if (!hasTerminologyOverrides()) return value;
     return applyTerminology(value, i18nInstance?.language || 'en');
   },
 };

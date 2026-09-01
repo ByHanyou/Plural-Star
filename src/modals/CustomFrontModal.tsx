@@ -2,18 +2,18 @@ import React, {useState} from 'react';
 import {View, TouchableOpacity, Image, Alert} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {pickImageFromGallery} from '../utils/imagePicker';
+import {pickImageForUpload} from '../utils/imagePicker';
 import {Sheet} from '../components/Sheet';
 import {ColorCarousel} from '../components/ColorCarousel';
-import {PALETTE, fontScale} from '../theme';
-import {Member, uid, getInitials} from '../utils';
+import {PALETTE, fontScale, initialOn} from '../theme';
+import {Member, MemberGroup, uid, getInitials, sortGroupsForDisplay} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {deleteAvatar, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDelete, onClose, isFronting = false, statusMode = false}: any) => {
+export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave, onDelete, onClose, isFronting = false, statusMode = false}: any) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const isNew = !customFront;
@@ -38,7 +38,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
   };
   const pickPfp = async () => {
     try {
-      const img = await pickImageFromGallery();
+      const img = await pickImageForUpload();
       if (!img) return;
       const src = img.uri.startsWith('file://') || img.uri.startsWith('content://') ? img.uri : `file://${img.uri}`;
       const uri = await saveAvatarFromUri(f.id, src);
@@ -67,7 +67,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
             <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 88, height: 88, borderRadius: 20, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
           ) : (
             <View style={{width: 88, height: 88, borderRadius: 20, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
-              <Text style={{fontSize: fs(30), fontWeight: '700', color: 'rgba(0,0,0,0.75)', includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
+              <Text style={{fontSize: fs(30), fontWeight: '700', color: initialOn(f.color), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
             </View>
           )}
           <View style={{position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: 9, backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center'}}>
@@ -85,6 +85,31 @@ export const CustomFrontModal = ({visible, theme: T, customFront, onSave, onDele
         )}
       </View>
       <Field label={t('modal.name')} value={f.name} onChange={(v: string) => set('name', v)} placeholder={t('customFront.namePlaceholder')} T={T} />
+      {/* Search-only alias, same as members. */}
+      <Field label={t('modal.nickname')} value={f.nickname || ''} onChange={(v: string) => set('nickname', v || undefined)} placeholder={t('modal.nickname')} T={T} />
+      {/* Custom fronts join groups exactly like members do — "put said fronts
+          into a group", e.g. interaction or mood fronts grouped together. */}
+      {!statusMode && (groups || []).length > 0 && (
+        <>
+          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14}}>
+            {sortGroupsForDisplay(groups || [], groups || []).map((g: MemberGroup) => {
+              const active = (f.groupIds || []).includes(g.id);
+              return (
+                <TouchableOpacity key={g.id} activeOpacity={0.7}
+                  onPress={() => set('groupIds', active ? (f.groupIds || []).filter(id => id !== g.id) : [...(f.groupIds || []), g.id])}
+                  accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={g.name}
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                    backgroundColor: active ? `${g.color || T.accent}20` : T.surface, borderColor: active ? `${g.color || T.accent}50` : T.border}}>
+                  <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: g.color || T.accent}} />
+                  <Text style={{fontSize: fs(12), color: active ? (g.color || T.accent) : T.dim}}>{g.name}</Text>
+                  {active && <Text style={{fontSize: fs(11), fontWeight: '700', color: g.color || T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      )}
       <View style={{marginBottom: 14}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
         <TouchableOpacity onPress={() => setShowDescEditor(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.descriptionBio')}

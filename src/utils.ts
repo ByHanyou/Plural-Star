@@ -155,6 +155,9 @@ export interface Member {
   sourceId?: string;
   isCustomFront?: boolean;
   isFacet?: boolean;
+  // Search-only alias. Shown nowhere in Read views; exists so someone whose
+  // NAME is symbols, emoji or a styled font can still be found by typing.
+  nickname?: string;
   mailboxPassword?: string;
   pkProxyTags?: {prefix?: string | null; suffix?: string | null}[];
   pkAvatarUrl?: string;
@@ -194,6 +197,10 @@ export interface RelationshipTypeDef {
   color?: string;
   preset?: boolean;
   overridden?: boolean;
+  /** Preset tombstone: a preset cannot be removed from the constant, so its
+   *  deletion is stored as an override row with this flag and
+   *  allRelationshipTypes drops the preset entirely. */
+  deleted?: boolean;
 }
 
 export interface Medication {
@@ -577,11 +584,13 @@ export const PRESET_RELATIONSHIP_TYPES: RelationshipTypeDef[] = [
 
 export const allRelationshipTypes = (customTypes: RelationshipTypeDef[]): RelationshipTypeDef[] => {
   const overrides = new Map(customTypes.filter(t => t.preset).map(t => [t.id, t]));
-  const presets = PRESET_RELATIONSHIP_TYPES.map(p => {
-    const o = overrides.get(p.id);
-    return o ? {...p, ...o, overridden: true} : p;
-  });
-  return [...presets, ...customTypes.filter(t => !t.preset)];
+  const presets = PRESET_RELATIONSHIP_TYPES
+    .filter(p => !overrides.get(p.id)?.deleted)
+    .map(p => {
+      const o = overrides.get(p.id);
+      return o ? {...p, ...o, overridden: true} : p;
+    });
+  return [...presets, ...customTypes.filter(t => !t.preset && !t.deleted)];
 };
 
 export const relationshipDegrees = (memberIds: string[], relationships: Relationship[]): Record<string, number> => {
@@ -685,6 +694,10 @@ export interface AppSettings {
    *  'group', 'groups', 'facet', 'facets', 'front', 'system'). Blank/absent =
    *  the app's default word. Swapped at translation time. */
   terminology?: Record<string, string>;
+  /** Custom fronting level names ('primary', 'coFront', 'coConscious').
+   *  Blank/absent = the app's default label. Applied at translation time to
+   *  every tier label, badge and notification line. */
+  tierNames?: Record<string, string>;
   // Default true. When false, the always-on front status (Android FGS
   // notification / iOS Live Activity) is suppressed — but friend alerts and
   // front-check reminders still fire. Requested by users whose lock screen
@@ -702,7 +715,7 @@ export interface AppSettings {
   useDyslexicFont?: boolean;
   fontChoice?: import('./theme').FontChoice;
   customFrontsSeeded?: boolean;
-  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean};
+  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'};
 }
 
 export interface ExportPayload {
@@ -1043,17 +1056,29 @@ export const normalizeHex = (input: string): string =>
 // at render time — the whole Members tab dies on one bad record.
 const asStr = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
 
-export const sortMembersBySearch = <T extends {name: string}>(items: T[], search: string): T[] => {
+/**
+ * One predicate for every member search box: matches the visible name OR the
+ * nickname. The nickname exists exactly for this — a member named "🕷" or in
+ * a fancy font is unfindable by typing otherwise.
+ */
+export const memberMatchesSearch = (m: {name: string; nickname?: string}, search: string): boolean => {
+  const q = asStr(search).trim().toLowerCase();
+  if (!q) return true;
+  return asStr(m.name).toLowerCase().includes(q) || asStr(m.nickname || '').toLowerCase().includes(q);
+};
+
+export const sortMembersBySearch = <T extends {name: string; nickname?: string}>(items: T[], search: string): T[] => {
   if (!search) return [...items].sort((a, b) => nameCompare(a.name, b.name));
   const q = search.toLowerCase();
+  // Rank on the better of name/nickname, so a nickname hit surfaces the
+  // member just like a name hit would.
+  const starts = (x: T) => asStr(x.name).toLowerCase().startsWith(q) || asStr(x.nickname || '').toLowerCase().startsWith(q);
   return [...items].sort((a, b) => {
-    const an = asStr(a.name).toLowerCase();
-    const bn = asStr(b.name).toLowerCase();
-    const aStarts = an.startsWith(q);
-    const bStarts = bn.startsWith(q);
+    const aStarts = starts(a);
+    const bStarts = starts(b);
     if (aStarts && !bStarts) return -1;
     if (!aStarts && bStarts) return 1;
-    return nameCompare(an, bn);
+    return nameCompare(asStr(a.name).toLowerCase(), asStr(b.name).toLowerCase());
   });
 };
 

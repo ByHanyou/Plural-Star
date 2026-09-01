@@ -4,7 +4,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {Fonts, fontScale} from '../theme';
-import {Member, JournalEntry, JournalTemplate, uid, fmtTime, sortMembersBySearch} from '../utils';
+import {Member, JournalEntry, JournalTemplate, uid, fmtTime, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {Btn, Field} from './shared';
@@ -131,7 +131,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
             <ScrollView nestedScrollEnabled>
               {(() => {
                 const q = authorSearch.toLowerCase();
-                const match = (m: Member) => !m.archived && !m.isCustomFront && m.name.toLowerCase().includes(q);
+                const match = (m: Member) => !m.archived && !m.isCustomFront && memberMatchesSearch(m, q);
                 const row = (m: Member) => {
                   const active = (f.authorIds || []).includes(m.id);
                   return (

@@ -40,6 +40,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [newMarkdown, setNewMarkdown] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [retypeId, setRetypeId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [reorderOn, setReorderOn] = useState(false);
   const kbHeight = useKeyboardHeight();
@@ -197,12 +198,34 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
               </TouchableOpacity>
             </View>
 
+            {/* Editable, not a badge. A field created as the wrong type —
+                "Favorite Color" made as Number, which then refused hex codes
+                on every device — was stuck that way forever: the only way out
+                was deleting the field and its values. The stored values are
+                plain scalars, so re-typing just changes how they are edited
+                and shown; nothing is converted or lost. */}
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('customFields.fieldType')}</Text>
-              <View style={{backgroundColor: T.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: T.border}}>
-                <Text style={{fontSize: fs(12), color: T.muted}}>{typeLabel(fd.type)}</Text>
-              </View>
+              <TouchableOpacity onPress={() => setRetypeId(retypeId === fd.id ? null : fd.id)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityState={{expanded: retypeId === fd.id}}
+                accessibilityLabel={`${t('customFields.fieldType')} — ${fd.name}`} accessibilityValue={{text: typeLabel(fd.type)}}
+                style={{backgroundColor: T.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: retypeId === fd.id ? `${T.accent}60` : T.border}}>
+                <Text style={{fontSize: fs(12), color: T.muted}}>{typeLabel(fd.type)} ▾</Text>
+              </TouchableOpacity>
             </View>
+            {retypeId === fd.id && (
+              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8}}>
+                {FIELD_TYPES.map(ft => (
+                  <TouchableOpacity key={ft.type} activeOpacity={0.7}
+                    onPress={() => { save(fields.map(f => f.id === fd.id ? {...f, type: ft.type} : f)); setRetypeId(null); }}
+                    accessibilityRole="menuitem" accessibilityState={{selected: fd.type === ft.type}} accessibilityLabel={typeLabel(ft.type)}
+                    style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                      backgroundColor: fd.type === ft.type ? T.accentBg : T.surface, borderColor: fd.type === ft.type ? `${T.accent}50` : T.border}}>
+                    <Text style={{fontSize: fs(11), color: fd.type === ft.type ? T.accent : T.dim}}>{typeLabel(ft.type)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {(fd.type === 'text' || fd.type === 'markdown') && (
               <TouchableOpacity onPress={() => toggleMarkdown(fd.id)} activeOpacity={0.7} accessibilityRole="checkbox" accessibilityState={{checked: !!fd.markdown}} accessibilityLabel={t('customFields.markdownSupport')} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>

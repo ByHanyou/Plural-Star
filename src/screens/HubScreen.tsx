@@ -8,7 +8,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveHistory, applyFrontState} from '../store/actions';
-import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, singletStatuses, isRosterMember} from '../utils';
+import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, memberMatchesSearch, singletStatuses, isRosterMember} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {PlannerScreen} from './PlannerScreen';
 import {EnergyRow} from '../modals/shared';
@@ -49,15 +49,19 @@ interface Props {
   onClearEditHistory?: () => void;
 }
 
-const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members, allSelected, T}: {
+const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members, allSelected, T, searchKind}: {
   tierKey: FrontTierKey; label: string; color: string; selected: string[]; setSelected: (ids: string[]) => void;
   members: Member[]; allSelected: Record<FrontTierKey, string[]>; T: ThemeColors;
+  /** What this picker lists, for the search placeholder. Every box said "Type
+   *  to search alters…" under headers naming facets and custom fronts. Omitted
+   *  for the plain members picker, which keeps its own wording. */
+  searchKind?: string;
 }) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [search, setSearch] = useState('');
   const otherTiers: Record<FrontTierKey, string> = {primary: t('tier.primaryShort'), coFront: t('tier.coFrontShort'), coConscious: t('tier.coConShort')};
-  const filtered = sortMembersBySearch(members.filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase())), search);
+  const filtered = sortMembersBySearch(members.filter(m => memberMatchesSearch(m, search)), search);
   const toggle = (id: string) => {
     setSelected(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
   };
@@ -86,7 +90,10 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
           })}
         </View>
       )}
-      <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('members.searchToAdd')} placeholder={t('members.searchToAdd')} placeholderTextColor={T.muted}
+      <TextInput value={search} onChangeText={setSearch}
+        accessibilityLabel={searchKind ? t('members.searchToAddKind', {kind: searchKind, defaultValue: `Type to search ${searchKind}…`}) : t('members.searchToAdd')}
+        placeholder={searchKind ? t('members.searchToAddKind', {kind: searchKind, defaultValue: `Type to search ${searchKind}…`}) : t('members.searchToAdd')}
+        placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 4}} />
       {search.length > 0 && (
         <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
@@ -345,21 +352,26 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
         <>
           <TierMemberPicker tierKey="primary" label={t('tier.primaryFront')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={regularMembers} allSelected={allSelected} T={T} />
           {facetMembers.length > 0 && (
-            <TierMemberPicker tierKey="primary" label={t('members.facets')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={facetMembers} allSelected={allSelected} T={T} />
+            <TierMemberPicker tierKey="primary" label={t('members.facets')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
           )}
           {customFronts.length > 0 && (
-            <TierMemberPicker tierKey="primary" label={t('members.customFronts')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={customFronts} allSelected={allSelected} T={T} />
+            <TierMemberPicker tierKey="primary" label={t('members.customFronts')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
           )}
           <TierMemberPicker tierKey="coFront" label={t('tier.coFront')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={regularMembers} allSelected={allSelected} T={T} />
           {facetMembers.length > 0 && (
-            <TierMemberPicker tierKey="coFront" label={t('members.facets')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={facetMembers} allSelected={allSelected} T={T} />
+            <TierMemberPicker tierKey="coFront" label={t('members.facets')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
           )}
           {customFronts.length > 0 && (
-            <TierMemberPicker tierKey="coFront" label={t('members.customFronts')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={customFronts} allSelected={allSelected} T={T} />
+            <TierMemberPicker tierKey="coFront" label={t('members.customFronts')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
           )}
           <TierMemberPicker tierKey="coConscious" label={t('tier.coConscious')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={regularMembers} allSelected={allSelected} T={T} />
           {facetMembers.length > 0 && (
-            <TierMemberPicker tierKey="coConscious" label={t('members.facets')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={facetMembers} allSelected={allSelected} T={T} />
+            <TierMemberPicker tierKey="coConscious" label={t('members.facets')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
+          )}
+          {/* Custom fronts were pickable for primary and co-front but ABSENT
+              here — "custom front is missing from co con". */}
+          {customFronts.length > 0 && (
+            <TierMemberPicker tierKey="coConscious" label={t('members.customFronts')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
           )}
         </>
       )}
@@ -400,9 +412,13 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   const members = useAppStore(s => s.members);
   const history = useAppStore(s => s.history);
   const front = useAppStore(s => s.front);
-  const onSaveHistory = saveHistory;
-  const onSetFront = applyFrontState;
   const {t} = useTranslation();
+  // Visible failure instead of an unhandled rejection when a front/history
+  // write throws transiently.
+  const onSaveHistory = (h: HistoryEntry[]) =>
+    saveHistory(h).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
+  const onSetFront = (f: FrontState | null) =>
+    applyFrontState(f).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
   const fs = fontScale(T);
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
   useEffect(() => {

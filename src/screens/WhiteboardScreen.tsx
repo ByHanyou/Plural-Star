@@ -29,7 +29,31 @@ interface Props {
 
 const WIDTHS = [1, 3, 6, 12, 15];
 
-type Tool = 'draw' | 'move' | 'erase' | 'bucket';
+type ShapeTool = 'line' | 'rect' | 'ellipse';
+type Tool = 'draw' | 'move' | 'erase' | 'bucket' | 'poly' | ShapeTool;
+
+const isShapeTool = (tl: Tool): tl is ShapeTool => tl === 'line' || tl === 'rect' || tl === 'ellipse';
+
+/** Shape outlines as plain polyline points, so a committed shape IS an
+ *  ordinary stroke: mirrors, sync and older builds render it with no format
+ *  change. Closed shapes repeat their first point; the ellipse is a
+ *  48-segment approximation. (The polygon tool builds its points tap by tap
+ *  instead — see addPolyVertex.) */
+const shapePts = (shape: ShapeTool, x0: number, y0: number, x1: number, y1: number): number[] => {
+  if (shape === 'line') return [x0, y0, x1, y1];
+  if (shape === 'rect') return [x0, y0, x1, y0, x1, y1, x0, y1, x0, y0];
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  const rx = Math.abs(x1 - x0) / 2;
+  const ry = Math.abs(y1 - y0) / 2;
+  const pts: number[] = [];
+  const N = 48;
+  for (let i = 0; i <= N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    pts.push(Math.round(cx + rx * Math.cos(a)), Math.round(cy + ry * Math.sin(a)));
+  }
+  return pts;
+};
 
 const strokePath = (pts: number[]): string => {
   if (pts.length < 2) return '';
@@ -63,6 +87,15 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const panRef = useRef({tx: 0, ty: 0, scale: 1, startTx: 0, startTy: 0, startScale: 1, startDist: 0, originX: 0, originY: 0});
   const dirtyRef = useRef(false);
   const bucketTapRef = useRef<{wx: number; wy: number; moved: boolean} | null>(null);
+  const shapeStartRef = useRef<{x: number; y: number} | null>(null);
+  // Polygon tool (Paint-style): each tap adds a corner, lines connect them.
+  // Tapping the first corner again (3+ corners) or double-tapping the last
+  // one finishes; the shape commits closed, exactly two corners commit as a
+  // line. The in-progress polygon lives in `current` as the preview.
+  const polyTapRef = useRef<{wx: number; wy: number; moved: boolean} | null>(null);
+  const polyPtsRef = useRef<number[] | null>(null);
+  const polyIdRef = useRef<string | null>(null);
+  const polyLastTapRef = useRef(0);
 
   const [voStep, setVoStep] = useState(40);
   const [voCursor, setVoCursor] = useState({x: 0, y: 0});
@@ -108,6 +141,62 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
 
   const clampWorld = (v: number) => Math.max(-HALF + 20, Math.min(HALF - 20, Math.round(v)));
 
+  const cancelPoly = () => {
+    polyTapRef.current = null;
+    polyPtsRef.current = null;
+    polyIdRef.current = null;
+    currentRef.current = null;
+    setCurrent(null);
+  };
+
+  const finishPoly = () => {
+    const pts = polyPtsRef.current;
+    polyPtsRef.current = null;
+    polyIdRef.current = null;
+    currentRef.current = null;
+    setCurrent(null);
+    if (!pts || pts.length < 4) return;
+    // 3+ corners close back to the first; exactly two commit as a line.
+    const closed = pts.length >= 6 ? [...pts, pts[0], pts[1]] : pts;
+    const s: Stroke = {id: uid(), c: colorRef.current, w: widthRef.current, pts: closed};
+    const next = [...strokesRef.current, s];
+    setStrokes(next);
+    persist(next);
+  };
+
+  const addPolyVertex = (wx: number, wy: number): void => {
+    const cx = clampWorld(wx);
+    const cy = clampWorld(wy);
+    const pts = polyPtsRef.current;
+    const now = Date.now();
+    if (!pts) {
+      polyPtsRef.current = [cx, cy];
+      polyIdRef.current = uid();
+      currentRef.current = {id: polyIdRef.current, c: colorRef.current, w: widthRef.current, pts: [cx, cy]};
+      setCurrent(currentRef.current);
+      polyLastTapRef.current = now;
+      return;
+    }
+    const closeThresh = Math.max(12, 16 / panRef.current.scale);
+    const nearFirst = Math.hypot(cx - pts[0], cy - pts[1]) <= closeThresh;
+    const nearLast = Math.hypot(cx - pts[pts.length - 2], cy - pts[pts.length - 1]) <= closeThresh;
+    if ((nearFirst && pts.length >= 6) || (nearLast && now - polyLastTapRef.current < 350 && pts.length >= 4)) {
+      finishPoly();
+      return;
+    }
+    polyLastTapRef.current = now;
+    if (Math.hypot(cx - pts[pts.length - 2], cy - pts[pts.length - 1]) < 1) return;
+    polyPtsRef.current = [...pts, cx, cy];
+    currentRef.current = {id: polyIdRef.current || uid(), c: colorRef.current, w: widthRef.current, pts: polyPtsRef.current};
+    setCurrent(currentRef.current);
+  };
+
+  // Leaving the polygon tool abandons the unfinished polygon, same as the
+  // drag shapes abandon on a two-finger gesture.
+  useEffect(() => {
+    if (tool !== 'poly' && polyPtsRef.current) cancelPoly();
+  }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const eraseAt = (wx: number, wy: number) => {
     const radius = widthRef.current;
     const survivors = strokesRef.current.filter(s => {
@@ -139,10 +228,17 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       if (toolRef.current === 'draw') {
         currentRef.current = {id: uid(), c: colorRef.current, w: widthRef.current, pts: [clampWorld(wx), clampWorld(wy)]};
         setCurrent(currentRef.current);
+      } else if (isShapeTool(toolRef.current)) {
+        // Anchor corner; the preview stroke is rebuilt from it on every move.
+        shapeStartRef.current = {x: clampWorld(wx), y: clampWorld(wy)};
+        currentRef.current = {id: uid(), c: colorRef.current, w: widthRef.current, pts: [clampWorld(wx), clampWorld(wy)]};
+        setCurrent(currentRef.current);
       } else if (toolRef.current === 'erase') {
         eraseAt(wx, wy);
       } else if (toolRef.current === 'bucket') {
         bucketTapRef.current = {wx, wy, moved: false};
+      } else if (toolRef.current === 'poly') {
+        polyTapRef.current = {wx, wy, moved: false};
       }
     },
     onPanResponderMove: (evt, gs) => {
@@ -153,6 +249,8 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
           currentRef.current = null;
           setCurrent(null);
         }
+        shapeStartRef.current = null;
+        if (polyPtsRef.current) cancelPoly();
         if (bucketTapRef.current) bucketTapRef.current.moved = true;
         const dx = touches[0].pageX - touches[1].pageX;
         const dy = touches[0].pageY - touches[1].pageY;
@@ -181,10 +279,22 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         if (bucketTapRef.current && (Math.abs(gs.dx) > 6 || Math.abs(gs.dy) > 6)) bucketTapRef.current.moved = true;
         return;
       }
+      if (toolRef.current === 'poly') {
+        // Taps only; a drag is neither a corner nor a freehand append onto
+        // the polygon preview sitting in `current`.
+        if (polyTapRef.current && (Math.abs(gs.dx) > 6 || Math.abs(gs.dy) > 6)) polyTapRef.current.moved = true;
+        return;
+      }
       const cur = currentRef.current;
       if (!cur) return;
       const cx = clampWorld(wx);
       const cy = clampWorld(wy);
+      const start = shapeStartRef.current;
+      if (start && isShapeTool(toolRef.current)) {
+        currentRef.current = {...cur, pts: shapePts(toolRef.current, start.x, start.y, cx, cy)};
+        setCurrent(currentRef.current);
+        return;
+      }
       const n = cur.pts.length;
       const minStep = Math.max(1, 1.5 / p.scale);
       if (Math.hypot(cx - cur.pts[n - 2], cy - cur.pts[n - 1]) >= minStep) {
@@ -199,9 +309,21 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         bucketFill(tap.wx, tap.wy);
         return;
       }
+      if (toolRef.current === 'poly') {
+        // The polygon preview lives in `current`; falling through would
+        // commit it on every tap. Corners are added here instead.
+        const pTap = polyTapRef.current;
+        polyTapRef.current = null;
+        if (pTap && !pTap.moved) addPolyVertex(pTap.wx, pTap.wy);
+        return;
+      }
       const cur = currentRef.current;
       currentRef.current = null;
-      if (cur && cur.pts.length >= 2) {
+      // A shape that was never dragged out is a tap, not a shape: committing
+      // it would leave an invisible dot the eraser then has to hunt down.
+      const shapeTap = shapeStartRef.current !== null && cur !== null && cur.pts.length <= 2;
+      shapeStartRef.current = null;
+      if (cur && cur.pts.length >= 2 && !shapeTap) {
         const next = [...strokesRef.current, cur];
         setStrokes(next);
         setCurrent(null);
@@ -214,6 +336,8 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     onPanResponderTerminate: () => {
       currentRef.current = null;
       bucketTapRef.current = null;
+      shapeStartRef.current = null;
+      polyTapRef.current = null;
       setCurrent(null);
     },
   }), [persist]);
@@ -321,6 +445,40 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     voAnnounce(t('whiteboard.voStepValue', {px: n}));
   };
 
+  const shapeName = (shape: ShapeTool) =>
+    shape === 'line' ? t('whiteboard.shapeLine') : shape === 'rect' ? t('whiteboard.shapeRect') : t('whiteboard.shapeEllipse');
+
+  /** Screen-reader path for the shape tools: place the shape centred on the
+   *  VO cursor, sized by the step, same commit as a drag. */
+  const voPlaceShape = (shape: ShapeTool) => {
+    voStrokeIdRef.current = null;
+    const c = voCursorRef.current;
+    const r = voStepRef.current;
+    const s: Stroke = {
+      id: uid(), c: color, w: width,
+      pts: shape === 'line' ? shapePts('line', c.x - r, c.y, c.x + r, c.y) : shapePts(shape, c.x - r, c.y - r, c.x + r, c.y + r),
+    };
+    const next = [...strokesRef.current, s];
+    setStrokes(next);
+    persist(next);
+    voAnnounce(`${t('whiteboard.voPlacedShape', {shape: shapeName(shape)})}. ${voPosText(c)}`);
+  };
+
+  /** Screen-reader polygon: each activation drops a corner at the cursor;
+   *  finish commits through the same path as the tap flow. */
+  const voPolyPoint = () => {
+    voStrokeIdRef.current = null;
+    const c = voCursorRef.current;
+    addPolyVertex(c.x, c.y);
+    voAnnounce(`${t('whiteboard.voPolyPointAdded')}. ${voPosText(c)}`);
+  };
+
+  const voPolyFinish = () => {
+    if (!polyPtsRef.current) return;
+    finishPoly();
+    voAnnounce(t('whiteboard.voPlacedShape', {shape: t('whiteboard.shapePoly')}));
+  };
+
   const zoomBy = (f: number) => {
     const p = panRef.current;
     p.scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, p.scale * f));
@@ -366,6 +524,11 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         {toolBtn('erase', '⌫', t('whiteboard.erase'))}
         <View style={{width: 1, height: 22, backgroundColor: T.border}} importantForAccessibility="no" accessibilityElementsHidden />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow: 1, flexShrink: 1}} contentContainerStyle={{alignItems: 'center', gap: 8}} snapToInterval={38} decelerationRate="fast">
+          {toolBtn('line', '╱', t('whiteboard.shapeLine'))}
+          {toolBtn('rect', '▭', t('whiteboard.shapeRect'))}
+          {toolBtn('ellipse', '◯', t('whiteboard.shapeEllipse'))}
+          {toolBtn('poly', '⬠', t('whiteboard.shapePoly'))}
+          <View style={{width: 1, height: 22, backgroundColor: T.border}} importantForAccessibility="no" accessibilityElementsHidden />
           {WIDTHS.map(wd => (
             <TouchableOpacity key={wd} onPress={() => setWidth(wd)} activeOpacity={0.7}
               accessibilityRole="button" accessibilityState={{selected: width === wd}} accessibilityLabel={`${t('whiteboard.brushSize')} ${wd}`}
@@ -402,6 +565,11 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
           {name: 'move_left', label: t('whiteboard.voMoveLeft')},
           {name: 'move_right', label: t('whiteboard.voMoveRight')},
           {name: 'fill', label: t('whiteboard.voFill')},
+          {name: 'shape_line', label: t('whiteboard.voPlaceShape', {shape: t('whiteboard.shapeLine')})},
+          {name: 'shape_rect', label: t('whiteboard.voPlaceShape', {shape: t('whiteboard.shapeRect')})},
+          {name: 'shape_ellipse', label: t('whiteboard.voPlaceShape', {shape: t('whiteboard.shapeEllipse')})},
+          {name: 'poly_point', label: t('whiteboard.voPolyPoint')},
+          {name: 'poly_finish', label: t('whiteboard.voPolyFinish')},
           {name: 'where', label: t('whiteboard.voWhere')},
           {name: 'recenter', label: t('whiteboard.voRecenter')},
           {name: 'commands', label: t('whiteboard.voCommands')},
@@ -421,6 +589,11 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
             case 'move_left': voMove(-1, 0, 'whiteboard.voLeft', false); break;
             case 'move_right': voMove(1, 0, 'whiteboard.voRight', false); break;
             case 'fill': voStrokeIdRef.current = null; bucketFill(voCursorRef.current.x, voCursorRef.current.y); voAnnounce(t('whiteboard.voFilled')); break;
+            case 'shape_line': voPlaceShape('line'); break;
+            case 'shape_rect': voPlaceShape('rect'); break;
+            case 'shape_ellipse': voPlaceShape('ellipse'); break;
+            case 'poly_point': voPolyPoint(); break;
+            case 'poly_finish': voPolyFinish(); break;
             case 'where': voWhere(); break;
             case 'recenter': voRecenter(); break;
             case 'commands': setVoHelpOpen(true); break;
@@ -462,7 +635,13 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
               {[
                 t('whiteboard.voDrawUp'), t('whiteboard.voDrawDown'), t('whiteboard.voDrawLeft'), t('whiteboard.voDrawRight'),
                 t('whiteboard.voMoveUp'), t('whiteboard.voMoveDown'), t('whiteboard.voMoveLeft'), t('whiteboard.voMoveRight'),
-                t('whiteboard.voFill'), t('whiteboard.voWhere'), t('whiteboard.voRecenter'),
+                t('whiteboard.voFill'),
+                t('whiteboard.voPlaceShape', {shape: t('whiteboard.shapeLine')}),
+                t('whiteboard.voPlaceShape', {shape: t('whiteboard.shapeRect')}),
+                t('whiteboard.voPlaceShape', {shape: t('whiteboard.shapeEllipse')}),
+                t('whiteboard.voPolyPoint'),
+                t('whiteboard.voPolyFinish'),
+                t('whiteboard.voWhere'), t('whiteboard.voRecenter'),
                 t('whiteboard.undo'), t('whiteboard.clear'),
               ].map((c, i) => (
                 <Text key={i} style={{fontSize: fs(15), color: T.text, paddingVertical: 6}}>{`• ${c}`}</Text>

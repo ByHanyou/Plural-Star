@@ -4,7 +4,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {SystemProfileCard} from '../components/SystemProfileCard';
-import {pickImageFromGallery} from '../utils/imagePicker';
+import {pickImageForUpload} from '../utils/imagePicker';
 import {saveBannerImage, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
@@ -98,7 +98,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
 
   const pickInto = async (which: 'avatar' | 'banner') => {
     try {
-      const img = await pickImageFromGallery();
+      const img = await pickImageForUpload();
       if (!img) return;
       const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
         ? img.uri

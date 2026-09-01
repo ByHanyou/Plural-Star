@@ -30,14 +30,52 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
     ? Math.max(rawBottomInset, ANDROID_NAV_BAR_FLOOR)
     : rawBottomInset;
   const wasVisible = useRef(false);
+  const presentedRef = useRef(false);
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const watchdogs = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const clearWatchdogs = () => {
+    for (const w of watchdogs.current) clearTimeout(w);
+    watchdogs.current = [];
+  };
   useEffect(() => {
+    // present() is not fire-and-forget any more. On Android a present issued
+    // while another sheet is still mid-dismiss can be silently DROPPED: the
+    // host's `visible` stays true, so the opening button becomes a no-op
+    // ("press update front and it doesn't do it"), and the half-mounted dialog
+    // can keep eating touches until the app is killed. The watchdog retries
+    // the present until onDidPresent confirms it, and if it will not take,
+    // calls onClose so the host resets and the button works again.
     if (visible) {
-      Promise.resolve(sheetRef.current?.present()).catch(() => {});
       wasVisible.current = true;
+      presentedRef.current = false;
+      clearWatchdogs();
+      const attempt = () => { Promise.resolve(sheetRef.current?.present()).catch(() => {}); };
+      attempt();
+      watchdogs.current.push(setTimeout(() => {
+        if (!presentedRef.current && visibleRef.current) attempt();
+      }, 700));
+      watchdogs.current.push(setTimeout(() => {
+        if (!presentedRef.current && visibleRef.current) attempt();
+      }, 1600));
+      watchdogs.current.push(setTimeout(() => {
+        if (!presentedRef.current && visibleRef.current) onCloseRef.current();
+      }, 2800));
     } else if (wasVisible.current) {
-      Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
       wasVisible.current = false;
+      clearWatchdogs();
+      const tryDismiss = () => Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
+      tryDismiss();
+      // A dropped dismiss strands a full-screen dialog over the app with the
+      // host already believing it closed — the "nothing registers until I
+      // reopen the app" report. One delayed retry clears it.
+      watchdogs.current.push(setTimeout(() => {
+        if (presentedRef.current && !visibleRef.current) tryDismiss();
+      }, 700));
     }
+    return clearWatchdogs;
   }, [visible]);
 
   // With the footer inside the scroll body it supplies its own spacing; the
@@ -50,7 +88,15 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
       detents={[0.92]}
       cornerRadius={20}
       backgroundColor={T.card}
-      onDidDismiss={onClose}
+      onDidPresent={() => {
+        presentedRef.current = true;
+        clearWatchdogs();
+        // Presented late, after the host already closed it (present was in
+        // flight when visible flipped): close it now, or it stays up over a
+        // host that thinks it is gone.
+        if (!visibleRef.current) Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
+      }}
+      onDidDismiss={() => { presentedRef.current = false; onClose(); }}
       scrollable
       header={
         <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.card}]}>
