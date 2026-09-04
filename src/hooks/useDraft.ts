@@ -3,9 +3,6 @@ import {store} from '../storage';
 
 export const draftKey = (kind: string, id: string): string => `ps.draft:${kind}:${id}`;
 
-// Keys deliberately discarded via clearDraft (Save/Cancel). The close-time
-// flush below must not resurrect these — clearDraft runs synchronously before
-// onClose, so the tombstone is always in place before the flush effect fires.
 const cleared = new Set<string>();
 
 export const clearDraft = (kind: string, id: string): void => {
@@ -29,11 +26,6 @@ export function useDraft<T>(
 
   useEffect(() => {
     if (!visible || !id) {
-      // Closing (or a modal flipping back to read mode): flush any dirty tail
-      // the 500ms debounce hadn't written yet — dismissing within half a
-      // second of the last keystroke used to lose that tail. Skipped when
-      // clearDraft ran first (Save/Cancel), otherwise the flush would
-      // resurrect a draft the user just deliberately discarded.
       if (openedFor.current) {
         const key = draftKey(kind, openedFor.current);
         if (!cleared.has(key)) {
@@ -64,10 +56,6 @@ export function useDraft<T>(
     };
   }, [visible, id, kind]);
 
-  // Deliberately NO serialization during render/commit — stringifying the whole
-  // record on every keystroke and every colour tap was measurable lag. The
-  // timer is cheap to (re)schedule; the compare happens once, 500ms after the
-  // last change.
   useEffect(() => {
     if (!visible || !id || openedFor.current !== id) return;
     const timer = setTimeout(() => {

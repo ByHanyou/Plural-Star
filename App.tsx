@@ -51,6 +51,7 @@ import {useNoteboardNotifications} from './src/hooks/useNoteboardNotifications';
 import {useAppStore, DEFAULT_SETTINGS} from './src/store/appStore';
 import {saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkRemoveFromGroup, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
 import {requestPermissions} from './src/utils/permissions';
+import {logError} from './src/utils/log';
 import {mergeHistoryEntries} from './src/import/convert';
 
 function MainAppContent() {
@@ -112,15 +113,10 @@ function MainAppContent() {
   const chatChannels = useAppStore(s => s.chatChannels);
   const setChatChannels = useAppStore(s => s.setChatChannels);
   const setChatCategories = useAppStore(s => s.setChatCategories);
-  // No subscription to allChatMessages here. App renders every mounted tab, and
-  // subscribing to a slice this component does not read meant the Stats chat
-  // load re-rendered the entire app for data nothing here uses.
   const setAllChatMessages = useAppStore(s => s.setAllChatMessages);
   const medical = useAppStore(s => s.medical);
   const setMedical = useAppStore(s => s.setMedical);
   const setPlanner = useAppStore(s => s.setPlanner);
-  // Push the Terminology Picker's words into the i18n post-processor whenever
-  // settings change, including the initial load and incoming syncs.
   useEffect(() => { setTerminologyOverrides(appSettings.terminology); }, [appSettings.terminology]);
   useEffect(() => { setTierNameOverrides(appSettings.tierNames); }, [appSettings.tierNames]);
 
@@ -163,14 +159,6 @@ function MainAppContent() {
   }, [activePaletteId, palettes, appSettings.textScale]);
 
   const loadAll = useCallback(async () => {
-    // FIRST storage op of the load, before anything can write: did this
-    // install have ANY ps: data when we started? The custom-front seeding and
-    // the network identity are both created DURING this very load, so probing
-    // at decision time below always found our own fresh writes — a truly
-    // fresh install never saw first-run and the header showed the unnamed
-    // fallback instead. (A locked-protected-data launch can make this read
-    // false, but that launch is marked storageSuspect, and the suspect branch
-    // wins before this value is ever consulted.)
     const hadAnyPsKeys = await anyPsKeysExist();
     let storageSuspect = false;
     if (!(await waitForProtectedData())) {
@@ -205,7 +193,6 @@ function MainAppContent() {
         store.get<ChatChannel[]>(KEYS.chatChannels, []),
         store.get<ChatCategory[]>(KEYS.chatCategories, []),
       ]);
-      console.log(`[STARTUP] loadAll begin — sys:${!!sys} members:${(mem||[]).length} groups:${(grps||[]).length} journal:${(jour||[]).length} history:${(hist||[]).length} channels:${(savedChannels||[]).length}`);
       if (!storageSuspect && !sys && (mem || []).length === 0 && (hist || []).length === 0 && AppState.currentState !== 'active') {
         console.warn('[STARTUP] Blank load while app is not active — background/prewarm launch, storage may still be locked. Marking suspect; will retry on foreground.');
         storageSuspect = true;
@@ -218,13 +205,6 @@ function MainAppContent() {
       }
       let loadedSystem = sys;
       let loadedMembers = mem || [];
-      // The image migrations below are the single most expensive thing in
-      // startup: one decode+resize+write per member. They were running even
-      // when storageSuspect was set, and a suspect load DELIBERATELY skips the
-      // store.set that saves the result — so on a roster of a few hundred they
-      // burned minutes on a white screen and threw the work away, every single
-      // launch. Suspect storage means we cannot keep the result, so don't pay
-      // for it; the foreground retry re-runs the whole load anyway.
       try {
         if (!storageSuspect) {
           const {members: migratedMembers, changed: avatarsChanged} = await migrateInlineAvatars(loadedMembers);
@@ -245,7 +225,6 @@ function MainAppContent() {
             await store.set(KEYS.members, loadedMembers);
             if (rebasedSystem) await store.set(KEYS.system, rebasedSystem);
           }
-          console.log('[STARTUP] rebased stale Documents:// media paths');
         }
       } catch (e) {
         console.error('[PS] media path rebase error:', e);
@@ -297,19 +276,11 @@ function MainAppContent() {
         setSystem(loadedSystem);
       }
       setMembers(loadedMembers);
-      // Fire-and-forget: re-download avatars/banners whose FILES vanished but
-      // whose PK/Tupperbox source URLs we kept ("banner disappeared" reports —
-      // path healing can't resurrect a deleted file). Never blocks startup;
-      // merged by id against the CURRENT roster when it finishes, so edits
-      // made while downloads ran aren't clobbered.
       if (!storageSuspect) {
         restoreMissingMediaFiles(loadedMembers).then(async r => {
           if (!r.changed) return;
           const healedById = new Map(r.members.map((m: Member) => [m.id, m]));
           const cur = useAppStore.getState().members;
-          // Adopt a healed value only while the current one is still a
-          // file:// path (or empty) — if the user set a fresh image while the
-          // download ran, theirs wins.
           const adopt = (curV: string | undefined, healedV: string | undefined) =>
             healedV && healedV !== curV && (!curV || curV.startsWith('file://')) ? healedV : curV;
           const merged = cur.map(m => {
@@ -321,15 +292,8 @@ function MainAppContent() {
           });
           useAppStore.getState().setMembers(merged);
           await store.set(KEYS.members, merged);
-          console.log('[STARTUP] re-downloaded missing avatar/banner files from source URLs');
-        }).catch(e => console.error('[PS] media restore error:', e));
+        }).catch(e => logError('media-restore', e));
       }
-      // Collapse history rows that are the SAME event (identical start, tier
-      // membership, change type and change time) — the doubled member-history
-      // entries. mergeHistoryEntries is the signature dedupe imports already
-      // use; running it over stored history heals rows that reached the store
-      // by a path that bypassed it (sync apply, retro edit) instead of only
-      // hiding them at render.
       const rawHist = hist || [];
       const dedupedHist = mergeHistoryEntries([], rawHist);
       if (dedupedHist.length !== rawHist.length && !storageSuspect) {
@@ -356,13 +320,7 @@ function MainAppContent() {
         if (!storageSuspect) await store.set(KEYS.chatChannels, channels);
       }
       setChatChannels(channels);
-      // Channels pointing at a category that no longer exists are shown as
-      // uncategorized at render time rather than rewritten here — a launch-time
-      // repair write is exactly the pattern that cost minutes of startup.
       setChatCategories(savedChatCats || []);
-      // Deliberately NOT awaited, and deliberately not started here at all:
-      // reading every channel's history is the heaviest thing the app does and
-      // only the Stats tab consumes it, so it now loads when Stats opens.
 
       const paletteId = mergedSettings.activePaletteId || '__dark__';
       if (mergedSettings.lightMode && !mergedSettings.activePaletteId) {
@@ -386,8 +344,6 @@ function MainAppContent() {
         const savedPlanner = await store.get<PlannerData>(KEYS.planner);
         const plan: PlannerData = {...DEFAULT_PLANNER, ...(savedPlanner || {})};
         setPlanner(plan);
-        // Re-arms every trigger from stored data, so synced-in changes and
-        // reboots both land with live notifications.
         await reschedulePlannerNotifications(plan);
       } catch (e) {
         console.error('[PS] planner init error:', e);
@@ -554,11 +510,6 @@ function MainAppContent() {
 
   if (firstRun) {
     return (
-      // targetSdk 36 enforces edge-to-edge, so StatusBar backgroundColor and
-      // translucent={false} are both no-ops — the system bar area falls through
-      // to the window background, which Theme.AppCompat.DayNight paints WHITE in
-      // day mode. The main app never showed it because its root View covers the
-      // window; these two early returns rendered a bare fragment and did not.
       <SafeAreaView edges={['top']} style={[styles.root, {backgroundColor: C.bg}]}>
         <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         <SetupScreen theme={C} onSave={async s => {
@@ -676,9 +627,6 @@ function MainAppContent() {
   return (
     <View style={[styles.root, {backgroundColor: C.bg}]}>
       <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor="transparent" translucent />
-      {/* Falls back so the title is never blank: the name is now the button
-          that opens the profile, and an empty one is an unlabelled control.
-          Singlets have no system profile, so for them it stays plain text. */}
       <AppHeader C={C} systemName={system.name || t('systemProfile.unnamed')} canLock={!!appSettings.appLockPassword} onLock={() => setLocked(true)} onOpenSettings={() => setShowSystem(true)}
         onOpenProfile={appSettings.accountMode === 'singlet' ? undefined : () => setShowSystemProfile(true)} />
       <View style={styles.content}>
@@ -694,9 +642,6 @@ function MainAppContent() {
         <SetStatusModal visible={showSetFront} theme={C} statuses={singletStatuses(members)} selfId={selfMember?.id} current={front} settings={appSettings}
           lastKnownLocation={lastKnownLocation}
           onSave={async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
-            // A transient throw here (storage hiccup, GPS resolver) used to be
-            // an unhandled rejection with the sheet left open — surface it as
-            // the normal save-failed alert instead. (MIKHAIL's one-off.)
             try { await updateFront(primary, coFront, coConscious); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); return; }
             setShowSetFront(false);
           }}
@@ -705,9 +650,6 @@ function MainAppContent() {
         <SetFrontModal visible={showSetFront} theme={C} members={members.filter(m => !m.archived)} groups={groups} current={front} settings={appSettings}
           lastKnownLocation={lastKnownLocation}
           onSave={async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
-            // A transient throw here (storage hiccup, GPS resolver) used to be
-            // an unhandled rejection with the sheet left open — surface it as
-            // the normal save-failed alert instead. (MIKHAIL's one-off.)
             try { await updateFront(primary, coFront, coConscious); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); return; }
             setShowSetFront(false);
           }}
@@ -763,12 +705,9 @@ function MainAppContent() {
         onSelectPalette={selectPalette}
         onOpenProfile={() => { setShowSystem(false); setShowSystemProfile(true); }}
         onClose={() => setShowSystem(false)} />
-      {/* Systems only. A singlet's profile is the Profile tab, and their name
-          and goals stay in the System settings sheet where they were. */}
       <SystemProfileModal visible={showSystemProfile && appSettings.accountMode !== 'singlet'} theme={C} system={system}
         onSave={(s: SystemInfo) => { saveSystem(s).catch(e => console.warn('[PS] system profile save failed:', e)); }}
         onClose={() => setShowSystemProfile(false)} />
-      {/* One crop editor for every picture upload; opened via requestImageCrop. */}
       <ImageCropHost theme={C} />
     </View>
   );

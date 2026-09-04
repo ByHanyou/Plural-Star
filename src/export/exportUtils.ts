@@ -632,7 +632,6 @@ const findZipEntry = (
   return Object.entries(files).find(([name]) => normalizeZipEntryPath(name).endsWith(`/${normalizedTarget}`) || normalizeZipEntryPath(name) === normalizedTarget)?.[1];
 };
 
-/** Decode one entry of an already-unzipped bundle as text (foreign zip imports). */
 export const zipTextOf = (bytes: Uint8Array): string => strFromU8(bytes);
 
 const parseZipJson = (

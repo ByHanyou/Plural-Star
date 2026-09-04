@@ -206,7 +206,6 @@ const downloadImageWithExtSniff = async (
   if (!url || !url.startsWith('http')) return undefined;
   const primary = await downloadViaBlobUtil(baseDir, id, url);
   if (primary) return primary;
-  console.log('[PS] avatar primary download failed, trying fallback:', url.slice(0, 80));
   return downloadViaFetchFallback(baseDir, id, url);
 };
 
@@ -228,7 +227,6 @@ export const deleteAvatar = async (memberId: string): Promise<void> => {
       if (exists) { await ReactNativeBlobUtil.fs.unlink(path); break; }
     }
   } catch {}
-  // The local full-size View Photo copy goes with it.
   try {
     const full = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars_full/${memberId}.png`;
     if (await ReactNativeBlobUtil.fs.exists(full)) await ReactNativeBlobUtil.fs.unlink(full);
@@ -285,11 +283,6 @@ export const saveBannerImage = async (
   return persistImage(sourceUri, destPath);
 };
 
-// View Photo used to blow the 256px avatar up to fullscreen and it showed.
-// At pick time a larger copy (capped at 1024px) is kept LOCALLY beside the
-// avatar; no member field ever references it, so sync, mirrors and exports
-// keep shipping the small one and other devices are untouched. Best-effort:
-// a failed large copy never fails the pick.
 const AVATAR_FULL_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars_full`;
 const AVATAR_FULL_MAX = 1024;
 
@@ -348,12 +341,6 @@ export const migrateStaleMediaPaths = async (
     if (next && next !== uri) changed = true;
     return next;
   };
-  // Every iOS update moves the app container, and while avatar/banner URIs
-  // were being rebased, images living in TEXT were not — image-type custom
-  // fields hold a bare file:// URI as their value, and markdown bodies
-  // (descriptions, markdown fields) embed them as ![](file://...). Those kept
-  // pointing at the dead container and rendered blank after each update.
-  // Rebase a Documents URI wherever it appears inside a string.
   const fixText = (text?: string): string | undefined => {
     if (!text || typeof text !== 'string' || !text.includes('file://')) return text ?? undefined;
     const next = text.replace(/file:\/\/[^\s)"'\]]+/g, u => rebaseDocumentUri(u) || u);
@@ -393,20 +380,6 @@ export const migrateStaleMediaPaths = async (
   return {members: updatedMembers, system: updatedSystem, changed};
 };
 
-/**
- * Recovery pass for VANISHED media files ("banner was not blank before but
- * now it is" reports). Path healing (migrateStaleMediaPaths) can only fix the
- * URI's container prefix — if the file itself is gone, the healed path still
- * renders blank. For members imported from PluralKit/Tupperbox we kept the
- * original remote URLs (pkAvatarUrl/pkBannerUrl), so a missing file can be
- * re-downloaded. Hand-picked images with no source URL are left untouched —
- * the field keeps its path and simply renders blank, same as before, so
- * nothing is destroyed.
- *
- * Callers must NOT block startup on this: it does real network work
- * (7s-timeout downloads). Capped per run so a roster full of dead URLs
- * can't churn the network every launch.
- */
 export const restoreMissingMediaFiles = async (
   members: any[],
 ): Promise<{members: any[]; changed: boolean}> => {
@@ -455,9 +428,6 @@ export const rebaseChatMessageMedia = (messages: any[]): {messages: any[]; chang
 export const migrateInlineAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
   let changed = false;
   await ensureDir(AVATAR_DIR);
-  // parallelMap, not a sequential for-await: this is one image decode + resize
-  // + file write per member, and on a few hundred members the serial version
-  // took minutes of blank startup on mid-range Android.
   const updated = await parallelMap(members, async (m: any) => {
     if (!m?.avatar || !String(m.avatar).startsWith('data:')) return m;
     changed = true;
@@ -471,17 +441,11 @@ export const migrateInlineAvatars = async (members: any[]): Promise<{members: an
   return {members: updated, changed};
 };
 
-// A 256px avatar lands well under this; anything at or below it is already
-// downsized, so re-encoding it is pure wasted startup time.
 const DOWNSIZE_SKIP_BYTES = 150 * 1024;
 
 export const downsizeExistingAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
   let changed = false;
   await ensureDir(AVATAR_DIR);
-  // Was a sequential loop that re-encoded EVERY file:// avatar with no
-  // already-small check, so a big roster paid hundreds of decode+resize+write
-  // ops on the startup path. Now: stat first (cheap), skip anything already
-  // small, and run what is left 4 at a time.
   const updated = await parallelMap(members, async (m: any) => {
     const av = m?.avatar;
     if (!av || typeof av !== 'string' || !av.startsWith('file://')) return m;
@@ -505,18 +469,10 @@ const needsChatMediaMigration = (msg: any): boolean =>
 
 export const migrateInlineChatMedia = async (messages: any[]): Promise<{messages: any[]; changed: boolean}> => {
   const list = messages || [];
-  // Cheap scan FIRST. This runs for every channel on every launch, and after
-  // the one-time migration nothing matches, so the common case must cost a
-  // string comparison per message and nothing else — no directory creation,
-  // no file system calls at all.
   if (!list.some(needsChatMediaMigration)) return {messages: list, changed: false};
 
   let changed = false;
   await ensureDir(CHAT_MEDIA_DIR);
-  // parallelMap, not a sequential for-await: this is one base64 decode + file
-  // write per attachment, and a chat history full of images took minutes of
-  // blank startup on mid-range Android. Same fix the avatar migration already
-  // carries; this path was missed.
   const updated = await parallelMap(list, async (msg: any) => {
     if (!needsChatMediaMigration(msg)) return msg;
     try {

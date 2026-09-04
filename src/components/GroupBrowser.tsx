@@ -18,8 +18,6 @@ interface GroupBrowserProps {
   banner?: ReactNode;
   memberRow?: (m: Member) => ReactNode;
   memberAction?: (m: Member) => ReactNode;
-  // Same sort options the Members list offers, applied to the members shown
-  // inside the open group. Chips render only when a change handler is wired.
   sortMode?: MemberSortMode;
   onSortModeChange?: (mode: MemberSortMode) => void;
 }
@@ -42,13 +40,8 @@ export const GroupBrowser = ({
   const {t} = useTranslation();
   const fs = fontScale(T);
 
-  // Two lists on purpose: facets are LISTED (they have groups and can front) but
-  // never COUNTED toward the roster. Custom fronts and deleted are in neither.
   const listable = members.filter(isRosterMember);
   const roster = members.filter(isRosterMember);
-  // Facets are LISTED in their own section (they have groups and can front) and
-  // never COUNTED toward the roster. Custom fronts now group like members do
-  // ("put said fronts into a group") — their own section too, never counted.
   const facetListable = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted);
   const cfListable = members.filter(m => m.isCustomFront && !m.deleted);
   const folders = childrenOf(groups, browseId);
@@ -56,11 +49,8 @@ export const GroupBrowser = ({
     ? list.filter(m => !(m.groupIds || []).length)
     : list.filter(m => (m.groupIds || []).includes(browseId)));
   const folderMembersRaw = inFolder(listable);
-  // 'manual' = the roster's own order, which is what this list always showed.
   const folderMembers = sortMembers(folderMembersRaw, sortMode || 'manual');
   const folderFacets = sortMembers(inFolder(facetListable), sortMode || 'manual');
-  // Only INSIDE a group, never at root: an ungrouped custom front is not
-  // "loose in the system" the way an ungrouped member is.
   const folderCustomFronts = browseId === null ? [] : sortMembers(inFolder(cfListable), sortMode || 'manual');
   const current = browseId ? groups.find(g => g.id === browseId) || null : null;
 
@@ -90,8 +80,6 @@ export const GroupBrowser = ({
           </TouchableOpacity>
         );
       })}
-      {/* Always visible, same as the Members screen's sort row — never gated
-          on how many members happen to be in view. */}
       {onSortModeChange && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
           <View style={{flexDirection: 'row', gap: 6, paddingHorizontal: 2}}>

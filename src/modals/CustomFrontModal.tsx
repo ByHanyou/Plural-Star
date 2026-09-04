@@ -3,10 +3,11 @@ import {View, TouchableOpacity, Image, Alert} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {pickImageForUpload} from '../utils/imagePicker';
+import {ImageCropHost} from '../components/ImageCropModal';
 import {Sheet} from '../components/Sheet';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {PALETTE, fontScale, initialOn} from '../theme';
-import {Member, MemberGroup, uid, getInitials, sortGroupsForDisplay} from '../utils';
+import {Member, MemberGroup, uid, getInitials, sortGroupsForDisplay, groupKind} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {deleteAvatar, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
@@ -26,7 +27,12 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
   const [showDescEditor, setShowDescEditor] = useState(false);
   React.useEffect(() => { if (visible) { const fresh = customFront || blank(); setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || [], isCustomFront: true}); setConfirmDel(false); setShowLink(false); setLinkInput(''); setLinking(false); setShowDescEditor(false); } }, [visible, customFront?.id]);
   const draftId = isNew ? 'new' : (customFront?.id || f.id);
-  useDraft<Member>('customFront', draftId, visible, f, d => setF(d));
+  useDraft<Member>('customFront', draftId, visible, f, d => setF(cur => ({
+    ...d,
+    avatar: cur.avatar || d.avatar,
+    avatarTransparent: cur.avatar ? cur.avatarTransparent : d.avatarTransparent,
+    banner: cur.banner || d.banner,
+  })));
   const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
   const applyLink = async () => {
     const url = linkInput.trim();
@@ -85,10 +91,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
         )}
       </View>
       <Field label={t('modal.name')} value={f.name} onChange={(v: string) => set('name', v)} placeholder={t('customFront.namePlaceholder')} T={T} />
-      {/* Search-only alias, same as members. */}
       <Field label={t('modal.nickname')} value={f.nickname || ''} onChange={(v: string) => set('nickname', v || undefined)} placeholder={t('modal.nickname')} T={T} />
-      {/* Custom fronts join groups exactly like members do — "put said fronts
-          into a group", e.g. interaction or mood fronts grouped together. */}
       {!statusMode && (groups || []).length > 0 && (
         <>
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
@@ -101,7 +104,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
                   accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={g.name}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                     backgroundColor: active ? `${g.color || T.accent}20` : T.surface, borderColor: active ? `${g.color || T.accent}50` : T.border}}>
-                  <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: g.color || T.accent}} />
+                  <View style={{width: 7, height: 7, borderRadius: groupKind(g) === 'subsystem' ? 1.5 : 3.5, backgroundColor: g.color || T.accent}} />
                   <Text style={{fontSize: fs(12), color: active ? (g.color || T.accent) : T.dim}}>{g.name}</Text>
                   {active && <Text style={{fontSize: fs(11), fontWeight: '700', color: g.color || T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                 </TouchableOpacity>
@@ -131,6 +134,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
         </TouchableOpacity>
       </View>
       {isFronting && <Text style={{fontSize: fs(11), color: T.danger, lineHeight: 15, marginTop: 4}}>{t('members.frontingLockMsg')}</Text>}
+      {visible && <ImageCropHost theme={T} />}
     </Sheet>
   );
 };

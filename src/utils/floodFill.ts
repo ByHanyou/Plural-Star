@@ -1,29 +1,3 @@
-/**
- * Real multi-stroke enclosure detection for the whiteboard paint bucket.
- *
- * The old bucket looked for ONE single stroke whose point-polygon contained
- * the tap — a circle drawn in two arcs, or an almost-closed loop, never
- * matched, and the miss fell through to filling the entire board (the
- * "bucket fills the whole page" reports). This treats EVERY visible stroke's
- * segments as walls, stamped at their full stroke width onto a work grid over
- * the strokes' bounding box, floods outward from the tap cell, and — if the
- * flood stays enclosed — walks the region's boundary back into a world-space
- * polygon for the existing w:-2 fill renderer. Nothing about rendering or
- * sync changes: the output is an ordinary fill stroke.
- *
- * Properties that fall out of the design:
- * - Gaps narrower than the pen width self-seal (walls are stamped thick), so
- *   visually-closed shapes fill even when the endpoints don't touch.
- * - A genuinely open shape leaks to the bounding-box border → 'open', and the
- *   caller keeps the deliberate "tap empty space to paint the background"
- *   behaviour.
- * - Islands inside the region: only the OUTER contour is emitted, so the fill
- *   paints under island strokes. Known v1 limitation, fine for doodles.
- *
- * Returns: number[] flat polygon [x0,y0,x1,y1,…] when enclosed,
- * 'open' when the flood escapes (or there is nothing to enclose),
- * null when the tap landed on a wall with no room to nudge off it.
- */
 export const traceEnclosedRegion = (
   wx: number,
   wy: number,
@@ -46,18 +20,14 @@ export const traceEnclosedRegion = (
   minX -= MARGIN; minY -= MARGIN; maxX += MARGIN; maxY += MARGIN;
   if (wx <= minX || wx >= maxX || wy <= minY || wy >= maxY) return 'open';
 
-  // Cell size: ~512 cells across the larger axis, min half a world unit.
-  // Grid is bounded to ~1M cells regardless of drawing size.
   const span = Math.max(maxX - minX, maxY - minY);
   const cell = Math.max(0.5, span / 512);
   const W = Math.min(1024, Math.ceil((maxX - minX) / cell) + 1);
   const H = Math.min(1024, Math.ceil((maxY - minY) / cell) + 1);
-  const grid = new Uint8Array(W * H); // 0 empty · 1 wall · 2 flooded
+  const grid = new Uint8Array(W * H);
   const toCX = (x: number) => Math.max(0, Math.min(W - 1, Math.floor((x - minX) / cell)));
   const toCY = (y: number) => Math.max(0, Math.min(H - 1, Math.floor((y - minY) / cell)));
 
-  // Stamp every segment as a disc-swept wall at the stroke's half width
-  // (minimum one cell, so hairlines still hold paint).
   for (const s of walls) {
     const r = Math.max(1, Math.round(s.w / 2 / cell));
     const r2 = r * r + r;
@@ -78,7 +48,6 @@ export const traceEnclosedRegion = (
     }
   }
 
-  // Tap landing on the line itself: nudge to the nearest empty cell nearby.
   let sx = toCX(wx), sy = toCY(wy);
   if (grid[sy * W + sx] === 1) {
     let found = false;
@@ -95,8 +64,6 @@ export const traceEnclosedRegion = (
     if (!found) return null;
   }
 
-  // 4-connected BFS flood. Touching the work-grid border means the region
-  // leaks out of every enclosure → open.
   const queue = new Int32Array(W * H);
   let qh = 0, qt = 0;
   queue[qt++] = sy * W + sx;
@@ -112,12 +79,7 @@ export const traceEnclosedRegion = (
     if (grid[n4] === 0) { grid[n4] = 2; queue[qt++] = n4; }
   }
 
-  // Boundary walk. Every edge between a flooded cell and a non-flooded
-  // neighbour is emitted as a unit segment on the grid lines, oriented
-  // clockwise around the region; chaining start→end vertices yields closed
-  // loops. The loop with the largest bounding box is the outer contour
-  // (shorter loops are holes around islands — dropped, see header).
-  const edges = new Map<number, number[]>(); // startVertex -> endVertices
+  const edges = new Map<number, number[]>();
   const vkey = (x: number, y: number) => y * (W + 1) + x;
   const addEdge = (x1: number, y1: number, x2: number, y2: number) => {
     const k = vkey(x1, y1);
@@ -165,8 +127,6 @@ export const traceEnclosedRegion = (
   }
   if (!best) return null;
 
-  // Vertices → world coordinates, collinear runs merged (the axis-aligned
-  // staircase collapses hard), then stride-capped so sync payloads stay sane.
   const raw: number[] = [];
   for (const v of best) {
     raw.push((v % (W + 1)) * cell + minX, ((v / (W + 1)) | 0) * cell + minY);

@@ -144,7 +144,6 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
                     </TouchableOpacity>
                   );
                 };
-                // Facets keep their own section: out of the member list, still selectable.
                 const facets = sortMembersBySearch<Member>(members.filter((m: Member) => m.isFacet && match(m)), authorSearch);
                 return (
                   <>
@@ -168,8 +167,6 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
       </View>
       {showTemplatePicker && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowTemplatePicker(false)}>
-          {/* Scrim must not be an accessible button: on iOS that hides the whole
-              card from VoiceOver. Escape gesture on the card dismisses instead. */}
           <TouchableOpacity activeOpacity={1} onPress={() => setShowTemplatePicker(false)} accessible={false} importantForAccessibility="no"
             style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24}}>
             <TouchableOpacity activeOpacity={1} onPress={() => {}} accessible={false}

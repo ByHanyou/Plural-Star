@@ -1,8 +1,29 @@
 diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
-index bda1ee4..1609235 100644
+index bda1ee4..a47713e 100644
 --- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
 +++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
-@@ -130,10 +130,33 @@ public class ForegroundService extends Service {
+@@ -51,6 +51,20 @@ public class ForegroundService extends Service {
+   private static final Object sLock = new Object();
+   private static final String DEFENSIVE_CHANNEL_ID = "notifee_fg_default";
+   private static final int DEFENSIVE_NOTIFICATION_ID = Integer.MAX_VALUE - 1;
++  // Own channel for the onCreate() placeholder. Channel importance is frozen at
++  // first creation, so a "notifee_fg_default" created by an older build at a
++  // higher importance would keep the placeholder in the alerting section; a
++  // fresh id guarantees IMPORTANCE_MIN.
++  private static final String PLACEHOLDER_CHANNEL_ID = "ps_fg_placeholder";
++
++  /**
++   * True while the onCreate() placeholder is this instance's foreground notification. A
++   * later onStartCommand that would only notify() the real notification must instead call
++   * startForeground() with it: NotificationManager.cancel() is ignored for the notification
++   * a running foreground service owns, so a placeholder left in that slot stays on screen
++   * as a blank row ("Plural Star · now") beside the real one.
++   */
++  private boolean mPlaceholderIsForeground = false;
+ 
+   /**
+    * Tracks whether startForeground() has been called on THIS service instance. This is an instance
+@@ -130,10 +144,33 @@ public class ForegroundService extends Service {
      intent.putExtra("notificationBundle", notificationBundle);
  
      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -39,7 +60,7 @@ index bda1ee4..1609235 100644
      }
    }
  
-@@ -163,6 +186,57 @@ public class ForegroundService extends Service {
+@@ -163,6 +200,65 @@ public class ForegroundService extends Service {
      }
    }
  
@@ -73,10 +94,17 @@ index bda1ee4..1609235 100644
 +          return;
 +        }
 +      }
-+      ensureDefensiveChannel();
++      ensurePlaceholderChannel();
++      // App icon + app name, silent, minimum priority: if this placeholder is
++      // ever on screen for a frame it must not read as a blank "(i)" alert.
++      int appIcon = getApplicationInfo().icon;
 +      Notification placeholder =
-+          new NotificationCompat.Builder(this, DEFENSIVE_CHANNEL_ID)
-+              .setSmallIcon(android.R.drawable.ic_dialog_info)
++          new NotificationCompat.Builder(this, PLACEHOLDER_CHANNEL_ID)
++              .setSmallIcon(appIcon != 0 ? appIcon : android.R.drawable.ic_dialog_info)
++              .setContentTitle(getApplicationInfo().loadLabel(getPackageManager()))
++              .setPriority(NotificationCompat.PRIORITY_MIN)
++              .setSilent(true)
++              .setOngoing(true)
 +              .build();
 +      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
 +        startForeground(
@@ -87,6 +115,7 @@ index bda1ee4..1609235 100644
 +        startForeground(DEFENSIVE_NOTIFICATION_ID, placeholder);
 +      }
 +      mStartForegroundCalled = true;
++      mPlaceholderIsForeground = true;
 +    } catch (Exception e) {
 +      // Denied (e.g. a background start that raced past the caller-side guard) or any
 +      // other failure: fall through to the original onStartCommand behaviour.
@@ -97,7 +126,58 @@ index bda1ee4..1609235 100644
    @SuppressLint({"ForegroundServiceType", "MissingPermission"})
    @Override
    public int onStartCommand(Intent intent, int flags, int startId) {
-@@ -308,6 +382,16 @@ public class ForegroundService extends Service {
+@@ -233,6 +329,7 @@ public class ForegroundService extends Service {
+                     Trace.endSection();
+                   }
+                   mStartForegroundCalled = true;
++                  mPlaceholderIsForeground = false;
+                   mCurrentForegroundServiceType = foregroundServiceType;
+                 }
+               } else {
+@@ -243,6 +340,7 @@ public class ForegroundService extends Service {
+                   Trace.endSection();
+                 }
+                 mStartForegroundCalled = true;
++                mPlaceholderIsForeground = false;
+               }
+ 
+               if (!noneEarlyReturn) {
+@@ -277,7 +375,12 @@ public class ForegroundService extends Service {
+                         TAG,
+                         "Resolved foreground service type is NONE on API 34+; skipping type"
+                             + " change.");
+-                  } else if (foregroundServiceType != mCurrentForegroundServiceType) {
++                  } else if (foregroundServiceType != mCurrentForegroundServiceType
++                      || mPlaceholderIsForeground) {
++                    // Also taken when this (recreated) instance still holds the onCreate()
++                    // placeholder as its foreground notification: the static id survived a
++                    // system-killed instance, so a plain notify() would leave the blank
++                    // placeholder in the foreground slot for good.
+                     Trace.beginSection("notifee:startForeground");
+                     try {
+                       startForeground(hashCode, notification, foregroundServiceType);
+@@ -285,9 +388,20 @@ public class ForegroundService extends Service {
+                       Trace.endSection();
+                     }
+                     mStartForegroundCalled = true;
++                    mPlaceholderIsForeground = false;
+                     mCurrentForegroundServiceType = foregroundServiceType;
+                     shouldPostNotificationAgain = false;
+                   }
++                } else if (mPlaceholderIsForeground) {
++                  Trace.beginSection("notifee:startForeground");
++                  try {
++                    startForeground(hashCode, notification);
++                  } finally {
++                    Trace.endSection();
++                  }
++                  mStartForegroundCalled = true;
++                  mPlaceholderIsForeground = false;
++                  shouldPostNotificationAgain = false;
+                 }
+                 if (shouldPostNotificationAgain) {
+                   NotificationManagerCompat.from(ContextHolder.getApplicationContext())
+@@ -308,6 +422,16 @@ public class ForegroundService extends Service {
              return START_NOT_STICKY;
            }
  
@@ -114,7 +194,45 @@ index bda1ee4..1609235 100644
            if (pendingEvent != null) {
              EventBus.post(pendingEvent);
            }
-@@ -531,6 +615,19 @@ public class ForegroundService extends Service {
+@@ -392,6 +516,37 @@ public class ForegroundService extends Service {
+     }
+   }
+ 
++  /** Channel for the onCreate() placeholder only; see PLACEHOLDER_CHANNEL_ID. */
++  private void ensurePlaceholderChannel() {
++    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
++      NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
++      if (nm != null && nm.getNotificationChannel(PLACEHOLDER_CHANNEL_ID) == null) {
++        NotificationChannel channel =
++            new NotificationChannel(
++                PLACEHOLDER_CHANNEL_ID, "Background service", NotificationManager.IMPORTANCE_MIN);
++        channel.setShowBadge(false);
++        channel.enableLights(false);
++        channel.enableVibration(false);
++        channel.setSound(null, null);
++        nm.createNotificationChannel(channel);
++      }
++    }
++  }
++
++  @Override
++  public void onDestroy() {
++    // Belt and braces: whatever path stopped this instance, no detached
++    // placeholder may outlive it.
++    try {
++      NotificationManagerCompat.from(ContextHolder.getApplicationContext())
++          .cancel(DEFENSIVE_NOTIFICATION_ID);
++    } catch (Exception ignored) {
++      // Nothing to clean up.
++    }
++    mPlaceholderIsForeground = false;
++    super.onDestroy();
++  }
++
+   @SuppressWarnings("deprecation")
+   private void stopForegroundCompat() {
+     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+@@ -531,6 +686,19 @@ public class ForegroundService extends Service {
            "Defensive startForeground() was denied by Android while stopping the service; "
                + "continuing with stopSelf() to avoid a fatal app crash.",
            e);

@@ -72,10 +72,6 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
   const getMember = (id: string) => memberById.get(id);
   const allTags = useMemo(() => [...new Set(journal.flatMap(e => e.hashtags || []))].sort(), [journal]);
 
-  // One pass over the journal to learn who has written, then one pass over the
-  // roster. This was `members.filter(… journal.some(…))` TWICE, which is
-  // members × entries on every single render — hundreds of thousands of
-  // iterations per keystroke on a real journal.
   const authorIdsInJournal = useMemo(() => {
     const ids = new Set<string>();
     for (const e of journal) for (const id of e.authorIds || []) ids.add(id);
@@ -159,7 +155,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
   if (!journalUnlocked) {
     return (
       <View style={{flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32}}>
-        <Text style={{fontSize: fs(44), color: T.accent, marginBottom: 16}}>◉</Text>
+        <Text style={{fontSize: fs(44), color: T.accent, marginBottom: 16}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◉</Text>
         <Text accessibilityRole="header" style={[s.heading, {color: T.text, marginBottom: 8}]}>{t('journal.locked')}</Text>
         <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 24}}>{t('journal.enterPasswordToContinue')}</Text>
         <TextInput value={globalPwInput} onChangeText={v => {setGlobalPwInput(v); setGlobalPwError(false);}}
@@ -215,7 +211,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
       {subTab === 'templates' ? (
         templates.length === 0 ? (
           <View style={{alignItems: 'center', paddingVertical: 48}}>
-            <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◫</Text>
+            <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◫</Text>
             <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>
               {t('journal.noTemplates')}
             </Text>
@@ -320,7 +316,6 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
                     {activeAuthor === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                   </TouchableOpacity>
                 ))}
-                {/* Facets keep their own section: out of the member list, still filterable. */}
                 {filteredFacetAuthors.length > 0 && (
                   <>
                     <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
@@ -343,7 +338,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
 
       {!filteredJournal.length ? (
         <View style={{alignItems: 'center', paddingVertical: 48}}>
-          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◉</Text>
+          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◉</Text>
           <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>
             {activeTag ? t('journal.noEntriesTagged', {tag: activeTag}) : t('journal.noEntries')}
           </Text>

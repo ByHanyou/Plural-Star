@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, TouchableOpacity, Alert} from 'react-native';
+import {View, TouchableOpacity, Alert, Text as RawText} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
@@ -26,8 +26,6 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const fs = fontScale(T);
   const {t} = useTranslation();
   const [journalPw, setJournalPw] = useState<string>(system.journalPassword || ''); const [showJournalPw, setShowJournalPw] = useState(!!system.journalPassword);
-  // Singlets have no System Profile — they have the Profile tab. Their name and
-  // goals stay here, where they have always been.
   const [sysName, setSysName] = useState<string>(system.name || '');
   const [sysDesc, setSysDesc] = useState<string>(system.description || '');
   const [newLocation, setNewLocation] = useState(''); const [newMood, setNewMood] = useState('');
@@ -54,11 +52,6 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [palBg, setPalBg] = useState(''); const [palAccent, setPalAccent] = useState('');
   const [palText, setPalText] = useState(''); const [palMid, setPalMid] = useState('');
   React.useEffect(() => { if (visible) { setJournalPw(system.journalPassword || ''); setShowJournalPw(!!system.journalPassword); setSysName(system.name || ''); setSysDesc(system.description || ''); setLocs(settings?.locations || []); setMoods(settings?.customMoods || []); setNewLocation(''); setNewMood(''); setSelectedLang(settings?.language || 'en'); setNotifEnabled(settings?.notificationsEnabled ?? true); setPersistFront(settings?.persistentFrontNotif !== false); setFilesEnabled(settings?.filesEnabled ?? true); setSingletMode(settings?.accountMode === 'singlet'); setTextScale(settings?.textScale ?? 1.0); setFontChoice(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default')); setShowLangPicker(false); setShowFrontCheckPicker(false); setEditPalette(null); setFrontCheckInterval(settings?.frontCheckInterval || 0); setNotifRefreshMins(settings?.notificationRefreshMinutes || 0); setShowNotifRefreshPicker(false); setNoteboardNotifs(settings?.noteboardNotifications ?? false); setTermMap(settings?.terminology || {}); setTierMap(settings?.tierNames || {}); setAppLockPw(settings?.appLockPassword || ''); setShowAppLockPw(!!settings?.appLockPassword); } }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Depends on `visible` ONLY, deliberately. `settings` is a fresh object on
-  // every store write (a sync apply, a GPS location update, any other setting
-  // saved), so keeping it in the deps re-ran this while the sheet was open and
-  // threw away whatever the user had edited but not yet saved. That is what
-  // reset reordered custom moods and brought deleted ones back.
 
   const addLoc = () => {if (newLocation.trim() && !locs.includes(newLocation.trim())) {setLocs([...locs, newLocation.trim()]); setNewLocation('');}};
   const addMood = () => {if (newMood.trim() && !moods.includes(newMood.trim())) {setMoods([...moods, newMood.trim()]); setNewMood('');}};
@@ -98,19 +91,10 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
 
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn instant T={T} onPress={() => {
-      // Merged onto the live record, not onto a copy taken when this sheet
-      // opened: the profile is edited elsewhere now, and a stale copy would
-      // quietly undo a name or avatar change made in between.
       onSave({...system, ...(singletMode ? {name: sysName, description: sysDesc} : {}), journalPassword: showJournalPw && journalPw ? journalPw : undefined});
       onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, tierNames: tierMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
-      {/* Name, description, avatar and banner moved to the System Profile,
-          reached by tapping the system name in the header. A profile is not a
-          setting. This sheet still owns the journal password, which lives on
-          the same record — so it saves onto the CURRENT system rather than a
-          copy taken when the sheet opened, or it would revert a profile edit
-          made while the sheet sat open. */}
       {singletMode ? (
         <>
           <Field label={t('modal.name')} value={sysName} onChange={setSysName} placeholder={t('setup.yourNamePlaceholder')} T={T} />
@@ -128,9 +112,6 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             const isActive = activePaletteId === p.id;
             const isBuiltIn = p.id.startsWith('__');
             return (
-              // Row was one big labeled touchable, so its Edit/Delete children
-              // were invisible to iOS VoiceOver. Select is now its own flex:1
-              // touchable with Edit/Delete as reachable siblings.
               <View key={p.id}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, borderWidth: 1,
                   backgroundColor: isActive ? `${p.accent}15` : T.surface, borderColor: isActive ? `${p.accent}50` : T.border}}>
@@ -171,12 +152,6 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
               <HexField label={t('modal.palMid')} value={palMid} onChange={setPalMid} T={T} />
             </View>
             {isValidHex(normalizeHex(palBg)) && isValidHex(normalizeHex(palAccent)) && isValidHex(normalizeHex(palText)) && isValidHex(normalizeHex(palMid)) && (
-              // Each preview label is clamped against the surface it actually
-              // sits on: bg-tinted labels on the accent/mid fills, the text
-              // colour on the bg strip. Raw values went invisible whenever two
-              // palette colours shared a luminance ("fren" teal put its Mid
-              // label at 1.18:1), and the text chip now mirrors the readable
-              // text the app will really use.
               <View style={{flexDirection: 'row', gap: 3, marginBottom: 10, padding: 8, borderRadius: 8, backgroundColor: normalizeHex(palBg)}}>
                 <View style={{flex: 1, height: 24, borderRadius: 4, backgroundColor: normalizeHex(palAccent), alignItems: 'center', justifyContent: 'center'}}>
                   <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palBg), normalizeHex(palAccent), 4.5)}}>{t('modal.palPreviewAccent')}</Text>
@@ -272,9 +247,6 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           {showNotifRefreshPicker && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
               {[0, 15, 30, 60, 240, 480, 720, 1440].map(mins => {
-                // 0 stored = "no explicit choice". Since the vanish fix the
-                // re-post is the notification's resurrection path, so 0 now
-                // means the 30-minute floor — never "off". Labeled honestly.
                 const label = mins === 0 ? t('notification.refreshAuto') : mins < 60 ? t('notification.everyNMinutes', {count: mins}) : t('notification.everyNHours', {count: mins / 60});
                 return (
                   <TouchableOpacity key={mins} onPress={() => {setNotifRefreshMins(mins); setShowNotifRefreshPicker(false);}} activeOpacity={0.7}
@@ -325,8 +297,6 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           </View>
         ))}
         <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginTop: 6, marginBottom: 8}}>{t('terminology.tierHint')}</Text>
-        {/* terminology.* label keys: exempt from both override passes, so the
-            defaults stay visible for resetting, same as the fields above. */}
         {([['primary', 'tierPrimary'], ['coFront', 'tierCoFront'], ['coConscious', 'tierCoConscious']] as const).map(([tier, labelKey]) => (
           <View key={tier} style={{marginBottom: 8}}>
             <Text style={{fontSize: fs(10), color: T.dim, marginBottom: 3}}>{t(`terminology.${labelKey}`)}</Text>
@@ -388,7 +358,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
               <TouchableOpacity key={opt.value} onPress={() => setFontChoice(opt.value)} activeOpacity={0.7}
                 accessibilityRole="radio" accessibilityState={{selected: sel, checked: sel}} accessibilityLabel={opt.label}
                 style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 11, backgroundColor: sel ? `${T.accent}18` : T.surface, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: T.border}}>
-                <Text style={{fontSize: fs(14), color: sel ? T.accent : T.text, fontFamily: opt.family || undefined, fontWeight: sel ? '600' : '400'}}>{opt.label}</Text>
+                <RawText style={{fontSize: fs(14), color: sel ? T.accent : T.text, fontFamily: opt.family || undefined, fontWeight: sel && !opt.family ? '600' : '400'}}>{opt.label}</RawText>
                 {sel ? <Text style={{fontSize: fs(14), color: T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text> : null}
               </TouchableOpacity>
             );

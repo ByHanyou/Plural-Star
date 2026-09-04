@@ -26,9 +26,6 @@ export const sealMessage = (
   message: NetMessage,
   subId?: string,
 ): string => {
-  // Linked devices share one network identity, so the peer id cannot tell them
-  // apart. The device sub-id rides INSIDE the sealed payload — never the
-  // envelope header — so the relay never learns which device sent what.
   const plaintext = decodeUTF8(JSON.stringify(subId ? {...message, dev: subId} : message));
   const nonce = nacl.randomBytes(nacl.box.nonceLength);
   const ct = nacl.box(plaintext, nonce, recipientBoxPublicKey, self.boxSecretKey);
@@ -46,7 +43,6 @@ export const sealMessage = (
 export interface OpenedMessage {
   sender: FriendIdentity;
   message: NetMessage;
-  /** Sender's device sub-id, when it sent one. Distinguishes devices that share an identity. */
   dev?: string;
 }
 

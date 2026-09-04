@@ -33,44 +33,34 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
   const presentedRef = useRef(false);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
   const watchdogs = useRef<ReturnType<typeof setTimeout>[]>([]);
   const clearWatchdogs = () => {
     for (const w of watchdogs.current) clearTimeout(w);
     watchdogs.current = [];
   };
   useEffect(() => {
-    // present() is not fire-and-forget any more. On Android a present issued
-    // while another sheet is still mid-dismiss can be silently DROPPED: the
-    // host's `visible` stays true, so the opening button becomes a no-op
-    // ("press update front and it doesn't do it"), and the half-mounted dialog
-    // can keep eating touches until the app is killed. The watchdog retries
-    // the present until onDidPresent confirms it, and if it will not take,
-    // calls onClose so the host resets and the button works again.
     if (visible) {
       wasVisible.current = true;
       presentedRef.current = false;
       clearWatchdogs();
-      const attempt = () => { Promise.resolve(sheetRef.current?.present()).catch(() => {}); };
+      const attempt = () => {
+        Promise.resolve(sheetRef.current?.present())
+          .then(() => {
+            presentedRef.current = true;
+            clearWatchdogs();
+            if (!visibleRef.current) Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
+          })
+          .catch(() => {});
+      };
       attempt();
       watchdogs.current.push(setTimeout(() => {
         if (!presentedRef.current && visibleRef.current) attempt();
-      }, 700));
-      watchdogs.current.push(setTimeout(() => {
-        if (!presentedRef.current && visibleRef.current) attempt();
-      }, 1600));
-      watchdogs.current.push(setTimeout(() => {
-        if (!presentedRef.current && visibleRef.current) onCloseRef.current();
-      }, 2800));
+      }, 3000));
     } else if (wasVisible.current) {
       wasVisible.current = false;
       clearWatchdogs();
       const tryDismiss = () => Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
       tryDismiss();
-      // A dropped dismiss strands a full-screen dialog over the app with the
-      // host already believing it closed — the "nothing registers until I
-      // reopen the app" report. One delayed retry clears it.
       watchdogs.current.push(setTimeout(() => {
         if (presentedRef.current && !visibleRef.current) tryDismiss();
       }, 700));
@@ -78,8 +68,6 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
     return clearWatchdogs;
   }, [visible]);
 
-  // With the footer inside the scroll body it supplies its own spacing; the
-  // bottom inset still keeps the last row above gesture/nav bars.
   const scrollPaddingBottom = (footer ? 8 : 56) + bottomInset;
 
   return (
@@ -91,9 +79,6 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
       onDidPresent={() => {
         presentedRef.current = true;
         clearWatchdogs();
-        // Presented late, after the host already closed it (present was in
-        // flight when visible flipped): close it now, or it stays up over a
-        // host that thinks it is gone.
         if (!visibleRef.current) Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
       }}
       onDidDismiss={() => { presentedRef.current = false; onClose(); }}
@@ -108,20 +93,6 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
         </View>
       }
     >
-      {/*
-        Attempt 11. The footer is deliberately NOT TrueSheet's `footer` prop —
-        that native overlay strands mid-sheet whenever a positionFooter() event
-        is missed (attempts 1–9 all tuned that movement). Attempt 10 (1.14.2)
-        made it the bottom row of a flex column and trusted the native content
-        view to bound the column at the sheet's visible height; on real devices
-        it does not — the column sizes to its children, so the footer row landed
-        BELOW THE FOLD (Save missing on iOS, clipped on Android — the 1.14.2
-        bug wave). Now the footer lives INSIDE the scroll body, after the
-        content. Scroll content cannot end up outside the scrollport by
-        construction — worst case the user scrolls to it — and it cannot move
-        when the keyboard opens, which was the original spec. Do not "pin" this
-        again without a device in hand.
-      */}
       <ScrollView
         ref={scrollRef}
         style={s.body}
@@ -154,8 +125,6 @@ const s = StyleSheet.create({
   closeBtn: {padding: 4},
   closeX: {fontSize: 16},
   body: {flex: 1, paddingHorizontal: 20, paddingTop: 16},
-  // No paddingHorizontal: the footer sits inside the scroll body, which
-  // already insets 20 — doubling it squeezed the buttons.
   footer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

@@ -27,27 +27,6 @@ export type AmpersandCtx = {
   onDataImported: () => void;
 };
 
-/**
- * .ampar reader.
- *
- * Verified against a real 37 MB archive (2026-08-02), not guessed:
- *
- *   "AMPAR\0"            6-byte magic
- *   u16 be               format version (1)
- *   u16 be               reserved, 0
- *   <msgpack stream>     concatenated {table, data} maps, NOT length-prefixed
- *
- * Decoded here rather than via a dependency: it is a small, frozen subset of
- * MessagePack, and the alternative is shipping a decoder into the RN bundle for
- * one importer. Handles exactly what the format uses — maps, arrays, str, bin,
- * ints, floats, bool, nil, and ext -1 timestamps.
- *
- * Ampersand wraps two things in a `_meta` envelope:
- *   { _meta: {type:'file', name, mimeType}, value: <bin> }   member/system image
- *   { _meta: {type:'map'}, value: [[k,v], ...] }             member customFields
- * Both are left as-is — the confirm step below already reads
- * `customFields.value` as [key, value] pairs.
- */
 const AMPAR_MAGIC = [0x41, 0x4d, 0x50, 0x41, 0x52, 0x00];
 
 export const isAmparBytes = (b: Uint8Array): boolean =>
@@ -77,11 +56,8 @@ const utf8 = (b: Uint8Array, start: number, len: number): string => {
 
 export const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  let p = 10; // magic + version + reserved
+  let p = 10;
 
-  // ext -1: the standard MessagePack timestamp. Emitted as epoch milliseconds
-  // because convertSPSwitches takes a number or a date string, and a number
-  // cannot be misparsed by a locale.
   const timestamp = (len: number): number => {
     if (len === 4) { const s = dv.getUint32(p); p += 4; return s * 1000; }
     if (len === 8) {
@@ -100,8 +76,8 @@ export const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => 
 
   const read = (): any => {
     const c = bytes[p++];
-    if (c <= 0x7f) return c;                       // positive fixint
-    if (c >= 0xe0) return c - 256;                 // negative fixint
+    if (c <= 0x7f) return c;
+    if (c >= 0xe0) return c - 256;
     if (c >= 0x80 && c <= 0x8f) return map(c & 0x0f);
     if (c >= 0x90 && c <= 0x9f) return arr(c & 0x0f);
     if (c >= 0xa0 && c <= 0xbf) return str(c & 0x1f);
@@ -162,11 +138,6 @@ export const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => 
   return out;
 };
 
-/**
- * The binary archive already stores exactly the entity model the confirm step
- * wants — including customFields as [key, value] pairs — so grouping the record
- * stream by table IS the preview. No field renaming is needed anywhere.
- */
 export const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) => {
   const byTable: Record<string, any[]> = {};
   for (const r of decodeAmpar(bytes)) (byTable[r.table] = byTable[r.table] || []).push(r.data);
@@ -175,8 +146,6 @@ export const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) =>
   return {
     system: systems.find((s: any) => String(s?.uuid) === defaultId) || systems[0] || {name: fallbackSystemName},
     systems,
-    // Every system is kept, same rule as the JSON path — filtering to
-    // defaultSystem silently dropped other systems' members.
     members: byTable.members || [],
     switches: byTable.frontingEntries || [],
     customFields: byTable.customFields || [],
@@ -186,23 +155,12 @@ export const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) =>
   };
 };
 
-/**
- * Ampersand's JSON export (DatabaseJSON) reshaped into the same preview the
- * binary path produces, so the confirm step below stays one code path. Their
- * entity model is identical across both formats — the only difference is that
- * JSON holds custom field values as { fieldUuid: value } where the binary holds
- * [key, value] pairs, so that one field gets adapted here.
- */
 export const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
   const db = d?.database || {};
   const systems: any[] = Array.isArray(db.systems) ? db.systems : [];
   const defaultId = String(d?.config?.appConfig?.defaultSystem || '');
   const systemRow = systems.find((s: any) => String(s?.uuid) === defaultId) || systems[0] || {name: fallbackSystemName};
   const members = (Array.isArray(db.members) ? db.members : [])
-    // ALL systems are kept. We used to filter to defaultSystem, which silently
-    // DROPPED every other system's members — real data loss for multi-system
-    // users. Each Ampersand system becomes a group instead (confirm step), so
-    // nothing merges into an indistinguishable pile and nothing is lost.
     .filter((a: any) => !!a)
     .map((a: any) => ({
       ...a,
@@ -220,22 +178,12 @@ export const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
   };
 };
 
-/**
- * Member images ride INSIDE the archive as raw bytes
- * ({_meta:{type:'file'}, value}), so unlike every other importer there is
- * nothing to download — just decode and save. Written after the members land so
- * a failure here costs avatars, never the roster.
- */
 const attachAmparMedia = async (
   amMembers: any[],
   idMap: Record<string, string>,
   setRestoreProgress: any,
   t: TFunction,
 ): Promise<void> => {
-  // Two encodings, because the same field arrives differently per format: the
-  // binary archive holds {_meta:{type:'file'}, value:<bytes>}, the JSON export
-  // holds a data: URI string. saveAvatar strips a data: prefix itself, so both
-  // reduce to one base64 string.
   const asBase64 = (v: any): string | null => {
     if (!v) return null;
     if (typeof v === 'string') return v.startsWith('data:') && v.includes(',') ? v : null;
@@ -272,13 +220,6 @@ const attachAmparMedia = async (
     : m));
 };
 
-/**
- * Ampersand's journal posts and its system message board both become journal
- * entries: they are the only two things it has that are dated, titled, authored
- * prose. A board message's poll has no equivalent of ours (ours target a single
- * member, theirs are system-wide), so rather than invent a shape the results are
- * rendered into the body — nothing is lost and nothing is faked.
- */
 const amparJournalEntries = (
   posts: any[],
   board: any[],
@@ -335,9 +276,6 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
       const [res] = await safePick({type: ['*/*']});
       if (!res) return;
       const path = getPickedFilePath(res);
-      // Ampersand's JSON export is the format their dev recommends — the binary
-      // one changes shape every few releases. Try text first; a binary file just
-      // fails JSON.parse and falls through to the old decoder.
       let jsonDb: any = null;
       try {
         const txt: string = await readFileText(path, res.uri);
@@ -351,9 +289,6 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
         setImportSource('ampersand');
         return;
       }
-      // Not JSON — try the binary archive. Streamed read: a whole-file base64
-      // readFile of a 37MB .ampar OOM-crashed low-RAM devices (Play Console
-      // ReactNativeBlobUtilFS.readFile OutOfMemoryError cluster).
       let bytes: Uint8Array | null = null;
       try {
         bytes = await readFileBytes(path, res.uri);
@@ -388,11 +323,6 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           }
 
           const fieldIdMap: Record<string, string> = {};
-          // Ampersand keeps `age` on the member itself; we have no native age,
-          // so it becomes an "Age" custom field instead of being dropped. The
-          // name is deliberately NOT localized: customFieldDefs sync across
-          // devices/platforms, and Desktop dedupes defs by name — a translated
-          // name here and a plain one there would double the field.
           let ageFieldId = '';
           if (extSel.customFields) {
             const defs: CustomFieldDef[] = amFields.map((f: any, i: number) => {
@@ -408,9 +338,6 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
             await store.set(KEYS.customFieldDefs, defs);
           }
 
-          // Every Ampersand system becomes a group when the export holds more
-          // than one, so multi-system rosters stay tellable-apart. A single
-          // system needs no group — that is just the roster.
           const amSystems: any[] = Array.isArray(extPreview.systems) ? extPreview.systems : [];
           const amTags: any[] = Array.isArray(extPreview.tags) ? extPreview.tags : [];
           const sysGroupMap: Record<string, string> = {};
@@ -435,11 +362,6 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
                 if (sy?.uuid != null) sysGroupMap[String(sy.uuid)] = claimGroup(sName, 'amp:sys:' + String(sy?.uuid || i));
               });
             }
-            // Ampersand has no groups — it organises members with member-type
-            // TAGS, so those are the thing that has to become groups or the
-            // whole roster arrives as one undifferentiated pile. Archived tags
-            // and blank names are skipped; a tag nobody carries is skipped too,
-            // since an empty group is just clutter.
             const usedTags = new Set<string>();
             amMembers.forEach((a: any) => (Array.isArray(a?.tags) ? a.tags : []).forEach((tid: any) => usedTags.add(String(tid))));
             amTags.forEach((tg: any) => {
@@ -453,10 +375,6 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           }
 
           if (extSel.members) {
-            // Through the shared merge pipeline — the old wholesale
-            // store.set(newMembers) REPLACED the entire roster with only the
-            // archive's members, hard-deleting custom fronts, facets, and any
-            // local member the file didn't carry.
             const existing = await store.get<Member[]>(KEYS.members, []) || [];
             const merged: Member[] = [...existing];
             amMembers.forEach((a: any) => {
@@ -475,11 +393,7 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
               }
               mergeForeignMember(merged, idMap, 'amp:' + String(a.uuid), {
                 name: (a.name && String(a.name).trim()) || 'Unnamed member',
-                // role only exists in the JSON export; the binary path leaves it blank.
                 pronouns: String(a.pronouns || ''), role: String(a.role || ''), color: normHex(a.color),
-                // Ampersand 0.3.0 (AMPAR v2 / current JSON) renamed
-                // isCustomFront → isDissociativeState; read both so old and
-                // new exports import identically.
                 description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!(a.isCustomFront || a.isDissociativeState),
                 customFields: cf,
                 groupIds: [
@@ -496,7 +410,6 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           }
 
           if (extSel.frontHistory) {
-            // 0.3.0 renamed the fronting `comment` to `summary`; read both.
             const switches = amFronts.map((f: any) => ({content: {member: String(f.member), startTime: f.startTime, endTime: f.endTime ?? null, comment: f.comment ?? f.summary}}));
             const newH = convertSPSwitches(switches, idMap);
             await applyImportedHistory(newH, ctx);
@@ -512,8 +425,6 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
               const entries = amparJournalEntries(posts, board, idMap, tagNameById, nameOf);
               if (entries.length > 0) {
                 const existing = await store.get<JournalEntry[]>(KEYS.journal, []) || [];
-                // Dedupe on title+timestamp so re-importing the same archive
-                // does not stack duplicate entries.
                 const sig = (e: JournalEntry) => `${e.timestamp}|${e.title}`;
                 const seen = new Set(existing.map(sig));
                 const add = entries.filter(e => !seen.has(sig(e)));

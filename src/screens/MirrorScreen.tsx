@@ -38,6 +38,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const [requesting, setRequesting] = useState<'idle' | 'sent' | 'failed'>('idle');
   const [browseId, setBrowseId] = useState<string | null>(null);
   const [viewMemberId, setViewMemberId] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState('');
   const [viewEntry, setViewEntry] = useState<JournalEntry | null>(null);
   const [unlockFor, setUnlockFor] = useState<JournalEntry | null>(null);
   const [pwInput, setPwInput] = useState('');
@@ -110,6 +111,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     : feature === 'history' ? t('tabs.history')
     : feature === 'systemProfile' ? t('systemProfile.title')
     : feature === 'whiteboard' ? t('whiteboard.title')
+    : feature === 'planner' ? t('planner.title')
     : t('tabs.journal');
 
   const mirrorMembers: MirrorMember[] =
@@ -163,6 +165,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     description: mm.description || '',
     archived: mm.archived,
     avatar: mirrorMedia[mm.id],
+    banner: mirrorMedia[`${mm.id}#banner`],
     groupIds,
     customFields: (mm.customFields || []).map((cf, i) => ({
       fieldId: cf.fieldId || `mirror-cf-${i}`,
@@ -293,15 +296,67 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       );
     }
     if (feature === 'members') {
-      const data: MirrorMember[] = Array.isArray(entry.data) ? entry.data : [];
+      const all: MirrorMember[] = Array.isArray(entry.data) ? entry.data : [];
+      const q = memberSearch.trim().toLowerCase();
+      const data = q ? all.filter(m => [m.name, m.pronouns, m.role].some(v => (v || '').toLowerCase().includes(q))) : all;
       return (
         <FlatList
           data={data}
           keyExtractor={m => m.id}
           renderItem={renderMemberRow}
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}
-          ListEmptyComponent={<Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>}
+          ListHeaderComponent={all.length > 0 ? (
+            <TextInput value={memberSearch} onChangeText={setMemberSearch} placeholder={t('history.searchMember')} placeholderTextColor={T.muted}
+              accessibilityLabel={t('history.searchMember')} autoCorrect={false} clearButtonMode="while-editing"
+              style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 8}} />
+          ) : null}
+          ListEmptyComponent={<Text style={{fontSize: fs(12), color: T.dim}}>{all.length > 0 ? t('mention.noMembers') : t('network.mirrorNothing')}</Text>}
         />
+      );
+    }
+    if (feature === 'planner') {
+      const pd: any = entry.data && typeof entry.data === 'object' ? entry.data : {};
+      const appts: any[] = Array.isArray(pd.appointments) ? pd.appointments : [];
+      const rems: any[] = Array.isArray(pd.reminders) ? pd.reminders : [];
+      const sortedAppts = [...appts].sort((a, b) => (Number(a?.time) || 0) - (Number(b?.time) || 0));
+      if (sortedAppts.length === 0 && rems.length === 0) {
+        return (
+          <View style={{padding: 24, alignItems: 'center'}}>
+            <Text style={{fontSize: fs(12), color: T.dim}}>{t('network.mirrorNothing')}</Text>
+          </View>
+        );
+      }
+      return (
+        <ScrollView contentContainerStyle={{padding: 16, paddingBottom: 16 + insets.bottom}}>
+          {sortedAppts.length > 0 ? (
+            <>
+              <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '700', color: T.dim, marginBottom: 8}}>{t('planner.appt')}</Text>
+              {sortedAppts.map((a: any) => (
+                <View key={String(a?.id || a?.time)} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8}}>
+                  <Text style={{fontSize: fs(13), fontWeight: '600', color: a?.color || T.text}} numberOfLines={2}>{String(a?.title || '')}</Text>
+                  <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{fmtTime(Number(a?.time) || 0)}</Text>
+                  {a?.location ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}} numberOfLines={2}>{String(a.location)}</Text> : null}
+                  {a?.notes ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{String(a.notes)}</Text> : null}
+                </View>
+              ))}
+            </>
+          ) : null}
+          {rems.length > 0 ? (
+            <>
+              <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '700', color: T.dim, marginTop: sortedAppts.length > 0 ? 12 : 0, marginBottom: 8}}>{t('planner.reminders')}</Text>
+              {rems.map((r: any) => (
+                <View key={String(r?.id || r?.title)} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8, opacity: r?.enabled === false ? 0.5 : 1}}>
+                  <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}} numberOfLines={2}>{String(r?.title || '')}</Text>
+                  {Array.isArray(r?.times) && r.times.length > 0 ? (
+                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{r.times.join('  ·  ')}</Text>
+                  ) : null}
+                  {r?.notes ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{String(r.notes)}</Text> : null}
+                </View>
+              ))}
+            </>
+          ) : null}
+        </ScrollView>
       );
     }
     if (feature === 'whiteboard') {
@@ -313,8 +368,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           </View>
         );
       }
-      // World half-size matches WhiteboardScreen's HALF: a w === -1 stroke is
-      // a whole-board fill and needs the full board box to mean anything.
       const HALF_W = 2000;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       let boardFill = false;
@@ -399,8 +452,6 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{flex: 1, backgroundColor: T.bg}}>
-        {/* Same edge-to-edge fix as the MD editor: full-screen Modals span the
-            Android status bar now, so the bare 12 clipped this header under it. */}
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 12 + insets.top : 12 + Math.max(StatusBar.currentHeight || 0, insets.top || 0), paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
           <View style={{flex: 1, minWidth: 0, marginRight: 8}}>
             <Text accessibilityRole="header" style={{fontSize: fs(16), fontWeight: '700', color: T.text}} numberOfLines={1}>{displayName}</Text>

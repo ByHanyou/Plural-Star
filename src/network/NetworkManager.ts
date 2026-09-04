@@ -24,7 +24,7 @@ import {
   openRendezvousRecord,
 } from './rendezvous';
 import { decodeBase64, encodeBase64, decodeUTF8 } from './bytes';
-import { generateFriendCode, generateSyncCode, Member, PRESET_RELATIONSHIP_TYPES, nameCompare } from '../utils';
+import { generateFriendCode, generateSyncCode, Member, allRelationshipTypes, nameCompare } from '../utils';
 import { buildFrontShare, gatewayFrontToShare } from './frontShare';
 import {
   Friend,
@@ -140,13 +140,6 @@ const realMemberCount = (raw: string): number => {
   }
 };
 
-// A wiped device (storage cleared, app reinstalled) boots into fresh EMPTY
-// stores and pushes them; a device that has not changed since its last sync
-// passes the hash floor as "no conflict" and silently applies the empties —
-// that erased a month of someone's journal, history and chat in one round.
-// An empty list therefore never silently replaces a populated one; it has to
-// win a conflict prompt instead. Object-valued keys are untouched, and a
-// legitimate delete-everything still goes through — behind the same prompt.
 const emptyListOverPopulated = (localRaw: string, incomingRaw: string): boolean => {
   try {
     const inc = JSON.parse(incomingRaw);
@@ -201,11 +194,7 @@ class NetworkManagerImpl {
   private systemName = 'Plural Star user';
   private myFront: FrontShare | null = null;
   private myFrontKnown = false;
-  /** Our clock when the current front was produced. Rides BOTH lanes (socket
-   *  message and gateway announce) as one value, so a friend comparing the two
-   *  copies is comparing like with like. */
   private myFrontAt = 0;
-  /** front_req senders parked because our own front was not known yet. */
   private pendingFrontReqs: Set<string> = new Set();
   private subId = '';
 
@@ -270,13 +259,10 @@ class NetworkManagerImpl {
   private applyingSiblingFriends = false;
 
   private friendTombstones: FriendTombstone[] = [];
-  /** not_friends bounce rate limit: at most one per peer per hour. */
   private notFriendsSentAt: Map<string, number> = new Map();
 
   private async persistFriends(): Promise<void> {
     await store.set(FRIENDS_STORAGE_KEY, this.friends);
-    // Echo guard: a merge from a sibling persists too, and pushing that straight
-    // back would bounce the list between the two devices forever.
     if (!this.applyingSiblingFriends) this.pushFriendsToSiblings();
   }
 
@@ -308,7 +294,6 @@ class NetworkManagerImpl {
     if (this.friendTombstones.length !== before) this.persistTombstones().catch(() => {});
   }
 
-  /** Devices that share our identity — after linking, we are literally the same peer. */
   private siblingDevices(): Friend[] {
     const self = this.identity;
     if (!self) return [];
@@ -330,10 +315,6 @@ class NetworkManagerImpl {
     if (!Array.isArray(incoming)) return;
     const byId = new Map(this.friends.map(f => [f.peerId, f]));
     let changed = false;
-    // Sibling removals first: a tombstone newer than our row means the user
-    // removed this friend on another device — honor it here, or the pair rots
-    // into the ghost one-way friendship (frozen "last received copy" on one
-    // side, silent drops on the other) that only refriending used to cure.
     if (Array.isArray(removed)) {
       for (const tb of removed) {
         if (!tb || typeof tb.peerId !== 'string' || typeof tb.removedAt !== 'number') continue;
@@ -355,7 +336,6 @@ class NetworkManagerImpl {
     for (const inc of incoming) {
       if (!inc || typeof inc.peerId !== 'string' || !inc.peerId) continue;
       if (inc.kind === 'device') continue;
-      // Our own system address is us, never a friend.
       if (this.identity && inc.peerId === this.identity.peerId) continue;
       const mine = byId.get(inc.peerId);
       const incAt0 = inc.statusUpdatedAt ?? inc.addedAt ?? 0;
@@ -368,8 +348,6 @@ class NetworkManagerImpl {
         changed = true;
         continue;
       }
-      // Device records are this device's own business; never let a sibling's
-      // copy overwrite one that happens to share a peer id.
       if (mine.kind === 'device') continue;
       const mineAt = mine.statusUpdatedAt ?? mine.addedAt ?? 0;
       const incAt = inc.statusUpdatedAt ?? inc.addedAt ?? 0;
@@ -377,8 +355,6 @@ class NetworkManagerImpl {
       const merged: Friend = {
         ...mine,
         ...inc,
-        // Notification prefs are per-device on purpose: which friends show on
-        // THIS device's lock screen is a local choice.
         showInNotification: mine.showInNotification,
         notifyLevel: mine.notifyLevel,
       };
@@ -596,19 +572,12 @@ class NetworkManagerImpl {
     const id = openRendezvousRecord(record);
     if (!id) throw new Error('invalid record');
     if (id.peerId === self.peerId) {
-      // A device that adopted our identity IS this peer: same keys, same relay
-      // address. Matching on peer id alone therefore called a sibling's sync
-      // code "your own code", so an adopted pair could never link again after
-      // unlinking. Only the code we ourselves published is genuinely ours.
       const mine = this.active[kind]?.code;
       const isReallyMine = kind !== 'device' || (!!mine && mine.toUpperCase() === code.toUpperCase());
       if (isReallyMine) throw new Error('that is your own code');
     }
 
     const existing = this.friends.find(f => f.peerId === id.peerId);
-    // Deliberate re-add: the user is holding a fresh code, so any earlier
-    // removal of this peer is over — clear the tombstone before it can fight
-    // the new row across sibling devices.
     if (kind !== 'device') this.clearTombstone(id.peerId);
     const status: Friend['status'] =
       existing?.status === 'accepted' || existing?.status === 'entered_mine' ? 'accepted' : 'entered_theirs';
@@ -643,9 +612,6 @@ class NetworkManagerImpl {
     if (!self || !p?.sender_peer_id || !p?.payload) return;
     const opened = openMessage(self, p.sender_peer_id, p.payload);
     if (!opened) return;
-    // Own echo: linked devices share an identity, so the relay fans a packet out
-    // to every device on the address INCLUDING the sender. Sub-id is the only
-    // thing that can tell them apart — peer id is identical across them.
     if (opened.dev && this.subId && opened.dev === this.subId) return;
     this.routeMessage(opened.sender, opened.message);
   }
@@ -668,15 +634,6 @@ class NetworkManagerImpl {
     };
   }
 
-  /**
-   * Authenticated "we're not friends" bounce for accepted-only traffic from a
-   * peer with no accepted row here. Without it the other side keeps a ghost
-   * accepted row forever: frozen "last received copy", mirrors that spin and
-   * then claim Offline, fronts silently dropped — while gateway alerts (which
-   * don't ride this channel) stay accurate. Sealed to the envelope identity
-   * because sendTo has no stored key for an unknown peer. Rate-limited so a
-   * chatty ghost cannot make us spam.
-   */
   private maybeSendNotFriends(sender: FriendIdentity): void {
     const self = this.identity;
     const client = this.client;
@@ -695,9 +652,6 @@ class NetworkManagerImpl {
     if (known) {
       const ed = encodeBase64(sender.edPublicKey);
       const box = encodeBase64(sender.boxPublicKey);
-      // Any opened message that isn't the bounce itself proves the peer is
-      // talking to us again — drop the re-add prompt; a live ghost will just
-      // re-flag on the next bounce.
       const clearFlag = !!known.needsRefriend && msg.t !== 'not_friends';
       if (known.edPublicKey !== ed || known.boxPublicKey !== box || clearFlag) {
         this.upsertFriend({ ...known, edPublicKey: ed, boxPublicKey: box, ...(clearFlag ? { needsRefriend: false } : {}) });
@@ -708,9 +662,6 @@ class NetworkManagerImpl {
     switch (msg.t) {
       case 'connect': {
         const existing = this.friends.find(f => f.peerId === sender.peerId);
-        // A completed handshake is a deliberate re-add on THIS side too — a
-        // stale removal tombstone left standing here would keep riding
-        // friends_push to siblings for its whole TTL.
         if (existing && existing.kind !== 'device') this.clearTombstone(sender.peerId);
         if (existing && existing.status === 'entered_theirs') {
           const accepted: Friend = {
@@ -781,10 +732,6 @@ class NetworkManagerImpl {
           this.sendMyFrontTo(sender.peerId);
           this.registerWithGateway().catch(() => {});
         } else if (existing && existing.status === 'accepted') {
-          // A queued packet can surface long after it was written, so a socket
-          // copy older than what we already hold (from the gateway, or from a
-          // later delivery) must not overwrite it. Both stamps are the sender's
-          // own clock, so the comparison is skew-free.
           const held = typeof existing.statusAuthoredAt === 'number' ? existing.statusAuthoredAt : 0;
           if (authoredAt > 0 && held > 0 && authoredAt < held) break;
           this.upsertFriend({
@@ -794,9 +741,6 @@ class NetworkManagerImpl {
           this.persistFriends();
           this.notify();
         } else {
-          // No row, or a half-open row we never accepted: the sender clearly
-          // believes we are friends. Tell it so its side stops showing stale
-          // data as live and prompts a re-add.
           this.maybeSendNotFriends(sender);
         }
         break;
@@ -814,12 +758,6 @@ class NetworkManagerImpl {
           f => f.peerId === sender.peerId && f.kind !== 'device' && f.status === 'accepted',
         );
         if (asker) {
-          // A request that lands before this app has computed its own front
-          // (queued packet delivered at connect, or an FGS-woken process whose
-          // front effect has not run yet) used to be answered with SILENCE, and
-          // the asker never retries — both sides then sat on stale data until
-          // someone's front happened to change, which is why only refriending
-          // cured it. Park it and answer the moment the front is known.
           if (this.myFrontKnown) this.sendMyFrontTo(sender.peerId);
           else this.pendingFrontReqs.add(sender.peerId);
         } else {
@@ -828,8 +766,6 @@ class NetworkManagerImpl {
         break;
       }
       case 'friends_push': {
-        // Only a device that shares our identity can hand us friend records:
-        // its pairings are literally ours, because we are the same peer.
         if (!this.identity || sender.peerId !== this.identity.peerId) break;
         this.mergeSiblingFriends(msg.friends, msg.removed).catch(e => logError('network', e));
         break;
@@ -863,9 +799,6 @@ class NetworkManagerImpl {
           f => f.peerId === sender.peerId && f.kind !== 'device' && f.status === 'accepted',
         );
         if (!requester) {
-          // The handler's own guard just returns silently, which is what left
-          // the requester spinning on "Requesting…" until it declared the
-          // friend offline. Bounce so their side learns the truth.
           this.maybeSendNotFriends(sender);
           break;
         }
@@ -939,8 +872,6 @@ class NetworkManagerImpl {
     }
     const removed = this.friends.find(f => f.peerId === peerId);
     this.friends = this.friends.filter(f => f.peerId !== peerId);
-    // Tombstone the removal so linked sibling devices delete their copy too
-    // instead of pushing the friend right back on the next friends_push.
     if (removed && removed.kind !== 'device') {
       this.setTombstone(peerId, Date.now());
       await this.persistTombstones();
@@ -968,10 +899,6 @@ class NetworkManagerImpl {
     this.registerWithGateway().catch(() => {});
   }
 
-  /** Swap a friend with its neighbour in the displayed order. The whole lane
-   *  is renumbered on every move: rows that predate sortOrder have none, and
-   *  a single swap among unnumbered rows would land in arbitrary order.
-   *  Devices are untouched — only the friends list is orderable. */
   async moveFriend(peerId: string, dir: -1 | 1): Promise<void> {
     const list = this.friends.filter(f => f.kind !== 'device')
       .sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) || (a.addedAt - b.addedAt));
@@ -998,32 +925,25 @@ class NetworkManagerImpl {
     ]);
   }
 
-  /**
-   * The front reduced to what is safe for a single broadcast payload: the
-   * intersection of every watching friend's members scope. One 'all' friend
-   * does not widen it, one restricted friend narrows it for the push lane only
-   * — each friend still gets their own exact, fuller copy over the socket.
-   */
   private async gatewayVisibleFront(): Promise<FrontShare | null> {
     if (!this.myFrontRaw) return this.myFront;
     const watchers = this.friends.filter(f => f.kind !== 'device' && f.status === 'accepted');
     if (watchers.length === 0) return this.myFront;
     const buckets = await this.loadPrivacyBuckets();
-    // Per watcher, the EFFECTIVE visible-id set is kind-aware: members answer
-    // to the members scope, facets to the facets scope (which falls back to
-    // members when never set). Materialize only when a watcher is restricted;
-    // fully-unrestricted watchers stay `null` and never narrow the payload.
     const roster = this.myFrontRaw.members;
     const facetIdsAll = roster.filter(m => m.isFacet && !m.isCustomFront).map(m => m.id);
-    const nonFacetIdsAll = roster.filter(m => !(m.isFacet && !m.isCustomFront)).map(m => m.id);
-    let allowed: Set<string> | null = null; // null = unrestricted so far
+    const customFrontIdsAll = roster.filter(m => m.isCustomFront).map(m => m.id);
+    const plainIdsAll = roster.filter(m => !m.isCustomFront && !m.isFacet).map(m => m.id);
+    let allowed: Set<string> | null = null;
     for (const f of watchers) {
       const mIds = this.allowedMemberIdsFor(buckets, f.peerId);
       const fIds = this.allowedFacetIdsFor(buckets, f.peerId);
-      if (mIds === null && fIds === null) continue;
+      const cIds = this.allowedCustomFrontIdsFor(buckets, f.peerId);
+      if (mIds === null && fIds === null && cIds === null) continue;
       const eff = new Set<string>([
-        ...(mIds === null ? nonFacetIdsAll : Array.from(mIds)),
+        ...(mIds === null ? plainIdsAll : Array.from(mIds)),
         ...(fIds === null ? facetIdsAll : Array.from(fIds)),
+        ...(cIds === null ? customFrontIdsAll : Array.from(cIds)),
       ]);
       if (allowed === null) {
         allowed = eff;
@@ -1040,15 +960,6 @@ class NetworkManagerImpl {
   private async announceFrontToGateway(): Promise<void> {
     const self = this.identity;
     if (!self || !this.settings.enabled) return;
-    // Code-point slices, matching the gateway's rune caps: a bare .slice
-    // counts UTF-16 units and can split an emoji's surrogate pair, which
-    // corrupts the signed string and kills the announce silently.
-    // The gateway fans ONE payload out to every watcher, so it can only carry
-    // what EVERY watcher is permitted to see — otherwise a restricted friend's
-    // iOS push names fronters their buckets exclude, which is the leak the
-    // socket path above now closes. Intersect the scopes; if the result is
-    // empty the announce carries no names at all, and the gateway's own rule
-    // (alert lane requires non-empty fronters) means no push goes out.
     const gwShare = await this.gatewayVisibleFront();
     const cap = (s: string | undefined) => Array.from(s || '').slice(0, 120).join('');
     const fronters = cap(gwShare?.fronters);
@@ -1057,22 +968,12 @@ class NetworkManagerImpl {
     const coConscious = cap(gwShare?.coConscious);
     const startTime = gwShare?.startTime || this.myFront?.startTime || 0;
     const name = Array.from(this.systemName || '').slice(0, 64).join('');
-    // Who may read this back later. Read access is OURS to grant, never the
-    // reader's to claim, so the list is signed with the rest of the announce.
     const readers = this.friends
       .filter(f => f.kind !== 'device' && f.status === 'accepted')
       .map(f => f.peerId)
       .slice(0, 500);
-    // Content-gated: updateMyFront runs on every MEMBER edit too (names have
-    // to stay fresh), and each announce fans an iOS push to every watcher —
-    // so editing headmates sprayed friends with "the same front status every
-    // 3 minutes". If nothing a watcher can SEE has changed, there is nothing
-    // to announce. The stamp (ts) is deliberately outside the gate; a re-stamp
-    // alone is not news.
     const contentSig = `${fronters}|${startTime}|${name}|${primary}|${coFront}|${coConscious}|${readers.join(',')}`;
     if (contentSig === this.gwAnnouncedSig) return;
-    // The SAME stamp the socket copy carries, not a fresh one, so the two lanes
-    // never look like different generations of the same front.
     const ts = this.myFrontAt || Date.now();
     const signed = `psgw-front|${self.peerId}|${ts}|${fronters}|${startTime}|${name}|${primary}|${coFront}|${coConscious}|${readers.join(',')}`;
     const sig = nacl.sign.detached(decodeUTF8(signed), self.edSecretKey);
@@ -1090,10 +991,6 @@ class NetworkManagerImpl {
         co_conscious: coConscious,
         readers,
       });
-      // A gateway that has not been updated yet cannot verify the longer
-      // signature and rejects the whole announce, which would take friends'
-      // push notifications down with it. Fall back to the shape it does know,
-      // so the app can ship in either order.
       if (res && res.ok === false) {
         const legacy = `psgw-front|${self.peerId}|${ts}|${fronters}|${startTime}|${name}`;
         await this.gatewayFetch('/gw/front', {
@@ -1106,20 +1003,10 @@ class NetworkManagerImpl {
           name,
         });
       }
-      // Only a SENT announce arms the gate; a failed one must retry next time.
       this.gwAnnouncedSig = contentSig;
     } catch {}
   }
 
-  /**
-   * Collect friends' fronts from the gateway cache.
-   *
-   * The socket lane can only ever work while BOTH apps are awake, and phones
-   * suspend the moment they are put down, so a change made while the friend is
-   * away used to be lost for good: the sender's queue drains only while the
-   * SENDER runs, and a front_req only gets answered while the FRIEND runs. This
-   * is the lane that does not need the other person to be there.
-   */
   private async fetchGatewayFronts(): Promise<void> {
     const self = this.identity;
     if (!self || !this.settings.enabled) return;
@@ -1150,7 +1037,6 @@ class NetworkManagerImpl {
     this.applyGatewayFronts(fronts);
   }
 
-  /** Split out so the merge rule can be exercised without a live gateway. */
   private applyGatewayFronts(fronts: Record<string, any>): void {
     let changed = false;
     for (const f of this.friends) {
@@ -1160,13 +1046,8 @@ class NetworkManagerImpl {
       const authored = typeof entry.authored_at === 'number' ? entry.authored_at : 0;
       const held = typeof f.statusAuthoredAt === 'number' ? f.statusAuthoredAt : 0;
       if (authored > 0 && held > 0) {
-        // Both stamps come from THAT friend's clock, so this is exact.
         if (authored <= held) continue;
       } else if (f.lastStatus) {
-        // One side predates the stamp. Fall back to the front's own start time,
-        // which both lanes carry, and never overwrite a copy that is at least
-        // as new — a failed announce must not be able to revert a good socket
-        // delivery.
         const gwStart = typeof entry.start_time === 'number' ? entry.start_time : 0;
         const heldStart = typeof f.lastStatus.startTime === 'number' ? f.lastStatus.startTime : 0;
         if (gwStart <= heldStart) continue;
@@ -1188,7 +1069,6 @@ class NetworkManagerImpl {
 
   private gatewayEverRegistered = false;
   private gwFlagLoaded = false;
-  /** Payload the gateway has ACKED. Only set after a successful send. */
   private gwConfirmed: string | null = null;
   private gwRetry: ReturnType<typeof setTimeout> | null = null;
   private gwRetryDelay = 0;
@@ -1203,9 +1083,6 @@ class NetworkManagerImpl {
       this.gatewayEverRegistered = (await store.get<boolean>(GW_REGISTERED_KEY, false)) === true;
       this.gwFlagLoaded = true;
     }
-    // Never watch our own system address: the gateway's "don't push to the
-    // sender" check compares against the REGISTERED id, which is now this
-    // device's own, so a self-entry here would alert us about our own fronts.
     const accepted = this.friends.filter(
       f => f.kind !== 'device' && f.status === 'accepted' && f.peerId !== self.peerId,
     );
@@ -1218,27 +1095,15 @@ class NetworkManagerImpl {
       endFriendsActivity().catch(() => {});
       this.friendsActivityLive = false;
     }
-    // Muting every friend leaves watch empty — and the gateway is still holding
-    // the last list we sent it. We MUST send the empty one so it stops pushing;
-    // bailing here was why muted friends kept coming through after a restart.
-    // Only a device that has never registered has nothing to clear.
     if (watch.length === 0 && !this.gatewayEverRegistered) return;
     const token = pinned.length > 0 ? (await getFriendsPushToken()) || '' : '';
     if (token) this.friendsActivityLive = true;
     const deviceToken = watch.length > 0 ? (await getAPNsDeviceToken()) || '' : '';
     const env = __DEV__ ? 'sandbox' : 'prod';
     const ts = Date.now();
-    // Register under THIS DEVICE's keypair, not the shared system identity. The
-    // gateway holds one token per registered peer id, so linked devices sharing
-    // the system identity would clobber each other's token. It chooses push
-    // targets by watch list, not by address, so a per-device registration still
-    // gets alerts for exactly the friends this device is watching. Our front is
-    // still announced under the system identity — that is what friends watch.
     const gw = await getDeviceIdentity();
     const signed = `psgw-register|${gw.peerId}|${ts}|${env}|${token}|${deviceToken}|${watch.join(',')}|${pinned.join(',')}`;
     const sig = nacl.sign.detached(decodeUTF8(signed), gw.edSecretKey);
-    // Everything the gateway will store, minus the timestamp. If this is already
-    // what it acked, there is nothing to say.
     const state = `${env}|${token}|${deviceToken}|${watch.join(',')}|${pinned.join(',')}`;
     if (state === this.gwConfirmed) return;
     try {
@@ -1261,9 +1126,6 @@ class NetworkManagerImpl {
         await store.set(GW_REGISTERED_KEY, live);
       }
     } catch {
-      // Mutes are the whole point of this call, so a failed send cannot be
-      // dropped: the gateway would keep pushing the friends the user just turned
-      // off until something else happened to re-register. Keep retrying.
       this.scheduleGatewayRetry();
     }
   }
@@ -1285,10 +1147,8 @@ class NetworkManagerImpl {
     }, this.gwRetryDelay);
   }
 
-  /** Raw front + roster, kept so every send can be re-scoped per recipient. */
   private myFrontRaw: {front: any; members: Member[]} | null = null;
 
-  /** Content of the last announce the gateway accepted; unchanged ⇒ skip. */
   private gwAnnouncedSig: string | null = null;
 
   private async loadPrivacyBuckets(): Promise<PrivacyBucket[]> {
@@ -1299,16 +1159,7 @@ class NetworkManagerImpl {
     } catch { return []; }
   }
 
-  /** null = may see everyone; a Set = only those member ids. */
   private allowedMemberIdsFor(buckets: PrivacyBucket[], peerId: string): Set<string> | null {
-    // A friend NO bucket refers to may see everyone. Buckets are an opt-in
-    // restriction; treating the unbucketed as 'none' silenced the front lane
-    // for every pair that never set one up ("can't see my friend's front,
-    // mood, note and etc"), and because the gateway announce is the
-    // intersection across ALL watchers, one unbucketed friend emptied the
-    // push/offline lane for the rest too. A friend who IS in buckets follows
-    // the intersection exactly — including all the way down to nothing, when
-    // that is what their buckets say.
     if (!buckets.some(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId))) return null;
     const scope = this.effectiveScope(buckets, peerId, 'members');
     if (scope.mode === 'all') return null;
@@ -1316,19 +1167,21 @@ class NetworkManagerImpl {
     return scope.ids;
   }
 
-  /**
-   * Facet visibility for the front lane. Per bucket, the facets scope FALLS
-   * BACK to that bucket's members scope when absent — the exact pre-field
-   * behavior — so only buckets deliberately edited diverge. Unbucketed peers
-   * are unrestricted, same rule as members.
-   */
   private allowedFacetIdsFor(buckets: PrivacyBucket[], peerId: string): Set<string> | null {
+    return this.allowedKindIdsFor(buckets, peerId, 'facets');
+  }
+
+  private allowedCustomFrontIdsFor(buckets: PrivacyBucket[], peerId: string): Set<string> | null {
+    return this.allowedKindIdsFor(buckets, peerId, 'customFronts');
+  }
+
+  private allowedKindIdsFor(buckets: PrivacyBucket[], peerId: string, kind: 'facets' | 'customFronts'): Set<string> | null {
     if (!buckets.some(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId))) return null;
     const mine = buckets.filter(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId));
     const ids = new Set<string>();
     let all = false;
     for (const b of mine) {
-      const scope = (b.facets ?? b.members) as PrivacyScope | undefined;
+      const scope = (b[kind] ?? b.members) as PrivacyScope | undefined;
       if (!scope || scope.mode === 'none') continue;
       if (scope.mode === 'all') { all = true; continue; }
       for (const id of scope.ids || []) ids.add(id);
@@ -1337,10 +1190,9 @@ class NetworkManagerImpl {
     return ids;
   }
 
-  /** The front as THIS recipient is permitted to see it. */
   private scopedFrontFor(buckets: PrivacyBucket[], peerId: string): FrontShare | null {
     if (!this.myFrontRaw) return this.myFront;
-    return buildFrontShare(this.myFrontRaw.front, this.myFrontRaw.members, this.allowedMemberIdsFor(buckets, peerId), this.allowedFacetIdsFor(buckets, peerId));
+    return buildFrontShare(this.myFrontRaw.front, this.myFrontRaw.members, this.allowedMemberIdsFor(buckets, peerId), this.allowedFacetIdsFor(buckets, peerId), this.allowedCustomFrontIdsFor(buckets, peerId));
   }
 
   async updateMyFront(front: any, members: Member[]): Promise<void> {
@@ -1351,7 +1203,6 @@ class NetworkManagerImpl {
     this.myFrontKnown = true;
     this.announceFrontToGateway().catch(() => {});
     const buckets = await this.loadPrivacyBuckets();
-    // Answer anyone whose front_req arrived before we knew our own front.
     if (wasUnknown && this.pendingFrontReqs.size > 0) {
       const waiting = [...this.pendingFrontReqs];
       this.pendingFrontReqs.clear();
@@ -1364,8 +1215,6 @@ class NetworkManagerImpl {
       if (f.status !== 'accepted' || f.kind === 'device') continue;
       let delivered = false;
       try {
-        // Per recipient, not one broadcast: buckets scrub the fronters this
-        // friend is not permitted to see.
         await this.sendTo(f.peerId, { t: 'front', status: this.scopedFrontFor(buckets, f.peerId), at: this.myFrontAt });
         delivered = this.isReachable(f.peerId);
       } catch {
@@ -1429,31 +1278,18 @@ class NetworkManagerImpl {
     } catch {}
   }
 
-  /**
-   * Become the same network peer as the device that linked us. The master's keys
-   * ARE the system identity, so its friends keep working untouched — they were
-   * never told about this device at all. Our own sub-id stays local, which is
-   * what still lets the two of us tell each other apart afterwards.
-   */
   private async adoptSystemIdentity(
     identity: {v: number; edSecretKey: string; boxSecretKey: string},
     friends: Friend[],
   ): Promise<void> {
     if (!identity?.edSecretKey || !identity?.boxSecretKey) return;
     const previousPeerId = this.identity?.peerId;
-    // Pin this device's own keypair BEFORE the system identity is replaced, so
-    // its push registration keeps the address it already owns at the gateway
-    // instead of colliding with the master's.
     await getDeviceIdentity();
     await store.set(IDENTITY_STORAGE_KEY, identity);
     resetIdentityCache();
     const adopted = await loadOrCreateIdentity();
     this.identity = adopted;
 
-    // Keep our own device links, take on the master's friends. A device record
-    // that now points at our own address is the master itself — that is how
-    // sibling sync works from here (send to the shared address, fan-out
-    // delivers to the others, each drops its own echo by sub-id).
     const ownDeviceLinks = this.friends.filter(f => f.kind === 'device');
     const incoming = (Array.isArray(friends) ? friends : []).filter(f => f && f.kind !== 'device');
     const merged = [...incoming];
@@ -1463,8 +1299,6 @@ class NetworkManagerImpl {
     this.friends = merged;
     await this.persistFriends();
 
-    // Sync state is keyed to the old pairing; drop it so the next round
-    // re-hashes rather than trusting bases from a different identity.
     this.lastHashes = {};
     await store.set(SYNC_STATE_KEY, this.lastHashes);
 
@@ -1486,10 +1320,6 @@ class NetworkManagerImpl {
       if (f.kind === 'device' || f.status !== 'accepted') continue;
       this.requestFrontFrom(f.peerId);
     }
-    // Asking the friends themselves only works for the ones who happen to be
-    // awake. The gateway pull is what covers everyone else, so it rides the
-    // same moments: coming online, and returning to the foreground. Guarded so
-    // a foreground that also triggers a reconnect does not fetch twice.
     const now = Date.now();
     if (now - this.lastGatewayPull < 15000) return;
     this.lastGatewayPull = now;
@@ -1634,7 +1464,7 @@ class NetworkManagerImpl {
   }
 
   private clearMirrorCaches(peerId: string): void {
-    for (const feat of ['members', 'groups', 'journal', 'history', 'systemProfile', 'whiteboard'] as MirrorFeature[]) {
+    for (const feat of ['members', 'groups', 'journal', 'history', 'systemProfile', 'whiteboard', 'planner'] as MirrorFeature[]) {
       AsyncStorage.removeItem(this.mirrorCacheKey(peerId, feat)).catch(() => {});
       this.clearMirrorMedia(peerId, feat).catch(() => {});
       this.mirrorSentHash.delete(`${peerId}|${feat}`);
@@ -1693,7 +1523,7 @@ class NetworkManagerImpl {
   private mirrorSentHash: Map<string, string> = new Map();
 
   private async handleMirrorReq(peerId: string, feature: MirrorFeature, skipIfUnchanged?: boolean): Promise<void> {
-    if (feature !== 'members' && feature !== 'groups' && feature !== 'journal' && feature !== 'history' && feature !== 'systemProfile' && feature !== 'whiteboard') return;
+    if (feature !== 'members' && feature !== 'groups' && feature !== 'journal' && feature !== 'history' && feature !== 'systemProfile' && feature !== 'whiteboard' && feature !== 'planner') return;
     const fr = this.friends.find(x => x.peerId === peerId && x.kind !== 'device' && x.status === 'accepted');
     if (!fr) return;
     const gateKey = `${peerId}|${feature}`;
@@ -1719,14 +1549,9 @@ class NetworkManagerImpl {
     let payload = '';
     let mediaMembers: {id: string; avatar: string}[] = [];
     let cfImages: {memberId: string; fieldId: string; src: string}[] = [];
-    // Sent at a larger size than a list thumbnail: these render as the header
-    // of a full profile, not as a 28px row avatar.
     let profileImages: {id: string; src: string; maxDim: number}[] = [];
     try {
       if (feature === 'whiteboard') {
-        // The board as-is: an array of strokes, chunked like any other mirror.
-        // Validated to an array so a corrupt value sends nothing rather than
-        // junk a friend's viewer chokes on.
         const rawWb = await AsyncStorage.getItem(KEYS.whiteboard);
         let strokes: any[] = [];
         try {
@@ -1734,6 +1559,36 @@ class NetworkManagerImpl {
           if (Array.isArray(parsed)) strokes = parsed;
         } catch {}
         payload = JSON.stringify(strokes);
+      } else if (feature === 'planner') {
+        const rawPl = await AsyncStorage.getItem(KEYS.planner);
+        let appointments: any[] = [];
+        let reminders: any[] = [];
+        try {
+          const parsed = rawPl ? JSON.parse(rawPl) : null;
+          if (parsed && typeof parsed === 'object') {
+            if (Array.isArray(parsed.appointments)) appointments = parsed.appointments;
+            if (Array.isArray(parsed.reminders)) reminders = parsed.reminders;
+          }
+        } catch {}
+        payload = JSON.stringify({
+          appointments: appointments.map((a: any) => ({
+            id: String(a?.id || ''),
+            title: String(a?.title || ''),
+            time: Number(a?.time) || 0,
+            location: a?.location ? String(a.location) : undefined,
+            notes: a?.notes ? String(a.notes) : undefined,
+            repeat: a?.repeat ? String(a.repeat) : undefined,
+            color: a?.color ? String(a.color) : undefined,
+          })),
+          reminders: reminders.map((r: any) => ({
+            id: String(r?.id || ''),
+            title: String(r?.title || ''),
+            times: Array.isArray(r?.times) ? r.times.map((x: any) => String(x)) : [],
+            enabled: r?.enabled !== false,
+            notes: r?.notes ? String(r.notes) : undefined,
+            repeat: r?.repeat ? String(r.repeat) : undefined,
+          })),
+        });
       } else if (feature === 'systemProfile') {
         const rawSys = await AsyncStorage.getItem(KEYS.system);
         let sys: any = {};
@@ -1742,8 +1597,6 @@ class NetworkManagerImpl {
         } catch {}
         const hasAvatar = typeof sys?.avatar === 'string' && !!sys.avatar;
         const hasBanner = typeof sys?.banner === 'string' && !!sys.banner;
-        // Named fields only. Spreading the record would ship the journal
-        // password and anything else that lands on SystemInfo later.
         payload = JSON.stringify({
           name: String(sys?.name || ''),
           description: sys?.description ? String(sys.description) : undefined,
@@ -1790,8 +1643,8 @@ class NetworkManagerImpl {
             const rawTypes = await AsyncStorage.getItem(KEYS.relationshipTypes);
             types = rawTypes ? JSON.parse(rawTypes) : [];
           } catch {}
-          for (const td of [...PRESET_RELATIONSHIP_TYPES, ...(Array.isArray(types) ? types : [])]) {
-            if (td && td.id) relTypeById.set(td.id, {...(relTypeById.get(td.id) || {}), ...td});
+          for (const td of allRelationshipTypes(Array.isArray(types) ? types : [])) {
+            if (td && td.id) relTypeById.set(td.id, td);
           }
           sharedRels = (Array.isArray(rels) ? rels : []).filter(
             r => r && sharedIdSet.has(r.fromId) && sharedIdSet.has(r.toId) && (connScope.mode === 'all' || connScope.ids.has(r.id)),
@@ -1853,6 +1706,9 @@ class NetworkManagerImpl {
         mediaMembers = shared
           .filter(m => typeof m.avatar === 'string' && m.avatar)
           .map(m => ({id: m.id, avatar: m.avatar}));
+        profileImages = shared
+          .filter(m => typeof m.banner === 'string' && m.banner)
+          .map(m => ({id: `${m.id}#banner`, src: m.banner, maxDim: 720}));
       } else if (feature === 'groups') {
         const rawG = await AsyncStorage.getItem(KEYS.groups);
         const rawM = await AsyncStorage.getItem(KEYS.members);
@@ -1992,9 +1848,6 @@ class NetworkManagerImpl {
     if (!m || typeof m.seq !== 'number' || typeof m.total !== 'number' || m.total < 1 || m.total > SYNC_MAX_PARTS) return;
     const id = `${sender.peerId}|${m.feature}`;
     let buf = this.mirrorBuffers.get(id);
-    // seq 0 always opens a fresh transfer. Without this, an interrupted one left
-    // its parts behind and the retry's early chunks were discarded as duplicates,
-    // so the mirror joined old halves to new and failed to parse.
     if (!buf || buf.total !== m.total || m.seq === 0) {
       buf = {parts: new Array(m.total).fill(''), total: m.total, seqs: new Set()};
       this.mirrorBuffers.set(id, buf);
@@ -2033,10 +1886,6 @@ class NetworkManagerImpl {
       await this.clearMirrorMedia(sender.peerId, m.feature, keep);
     }
     if (m.feature === 'systemProfile') {
-      // Keep exactly the images this payload says are coming. An empty set
-      // would race the images themselves, which arrive on the media path a few
-      // hundred ms later and would be deleted by a slow key scan; keeping
-      // everything would leave a removed banner on screen forever.
       const keep = new Set<string>();
       if (!m.none && data && typeof data === 'object') {
         if ((data as MirrorSystemProfile).hasAvatar) keep.add(MIRROR_SYSTEM_AVATAR_ID);
@@ -2066,8 +1915,6 @@ class NetworkManagerImpl {
   private async flushMirrorMedia(peerId: string, feature: MirrorFeature, batch: Record<string, string>): Promise<void> {
     const prev = await this.loadMirror(peerId, feature);
     if (!prev || prev.none) return;
-    // The system profile is one object, not a roster, so it has no member ids
-    // to match against — the two synthetic ids are the whole allowed set.
     if (feature === 'systemProfile') {
       const entries: Record<string, string> = {};
       let n = 0;
@@ -2177,11 +2024,6 @@ class NetworkManagerImpl {
 
   notifyDataChanged(): void {
     this.snapMemo = null;
-    // Friends' mirrors are pushed from here too. They used to refresh only when
-    // the buckets were saved on the Network screen, so editing a member, group
-    // or journal entry left every viewer holding the copy they last pulled by
-    // hand. refreshAllMirrors compares a payload hash per peer and feature, so
-    // an unchanged mirror costs a rebuild and no send.
     if (this.settings.enabled) {
       if (this.mirrorTimer) clearTimeout(this.mirrorTimer);
       this.mirrorTimer = setTimeout(() => {
@@ -2327,10 +2169,6 @@ class NetworkManagerImpl {
     } catch {}
   }
 
-  /** True when incoming's roster is missing ids that exist locally and are not
-   *  tombstoned — the fingerprint of a stale device's list, never of a real
-   *  edit stream. Parse failures answer false so a corrupt value falls through
-   *  to the ordinary gates rather than being silently trusted. */
   private rosterDropsLiveMembers(localRaw: string, incomingRaw: string): boolean {
     try {
       const loc = JSON.parse(localRaw);
@@ -2394,12 +2232,6 @@ class NetworkManagerImpl {
     const CLONE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
     let changed = false;
     this.friends = this.friends.map(f => {
-      // Was 'target' only. A SOURCE whose initial clone never completed stayed
-      // initPending forever — and acceptedDevices() excludes initPending, so
-      // that device is frozen out of every future sync while still showing as
-      // linked. That is the "linked but nothing syncs, ever" report. Expiring
-      // it is safe: normal key sync converges the data anyway, so the worst
-      // case is the pair syncs instead of staying dead.
       if (f.kind === 'device' && f.initPending) {
         if (!f.initStartedAt || Date.now() - f.initStartedAt > CLONE_IDLE_TIMEOUT_MS) {
           changed = true;
@@ -2415,19 +2247,6 @@ class NetworkManagerImpl {
     this.retryPendingLinks();
   }
 
-  /**
-   * A device link only completes when each side RECEIVES the other's `connect`.
-   * If that one packet is missed — app backgrounded at the wrong moment, relay
-   * hiccup, the other side not yet online — the record sits at 'entered_theirs'
-   * forever. It never reaches 'accepted', so acceptedDevices() excludes it and
-   * it never syncs, while the UI still says "waiting for them to enter your
-   * code". Nothing in the app ever retried that packet.
-   *
-   * So resend it. `connect` is idempotent — the handler upserts by peer id and
-   * replies with an ack — and this runs on the same cadence as the stale-clone
-   * sweep (init, focus, every 60s), which is exactly when a missed handshake
-   * should get another chance.
-   */
   private retryPendingLinks(): void {
     for (const f of this.friends) {
       if (f.kind !== 'device' || f.status === 'accepted') continue;
@@ -2536,10 +2355,6 @@ class NetworkManagerImpl {
     this.syncing = true;
     this.lastPushAt = now;
     try {
-      // Resolves true only when at least one device PLAUSIBLY received the
-      // message: sendTo resolved and the peer is reachable right now. sendTo
-      // can resolve for an offline peer (the relay has no store-and-forward),
-      // so resolution alone proves nothing.
       const sendOne = async (msg: NetMessage): Promise<boolean> => {
         let delivered = false;
         for (const d of devices) {
@@ -2564,13 +2379,6 @@ class NetworkManagerImpl {
         batchKeys = [];
         size = 0;
         const ok = await sendOne({t: 'sync', keys: payload});
-        // lastHashes means "what the other devices have SEEN", and it is what
-        // the conflict gate on the far side is measured against. Advancing it
-        // for a push nobody received is how months of edits made while the
-        // other device was offline stopped counting as local changes — the
-        // stale device's old data then sailed through the gate on reconnect
-        // and wiped both sides. No delivery, no advance: the keys stay dirty
-        // and are re-pushed until a device is actually there to take them.
         if (ok) {
           for (const {k, h} of sentKeys) this.lastHashes[k] = h;
           advanced = true;
@@ -2657,14 +2465,7 @@ class NetworkManagerImpl {
       }
       await flush();
       await sendOne({t: 'sync', keys: {}, init: true, initDone: true});
-      // Hand over the system identity LAST: the target replaces its own keys and
-      // reconnects on ours, so anything sent to its old address after this point
-      // would be lost. From here on both devices are the same network peer.
       const stored = await store.get<{v: number; edSecretKey: string; boxSecretKey: string}>(IDENTITY_STORAGE_KEY, null);
-      // Only hand the identity over to a build that knows what to do with it. An
-      // older target would ignore device_adopt while we moved our record to the
-      // shared address — killing sync between the pair. Unversioned peer means we
-      // finish exactly the way the previous build did.
       const adoptCapable = (dev.peerV ?? 0) >= PROTO_VERSION;
       if (adoptCapable && stored?.edSecretKey && stored?.boxSecretKey) {
         await sendOne({
@@ -2672,10 +2473,6 @@ class NetworkManagerImpl {
           identity: stored,
           friends: this.friends.filter(f => f.kind !== 'device'),
         });
-        // The target now answers on OUR address, so our record for it must move
-        // there too — otherwise this side would reject its syncs as coming from
-        // an unknown peer. Both ends then hold a device record at the shared
-        // address with the shared keys, and every existing sync path just works.
         const selfNow = this.identity;
         if (selfNow) {
           this.friends = this.friends.filter(f => f.peerId !== peerId);
@@ -2691,10 +2488,6 @@ class NetworkManagerImpl {
               peerRole: undefined,
             });
           }
-          // Same baseline write the non-adopt path does below. Skipping it would
-          // leave this side with no recorded hashes after a clone, so the very
-          // next round would re-send every key and treat every one as a
-          // conflict (no base to compare against).
           await store.set(SYNC_STATE_KEY, this.lastHashes);
           await this.persistFriends();
           this.notify();
@@ -2773,9 +2566,6 @@ class NetworkManagerImpl {
           const clearedAt = await this.frontClearedAt();
           if (clearedAt != null && incT < clearedAt) continue;
         }
-        // Only stamp on the transition into empty. Re-stamping while already
-        // empty would drag the clear time forward on every sync round and start
-        // rejecting fronts that a peer legitimately began seconds ago.
         if (incT == null && locT != null) await this.noteFrontCleared();
       }
       const localHash = localRaw != null ? syncHash(localRaw) : '__absent__';
@@ -2821,12 +2611,6 @@ class NetworkManagerImpl {
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
         continue;
       }
-      // A legitimate roster never simply LOSES someone: deletion tombstones the
-      // record in place (deleted: true), so a real deletion still carries the
-      // id. An incoming list where local, live members are absent entirely is
-      // a stale device's roster arriving after a long gap — the exact shape
-      // that silently erased months of alters from both devices — so it goes
-      // to the conflict prompt instead of applying.
       if (k === KEYS.members && localRaw != null && this.rosterDropsLiveMembers(localRaw, incoming.v)) {
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
         continue;
@@ -3004,12 +2788,6 @@ class NetworkManagerImpl {
     return this.isReachable(peerId);
   }
 
-  /**
-   * Our own address counts as reachable: linked devices share one identity, so
-   * "send to self" is how siblings reach each other. Deliberately NOT done by
-   * adding self to `online` — `refreshOnlinePeers()` rebuilds that set from the
-   * node and filters self out, which would silently undo it moments later.
-   */
   private isReachable(peerId: string): boolean {
     return peerId === this.identity?.peerId || this.online.has(peerId);
   }

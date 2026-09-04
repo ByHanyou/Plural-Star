@@ -44,9 +44,6 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
         let bundle: {files: Record<string, Uint8Array>; data: any | null} | null = null;
         bundle = await readZipBundle(path, res.uri);
         parsed = bundle?.data;
-        // Newer PluralSpace exports are OpenPlural bundles: no data.json at the
-        // root, the system sits at systems/<slug>/openplural.json and its media
-        // paths are relative to that folder.
         if (!parsed && bundle) {
           const entry = Object.keys(bundle.files).find(n => /(^|\/)openplural\.json$/i.test(n));
           if (entry) {
@@ -61,7 +58,6 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
       } else {
         const raw: string = await readFileText(path, res.uri);
         try { parsed = JSON.parse(raw); } catch { throw new Error(t('share.psNotExport')); }
-        // A bare openplural.json can be picked too; it just has no media.
         if (isOpenPluralSystem(parsed)) parsed = normalizeOpenPlural(parsed);
       }
       const ok = !parsed?._meta && parsed?.system && typeof parsed.system === 'object' && Array.isArray(parsed.members) && Array.isArray(parsed.fronts);
@@ -322,7 +318,6 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
           setExtPreview(null);
           setTimeout(() => onDataImported(), 800);
         } catch (e: any) {
-          // A user cancel arrives as ImportStopped — a deliberate stop, not a failure.
           if (isImportStopped(e)) { setRestoreProgress(''); setImportStatus('success'); setImportMsg(t('share.importStopped', {count: e?.completedCount ?? 0})); setExtPreview(null); setTimeout(() => onDataImported(), 800); return; }
           setRestoreProgress(''); setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric'));
         }

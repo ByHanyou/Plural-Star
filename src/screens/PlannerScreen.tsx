@@ -8,6 +8,7 @@ import {useAppStore} from '../store/appStore';
 import {savePlanner} from '../store/actions';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {ToggleSwitch} from '../components/ToggleSwitch';
+import {ColorCarousel} from '../components/ColorCarousel';
 
 interface Props {
   theme: ThemeColors;
@@ -35,8 +36,6 @@ const REPEAT_KEYS: Record<string, string> = {
   annually: 'planner.repeatAnnually',
 };
 
-// Appointments express one-time as an absent repeat; reminders carry an
-// explicit 'once'. Both pickers show every cadence Zach specified.
 const APPT_REPEAT_CHOICES: (PlannerRepeat | null)[] = [null, 'daily', 'everyOtherDay', 'weekly', 'everyOtherWeek', 'monthly', 'everyOtherMonth', 'annually'];
 const REM_REPEAT_CHOICES: PlannerReminderRepeat[] = ['once', 'daily', 'everyOtherDay', 'weekly', 'everyOtherWeek', 'monthly', 'everyOtherMonth', 'annually'];
 
@@ -57,6 +56,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
   const [apptNotes, setApptNotes] = useState('');
   const [apptRemind, setApptRemind] = useState<number | null>(30);
   const [apptRepeat, setApptRepeat] = useState<PlannerRepeat | null>(null);
+  const [apptColor, setApptColor] = useState<string | null>(null);
 
   const [remOpen, setRemOpen] = useState(false);
   const [remId, setRemId] = useState<string | null>(null);
@@ -68,11 +68,11 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
   const [remStart, setRemStart] = useState<Date>(today);
 
   const locale = getLocale();
+  const markColor = planner.markColor || T.accent;
+  const [markPickerOpen, setMarkPickerOpen] = useState(false);
 
-  // Sunday-first week, initials taken from the locale so the header matches
-  // the language instead of hardcoding English letters.
   const weekdayInitials = useMemo(() => {
-    const base = new Date(2026, 7, 2); // a Sunday
+    const base = new Date(2026, 7, 2);
     return Array.from({length: 7}, (_, i) => {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
@@ -80,9 +80,6 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
     });
   }, [locale]);
 
-  // Repeating appointments occur on every matching day, so day lookups run
-  // the cadence check instead of an exact-date map. Sorted by time-of-day
-  // because a repeat's anchor date is irrelevant to today's ordering.
   const minutesOfDay = (ts: number) => { const d = new Date(ts); return d.getHours() * 60 + d.getMinutes(); };
   const apptsOn = (day: Date): PlannerAppointment[] =>
     planner.appointments
@@ -108,13 +105,13 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
   const openNewAppt = () => {
     const when = new Date(selected);
     when.setHours(12, 0, 0, 0);
-    setApptId(null); setApptTitle(''); setApptWhen(when); setApptLocation(''); setApptNotes(''); setApptRemind(30); setApptRepeat(null);
+    setApptId(null); setApptTitle(''); setApptWhen(when); setApptLocation(''); setApptNotes(''); setApptRemind(30); setApptRepeat(null); setApptColor(null);
     setApptOpen(true);
   };
 
   const openEditAppt = (a: PlannerAppointment) => {
     setApptId(a.id); setApptTitle(a.title); setApptWhen(new Date(a.time)); setApptLocation(a.location || '');
-    setApptNotes(a.notes || ''); setApptRemind(a.reminderMinutesBefore ?? null); setApptRepeat(a.repeat ?? null);
+    setApptNotes(a.notes || ''); setApptRemind(a.reminderMinutesBefore ?? null); setApptRepeat(a.repeat ?? null); setApptColor(a.color || null);
     setApptOpen(true);
   };
 
@@ -129,6 +126,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
       notes: apptNotes.trim() || undefined,
       reminderMinutesBefore: apptRemind ?? undefined,
       repeat: apptRepeat ?? undefined,
+      color: apptColor ?? undefined,
       createdAt: apptId ? (planner.appointments.find(x => x.id === apptId)?.createdAt ?? Date.now()) : Date.now(),
     };
     const rest = planner.appointments.filter(x => x.id !== entry.id);
@@ -222,9 +220,6 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
           </View>
           <View style={{flexDirection: 'row'}}>
             {weekdayInitials.map((w, i) => (
-              // Every day button already announces its weekday, so these single
-              // letters are noise. importantForAccessibility alone is Android-only;
-              // iOS needs accessibilityElementsHidden or VoiceOver reads "S M T…".
               <Text key={i} maxFontSizeMultiplier={1.4} style={{flex: 1, textAlign: 'center', fontSize: fs(10), color: T.muted}}
                 accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{w}</Text>
             ))}
@@ -235,7 +230,9 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                 const inMonth = d.getMonth() === viewMonth.getMonth();
                 const isSel = dayKey(d) === dayKey(selected);
                 const isToday = dayKey(d) === dayKey(today);
-                const count = apptsOn(d).length;
+                const dayList = apptsOn(d);
+                const count = dayList.length;
+                const dots = Array.from(new Set(dayList.map(a => a.color || markColor))).slice(0, 3);
                 const label = `${d.toLocaleDateString(locale, {weekday: 'long', month: 'long', day: 'numeric'})}${count > 0 ? `, ${t('planner.apptCount', {count})}` : ''}`;
                 return (
                   <TouchableOpacity key={col} onPress={() => { setSelected(new Date(d)); if (!inMonth) setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }}
@@ -243,14 +240,29 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                     style={{flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', margin: 1, borderRadius: 8,
                       backgroundColor: isSel ? `${T.accent}25` : 'transparent',
                       borderWidth: isToday ? 1 : 0, borderColor: T.accent}}>
-                    {/* Square cell: cap growth so huge text scales can't push the date out of its box. */}
                     <Text maxFontSizeMultiplier={1.6} style={{fontSize: fs(12), color: inMonth ? (isSel ? T.accent : T.text) : T.muted, fontWeight: isSel ? '700' : '400'}}>{d.getDate()}</Text>
-                    {count > 0 && <View style={{width: 4, height: 4, borderRadius: 2, backgroundColor: T.accent, marginTop: 1}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />}
+                    {count > 0 && (
+                      <View style={{flexDirection: 'row', gap: 2, marginTop: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+                        {dots.map(c => <View key={c} style={{width: 6, height: 6, borderRadius: 3, backgroundColor: c}} />)}
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
           ))}
+          <TouchableOpacity onPress={() => setMarkPickerOpen(v => !v)} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityState={{expanded: markPickerOpen}} accessibilityLabel={t('planner.markColor')}
+            style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: T.border}}>
+            <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: markColor}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+            <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('planner.markColor')}</Text>
+            <Text style={{fontSize: fs(11), color: T.dim}}>{markPickerOpen ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          {markPickerOpen && (
+            <View style={{marginTop: 8}}>
+              <ColorCarousel value={markColor} onChange={hex => savePlanner({...planner, markColor: hex})} T={T} size={26} />
+            </View>
+          )}
         </View>
 
         <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 16, marginBottom: 8}}>
@@ -263,16 +275,12 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
         {dayAppts.length === 0 ? (
           <Text style={{fontSize: fs(12), color: T.muted, marginBottom: 8}}>{t('planner.emptyDay')}</Text>
         ) : dayAppts.map(a => {
-          // Repeat/reminder are shown as glyphs; spell them into the label so
-          // screen readers get what sighted users get.
           const meta = [
             a.repeat ? t(REPEAT_KEYS[a.repeat]) : null,
             a.reminderMinutesBefore != null ? t(REMIND_CHOICES.find(c => c.minutes === a.reminderMinutesBefore)?.key || 'planner.remindAtTime') : null,
           ].filter(Boolean) as string[];
           return (
-          // Row is a plain View: an accessible TouchableOpacity swallows its
-          // descendants on iOS, which left the ✕ unreachable by VoiceOver.
-          <View key={a.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8}}>
+          <View key={a.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, borderLeftWidth: 4, borderLeftColor: a.color || markColor, padding: 12, marginBottom: 8}}>
             <TouchableOpacity onPress={() => openEditAppt(a)} activeOpacity={0.7} accessibilityRole="button"
               accessibilityLabel={[fmtTime(a.time), a.title, a.location, ...meta].filter(Boolean).join(', ')}
               style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
@@ -324,8 +332,6 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
 
       <Modal visible={apptOpen} transparent animationType="fade" onRequestClose={() => setApptOpen(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20}}>
-          {/* accessibilityViewIsModal keeps iOS VoiceOver inside the dialog
-              instead of letting it wander onto the dimmed screen behind. */}
           <View accessibilityViewIsModal style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16, maxHeight: '90%'}}>
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}}>{apptId ? t('planner.editAppt') : t('planner.addAppt')}</Text>
@@ -364,6 +370,19 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                   </TouchableOpacity>
                 ))}
               </View>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
+                <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: apptColor || markColor}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+                <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('planner.apptColor')}</Text>
+                {apptColor ? (
+                  <TouchableOpacity onPress={() => setApptColor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('planner.apptColorDefault')}
+                    style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: T.border}}>
+                    <Text style={{fontSize: fs(11), color: T.dim}}>{t('planner.apptColorDefault')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <View style={{marginBottom: 12}}>
+                <ColorCarousel value={apptColor || markColor} onChange={setApptColor} T={T} size={26} />
+              </View>
               <View style={{flexDirection: 'row', gap: 10}}>
                 <TouchableOpacity onPress={() => setApptOpen(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                   style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
@@ -382,8 +401,6 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
 
       <Modal visible={remOpen} transparent animationType="fade" onRequestClose={() => setRemOpen(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20}}>
-          {/* accessibilityViewIsModal keeps iOS VoiceOver inside the dialog
-              instead of letting it wander onto the dimmed screen behind. */}
           <View accessibilityViewIsModal style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16, maxHeight: '90%'}}>
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}}>{remId ? t('planner.editReminder') : t('planner.addReminder')}</Text>

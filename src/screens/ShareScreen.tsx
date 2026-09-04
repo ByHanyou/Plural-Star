@@ -65,32 +65,18 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const [recoverDone, setRecoverDone] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restoreProgressText, setRestoreProgressText] = useState<string>('');
-  // Structured progress for the wait overlay. Import paths that still call
-  // setRestoreProgress('some label') keep working — the label is lifted into
-  // the object so the bar and the inline text stay in step.
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const importControlRef = useRef<ImportControl | null>(null);
   const setRestoreProgress = React.useCallback((p: ImportProgress | string) => {
     if (typeof p === 'string') {
       setRestoreProgressText(p);
-      // An EMPTY label is how every import path signals "run over" — and it has
-      // to tear the controller down here. The PK/API and PluralSpace runs never
-      // touch `restoring` or `importStatus`, so neither teardown effect fires for
-      // them; the controller outlived the run and the blocking overlay sat at 95%
-      // forever even though the import had fully succeeded.
       if (!p) {
         importControlRef.current = null;
         setImportProgress(null);
         return;
       }
-      // Importers that were never edited still announce their phases this way,
-      // so route the label through the controller: it counts the phase and, if
-      // a stop is pending, throws right here — a label is only announced
-      // between units of work, so it is the one safe boundary they expose.
       let c = importControlRef.current;
       if (!c && p) {
-        // Foreign-app and API imports start without going through the restore
-        // button, so adopt the first label they announce.
         c = new ImportControl(setRestoreProgressRef.current!);
         c.plan(6);
         importControlRef.current = c;
@@ -103,9 +89,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     }
   }, []);
   const restoreProgress = restoreProgressText;
-  // Self-reference so the lazily-created controller writes back through the same
-  // setter. A stuck blocking overlay is worse than no overlay, so the controller
-  // and its progress are dropped the moment a run ends.
   const setRestoreProgressRef = useRef<typeof setRestoreProgress | null>(null);
   setRestoreProgressRef.current = setRestoreProgress;
   useEffect(() => {
@@ -115,9 +98,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     }
   }, [restoring]);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  // Foreign-app and API imports never set `restoring`; they finish by setting
-  // importStatus. Without this the lazily-created controller would never be
-  // dropped and the blocking overlay would sit there after a completed import.
   useEffect(() => {
     if (importStatus !== 'idle') {
       importControlRef.current = null;
@@ -128,12 +108,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const [importSource, setImportSource] = useState<ImportSource>('backup');
   const [extToken, setExtToken] = useState('');
   const [extLoading, setExtLoading] = useState(false);
-  // Loose on purpose: every import source parks its own preview shape here and
-  // the per-source render blocks know which one they are looking at.
   const [extPreview, setExtPreview] = useState<any | null>(null);
   const [extSel, setExtSel] = useState({system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true, mailbox: true, displayNames: true, pronouns: true});
-  // Governs EVERY import path incl. backup restore. Overwrite = the standing
-  // replace semantics; Update = refresh matches and add, never remove local.
   const [importMode, setImportMode] = useState<ImportMode>('overwrite');
   const [psAvatarIndex, setPsAvatarIndex] = useState<Record<string, string> | null>(null);
   const [psZipFiles, setPsZipFiles] = useState<Record<string, Uint8Array> | null>(null);
@@ -226,11 +202,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
         setRestorePreview(true);
         return;
       }
-      // readFileText tries every plausible percent-encoding of both paths:
-      // pickers and blob-util disagree about encoded spaces in filenames, and
-      // the mismatch read as "No such file …%20…" in the field. It can also
-      // THROW outright on a zip picked without a .zip name (iOS refuses to
-      // decode the bytes as utf8) — that must still reach the zip fallback.
       let content = '';
       try { content = await readFileText(pickedPath, res.uri); } catch {}
       let pickedZip = false;
@@ -250,9 +221,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           setRestorePath(safeZipPath); setRestoreIsBundle(true); setRestoreFile(res.name || 'backup.zip'); setRestorePreview(true);
           return;
         }
-        // An Ourcana .our is a plain zip wrapped around ourcana.json (plus the
-        // avatars). Pull the json out for detection and the preview, and keep
-        // the ZIP as the pending file so the confirm can read the pictures.
         const inner = zb ? findOurcanaJsonEntry(zb.files) : undefined;
         if (zb && inner) {
           try { parsed = JSON.parse(zipTextOf(zb.files[inner])); } catch {}
@@ -269,7 +237,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
       const isSPExport = !parsed._meta && Array.isArray(parsed.members) && parsed.members.length > 0
         && parsed.members[0]._id !== undefined && Array.isArray(parsed.customFields);
       const isOctocon = !parsed._meta && parsed.user && typeof parsed.user === 'object' && Array.isArray(parsed.alters);
-      // v3 is a node/edge graph with no top-level members array.
       const isOurcana = (parsed.format === 'ourcana') || (parsed.graph && Array.isArray(parsed.graph.nodes)) || (!parsed._meta && Array.isArray(parsed.members) && Array.isArray(parsed.frontHistory) && parsed.members[0]?.id !== undefined);
       const isMultiplicity = (parsed.app === 'multiplicity') || (Array.isArray(parsed.alters) && Array.isArray(parsed.front_entries));
       if (!isNativePS && !isSPExport && !isOctocon && !isOurcana && !isMultiplicity) {
@@ -277,8 +244,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
         return;
       }
       if (pickedZip) {
-        // Persist the ZIP, not its utf8-mangled text — the confirm re-opens it
-        // for the database json and the bundled avatars.
         let safeZipPath = pickedPath;
         try {
           const dest = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_restore_pending.our`;
@@ -424,9 +389,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   return (
     <>
     <ImportWaitOverlay
-      // Not just `restoring` — that flag belongs to the backup path only, so the
-      // foreign-app and API imports were running behind no overlay at all. A live
-      // controller means an import is genuinely in flight, whichever path started it.
       visible={restoring || !!importControlRef.current}
       progress={importProgress}
       theme={T}
@@ -505,7 +467,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
         <View>
           {!appSettings.filesEnabled ? (
             <View style={{alignItems: 'center', paddingVertical: 48}}>
-              <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>↑</Text>
+              <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↑</Text>
               <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>{t('share.filesDisabled')}</Text>
             </View>
           ) : (
@@ -595,18 +557,9 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
                     : restoring ? <View style={{alignItems: 'center', paddingVertical: 16}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress || t('share.importing')}</Text></View>
                     : <TouchableOpacity onPress={() => {
-                      // Fresh controller per run: the wait screen reads its phase
-                      // position and the Cancel button writes its stop request.
                       const control = new ImportControl(setRestoreProgress);
-                      // Estimate from what the user actually ticked, so the bar
-                      // isn't pacing against phases this run will never do.
                       const phases = Math.max(3, Object.values(restoreSel).filter(Boolean).length);
                       control.plan(phases);
-                      // Arm the overlay only when the run actually starts.
-                      // handleRestore opens a confirm Alert first, and arming
-                      // here used to leave a controller with nothing running
-                      // when the user declined it — the "Importing… 0%" overlay
-                      // that never went away.
                       const setRestoringArmed = (v: boolean) => {
                         if (v) {
                           importControlRef.current = control;

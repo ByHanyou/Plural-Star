@@ -9,18 +9,9 @@ interface Props {
   visible: boolean;
   progress: ImportProgress | null;
   theme: ThemeColors;
-  /** Omitted for runs that cannot be stopped safely. */
   onCancel?: () => void;
 }
 
-/**
- * Blocking "please wait" screen for imports.
- *
- * Deliberately not dismissible by back/tap: an import is mid-write, and letting
- * the screen go would leave the user staring at a half-populated app with no
- * idea anything was still running. The only way out is Cancel, which asks for a
- * stop at the next phase boundary rather than tearing out of a write.
- */
 export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
@@ -46,13 +37,9 @@ export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props
           )}
 
           {fraction === null ? (
-            // Nothing countable yet — a spinner is more honest than a bar at 0%.
             <ActivityIndicator
               color={T.accent}
               style={{marginVertical: 14}}
-              // Decorative: the phase label above carries the meaning, and the
-              // card is a polite live region — announcing a nameless spinner too
-              // is just noise for screen reader users.
               accessibilityElementsHidden
               importantForAccessibility="no"
             />

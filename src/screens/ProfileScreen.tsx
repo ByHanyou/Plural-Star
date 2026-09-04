@@ -118,7 +118,7 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
                         <Text style={{fontSize: fs(10), color: T.success, fontWeight: '600'}}>{t('profile.activeStatus')}</Text>
                       </View>
                     )}
-                    <Text style={{fontSize: fs(12), color: T.muted}}>›</Text>
+                    <Text style={{fontSize: fs(12), color: T.muted}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
                   </TouchableOpacity>
                 );
               })}

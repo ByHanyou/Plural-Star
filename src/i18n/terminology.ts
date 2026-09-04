@@ -1,20 +1,7 @@
-// Terminology Picker engine. Users type their own word for the app's core
-// terms (Member, Group, Facet, Front, Fronting, System and plurals) and every
-// t() result gets a whole-word, case-preserving swap. The picker's own labels are
-// exempt so the defaults stay discoverable for resetting.
-//
-// TERM_FORMS lists the findable word per language, matching the vocabulary
-// the translations actually use; a language with no entry simply never swaps
-// (safe no-op, disclosed in the picker hint). Declined forms beyond these are
-// deliberately not chased.
-
 export const TERMINOLOGY_TERMS = ['member', 'members', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system'] as const;
 export type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
 export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
 
-/** Findable forms per language: one word or several. The app's own synonyms
- *  count as forms of the term they mean — "Headmate" IS the member term, and
- *  strings using it never picked up the user's word until it was listed. */
 type TermFormsMap = Partial<Record<TerminologyTerm, string | string[]>>;
 
 export const TERM_FORMS: Record<string, TermFormsMap> = {
@@ -243,6 +230,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
 
 let overrides: TerminologyMap = {};
 
+let pairCache: Map<string, [TerminologyTerm, string, string][]> = new Map();
+
 export const setTerminologyOverrides = (map?: TerminologyMap | null): void => {
   const clean: TerminologyMap = {};
   for (const term of TERMINOLOGY_TERMS) {
@@ -250,16 +239,11 @@ export const setTerminologyOverrides = (map?: TerminologyMap | null): void => {
     if (v) clean[term] = v;
   }
   overrides = clean;
+  pairCache = new Map();
 };
 
 export const hasTerminologyOverrides = (): boolean => Object.keys(overrides).length > 0;
 
-// Fronting level renames ("Primary Front" → whatever the system calls it).
-// Unlike the word swaps above these are matched by i18n KEY, not by text, so
-// they work in every language: wherever a tier label is rendered it comes from
-// one of a small fixed set of keys. The picker's own labels live under
-// terminology.* keys and are therefore never intercepted, keeping the
-// defaults discoverable for resetting.
 export type TierNameKey = 'primary' | 'coFront' | 'coConscious';
 export type TierNameMap = Partial<Record<TierNameKey, string>>;
 
@@ -275,9 +259,8 @@ export const setTierNameOverrides = (map?: TierNameMap | null): void => {
 };
 
 export const hasTierNameOverrides = (): boolean => Object.keys(tierNames).length > 0;
+export const getTierNameOverride = (k: TierNameKey): string | undefined => tierNames[k];
 
-// Full/short forms both get the custom word: an abbreviation of an arbitrary
-// user word is not derivable, and showing the full word beats inventing one.
 const TIER_LABEL_KEYS: Record<string, TierNameKey> = {
   'tier.primaryFront': 'primary',
   'tier.primaryShort': 'primary',
@@ -291,9 +274,6 @@ const TIER_BADGE_KEYS: Record<string, TierNameKey> = {
   'tier.coFrontBadge': 'coFront',
   'tier.coConBadge': 'coConscious',
 };
-// "Label: names" notification lines. The whole line is rebuilt rather than
-// word-swapped inside the localized template, because the template's label
-// word differs per language and the custom name replaces all of them.
 const TIER_LINE_KEYS: Record<string, TierNameKey> = {
   'notification.primary': 'primary',
   'notification.coFront': 'coFront',
@@ -318,10 +298,7 @@ export const applyTierNames = (value: string, key: string, options: unknown): st
 
 const isWordChar = (ch: string | undefined): boolean => !!ch && /[\p{L}\p{N}]/u.test(ch);
 
-/** Whole-word, case-preserving replace. Hand-rolled scan instead of regex
- *  lookbehind, which Hermes does not reliably support: boundaries are checked
- *  by inspecting neighbour characters, so "Front" never eats "Fronting". */
-export const replaceTerm = (text: string, form: string, replacement: string): string => {
+export const replaceTerm = (text: string, form: string, replacement: string, fixArticles = false): string => {
   if (!form || !replacement) return text;
   const lower = text.toLowerCase();
   const needle = form.toLowerCase();
@@ -341,7 +318,16 @@ export const replaceTerm = (text: string, form: string, replacement: string): st
       const swapped = upper
         ? replacement[0].toUpperCase() + replacement.slice(1)
         : replacement[0].toLowerCase() + replacement.slice(1);
-      out += text.slice(i, idx) + swapped;
+      let combined = out + text.slice(i, idx);
+      if (fixArticles) {
+        const m = combined.match(/(^|[^\p{L}\p{N}])([Aa])(n?) $/u);
+        if (m) {
+          const vowel = /^[aeiouAEIOU]/.test(swapped);
+          const article = m[2] + (vowel ? 'n' : '');
+          combined = combined.slice(0, combined.length - (m[2].length + m[3].length + 1)) + article + ' ';
+        }
+      }
+      out = combined + swapped;
       i = idx + form.length;
     } else {
       out += text.slice(i, idx + 1);
@@ -350,30 +336,40 @@ export const replaceTerm = (text: string, form: string, replacement: string): st
   }
 };
 
+const pairsFor = (language: string): [TerminologyTerm, string, string][] => {
+  const cached = pairCache.get(language);
+  if (cached) return cached;
+  const forms = TERM_FORMS[language] || TERM_FORMS[(language || '').split('-')[0]];
+  const pairs: [TerminologyTerm, string, string][] = [];
+  if (forms) {
+    for (const [term, f] of Object.entries(forms) as [TerminologyTerm, string | string[]][]) {
+      if (!overrides[term]) continue;
+      for (const one of Array.isArray(f) ? f : [f]) pairs.push([term, one, one.toLowerCase()]);
+    }
+    pairs.sort((a, b) => b[1].length - a[1].length);
+  }
+  pairCache.set(language, pairs);
+  return pairs;
+};
+
 export const applyTerminology = (value: string, language: string): string => {
   if (!hasTerminologyOverrides()) return value;
-  const forms = TERM_FORMS[language] || TERM_FORMS[(language || '').split('-')[0]];
-  if (!forms) return value;
-  // Flatten to (term, form) pairs, longest form first, so in languages where
-  // the plural (or a compound synonym) contains a shorter form the long one
-  // wins.
-  const pairs: [TerminologyTerm, string][] = [];
-  for (const [term, f] of Object.entries(forms) as [TerminologyTerm, string | string[]][]) {
-    if (!overrides[term]) continue;
-    for (const one of Array.isArray(f) ? f : [f]) pairs.push([term, one]);
-  }
-  pairs.sort((a, b) => b[1].length - a[1].length);
+  const pairs = pairsFor(language);
+  if (pairs.length === 0) return value;
+  const fixArticles = (language || '').split('-')[0] === 'en';
   let out = value;
-  for (const [term, form] of pairs) {
-    out = replaceTerm(out, form, overrides[term]!);
+  let lower = value.toLowerCase();
+  for (const [term, form, needle] of pairs) {
+    if (lower.indexOf(needle) === -1) continue;
+    const next = replaceTerm(out, form, overrides[term]!, fixArticles);
+    if (next !== out) {
+      out = next;
+      lower = out.toLowerCase();
+    }
   }
   return out;
 };
 
-// App chrome that must keep its literal wording no matter what the user
-// renames "System" to: the System Menu has to stay findable under the name
-// every guide and support answer uses, and the file-access hint points AT it,
-// so the two must always match.
 const EXEMPT_KEYS = new Set(['modal.systemSettings', 'share.filesDisabled']);
 
 export const terminologyPostProcessor = {
@@ -385,8 +381,6 @@ export const terminologyPostProcessor = {
     if (typeof k === 'string' && (k.startsWith('terminology.') || EXEMPT_KEYS.has(k))) return value;
     if (typeof k === 'string') {
       const tiered = applyTierNames(value, k, options);
-      // A custom tier name is returned exactly as the user typed it — the
-      // word swaps below must not rewrite it.
       if (tiered !== value) return tiered;
     }
     if (!hasTerminologyOverrides()) return value;

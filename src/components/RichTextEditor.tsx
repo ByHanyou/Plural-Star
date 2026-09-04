@@ -18,20 +18,20 @@ interface Props {
   members?: Member[];
 }
 
-const MD_TOOLS: {label: string; before: string; after: string; bold?: boolean; italic?: boolean; strike?: boolean}[] = [
-  {label: 'B', before: '**', after: '**', bold: true},
-  {label: 'I', before: '*', after: '*', italic: true},
-  {label: 'S', before: '~~', after: '~~', strike: true},
-  {label: 'H1', before: '# ', after: ''},
-  {label: 'H2', before: '## ', after: ''},
-  {label: 'H3', before: '### ', after: ''},
-  {label: '🔗', before: '[', after: '](url)'},
-  {label: '🖼', before: '<img src="', after: '" width="100" height="100">'},
-  {label: '•', before: '- ', after: ''},
-  {label: '1.', before: '1. ', after: ''},
-  {label: '❝', before: '> ', after: ''},
-  {label: '</>', before: '`', after: '`'},
-  {label: '—', before: '\n---\n', after: ''},
+const MD_TOOLS: {label: string; a11y: string; before: string; after: string; bold?: boolean; italic?: boolean; strike?: boolean}[] = [
+  {label: 'B', a11y: 'markdown.toolBold', before: '**', after: '**', bold: true},
+  {label: 'I', a11y: 'markdown.toolItalic', before: '*', after: '*', italic: true},
+  {label: 'S', a11y: 'markdown.toolStrike', before: '~~', after: '~~', strike: true},
+  {label: 'H1', a11y: 'markdown.toolH1', before: '# ', after: ''},
+  {label: 'H2', a11y: 'markdown.toolH2', before: '## ', after: ''},
+  {label: 'H3', a11y: 'markdown.toolH3', before: '### ', after: ''},
+  {label: '🔗', a11y: 'markdown.toolLink', before: '[', after: '](url)'},
+  {label: '🖼', a11y: 'markdown.toolImage', before: '<img src="', after: '" width="100" height="100">'},
+  {label: '•', a11y: 'markdown.toolBullets', before: '- ', after: ''},
+  {label: '1.', a11y: 'markdown.toolNumbered', before: '1. ', after: ''},
+  {label: '❝', a11y: 'markdown.toolQuote', before: '> ', after: ''},
+  {label: '</>', a11y: 'markdown.toolCode', before: '`', after: '`'},
+  {label: '—', a11y: 'markdown.toolDivider', before: '\n---\n', after: ''},
 ];
 
 const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => void; T: ThemeColors}) => {
@@ -42,9 +42,9 @@ const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => 
       contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 6, gap: 6, flexDirection: 'row', alignItems: 'center'}}>
       {MD_TOOLS.map(tool => (
         <TouchableOpacity key={tool.label} onPress={() => onInsert(tool.before, tool.after)} activeOpacity={0.7}
-          accessibilityRole="button" accessibilityLabel={tool.label}
+          accessibilityRole="button" accessibilityLabel={i18n.t(tool.a11y)}
           style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: T.border, backgroundColor: T.bg}}>
-          <Text style={{fontSize: fs(12), fontWeight: tool.bold ? '700' : '500', fontStyle: tool.italic ? 'italic' : 'normal', textDecorationLine: tool.strike ? 'line-through' : 'none', color: T.dim}}>{tool.label}</Text>
+          <Text style={{fontSize: fs(12), fontWeight: tool.bold ? '700' : '500', fontStyle: tool.italic ? 'italic' : 'normal', textDecorationLine: tool.strike ? 'line-through' : 'none', color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{tool.label}</Text>
         </TouchableOpacity>
       ))}
     </ScrollView>
@@ -59,7 +59,6 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
     const q = search.trim().toLowerCase();
     return members.filter(m => !m.isFacet && match(m, q));
   }, [members, search]);
-  // Facets keep their own section: out of the member list, still mentionable.
   const filteredFacets = useMemo(() => {
     const q = search.trim().toLowerCase();
     return members.filter(m => m.isFacet && match(m, q));
@@ -67,10 +66,6 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
-      {/* The scrim used to be an accessible "Cancel" button, which turned the
-          whole card into its descendants: on iOS an accessible touchable hides
-          its subtree, so VoiceOver could reach NOTHING inside this picker.
-          Scrim is now invisible to a11y; VO dismisses via the escape gesture. */}
       <TouchableOpacity activeOpacity={1} onPress={onCancel} accessible={false} importantForAccessibility="no"
         style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24}}>
         <TouchableOpacity activeOpacity={1} onPress={() => {}} accessible={false}
@@ -149,10 +144,6 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
     return () => { s1.remove(); s2.remove(); };
   }, []);
 
-  // At the CURSOR, not the end. The tracked selection was sitting right there
-  // in selEndRef and every insert ignored it — a tag or image dropped from the
-  // toolbar always landed at the bottom of the document no matter where the
-  // caret was.
   const insertAtCursor = (build: (prior: string) => string) => {
     setText(prev => {
       const at = Math.min(Math.max(selEndRef.current, 0), prev.length);
@@ -181,10 +172,6 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
     }
   };
 
-  // Android was paddingTop: 0 — fine when RN Modals drew below the status
-  // bar, wrong on the edge-to-edge Android baseline: the window spans the
-  // bar, so the Cancel/Save header clipped up behind it. Same formula as
-  // AppHeader (status-bar-replacement padding with a sane floor).
   return (
     <View style={[s.container, {backgroundColor: T.bg, paddingTop: Platform.OS === 'ios' ? insets.top : Math.max(StatusBar.currentHeight || 0, insets.top || 0, 28)}]}>
       <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.bg}]}>

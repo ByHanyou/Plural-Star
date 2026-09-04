@@ -29,16 +29,6 @@ import ko from './ko.json';
 import sv from './sv.json';
 import pl from './pl.json';
 
-/**
- * Hermes ships no Intl.PluralRules, and since i18next v24 there is no fallback:
- * without it only English-style _one/_other resolve, so the ru/uk _few/_many
- * forms would silently never be selected (3 участник instead of 3 участника).
- *
- * Probe the capability rather than the engine version — a locale-poor build
- * answers 'other' for everything, so ask it something only a real CLDR table
- * knows. Never overwrite a working implementation; if Hermes gains one, we
- * defer to it and this becomes dead weight, not a conflict.
- */
 const hasWorkingPluralRules = (): boolean => {
   const PR = (Intl as any).PluralRules;
   if (typeof PR !== 'function') return false;

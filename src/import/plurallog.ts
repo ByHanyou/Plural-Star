@@ -25,34 +25,6 @@ export type PluralLogCtx = {
   onDataImported: () => void;
 };
 
-/**
- * PluralLog export bundle (com.arcadearmor.plurallog), reversed from a real
- * export — the Tupperbox rule: match the file the app actually writes, not a
- * doc. Zip layout: manifest.json {generatedAt, exportJson, mediaCount, files[]},
- * plurallog_export_<stamp>.json (the database), stored_media/(pfp_|headspace_)*.png.
- * Database fields (verified against the sample):
- *   config: systemName + app prefs (only systemName has a home here)
- *   members: uuid id, name, pronouns, role, description, color = ARGB uint32,
- *            avatarEmoji, profileImagePath (ABSOLUTE app path — only the
- *            basename matches stored_media/), profileMarkdown, customFields
- *            (JSON string, '{}' when empty), parentMemberId (sub-member →
- *            our facet), headspaceId (no home), archived 0/1, createdAt ms,
- *            vault (JSON string)
- *   switchEvents: memberId, startTime/endTime ms (endTime null = still open),
- *                 notes, cofronterIds CSV
- *   folders (their groups): name, icon, colorValue ARGB, memberIds CSV,
- *            sortOrder, parentFolderId (nested), requiresConfirmation
- *   journal: authorId, text, emotion (neutral/happy/angry/anxious/dissociated/
- *            sad), timestamp ms, tags CSV, hidden 0/1
- *   channels + messages: their chat; reactions is a string blob we drop
- *   polls: options '|||'-joined, votes "memberId:optionIndex," CSV — their
- *          polls are system-wide questions with no target member, and ours are
- *          per-member, so they have no home here and are dropped like every
- *          importer drops what does not fit
- *   frontMessages: fromMemberId/toMemberId/text/createdAt/read — their
- *                  member-to-member mail, lands in our Mailbox
- *   headspaces: no home, dropped
- */
 const ARGB_MASK = 0xffffff;
 const argbToHex = (n: unknown): string => {
   const num = typeof n === 'number' && Number.isFinite(n) ? n : NaN;
@@ -81,15 +53,11 @@ export const handlePluralLogPick = async (ctx: PluralLogCtx) => {
     let bundle: {files: Record<string, Uint8Array>; data: any | null; manifest: any | null} | null = null;
     bundle = await readZipBundle(path, (res as any).uri);
     const files = bundle?.files || {};
-    // The database file name carries an export timestamp; find it rather than
-    // hardcode it. manifest.exportJson names it too when present.
     const dbName = (bundle?.manifest && typeof bundle.manifest.exportJson === 'string' && files[bundle.manifest.exportJson])
       ? bundle.manifest.exportJson
       : Object.keys(files).find(n => /(^|\/)plurallog_export.*\.json$/i.test(n));
     let db: any = null;
     if (dbName && files[dbName]) {
-      // zipTextOf, not TextDecoder: Hermes support for the latter is not a
-      // given, and every other zip reader here already uses fflate's strFromU8.
       try { db = JSON.parse(zipTextOf(files[dbName])); } catch {}
     }
     if (!isPluralLogDb(db)) {
@@ -128,8 +96,6 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
               color: argbToHex(m.color),
               description: String(m.description || m.profileMarkdown || ''),
               archived: !!m.archived,
-              // PluralLog sub-members (parentMemberId) are the closest thing
-              // to our facets: profiles that belong to another member.
               ...(m.parentMemberId ? {isFacet: true} : {}),
             });
           });
@@ -165,7 +131,6 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
               if (!found) groups.push({id: localId, name, color: argbToHex(f.colorValue), sortOrder: f.sortOrder ?? i});
               folderIdMap[String(f.id)] = localId;
             });
-            // Second pass for nesting: parents may appear after children.
             db.folders.forEach((f: any) => {
               const localId = folderIdMap[String(f.id)];
               const parent = f.parentFolderId ? folderIdMap[String(f.parentFolderId)] : null;

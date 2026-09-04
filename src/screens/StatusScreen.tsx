@@ -15,7 +15,6 @@ interface Props {
 }
 
 export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Props) => {
-  // The current status duration freezes without a tick.
   useMinuteTick();
   const front = useAppStore(s => s.front);
   const members = useAppStore(s => s.members);

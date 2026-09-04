@@ -21,22 +21,6 @@ export type TupperboxCtx = {
   onDataImported: () => void;
 };
 
-/**
- * Tupperbox `tul!export` JSON: `{ tuppers: [], groups: [] }`.
- * Field list verified against PluralKit's TupperboxImport.cs and /plu/ral's
- * porting model (both open source), not guessed:
- *   tupper: id, name, brackets (flat array of prefix/suffix PAIRS, even length),
- *           avatar_url, avatar, banner, posts, show_brackets, birthday
- *           (may be a yearless "0000-…" date), tag, nick, created_at,
- *           group_id, last_used
- *   group:  id, name, avatar, description, tag
- * No system meta, no fronting, no custom fields, no colors. We take name,
- * description, group membership, and — matching our PK round-trip policy —
- * preserve brackets as pkProxyTags and avatar_url as pkAvatarUrl so a later
- * PluralKit export keeps them. Discord-proxy concepts (tag, show_brackets,
- * posts, nick) and birthday are deliberately dropped, same as our other
- * importers drop what has no home here.
- */
 export const handleTupperboxPick = async (ctx: TupperboxCtx) => {
   const {setRestoreError, setExtPreview, setImportStatus, setImportMsg, t, setImportSource} = ctx;
   setRestoreError(''); setExtPreview(null); setImportStatus('idle'); setImportMsg('');
@@ -49,7 +33,6 @@ export const handleTupperboxPick = async (ctx: TupperboxCtx) => {
       const txt: string = await readFileText(path, res.uri);
       parsed = JSON.parse(txt);
     } catch {}
-    // PluralKit's own sniffer for these files is simply "has a tuppers array".
     if (!parsed || !Array.isArray(parsed.tuppers)) {
       throw new Error(t('share.tupperboxNeedsJson'));
     }
@@ -72,8 +55,6 @@ export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
         const tuppers: any[] = extPreview.tuppers || [];
         const tbGroups: any[] = extPreview.groups || [];
 
-        // Groups first (dedupe by name against existing, spFile-style) so the
-        // member rows can point their groupIds at local ids.
         const groupIdMap: Record<string, string> = {};
         if (extSel.groups && tbGroups.length > 0) {
           const existingGroups = await store.get<MemberGroup[]>(KEYS.groups, []) || [];
@@ -90,16 +71,10 @@ export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
         }
 
         if (extSel.members) {
-          // Through the shared merge pipeline — the old wholesale
-          // store.set(newMembers) REPLACED the entire roster with only the
-          // tuppers, hard-deleting custom fronts, facets, and any local
-          // member the file didn't carry.
           const existing = await store.get<Member[]>(KEYS.members, []) || [];
           const merged: Member[] = [...existing];
           const idMap: Record<string, string> = {};
           tuppers.forEach((tp: any) => {
-            // Brackets arrive as a flat even-length array of prefix/suffix
-            // pairs; preserved as pkProxyTags for PK round-trips.
             const rawBr: any[] = Array.isArray(tp?.brackets) ? tp.brackets : [];
             const proxyTags: {prefix?: string | null; suffix?: string | null}[] = [];
             if (rawBr.length % 2 === 0) {
@@ -107,9 +82,6 @@ export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
                 proxyTags.push({prefix: rawBr[i] == null ? null : String(rawBr[i]), suffix: rawBr[i + 1] == null ? null : String(rawBr[i + 1])});
               }
             }
-            // Tupperbox has no pronouns/role/color, so they are OMITTED: a
-            // matched local member keeps what they have instead of being
-            // blanked; brand-new rows get defaults below.
             mergeForeignMember(merged, idMap, 'tb:' + String(tp?.id ?? uid()), {
               name: (tp?.name && String(tp.name).trim()) || 'Unnamed member',
               description: String(tp?.description || ''),

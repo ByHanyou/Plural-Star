@@ -23,10 +23,6 @@ export const AppHeader = ({C, systemName, canLock, onLock, onOpenSettings, onOpe
   return (
     <View style={{backgroundColor: C.bg, paddingTop: Platform.OS === 'ios' ? Math.max(insets.top - 6, 0) : Math.max(StatusBar.currentHeight || 0, insets.top || 0, 28)}}>
       <View style={[styles.header, {borderBottomColor: C.border, backgroundColor: C.bg}]}>
-        {/* The name is the way into the system profile, so it carries the
-            button role and a hint saying what it opens rather than nesting a
-            header inside a button. Singlets have no system profile — for them
-            it stays a plain heading with nothing to press. */}
         {onOpenProfile ? (
           <TouchableOpacity
             onPress={onOpenProfile}

@@ -23,16 +23,9 @@ export type RestoreCtx = {
   t: TFunction;
   onDataImported: () => void;
   history: HistoryEntry[];
-  /** Drives the wait screen and carries the user's stop request. Optional so
-   *  older call sites keep compiling; when absent nothing reports progress. */
   control?: ImportControl;
 };
 
-/**
- * Phase helper. Announces the phase, runs it, marks it done — and returns false
- * if the user asked to stop, which the caller uses to bail out BETWEEN phases.
- * Never mid-write: a half-written members list is worse than a partial import.
- */
 export const runPhase = async (
   ctx: {control?: ImportControl; setRestoreProgress: any},
   label: string,
@@ -77,8 +70,6 @@ export const applyImportedHistory = async (newHistory: HistoryEntry[], ctx: Pick
     if (importedOpenFront) await store.set(KEYS.front, importedOpenFront);
   };
 
-/** Update-mode list merge: incoming rows refresh matches (by id, then by the
- *  optional key) and append; nothing local is removed. */
 const mergeById = <T extends {id?: any}>(existing: T[] | null | undefined, incoming: T[], sameKey?: (a: T, b: T) => boolean): T[] => {
   const out = [...(existing || [])];
   incoming.forEach(inc => {
@@ -90,9 +81,6 @@ const mergeById = <T extends {id?: any}>(existing: T[] | null | undefined, incom
   return out;
 };
 
-/** Update-mode roster merge for our OWN backups: match by id (same account
- *  lineage), then by claimable name; locals the backup doesn't carry stay
- *  untouched. Restoring a member over their tombstone revives them. */
 export const mergeBackupMembers = (existing: Member[], incoming: Member[]): Member[] => {
   const out = [...existing];
   const claimed = new Set<string>();
@@ -112,8 +100,6 @@ export const mergeBackupMembers = (existing: Member[], incoming: Member[]): Memb
 export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCtx) => {
   const {restoreSel, importMode, setRestoreProgress, t} = ctx;
     const upd = importMode === 'update';
-    // Each of these is a phase boundary: the wait screen advances here, and a
-    // stop request is honoured here rather than mid-write.
     if (restoreSel.journal && data.journal) {
       if (!(await runPhase(ctx, t('share.progressJournal', {defaultValue: 'Restoring journal…'}), async () => {
         const next = upd
@@ -226,7 +212,6 @@ export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: Re
     if (restoreSel.whiteboard !== false && data.whiteboard) await store.set(KEYS.whiteboard, data.whiteboard);
     if (restoreSel.palettes && data.customColors) await store.set(KEYS.customColors, data.customColors);
     if (restoreSel.settings && data.shareSettings) await store.set(KEYS.share, data.shareSettings);
-    // The tail above is a batch of single writes — one phase, not fifteen.
     ctx.control?.end();
   };
 
@@ -245,13 +230,6 @@ export const downloadAvatarsTo = async (urls: Record<string, string>, ctx: Pick<
     }
   };
 
-/**
- * Ourcana v3 dropped the flat members/frontHistory arrays for a graph of
- * typed nodes (member | customField | system) plus hasMember edges. Flatten it
- * back into the shape the importer below already understands, so old exports
- * keep working untouched. Unknown node types are ignored on purpose — a future
- * Ourcana release should add data, not break the import.
- */
 const normalizeOurcana = (raw: any): any => {
   if (!raw || !raw.graph || !Array.isArray(raw.graph.nodes)) return raw;
   const nodes: any[] = raw.graph.nodes;
@@ -270,9 +248,6 @@ const normalizeOurcana = (raw: any): any => {
     }));
   const memberNodes = byType('member');
   const memberIdSet = new Set(memberNodes.map((n: any) => String(n.id)));
-  // Ourcana mints a personal tag per member (id tag_default_<memberId>, labelled
-  // with the member's own name); importing those would create one junk
-  // single-member group per member, so only the real organizational tags survive.
   const tags = byType('tag')
     .filter((n: any) => !String(n.id).startsWith('tag_default_'))
     .map((n: any) => {
@@ -305,15 +280,11 @@ const normalizeOurcana = (raw: any): any => {
       desc: p.desc,
       color: p.color,
       archived: p.archived,
-      // localAvatarPath points at a file on THEIR device and cannot travel;
-      // the archive's avatars/<memberId> files are attached at import time.
       avatarUrl: p.avatarUrl,
       tagIds: tagIdsByMember[String(n.id)] || [],
       ourcanaFieldValues: p.customFields && typeof p.customFields === 'object' ? p.customFields : {},
     };
   });
-  // v3 splits fronting into raw ourcanaSwitchAtom records and the frontEvent
-  // rows aggregated from them — read the events only, or every span doubles.
   const frontHistory = byType('frontEvent')
     .concat(byType('front'))
     .concat(byType('frontEntry'))
@@ -336,7 +307,6 @@ const normalizeOurcana = (raw: any): any => {
   };
 };
 
-/** The database json inside an .our archive — never image_assets/index.json. */
 export const findOurcanaJsonEntry = (files: Record<string, Uint8Array>): string | undefined => {
   const names = Object.keys(files);
   return names.find(n => /(^|\/)ourcana[^/]*\.json$/i.test(n))
@@ -344,7 +314,6 @@ export const findOurcanaJsonEntry = (files: Record<string, Uint8Array>): string 
     || names.find(n => n.toLowerCase().endsWith('.json') && !n.toLowerCase().endsWith('index.json'));
 };
 
-/** Resolve an image_assets entry by owner + role (system banner etc.). */
 const ourAssetFor = (zipFiles: Record<string, Uint8Array>, ownerId: string, role: string): Uint8Array | null => {
   if (!ownerId) return null;
   const idxName = Object.keys(zipFiles).find(n => n.endsWith('image_assets/index.json'));
@@ -361,14 +330,6 @@ const ourAssetFor = (zipFiles: Record<string, Uint8Array>, ownerId: string, role
   } catch { return null; }
 };
 
-/**
- * Ourcana frontEvents are already whole switches with real end times, and the
- * spans legitimately overlap (per-member fronting records over days). Feeding
- * them through the SP coalescer fuses every overlapping span into one giant
- * union entry, so they are mapped directly: rows sharing a start instant and
- * an end merge into one switch, everything else stays its own entry, and only
- * a genuinely live row is left open.
- */
 export const ourFrontEventsToHistory = (ouFronts: any[], idMap: Record<string, string>): HistoryEntry[] => {
   const rows = ouFronts
     .map((f: any) => ({
@@ -399,7 +360,6 @@ export const ourFrontEventsToHistory = (ouFronts: any[], idMap: Record<string, s
   return merged.map(m => m.e);
 };
 
-/** Pick the bytes of `avatars/<ownerId>.<ext>` out of an .our archive. */
 const ourZipAvatarFor = (zipFiles: Record<string, Uint8Array>, ownerId: string): Uint8Array | null => {
   if (!ownerId) return null;
   const name = Object.keys(zipFiles).find(n => {
@@ -489,9 +449,6 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: 
     }
     const ouFieldDefs: any[] = Array.isArray(rawData.ourcanaFieldDefs) ? rawData.ourcanaFieldDefs : [];
     if (restoreSel.customFields && restoreSel.members && ouFieldDefs.length > 0) {
-      // Their fields are global definitions; each member holds a
-      // { fieldNodeId: value } map against them. Match ours by name so a repeat
-      // import reuses the same column instead of duplicating it.
       const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
       const fieldIdMap: Record<string, string> = {};
       const newDefs: CustomFieldDef[] = [];
@@ -528,8 +485,6 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: 
       await store.set(KEYS.members, withCF);
     }
     if (restoreSel.avatars) {
-      // The .our archive carries the pictures as avatars/<memberId>.<ext>;
-      // members without one fall back to their remote avatarUrl.
       const zipDone = new Set<string>();
       if (zipFiles) {
         const jobs = ouMembers.filter((m: any) => idMap[String(m.id)] && ourZipAvatarFor(zipFiles, String(m.id)));
@@ -634,8 +589,6 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 : mem);
             }
             await restoreSharedPayload(data, ctx);
-            // A stop is not a failure and not a clean success — say which steps
-            // actually landed instead of claiming the import finished.
             if (ctx.control?.stopped) setRestoreError(stoppedSummary(ctx.control, t));
             setRestoreDone(true); setTimeout(() => onDataImported(), 800);
             return;
@@ -645,9 +598,6 @@ export const handleRestore = (ctx: RestoreCtx) => {
           let ourZipFiles: Record<string, Uint8Array> | null = null;
           let rawData: any;
           try { rawData = JSON.parse(content); } catch {
-            // An .our archive keeps the whole zip as the pending file so the
-            // member avatars can be pulled from it below; the database json
-            // sits inside the archive.
             const zb = await readZipBundle(restorePath);
             const inner = findOurcanaJsonEntry(zb.files);
             if (!inner) throw new Error(t('share.invalidJsonBackup'));
@@ -671,7 +621,6 @@ export const handleRestore = (ctx: RestoreCtx) => {
           const looksLikeSP = !rawData._meta && Array.isArray(rawData.members) && rawData.members.length > 0
             && rawData.members[0]._id !== undefined && Array.isArray(rawData.customFields);
           if (looksLikeSP) {
-            console.log(`[SP-JSON] detected SP export: members=${rawData.members.length} customFields=${rawData.customFields.length}`);
             const normId = (raw: any): string => {
               if (raw == null) return '';
               if (typeof raw === 'string') return raw;
@@ -711,10 +660,6 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 sortOrder: existing?.sortOrder,
               } as Member;
             });
-            // The old wholesale store.set(newMembers) hard-dropped every local
-            // member the file didn't carry, custom fronts and facets included.
-            // Unmatched locals now follow the standard replace semantics:
-            // tombstoned in Overwrite, kept untouched in Update.
             const spMatched = new Set(newMembers.map(m => m.id));
             const spKeptLocals = existingMembers
               .filter(lm => !spMatched.has(lm.id))

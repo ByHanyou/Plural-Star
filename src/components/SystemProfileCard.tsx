@@ -13,21 +13,11 @@ interface Props {
   description?: string;
   avatar?: string;
   banner?: string;
-  /** Extra content under the description, e.g. the Edit switch's own notes. */
   children?: React.ReactNode;
   bottomInset?: number;
-  /**
-   * Drop the ScrollView and the outer padding. Set when the host already
-   * scrolls (the Sheet does) — nesting scroll views there eats the drag.
-   */
   embedded?: boolean;
 }
 
-/**
- * The read side of a system profile, laid out like the singlet Profile so the
- * two feel like the same object. Shared deliberately: this renders both our own
- * profile and a friend's mirrored copy, so the friend sees what we see.
- */
 export const SystemProfileCard = ({T, name, description, avatar, banner, children, bottomInset = 0, embedded = false}: Props) => {
   const {t} = useTranslation();
   const fs = fontScale(T);

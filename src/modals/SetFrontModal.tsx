@@ -13,10 +13,6 @@ import {useDraft, clearDraft} from '../hooks/useDraft';
 const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allAssigned, T, t, kindLabel}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
   members: Member[]; groups: MemberGroup[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
-  /** What this particular picker lists. The same component runs three times per
-   *  tier — members, facets, custom fronts — and every one of them said "search
-   *  members", so the section headers named one thing and the box under them
-   *  another. Omitted for the plain members list, which keeps its own wording. */
   kindLabel?: string;
 }) => {
   const fs = fontScale(T);
@@ -46,10 +42,6 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   const searchLabel = kindLabel
     ? t('members.searchToAddKind', {kind: kindLabel, defaultValue: `Type to search ${kindLabel}…`})
     : t('members.searchToAdd');
-  // The kind hint must not promise tags: only members carry them, so under
-  // Facets and Custom Fronts "select a tag to find X" pointed at a control
-  // that never appears ("tags suggested when unavailable"). The search line
-  // already says everything a tagless kind can do.
   const hintLabel = kindLabel
     ? t('members.searchToAddKind', {kind: kindLabel, defaultValue: `Type to search ${kindLabel}…`})
     : t('members.searchHint');

@@ -12,18 +12,8 @@ interface AvatarProps {
   T: ThemeColors;
 }
 
-/**
- * Memoised: this renders in every row of every list in the app — the member
- * list, chat messages, every picker — so without it one parent re-render
- * rebuilds hundreds of these and their style objects for nothing. The theme
- * object is memoised at the top of App, so the comparison actually holds.
- */
 export const Avatar = React.memo(function Avatar({member, size = 28, pulse = false, T}: AvatarProps) {
   const [imgError, setImgError] = useState(false);
-  // Keyed on id as well as uri: FlashList recycles row components, so this
-  // instance can be handed a different member while imgError is still true from
-  // the previous one — that row would then show initials for a member whose
-  // image is perfectly fine.
   useEffect(() => { setImgError(false); }, [member?.id, member?.avatar]);
 
   const radius = Math.round(size * 0.22);
@@ -82,10 +72,6 @@ export const Avatar = React.memo(function Avatar({member, size = 28, pulse = fal
           fontSize: size * 0.35,
           fontWeight: '700',
           color: initialOn(member?.color || T.toggleOff),
-          // Android reserves ascender/descender padding inside the glyph box,
-          // which floats a single centered initial visibly off middle (worse
-          // under the custom font choices). Both props are Android-only no-ops
-          // on iOS.
           includeFontPadding: false,
           textAlign: 'center',
           textAlignVertical: 'center',

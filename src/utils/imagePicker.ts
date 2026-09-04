@@ -46,11 +46,6 @@ export const pickImageFromGallery = async (
   };
 };
 
-/** Gallery pick, then the Auto/Edit choice. Auto returns the pick untouched —
- *  exactly what every call site got before this existed. Edit opens the crop
- *  editor and returns the cropped file, which then rides the same save/resize
- *  path, so Auto and Edit store through identical code. Cancel anywhere
- *  (including backing out of the crop) returns null. */
 export const pickImageForUpload = async (
   opts: {includeBase64?: boolean; quality?: number; maxWidth?: number; maxHeight?: number} = {},
 ): Promise<PickedImage | null> => {
@@ -68,6 +63,5 @@ export const pickImageForUpload = async (
   const cropUri = img.uri.startsWith('file://') || img.uri.startsWith('content://') ? img.uri : `file://${img.uri}`;
   const cropped = await requestImageCrop({uri: cropUri, width: img.width, height: img.height});
   if (!cropped) return null;
-  // base64/size describe the ORIGINAL file; never let them ride along.
   return {uri: cropped.uri, fileName: img.fileName, type: img.type};
 };

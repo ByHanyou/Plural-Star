@@ -15,7 +15,6 @@ interface Props {
   onBack: () => void;
 }
 
-// Recipient sentinel for "send to everyone". Not a member id, never stored.
 const ALL_RECIPIENTS = '*';
 
 export const MailboxScreen = ({theme: T, onBack}: Props) => {
@@ -122,9 +121,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
 
   const send = (recipientId: string, senderId: string) => {
     if (!recipientId || !senderId || !text.trim()) return;
-    // "Everyone" fans out a real message per member rather than inventing a
-    // broadcast row: each inbox keeps its own unread flag, pin and delete, and
-    // every existing count, lock, sync and export path works untouched.
     const targets = recipientId === ALL_RECIPIENTS ? active.map(m => m.id) : [recipientId];
     if (targets.length === 0) return;
     const body = text.trim();
@@ -172,7 +168,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           <Text style={{fontSize: fs(11), color: selected === m.id ? m.color : T.dim}}>{m.name}</Text>
         </TouchableOpacity>
       ))}
-      {/* Facets keep their own row: out of the member list, still pickable. */}
       {activeFacets.length > 0 && (
         <>
           <Text accessibilityRole="header" style={{width: '100%', fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 6}}>{t('members.facets')}</Text>
@@ -200,7 +195,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             <Text style={{fontSize: fs(9), fontWeight: '700', color: initialOn(author?.color || T.muted), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(author?.name || '?')}</Text>
           </View>
           <Text style={{fontSize: fs(12), color: author?.color || T.dim, fontWeight: '500'}}>{author?.name || '?'}</Text>
-          {note.pinned && <Text style={{fontSize: fs(10), color: T.accent}}>📌</Text>}
+          {note.pinned && <Text style={{fontSize: fs(10), color: T.accent}} accessibilityLabel={t('noteboard.pinned')}>📌</Text>}
           <Text style={{fontSize: fs(10), color: T.muted, marginLeft: 'auto'}}>{fmtTime(note.timestamp)}</Text>
         </View>
         <Text style={{fontSize: fs(13), color: T.text, lineHeight: 20}}>{note.content}</Text>
@@ -321,7 +316,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
               <View style={{flex: 1}}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                   <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text, flexShrink: 1}} numberOfLines={1}>{m?.name || '?'}</Text>
-                  {/* Locked state is spoken via the row label; the glyph itself is decorative. */}
                   {!!m?.mailboxPassword && <Text style={{fontSize: fs(11)}} accessibilityElementsHidden importantForAccessibility="no">🔒</Text>}
                 </View>
                 <Text style={{fontSize: fs(11), color: T.muted}}>{t('mailbox.messageCount', {count})}</Text>
@@ -335,7 +329,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           );
         }) : (
           <View style={{alignItems: 'center', paddingVertical: 56}}>
-            <Text style={{fontSize: fs(32), opacity: 0.3, marginBottom: 10}}>✉</Text>
+            <Text style={{fontSize: fs(32), opacity: 0.3, marginBottom: 10}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✉</Text>
             <Text style={{fontSize: fs(13), color: T.muted, textAlign: 'center'}}>{t('mailbox.empty')}</Text>
           </View>
         )}

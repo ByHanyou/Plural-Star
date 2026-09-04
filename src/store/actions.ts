@@ -10,18 +10,6 @@ import {migrateInlineChatMedia, rebaseChatMessageMedia} from '../utils/mediaUtil
 import {setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, reschedulePlannerNotifications, showFrontNotification} from '../services/NotificationService';
 import {useAppStore} from './appStore';
 
-/**
- * Reads every channel's messages into one array for the Stats tab.
- *
- * This is the single most expensive thing the app can do, and it used to be
- * awaited inside loadAll before the first frame: a read per channel, a base64
- * decode and file write per attachment, and then every message of every channel
- * spread into one array kept in memory for the whole session. On a phone with a
- * real chat history that is minutes of blank screen and a heap big enough for
- * the OS to kill the process, which the foreground service then restarts.
- *
- * Nothing on the startup path needs it. Stats asks for it when Stats is opened.
- */
 export const loadChatMessages = async (channels: ChatChannel[]) => {
   const {setAllChatMessages} = useAppStore.getState();
   const allMsgs: ChatMessage[] = [];
@@ -34,9 +22,6 @@ export const loadChatMessages = async (channels: ChatChannel[]) => {
         const {messages: rebased, changed: rebasedChanged} = rebaseChatMessageMedia(changed ? migrated : msgs);
         const finalMsgs = rebasedChanged ? rebased : (changed ? migrated : msgs);
         if (changed || rebasedChanged) await store.set(`ps:chat:${ch.id}`, finalMsgs);
-        // NOT push(...finalMsgs): spreading a large array passes one argument
-        // per element and throws RangeError past the engine's argument limit,
-        // which silently cost that channel its entire history.
         for (const m of finalMsgs) allMsgs.push(m);
       }
     } catch (e) {
@@ -108,8 +93,6 @@ export const savePalettes = async (d: CustomPalette[]) => {
 
 export const saveChatChannels = async (d: ChatChannel[]) => {
   const {setChatChannels} = useAppStore.getState();
-  // No chat re-read here either: renaming or adding a channel does not need
-  // every channel's history walked, and Stats reloads when Stats is opened.
   setChatChannels(d); await store.set(KEYS.chatChannels, d);
 };
 

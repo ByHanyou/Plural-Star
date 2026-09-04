@@ -55,10 +55,6 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               if (typeof m.avatar_url === 'string' && m.avatar_url) incoming.pkAvatarUrl = m.avatar_url;
               if (typeof m.banner === 'string' && m.banner) incoming.pkBannerUrl = m.banner;
               if (typeof m.keep_proxy === 'boolean') incoming.pkKeepProxy = m.keep_proxy;
-              // PK re-imports kept replacing pronouns people had rewritten in
-              // Plural Star (PK styles them with strikedown markup). With the
-              // toggle off the field is OMITTED, not blanked: matched members
-              // keep what they have here, new members arrive blank.
               if (extSel.pronouns === false) delete incoming.pronouns;
             }
             if (extId) {
@@ -166,7 +162,6 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
             const fieldIdMap: Record<string, string> = {};
             const fieldNameMap: Record<string, string> = {};
             const newDefs: CustomFieldDef[] = [];
-            const cfIdDiag: string[] = [];
             extPreview.customFields.forEach((cf: any, i: number) => {
               const candidates = [
                 cf.id, cf.uuid, cf._id,
@@ -187,13 +182,11 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               }
               spIds.forEach(k => { fieldIdMap[k] = localId; });
               fieldNameMap[String(spName).toLowerCase().trim()] = localId;
-              cfIdDiag.push(`${spName}:[${spIds.join('|')}]`);
             });
             if (newDefs.length > 0) {
               await store.set(KEYS.customFieldDefs, [...existingDefs, ...newDefs]);
             }
             const currentMembers = await store.get<Member[]>(KEYS.members, []) || [];
-            let diagLogged = 0;
             let membersMatched = 0;
             let membersWithInfo = 0;
             let totalInfoKeys = 0;
@@ -219,13 +212,6 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               const newCF: CustomFieldValue[] = [...existingCF];
               const entries = Object.entries(info);
               totalInfoKeys += entries.length;
-              if (diagLogged < 2) {
-                const memberName = spMember.content?.name || spMember.name || '(unknown)';
-                const infoKeys = entries.map(([k]) => k);
-                const infoShapes = entries.slice(0, 3).map(([k, v]) => `${k}=${typeof v}${v && typeof v === 'object' ? `(keys:${Object.keys(v as any).join(',')})` : ''}`);
-                console.log(`[CF-IMPORT] member="${memberName}" infoKeys=[${infoKeys.join(',')}] shapes=[${infoShapes.join(' ')}] cfMap=[${cfIdDiag.join(' ')}]`);
-                diagLogged++;
-              }
               entries.forEach(([spFieldId, rawValue]) => {
                 const norm = normId(spFieldId);
                 const localFieldId =
@@ -251,7 +237,6 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               });
               return {...lm, customFields: newCF};
             });
-            console.log(`[CF-IMPORT] matched=${membersMatched}/${currentMembers.length} withInfo=${membersWithInfo} totalKeys=${totalInfoKeys} written=${matchedKeys} unmatchedSamples=[${[...unmatchedKeySamples].join(',')}]`);
             await store.set(KEYS.members, updatedMembers);
 
             const suspicious = (membersWithInfo > 0 && matchedKeys === 0) ||
@@ -351,8 +336,6 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
         setExtPreview(null); setExtToken(''); setTimeout(() => onDataImported(), 500);
         } catch (e: any) {
           setRestoreProgress('');
-          // A user cancel arrives here as ImportStopped. Reporting it as
-          // "Import failed" made a deliberate stop look like a crash.
           if (isImportStopped(e)) {
             setExtPreview(null); setExtToken(''); setTimeout(() => onDataImported(), 500);
             Alert.alert(t('share.importStopped', {count: e?.completedCount ?? 0}));

@@ -28,7 +28,6 @@ ios/PluralSpace.xcodeproj/project.xcworkspace/
 ExportOptions.plist
 fastlane/.env*
 
-build/
 .idea
 .gradle
 local.properties

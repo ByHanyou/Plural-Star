@@ -7,10 +7,6 @@ import {friendNotifyLevel} from '../network/types';
 import {logError} from '../utils/log';
 
 export const useFrontNotifications = (front: FrontState | null, members: Member[], systemName: string, appSettings: AppSettings) => {
-  // The persistent front status (Android FGS notification / iOS Live
-  // Activity) is now its OWN switch, deliberately decoupled from friend
-  // alerts and reminders: users who don't want an always-on notification
-  // were being forced to keep it just to hear about their partner's fronts.
   const persistent = appSettings.persistentFrontNotif !== false;
 
   useEffect(() => {
@@ -89,20 +85,6 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
   }, [appSettings.frontCheckInterval, appSettings.notificationsEnabled, appSettings.accountMode]);
 
   useEffect(() => {
-    // The refresh trigger is no longer opt-in: notify-kit's ForegroundService
-    // returns START_NOT_STICKY, so when Android reclaims the process the front
-    // notification dies with it and NOTHING re-posts it until the app is
-    // reopened — that is the 1.14.2 "notification vanished" report. This
-    // trigger is the only resurrection path, so everyone fronting gets one.
-    // The user setting now only shortens the interval; 30 min is the floor
-    // default. Same id + onlyAlertOnce = each re-post is silent and invisible
-    // when the notification is already showing.
-    // `members` is deliberately NOT a dependency, and is read from the ref
-    // instead. It is a fresh array after any member edit and after every sync
-    // apply, and each reschedule re-enqueues the periodic work with a full
-    // initial delay, so the refresh clock was being reset over and over and the
-    // re-post never got to run. Only a front change alters what this trigger
-    // would say, so only a front change needs to rebuild it.
     const mins = appSettings.notificationRefreshMinutes || 30;
     if (!front || !appSettings.notificationsEnabled || !persistent || mins <= 0) {
       cancelFrontNotificationRefresh().catch(e => console.error('[PS] notif refresh cancel error:', e));

@@ -14,29 +14,12 @@ interface Props {
   maxFontSizeMultiplier?: number;
   allowFontScaling?: boolean;
   accessibilityRole?: any;
-  // Set when a parent already carries the label, so the text does not read out
-  // a second time under it (the header title inside its profile button).
   accessibilityElementsHidden?: boolean;
   importantForAccessibility?: 'auto' | 'yes' | 'no' | 'no-hide-descendants';
 }
 
 const OUTLINE_MIN_SIZE = 14;
 
-/**
- * Light-theme legibility for accent-coloured text. This USED TO stack six
- * copies of the children (four offset outline layers, a transparent sizer, the
- * real one), which broke two ways in light themes only:
- *   - emoji and other colour glyphs ignore both `color` and 'transparent', so
- *     every icon rendered SIX times, offset — the duplicated tab icons.
- *   - the real layer was position:absolute inside a wrapper sized by the
- *     transparent layer, so a constrained parent could collapse or clip it,
- *     and a low-contrast accent left only the dark ghosts — the missing name.
- * The interim replacement was one Text with a dark textShadow, but the 1.5px
- * blur read as fuzzy, eye-straining text on every light theme ("some fonts
- * have a drop shadow"). NO shadow now: the ensureReadable clamp alone keeps
- * the colour above the large-text floor, which is the part that actually
- * stops it vanishing into a light background.
- */
 export const AccentText = ({children, style, T, numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling, accessibilityRole, accessibilityElementsHidden, importantForAccessibility}: Props) => {
   const flat = StyleSheet.flatten(style) || ({} as any);
   const fontSize = flat.fontSize ?? 12;

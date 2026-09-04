@@ -22,14 +22,10 @@ interface Props {
 
 type NetTab = 'friends' | 'settings' | 'privacy';
 type Kind = 'friend' | 'device';
-type BucketFeature = 'members' | 'groups' | 'journal' | 'history' | 'customFields' | 'medical' | 'connections' | 'systemProfile' | 'whiteboard' | 'facets';
+type BucketFeature = 'members' | 'groups' | 'journal' | 'history' | 'customFields' | 'medical' | 'connections' | 'systemProfile' | 'whiteboard' | 'planner' | 'facets' | 'customFronts';
+const BUCKET_ROWS: BucketFeature[] = ['members', 'facets', 'customFronts', 'groups', 'journal', 'history', 'customFields', 'connections', 'systemProfile', 'whiteboard', 'planner'];
 
-// systemProfile/whiteboard/facets are optional on the stored record (buckets
-// written before they existed do not have them), so the screen works with a
-// normalized shape where every feature is present and indexing by
-// BucketFeature always yields a scope. Facets normalize to a COPY of the
-// bucket's members scope — the exact behavior before the field existed.
-type Bucket = PrivacyBucket & {systemProfile: PrivacyScope; whiteboard: PrivacyScope; facets: PrivacyScope};
+type Bucket = PrivacyBucket & {systemProfile: PrivacyScope; whiteboard: PrivacyScope; planner: PrivacyScope; facets: PrivacyScope; customFronts: PrivacyScope};
 
 const emptyScope = (): PrivacyScope => ({mode: 'none', ids: []});
 const newBucket = (name: string): Bucket => ({
@@ -44,7 +40,9 @@ const newBucket = (name: string): Bucket => ({
   connections: emptyScope(),
   systemProfile: emptyScope(),
   whiteboard: emptyScope(),
+  planner: emptyScope(),
   facets: emptyScope(),
+  customFronts: emptyScope(),
   friendPeerIds: [],
   createdAt: Date.now(),
 });
@@ -60,15 +58,14 @@ const normalizeBucket = (b: PrivacyBucket): Bucket => ({
   connections: b.connections || emptyScope(),
   systemProfile: b.systemProfile || emptyScope(),
   whiteboard: b.whiteboard || emptyScope(),
-  // Seeded from members, not empty: absent has always MEANT "same as
-  // members", and the editor must show (and re-save) exactly that.
+  planner: b.planner || emptyScope(),
   facets: b.facets || (b.members ? {mode: b.members.mode, ids: [...(b.members.ids || [])]} : emptyScope()),
+  customFronts: b.customFronts || (b.members ? {mode: b.members.mode, ids: [...(b.members.ids || [])]} : emptyScope()),
   friendPeerIds: b.friendPeerIds || [],
 });
 
 export const NetworkScreen = ({theme: T}: Props) => {
   const kbHeight = useKeyboardHeight();
-  // Friend fronting durations freeze between incoming updates otherwise.
   useMinuteTick();
   const members = useAppStore(s => s.members);
   const groups = useAppStore(s => s.groups);
@@ -227,10 +224,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
   };
 
   const onRemove = (f: Friend) => {
-    // The body used to be nothing but the friend's name, which never said that
-    // removal is mutual: it sends a disconnect, so they lose you too, and both
-    // sides' cached mirrors go with it. Someone removed their partner system by
-    // accident because the dialog gave them nothing to stop on.
     const body = f.kind === 'device'
       ? f.displayName
       : t('network.removeFriendWarn', {name: f.displayName});
@@ -238,9 +231,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('network.remove'), style: 'destructive', onPress: () => {
         if (f.kind === 'device') { guard(() => NetworkManager.removeFriend(f.peerId)); return; }
-        // Second stop, friends only: one warning still got blown through by a
-        // stray tap plus a habit-tap, and removal is mutual — both sides lose
-        // the friendship and their cached mirrors.
         Alert.alert(t('journal.areYouSure'), t('network.removeFriendWarn', {name: f.displayName}), [
           {text: t('common.cancel'), style: 'cancel'},
           {text: t('network.remove'), style: 'destructive', onPress: () => guard(() => NetworkManager.removeFriend(f.peerId))},
@@ -307,8 +297,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const renderFriendStatus = (f: Friend) => {
     if (f.status === 'entered_theirs') return <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{t('network.waitingThem')}</Text>;
     if (f.status === 'entered_mine') return <Text style={{fontSize: fs(11), color: T.accent, marginTop: 2}}>{t('network.waitingYou')}</Text>;
-    // Their side told us this friendship is gone. Anything below would be a
-    // frozen copy presented as live, so say the truth instead.
     if (f.needsRefriend) return <Text style={{fontSize: fs(11), color: T.danger, marginTop: 2}}>{t('network.needsRefriend')}</Text>;
     const online = net.onlinePeers.includes(f.peerId);
     const s = f.lastStatus;
@@ -316,9 +304,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
     const sub = online ? T.dim : T.muted;
     if (!s) return <Text style={{fontSize: fs(11), color: sub, marginTop: 2}}>{online ? t('network.online') : t('network.offline')}</Text>;
     const dur = s.startTime ? fmtDur(s.startTime) : '';
-    // No line clamp. A system with several fronters had its Primary and
-    // Co-Front lists cut off at two lines with no way to reach the rest, since
-    // this card is the only place a friend's full front is shown.
     const line = (txt: string, key: string) => <Text key={key} style={{fontSize: fs(11), color: sub}}>{txt}</Text>;
     return (
       <View style={{marginTop: 2}}>
@@ -336,7 +321,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
   };
 
   const featureLabel = (f: BucketFeature): string =>
-    f === 'members' ? t('tabs.members') : f === 'facets' ? t('members.facets') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : f === 'systemProfile' ? t('systemProfile.title') : f === 'whiteboard' ? t('whiteboard.title') : t('systemMap.title');
+    f === 'members' ? t('tabs.members') : f === 'facets' ? t('members.facets') : f === 'customFronts' ? t('members.customFronts') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : f === 'systemProfile' ? t('systemProfile.title') : f === 'whiteboard' ? t('whiteboard.title') : f === 'planner' ? t('planner.title') : t('systemMap.title');
   const scopeSummary = (s: PrivacyScope): string =>
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
   const effectiveShare = (peerId: string, f: BucketFeature): PrivacyScope => {
@@ -386,7 +371,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
       connections: {mode: b.connections.mode, ids: [...b.connections.ids]},
       systemProfile: {mode: b.systemProfile.mode, ids: [...b.systemProfile.ids]},
       whiteboard: {mode: b.whiteboard.mode, ids: [...b.whiteboard.ids]},
+      planner: {mode: b.planner.mode, ids: [...b.planner.ids]},
       facets: {mode: b.facets.mode, ids: [...b.facets.ids]},
+      customFronts: {mode: b.customFronts.mode, ids: [...b.customFronts.ids]},
       friendPeerIds: [],
       createdAt: Date.now(),
     });
@@ -398,9 +385,18 @@ export const NetworkScreen = ({theme: T}: Props) => {
     ]);
   };
   const pickableMembers = members.filter(m => !m.deleted && !m.isCustomFront && !m.isFacet);
-  // Facets follow the roster rather than being mixed into it, but they ARE
-  // selectable: a facet can front, so a bucket has to be able to scope it.
   const pickableFacets = members.filter(m => !m.deleted && !m.isCustomFront && m.isFacet);
+  const pickableCustomFronts = members.filter(m => !m.deleted && m.isCustomFront);
+  const splitKinds = (b: Bucket): Bucket => {
+    const facetIds = new Set(pickableFacets.map(m => m.id));
+    const cfIds = new Set(pickableCustomFronts.map(m => m.id));
+    return {
+      ...b,
+      members: {...b.members, ids: b.members.ids.filter(id => !facetIds.has(id) && !cfIds.has(id))},
+      facets: {...b.facets, ids: b.facets.ids.filter(id => facetIds.has(id))},
+      customFronts: {...b.customFronts, ids: b.customFronts.ids.filter(id => cfIds.has(id))},
+    };
+  };
   const memberName = (id: string) => members.find(m => m.id === id)?.name || '?';
   const relLabel = (r: Relationship): string => {
     const rt = relTypes.find(x => x.id === r.typeId) || PRESET_RELATIONSHIP_TYPES.find(x => x.id === r.typeId);
@@ -427,7 +423,11 @@ export const NetworkScreen = ({theme: T}: Props) => {
     ? pickableFacets
         .filter(m => memberMatchesSearch(m, pickerSearch))
         .map(m => ({id: m.id, name: m.name}))
-    : [...pickableMembers, ...pickableFacets]
+    : pickerFeature === 'customFronts'
+    ? pickableCustomFronts
+        .filter(m => memberMatchesSearch(m, pickerSearch))
+        .map(m => ({id: m.id, name: m.name}))
+    : pickableMembers
         .filter(m => memberMatchesSearch(m, pickerSearch))
         .map(m => ({id: m.id, name: m.name})));
   const allPickedChecked = !!editBucket && !!pickerFeature && pickerItems.length > 0 && pickerItems.every(i => editBucket[pickerFeature].ids.includes(i.id));
@@ -485,9 +485,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
               accessibilityLabel={`${levelLabel}, ${f.displayName}`}
               accessibilityValue={{text: levelLabel}}
               style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-              {/* Three states need three glyphs. 'full' and 'alerts' were both a
-                  bell — one tap off 'full' looked muted but still sent alerts,
-                  so people thought they had turned a friend off and hadn't. */}
               <Text style={{color: level === 'full' ? T.accent : T.dim, fontSize: fs(15), opacity: level === 'off' ? 0.45 : 1}} accessibilityElementsHidden importantForAccessibility="no">{level === 'full' ? '🔔' : level === 'alerts' ? '📳' : '🔕'}</Text>
             </TouchableOpacity>
           );
@@ -548,12 +545,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 <Text style={{fontSize: fs(12), color: T.dim}}>{t('network.noBuckets')}</Text>
               ) : buckets.map(b => (
                 <View key={b.id} style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
-                  <TouchableOpacity style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket({...b})} activeOpacity={0.7}
+                  <TouchableOpacity style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket(splitKinds({...b}))} activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel={`${b.name}. ${(['members', 'facets', 'groups', 'journal', 'history', 'customFields', 'connections', 'systemProfile', 'whiteboard'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
+                    accessibilityLabel={`${b.name}. ${BUCKET_ROWS.map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
                     <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{b.name}</Text>
                     <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2} accessibilityElementsHidden importantForAccessibility="no">
-                      {(['members', 'facets', 'groups', 'journal', 'history', 'customFields', 'connections', 'systemProfile', 'whiteboard'] as BucketFeature[]).map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
+                      {BUCKET_ROWS.map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => cloneBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.cloneBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
@@ -623,14 +620,11 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 placeholder={t('network.bucketName')} placeholderTextColor={T.muted} style={inputStyle}
                 accessibilityLabel={t('network.bucketName')} accessibilityLabelledBy="lblBucketName" />
             </View>
-            {editBucket && (['members', 'facets', 'groups', 'journal', 'history', 'customFields', 'connections', 'systemProfile', 'whiteboard'] as BucketFeature[]).map(f => (
+            {editBucket && BUCKET_ROWS.map(f => (
               <View key={f} style={{paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.text}}>{featureLabel(f)}</Text>
-                  {/* history, systemProfile and whiteboard have nothing to
-                      pick WITHIN them — one timeline, one profile, one board —
-                      so they are all or nothing. */}
-                  {((f === 'history' || f === 'systemProfile' || f === 'whiteboard' ? ['all', 'none'] : ['all', 'select', 'none']) as PrivacyScopeMode[]).map(mode => {
+                  {((f === 'history' || f === 'systemProfile' || f === 'whiteboard' || f === 'planner' ? ['all', 'none'] : ['all', 'select', 'none']) as PrivacyScopeMode[]).map(mode => {
                     const sel = editBucket[f].mode === mode;
                     const label = mode === 'all' ? t('network.scopeAll') : mode === 'select' ? t('network.scopeSelect') : t('network.scopeNone');
                     return (
@@ -745,8 +739,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
       </Modal>
 
       <Modal visible={!!mirrorMenuFor} transparent animationType="fade" onRequestClose={() => setMirrorMenuFor(null)}>
-        {/* role="none" left the scrim an accessible element, hiding this menu
-            from iOS VoiceOver; accessible={false} is the real opt-out. */}
         <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}} activeOpacity={1} onPress={() => setMirrorMenuFor(null)} accessible={false} importantForAccessibility="no">
           <View accessibilityViewIsModal onAccessibilityEscape={() => setMirrorMenuFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}} numberOfLines={1}>
@@ -754,7 +746,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
             </Text>
             {mirrorMenuFor && (
               <Text style={{fontSize: fs(11), color: T.dim, paddingHorizontal: 16, paddingBottom: 12}}>
-                {(['members', 'facets', 'groups', 'journal', 'history', 'customFields', 'connections', 'systemProfile', 'whiteboard'] as BucketFeature[])
+                {BUCKET_ROWS
                   .map(f => `${featureLabel(f)}: ${scopeSummary(effectiveShare(mirrorMenuFor.peerId, f))}`)
                   .join('  ·  ')}
               </Text>
@@ -766,6 +758,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               {feature: 'journal' as MirrorFeature, label: t('tabs.journal')},
               {feature: 'history' as MirrorFeature, label: t('tabs.history')},
               {feature: 'whiteboard' as MirrorFeature, label: t('whiteboard.title')},
+              {feature: 'planner' as MirrorFeature, label: t('planner.title')},
             ]).map(opt => (
               <TouchableOpacity key={opt.feature} activeOpacity={0.7}
                 onPress={() => {

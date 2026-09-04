@@ -22,6 +22,7 @@ interface Props {
   T: ThemeColors;
   mode?: DateTimeEditorMode;
   collapsible?: boolean;
+  readOnly?: boolean;
 }
 
 const MIN_YEAR = 1900;
@@ -41,9 +42,6 @@ const EditableCell = ({
   onStep: (delta: number) => void;
   width: number;
   label?: string;
-  // The unit this cell edits (Hour, Minute, …). Without it every cell in the
-  // row announced an identical "Value" and its steppers an identical
-  // "Increase"/"Decrease" — five indistinguishable controls.
   a11yLabel?: string;
   T: ThemeColors;
 }) => {
@@ -91,9 +89,9 @@ const EditableCell = ({
   );
 };
 
-export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', collapsible = true}: Props) => {
+export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', collapsible = true, readOnly = false}: Props) => {
   const fs = fontScale(T);
-  const [expanded, setExpanded] = useState(!collapsible);
+  const [expanded, setExpanded] = useState(!collapsible && !readOnly);
 
   const month = date.getMonth();
   const day = date.getDate();
@@ -171,12 +169,13 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
     return `${datePart}  ${timePart}`;
   };
 
+  const canExpand = collapsible && !readOnly;
   const headerToggle = (
-    <TouchableOpacity onPress={() => collapsible && setExpanded(!expanded)} activeOpacity={collapsible ? 0.7 : 1}
-      accessibilityRole={collapsible ? 'button' : undefined} accessibilityState={collapsible ? {expanded} : undefined} accessibilityLabel={fmtSummary()}
+    <TouchableOpacity onPress={() => canExpand && setExpanded(!expanded)} activeOpacity={canExpand ? 0.7 : 1}
+      accessibilityRole={canExpand ? 'button' : undefined} accessibilityState={canExpand ? {expanded} : undefined} accessibilityLabel={fmtSummary()}
       style={{flexDirection: 'row', gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: expanded ? `${T.accent}50` : T.border}}>
       <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{fmtSummary()}</Text>
-      {collapsible && <Text style={{fontSize: fs(12), color: T.dim}}>{expanded ? '▲' : '▼'}</Text>}
+      {canExpand && <Text style={{fontSize: fs(12), color: T.dim}}>{expanded ? '▲' : '▼'}</Text>}
     </TouchableOpacity>
   );
 
@@ -186,7 +185,7 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
       ) : null}
       {headerToggle}
-      {expanded && (
+      {expanded && !readOnly && (
         <View style={{backgroundColor: T.card, borderWidth: 1, borderColor: T.border, borderRadius: 8, marginTop: 6, padding: 12}}>
           <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, flexWrap: 'wrap'}}>
             {showMonth && (
@@ -218,7 +217,7 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                   onCommit={commitHour12} onStep={d => stepBy('hour', d)}
                   width={44} label="HH" a11yLabel={i18n.t('a11y.hour')} T={T}
                 />
-                <Text style={{fontSize: fs(18), color: T.dim, fontWeight: '700', marginHorizontal: 2}}>:</Text>
+                <Text style={{fontSize: fs(18), color: T.dim, fontWeight: '700', marginHorizontal: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">:</Text>
                 <EditableCell
                   value={minutes} pad={2} min={0} max={59}
                   onCommit={commitMinute} onStep={d => stepBy('minute', d)}

@@ -28,8 +28,6 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const onAddToGroup = (memberIds: string[], groupId: string) => bulkAddGroups(memberIds, [groupId]);
   const onRemoveFromGroup = bulkRemoveFromGroup;
   const {t} = useTranslation();
-  // Visible failure instead of an unhandled rejection when a front write
-  // throws transiently.
   const onQuickFront = (id: string, tier: Parameters<typeof quickAddToFront>[1]) =>
     quickAddToFront(id, tier).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
   const onRemoveFromFront = (id: string) =>
@@ -246,7 +244,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
           <DragHandle T={T} active={reorderOn && !selectMode && !movingIds} panHandlers={makeHandlePanHandlers(g.id, () => childrenOf(groups, groupParent(g)).map(x => x.id))} name={g.name}
             position={sibIdx + 1} count={sibs.length}
             onStep={dir => reorderNode(g.id, dir === 1 ? 'down' : 'up')} />
-          {depth > 0 && <Text style={{color: T.muted, fontSize: fs(12)}}>└</Text>}
+          {depth > 0 && <Text style={{color: T.muted, fontSize: fs(12)}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">└</Text>}
           {selectMode && !moving && (
             <TouchableOpacity onPress={() => toggleSelected(g.id)} accessibilityRole="checkbox" accessibilityState={{checked: isSelected}} accessibilityLabel={g.name} style={{padding: 2}}>
               <Text style={{fontSize: fs(16), color: isSelected ? T.accent : T.muted}}>{isSelected ? '☑' : '☐'}</Text>
@@ -298,10 +296,6 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     );
   };
 
-  // Facets are their own category with their own tab and their own front
-  // picker section; they must not turn up mixed into a plain list of members
-  // ("fragments appear when selecting members for groups"). Excluded here the
-  // same way custom fronts already are.
   const browseEligible = members.filter(m => !m.archived && !m.isCustomFront && !m.isFacet);
   if (browse) {
     const folderMembers = browseId === null
@@ -311,12 +305,9 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     const addCandidates = current
       ? sortMembersBySearch(browseEligible.filter(m => !(m.groupIds || []).includes(current.id) && memberMatchesSearch(m, addSearch)), addSearch)
       : [];
-    // Facets get their own section here: out of the member list, still addable.
     const addFacetCandidates = current
       ? sortMembersBySearch(members.filter(m => !m.archived && !m.isCustomFront && m.isFacet && !(m.groupIds || []).includes(current.id) && memberMatchesSearch(m, addSearch)), addSearch)
       : [];
-    // Custom fronts group like members now ("put said fronts into a group"):
-    // their own section, same pattern as facets.
     const addCfCandidates = current
       ? sortMembersBySearch(members.filter(m => !m.archived && m.isCustomFront && !(m.groupIds || []).includes(current.id) && memberMatchesSearch(m, addSearch)), addSearch)
       : [];

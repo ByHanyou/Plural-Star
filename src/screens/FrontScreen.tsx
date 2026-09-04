@@ -28,9 +28,6 @@ interface Props {
   onEditDetails: (tier: FrontTierKey) => void;
 }
 
-// Quick Remove: one tap takes a member out of the front without opening the
-// full Set Front modal. Routed through updateFront so history closing,
-// segment entries and memberSince all behave exactly as a normal edit.
 const stripMember = (tier: FrontTier, id: string): FrontTier => ({
   ...tier,
   memberIds: tier.memberIds.filter(x => x !== id),
@@ -183,8 +180,6 @@ export const FrontScreen = ({
   const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
   const fs = fontScale(T);
-  // Fronting durations are computed at render; without this they freeze until
-  // the user "wiggles" the app (Devon's report).
   useMinuteTick();
 
   const empty = isFrontEmpty(front);

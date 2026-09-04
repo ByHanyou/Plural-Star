@@ -1,8 +1,7 @@
 import React, {useState, useEffect, useRef} from 'react';
 import {View, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle} from 'react-native';
-import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
+import {KeyboardAwareScrollView, KeyboardStickyView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
-import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {useTranslation} from 'react-i18next';
@@ -43,7 +42,6 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [retypeId, setRetypeId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [reorderOn, setReorderOn] = useState(false);
-  const kbHeight = useKeyboardHeight();
 
   const onDropField = (_key: string, from: number, to: number) => {
     const updated = [...fields];
@@ -198,12 +196,6 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
               </TouchableOpacity>
             </View>
 
-            {/* Editable, not a badge. A field created as the wrong type —
-                "Favorite Color" made as Number, which then refused hex codes
-                on every device — was stuck that way forever: the only way out
-                was deleting the field and its values. The stored values are
-                plain scalars, so re-typing just changes how they are edited
-                and shown; nothing is converted or lost. */}
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('customFields.fieldType')}</Text>
               <TouchableOpacity onPress={() => setRetypeId(retypeId === fd.id ? null : fd.id)} activeOpacity={0.7}
@@ -237,7 +229,8 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
         ))}
       </KeyboardAwareScrollView>
 
-      <View style={{position: 'absolute', bottom: kbHeight, left: 0, right: 0, backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
+      <KeyboardStickyView style={{position: 'absolute', bottom: 0, left: 0, right: 0}}>
+      <View style={{backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
         <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
           <TextInput value={newName} onChangeText={setNewName} accessibilityLabel={t('customFields.fieldName')} placeholder={t('customFields.fieldName')} placeholderTextColor={T.muted}
             style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
@@ -268,6 +261,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
           </View>
         )}
       </View>
+      </KeyboardStickyView>
     </View>
   );
 };

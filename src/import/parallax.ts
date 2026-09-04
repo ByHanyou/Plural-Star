@@ -23,26 +23,6 @@ export type ParallaxCtx = {
   onDataImported: () => void;
 };
 
-/**
- * Parallax export (single .json), reversed from a real 272-member export — the
- * Tupperbox rule: match the file the app actually writes, not a doc.
- *   top: exported_at, user_id, members[], fronting_log[], notes[], polls[]/
- *        poll_options[]/poll_votes[], messages[], timeline[], reminders[]
- *   members: uuid id, name, pronouns, role, description, color_theme #hex,
- *            is_active, sort_order, sp_id (the Simply Plural id — it doubles
- *            as Ourcana's member id, so it is the sourceId and a Parallax
- *            import lands on the same members an SP or Ourcana import already
- *            created), profile_picture (a storage KEY relative to their host,
- *            not a URL — nothing fetchable), avatar_emoji + likes/dislikes/
- *            triggers/age_presentation/pinned_quote/notes (all empty in the
- *            reference export, dropped until a real file shows their shape)
- *   fronting_log: ONE fronter per row — part_id (null = unknown fronter,
- *                 skipped like PluralLog's sentinel), started_at/ended_at ISO
- *   messages: their chats — chat_id groups them (the export names no chats,
- *             so channels are numbered by first-message date), from_part_id,
- *             body, created_at
- *   notes/polls/timeline/reminders: empty in the reference export, dropped.
- */
 const isParallaxDb = (o: any): boolean =>
   !!o && typeof o === 'object' && typeof o.user_id === 'string' && Array.isArray(o.members) && Array.isArray(o.fronting_log);
 
@@ -99,8 +79,6 @@ export const handleParallaxConfirm = (ctx: ParallaxCtx) => {
                 description: String(m.description || ''),
                 archived: m.is_active === false,
               });
-              // fronting_log and messages reference the Parallax uuid, not the
-              // sp_id the merge was keyed on.
               const local = idMap[srcKey.replace(/^[a-z]+:/, '')];
               if (local) idMap[String(m.id)] = local;
             });
@@ -140,7 +118,6 @@ export const handleParallaxConfirm = (ctx: ParallaxCtx) => {
             const existing = await store.get<ChatChannel[]>(KEYS.chatChannels, []) || [];
             const channels = [...existing];
             for (let i = 0; i < chats.length; i++) {
-              // The export names no chats — number them by first-message date.
               const name = `Parallax ${i + 1}`;
               const found = channels.find(x => x.name.toLowerCase() === name.toLowerCase());
               const channelId = found ? found.id : uid();

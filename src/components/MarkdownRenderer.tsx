@@ -154,7 +154,7 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
       case 'strong': case 'b': parts.push(<Text key={key++} style={{fontWeight: '700', color: T.text}}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break;
       case 'em': case 'i': parts.push(<Text key={key++} style={{fontStyle: 'italic'}}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break;
       case 's': case 'del': parts.push(<Text key={key++} style={{textDecorationLine: 'line-through'}}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break;
-      case 'code': parts.push(<Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, paddingHorizontal: 4, borderRadius: 3, fontSize: fs(12, T)}}>{decodeEntities(inner)}</Text>); break;
+      case 'code': parts.push(<Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, fontSize: fs(12, T)}}>{` ${decodeEntities(inner)} `}</Text>); break;
       case 'a': { const href = (attrs.match(/href=["']([^"']+)["']/) || [])[1] || ''; parts.push(<Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => href && Linking.openURL(href)}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break; }
       default: { const wrapped = wrapText(decodeEntities(inner)); if (wrapped) parts.push(wrapped); }
     }
@@ -198,10 +198,6 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
       currentTag = 'p';
     }
     lastIdx = match.index + full.length;
-    // Peeking at the next tag costs an exec, and a failed exec resets lastIndex
-    // to 0 on a global regex. That sent the loop back to the first tag after the
-    // last one, forever: any block HTML (a <div> centring an image, say) locked
-    // the JS thread, so the editor stopped responding to Save and then died.
     const nextMatch = blockRe.exec(raw);
     if (nextMatch) { current = raw.slice(lastIdx, nextMatch.index); blockRe.lastIndex = nextMatch.index; }
     else { current = raw.slice(lastIdx); blockRe.lastIndex = raw.length; }
@@ -222,7 +218,7 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
           case 'blockquote': return <View key={i} style={{borderLeftWidth: 3, borderLeftColor: T.accent, paddingLeft: 10, marginVertical: 2}}><Text style={{fontSize: fs(13, T), color: T.dim, fontStyle: 'italic', lineHeight: 20}}>{renderInlineHTML(seg.content, T, members, onMentionPress)}</Text></View>;
           case 'pre': return <View key={i} style={{backgroundColor: T.surface, padding: 10, borderRadius: 8, marginVertical: 4}}><Text style={{fontFamily: 'monospace', fontSize: fs(12, T), color: T.dim}}>{decodeEntities(seg.content.replace(/<[^>]*>/g, ''))}</Text></View>;
           case 'hr': return <View key={i} style={{height: 1, backgroundColor: T.border, marginVertical: 8}} />;
-          case 'ul': return <View key={i} style={{marginVertical: 2}}>{(seg.listItems || []).map((li, j) => <View key={j} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim}}>•</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}}>{renderInlineHTML(li, T, members, onMentionPress)}</Text></View>)}</View>;
+          case 'ul': return <View key={i} style={{marginVertical: 2}}>{(seg.listItems || []).map((li, j) => <View key={j} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">•</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}}>{renderInlineHTML(li, T, members, onMentionPress)}</Text></View>)}</View>;
           case 'ol': return <View key={i} style={{marginVertical: 2}}>{(seg.listItems || []).map((li, j) => <View key={j} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim, width: 16, textAlign: 'right'}}>{j + 1}.</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}}>{renderInlineHTML(li, T, members, onMentionPress)}</Text></View>)}</View>;
           case 'p': default: {
             const content = seg.content.trim();
@@ -283,7 +279,7 @@ const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentio
     [/\*\*(.+?)\*\*/, m => <Text key={key++} style={{fontWeight: '700', color: T.text}}>{m[1]}</Text>],
     [/\*(.+?)\*/, m => <Text key={key++} style={{fontStyle: 'italic'}}>{m[1]}</Text>],
     [/~~(.+?)~~/, m => <Text key={key++} style={{textDecorationLine: 'line-through'}}>{m[1]}</Text>],
-    [/`(.+?)`/, m => <Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, paddingHorizontal: 4, borderRadius: 3, fontSize: fs(12, T)}}>{m[1]}</Text>],
+    [/`(.+?)`/, m => <Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, fontSize: fs(12, T)}}>{` ${m[1]} `}</Text>],
     [/!\[([^\]]*)\]\(([^)]+)\)/, m => {
       const url = m[2].replace(/[)]+$/, '').trim();
       if (!isValidImageUri(url)) return <Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>;
@@ -314,7 +310,7 @@ const renderMarkdownLine = (line: string, T: ThemeColors, i: number, members?: M
   if (line.startsWith('# ')) return <Text key={i} style={{fontSize: fs(18, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text>;
   if (line.startsWith('> ')) return <View key={i} style={{borderLeftWidth: 3, borderLeftColor: T.accent, paddingLeft: 10, marginVertical: 2}}><Text style={{fontSize: fs(13, T), color: T.dim, fontStyle: 'italic', lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text></View>;
   if (line.startsWith('---') || line.startsWith('***')) return <View key={i} style={{height: 1, backgroundColor: T.border, marginVertical: 8}} />;
-  if (line.match(/^[-*] /)) return <View key={i} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim}} maxFontSizeMultiplier={1.3}>•</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text></View>;
+  if (line.match(/^[-*] /)) return <View key={i} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim}} maxFontSizeMultiplier={1.3} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">•</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text></View>;
   if (line.match(/^\d+\. /)) {const m = line.match(/^(\d+)\. (.*)$/); return <View key={i} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim, width: 16, textAlign: 'right'}} maxFontSizeMultiplier={1.3}>{m?.[1]}.</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(m?.[2] || '', T, members, onMentionPress)}</Text></View>;}
   if (!line.trim()) return <View key={i} style={{height: 8}} />;
   return <Text key={i} style={{fontSize: fs(13, T), color: T.dim, lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(line, T, members, onMentionPress)}</Text>;

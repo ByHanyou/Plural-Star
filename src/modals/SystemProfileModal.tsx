@@ -5,6 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {SystemProfileCard} from '../components/SystemProfileCard';
 import {pickImageForUpload} from '../utils/imagePicker';
+import {ImageCropHost} from '../components/ImageCropModal';
 import {saveBannerImage, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
@@ -21,15 +22,6 @@ interface Props {
   onClose: () => void;
 }
 
-/**
- * The system's own profile, reached by tapping the system name in the header.
- * These fields used to live inside the System settings sheet; a profile is not
- * a setting, so it reads like one — the singlet Profile with a Read/Edit
- * switch instead of a separate editor screen.
- *
- * SYSTEMS ONLY. A singlet is not a system: they already have the Profile tab,
- * and their name and goals stay in the System settings sheet.
- */
 export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}: Props) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
@@ -39,9 +31,6 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
   const [avatarLinkInput, setAvatarLinkInput] = useState('');
   const [avatarLinking, setAvatarLinking] = useState(false);
 
-  // Reseed on open only. `system` is a fresh object on every store write, so
-  // keeping it in the deps would throw away edits in progress — the same trap
-  // that reset the custom mood list in the settings sheet.
   useEffect(() => {
     if (!visible) return;
     setMode('read');
@@ -57,11 +46,10 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
     (f?.avatar || '') !== (system?.avatar || '') ||
     (f?.banner || '') !== (system?.banner || '');
 
-  // The settings sheet used to draft this record, so a swipe-away did not cost
-  // you the half-typed description. That has to come with the fields.
-  // Only fires when a stored draft actually differs from what we opened with,
-  // so landing in Edit means there really is unfinished work to land in.
-  useDraft<any>('systemProfile', 'systemProfile', visible, f, d => { setF(d); setMode('edit'); });
+  useDraft<any>('systemProfile', 'systemProfile', visible, f, d => {
+    setF((cur: any) => ({...d, avatar: cur?.avatar || d?.avatar, banner: cur?.banner || d?.banner}));
+    setMode('edit');
+  });
 
   const commit = () => {
     onSave({...system, name: f.name, description: f.description, avatar: f.avatar, banner: f.banner});
@@ -103,13 +91,6 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
       const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
         ? img.uri
         : `file://${img.uri}`;
-      // saveAvatarFromUri, NOT saveBioImageFromUri. The old settings sheet used
-      // the bio-image helper here, which is a raw byte copy into a different
-      // directory under a forced .png name — so a gallery pick landed at full
-      // resolution in ps_bio_images while every other writer of
-      // 'system-avatar' (restore, sync apply, the link-by-URL path right
-      // above) writes the downscaled copy in ps_avatars. The two paths
-      // orphaned each other's file and the uncapped image rode every sync.
       const uri = which === 'avatar'
         ? await saveAvatarFromUri('system-avatar', sourceFileUri)
         : await saveBannerImage('system-banner', sourceFileUri);
@@ -122,9 +103,6 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
   const switchTo = (next: Mode) => {
     if (next === mode) return;
     if (next === 'read') { leaveEdit(); return; }
-    // Seed the edit buffer at the moment editing starts, so it can never open
-    // on top of a record that changed while the read view was up — but never
-    // over the top of pending work, which is what a restored draft is.
     if (!dirty) setF({...system});
     setMode('edit');
   };
@@ -143,11 +121,6 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
       footer={mode === 'edit' ? <Btn instant T={T} onPress={commit}>{t('common.save')}</Btn> : undefined}>
 
       {mode === 'read' ? (
-        // Reads straight off the live record, never off the edit buffer: a sync
-        // or an import landing while this is open should show, and after a save
-        // the buffer and the record say the same thing anyway.
-        // The card scrolls itself; inside a Sheet that is one scroll view too
-        // many, so the read side renders the same layout without its wrapper.
         <SystemProfileCard
           T={T}
           embedded
@@ -221,6 +194,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(16), marginTop: 4}}>{t('systemProfile.shareHint')}</Text>
         </>
       )}
+      {visible && <ImageCropHost theme={T} />}
     </Sheet>
   );
 };

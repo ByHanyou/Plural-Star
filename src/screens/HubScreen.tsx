@@ -8,7 +8,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveHistory, applyFrontState} from '../store/actions';
-import {Member, HistoryEntry, FrontState, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, memberMatchesSearch, singletStatuses, isRosterMember} from '../utils';
+import {Member, HistoryEntry, FrontState, FrontTier, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, memberMatchesSearch, singletStatuses, isRosterMember} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {PlannerScreen} from './PlannerScreen';
 import {EnergyRow} from '../modals/shared';
@@ -52,9 +52,6 @@ interface Props {
 const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members, allSelected, T, searchKind}: {
   tierKey: FrontTierKey; label: string; color: string; selected: string[]; setSelected: (ids: string[]) => void;
   members: Member[]; allSelected: Record<FrontTierKey, string[]>; T: ThemeColors;
-  /** What this picker lists, for the search placeholder. Every box said "Type
-   *  to search alters…" under headers naming facets and custom fronts. Omitted
-   *  for the plain members picker, which keeps its own wording. */
   searchKind?: string;
 }) => {
   const {t} = useTranslation();
@@ -137,8 +134,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   const isEditing = editIndex !== undefined && editIndex >= 0 && !!editEntry;
   const regularMembers = members.filter(isRosterMember);
   const customFronts = members.filter(m => m.isCustomFront && !m.archived && !m.deleted);
-  // Facets get their own picker section, exactly like custom fronts: out of the
-  // member list, still selectable on purpose.
   const facetMembers = members.filter(m => m.isFacet && !m.isCustomFront && !m.archived && !m.deleted);
   const statusPool = singletStatuses(members);
 
@@ -158,6 +153,14 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   const [note, setNote] = useState(editEntry?.note || '');
   const [location, setLocation] = useState(editEntry?.location || '');
   const [energy, setEnergy] = useState<number | undefined>(editEntry?.energyLevel);
+  const [coFrontMood, setCoFrontMood] = useState(editEntry?.coFrontMood || '');
+  const [coFrontLocation, setCoFrontLocation] = useState(editEntry?.coFrontLocation || '');
+  const [coFrontNote, setCoFrontNote] = useState(editEntry?.coFrontNote || '');
+  const [coFrontEnergy, setCoFrontEnergy] = useState<number | undefined>(editEntry?.coFrontEnergy);
+  const [coConMood, setCoConMood] = useState(editEntry?.coConsciousMood || '');
+  const [coConLocation, setCoConLocation] = useState(editEntry?.coConsciousLocation || '');
+  const [coConNote, setCoConNote] = useState(editEntry?.coConsciousNote || '');
+  const [coConEnergy, setCoConEnergy] = useState<number | undefined>(editEntry?.coConsciousEnergy);
   const effectivePrimary = (): string[] =>
     singlet && selfId ? [selfId, ...primaryIds.filter(id => id !== selfId)] : primaryIds;
   const [startDate, setStartDate] = useState(editEntry ? new Date(editEntry.startTime) : new Date());
@@ -171,10 +174,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     return history.filter((e, i) => {
       if (!e.startTime) return false;
       if (isEditing && i === editIndex) return false;
-      // Mood, location and note rows are point-in-time markers. Nothing ever
-      // closes them, so their endTime stays null for good, and reading that as
-      // "still running" made every one of them overlap everything recorded
-      // after it. Only real front spans can overlap.
       if (e.changeType && e.changeType !== 'front') return false;
       const eEnd = e.endTime ?? Date.now();
       return e.startTime < effectiveEnd && start < eEnd;
@@ -190,17 +189,20 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     location: location || undefined,
     energyLevel: energy,
     coFrontIds: coFrontIds.length > 0 ? coFrontIds : undefined,
-    coFrontMood: editEntry?.coFrontMood,
-    coFrontNote: editEntry?.coFrontNote,
-    coFrontLocation: editEntry?.coFrontLocation,
-    coFrontEnergy: editEntry?.coFrontEnergy,
+    coFrontMood: coFrontMood || undefined,
+    coFrontNote: coFrontNote || undefined,
+    coFrontLocation: coFrontLocation || undefined,
+    coFrontEnergy: coFrontEnergy,
     coConsciousIds: coConIds.length > 0 ? coConIds : undefined,
-    coConsciousMood: editEntry?.coConsciousMood,
-    coConsciousNote: editEntry?.coConsciousNote,
-    coConsciousLocation: editEntry?.coConsciousLocation,
-    coConsciousEnergy: editEntry?.coConsciousEnergy,
+    coConsciousMood: coConMood || undefined,
+    coConsciousNote: coConNote || undefined,
+    coConsciousLocation: coConLocation || undefined,
+    coConsciousEnergy: coConEnergy,
     changeType: 'front',
   });
+
+  const coFrontTier = (): FrontTier => ({memberIds: coFrontIds, note: coFrontNote, mood: coFrontMood || undefined, location: coFrontLocation || undefined, energyLevel: coFrontEnergy});
+  const coConTier = (): FrontTier => ({memberIds: coConIds, note: coConNote, mood: coConMood || undefined, location: coConLocation || undefined, energyLevel: coConEnergy});
 
   const replaceEntries = (deleteOverlapKeys?: Set<string>): HistoryEntry[] => {
     const newEntry = buildEntry();
@@ -237,8 +239,8 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       if (isCurrent) {
         const newFront: FrontState = {
           primary: {memberIds: effectivePrimary(), mood: mood || undefined, note, location: location || undefined, energyLevel: energy},
-          coFront: {memberIds: coFrontIds, note: front?.coFront.note || ''},
-          coConscious: {memberIds: coConIds, note: front?.coConscious.note || ''},
+          coFront: coFrontTier(),
+          coConscious: coConTier(),
           startTime: startDate.getTime(),
         };
         onSetFront(newFront);
@@ -264,8 +266,8 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
             );
             const newFront: FrontState = {
               primary: {memberIds: effectivePrimary(), mood: mood || undefined, note, location: location || undefined, energyLevel: energy},
-              coFront: {memberIds: coFrontIds, note: ''},
-              coConscious: {memberIds: coConIds, note: ''},
+              coFront: coFrontTier(),
+              coConscious: coConTier(),
               startTime: startDate.getTime(),
             };
             onSetFront(newFront);
@@ -280,8 +282,8 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
           {text: t('hub.addTo'), onPress: () => {
             const newFront: FrontState = {
               primary: {memberIds: [...(front?.primary.memberIds || []), ...effectivePrimary().filter(id => !front?.primary.memberIds.includes(id))], mood: mood || front?.primary.mood, note: note || front?.primary.note || '', location: location || front?.primary.location},
-              coFront: {memberIds: [...(front?.coFront.memberIds || []), ...coFrontIds.filter(id => !front?.coFront.memberIds.includes(id))], note: front?.coFront.note || ''},
-              coConscious: {memberIds: [...(front?.coConscious.memberIds || []), ...coConIds.filter(id => !front?.coConscious.memberIds.includes(id))], note: front?.coConscious.note || ''},
+              coFront: {memberIds: [...(front?.coFront.memberIds || []), ...coFrontIds.filter(id => !front?.coFront.memberIds.includes(id))], mood: coFrontMood || front?.coFront.mood, note: coFrontNote || front?.coFront.note || '', location: coFrontLocation || front?.coFront.location, energyLevel: coFrontEnergy ?? front?.coFront.energyLevel},
+              coConscious: {memberIds: [...(front?.coConscious.memberIds || []), ...coConIds.filter(id => !front?.coConscious.memberIds.includes(id))], mood: coConMood || front?.coConscious.mood, note: coConNote || front?.coConscious.note || '', location: coConLocation || front?.coConscious.location, energyLevel: coConEnergy ?? front?.coConscious.energyLevel},
               startTime: front?.startTime || startDate.getTime(),
             };
             onSetFront(newFront);
@@ -320,6 +322,38 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
     onSaveHistory(replaceEntries());
     onBack();
   };
+
+  const inputStyle = {backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14} as const;
+  const labelStyle = {fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'} as const;
+  const tierDetails = (
+    tierLabel: string, color: string,
+    moodVal: string, setMoodVal: (v: string) => void,
+    locVal: string, setLocVal: (v: string) => void,
+    energyVal: number | undefined, setEnergyVal: (v: number | undefined) => void,
+    noteVal: string, setNoteVal: (v: string) => void,
+  ) => (
+    <View key={tierLabel || 'primary'}>
+      {tierLabel ? (
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, marginTop: 4}}>
+          <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: color}} />
+          <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '600', color}}>{tierLabel}</Text>
+        </View>
+      ) : null}
+      <Text style={labelStyle}>{t('modal.mood')}</Text>
+      <TextInput value={moodVal} onChangeText={setMoodVal} accessibilityLabel={tierLabel ? `${tierLabel}, ${t('modal.enterMood')}` : t('modal.enterMood')} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted} style={inputStyle} />
+
+      <Text style={labelStyle}>{t('modal.location')}</Text>
+      <TextInput value={locVal} onChangeText={setLocVal} accessibilityLabel={tierLabel ? `${tierLabel}, ${t('modal.typeLocation')}` : t('modal.typeLocation')} placeholder={t('modal.typeLocation')} placeholderTextColor={T.muted} style={inputStyle} />
+
+      <Text style={labelStyle}>{t('energy.level')}</Text>
+      <EnergyRow value={energyVal} onChange={setEnergyVal} color={color} T={T} t={t} style={{marginBottom: 14}} />
+
+      <Text style={labelStyle}>{t('modal.note')}</Text>
+      <TextInput value={noteVal} onChangeText={setNoteVal} accessibilityLabel={tierLabel ? `${tierLabel}, ${t('modal.whatHappening')}` : t('modal.whatHappening')} placeholder={t('modal.whatHappening')} placeholderTextColor={T.muted} multiline numberOfLines={3}
+        style={[inputStyle, {minHeight: 80, textAlignVertical: 'top'}]} />
+      <View style={{height: 1, backgroundColor: T.border, marginBottom: 14}} />
+    </View>
+  );
 
   return (
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
@@ -368,30 +402,17 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
           {facetMembers.length > 0 && (
             <TierMemberPicker tierKey="coConscious" label={t('members.facets')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
           )}
-          {/* Custom fronts were pickable for primary and co-front but ABSENT
-              here — "custom front is missing from co con". */}
           {customFronts.length > 0 && (
             <TierMemberPicker tierKey="coConscious" label={t('members.customFronts')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
           )}
         </>
       )}
 
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
-      <TextInput value={mood} onChangeText={setMood} accessibilityLabel={t('modal.enterMood')} placeholder={t('modal.enterMood')} placeholderTextColor={T.muted}
-        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14}} />
+      {tierDetails(singlet ? '' : t('tier.primaryFront'), T.accent, mood, setMood, location, setLocation, energy, setEnergy, note, setNote)}
+      {!singlet && coFrontIds.length > 0 && tierDetails(t('tier.coFront'), T.info, coFrontMood, setCoFrontMood, coFrontLocation, setCoFrontLocation, coFrontEnergy, setCoFrontEnergy, coFrontNote, setCoFrontNote)}
+      {!singlet && coConIds.length > 0 && tierDetails(t('tier.coConscious'), T.success, coConMood, setCoConMood, coConLocation, setCoConLocation, coConEnergy, setCoConEnergy, coConNote, setCoConNote)}
 
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
-      <TextInput value={location} onChangeText={setLocation} accessibilityLabel={t('modal.typeLocation')} placeholder={t('modal.typeLocation')} placeholderTextColor={T.muted}
-        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), marginBottom: 14}} />
-
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
-      <EnergyRow value={energy} onChange={setEnergy} color={T.accent} T={T} t={t} style={{marginBottom: 14}} />
-
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.note')}</Text>
-      <TextInput value={note} onChangeText={setNote} accessibilityLabel={t('modal.whatHappening')} placeholder={t('modal.whatHappening')} placeholderTextColor={T.muted} multiline numberOfLines={3}
-        style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(14), minHeight: 80, textAlignVertical: 'top', marginBottom: 20}} />
-
-      <View style={{flexDirection: 'row', gap: 10}}>
+      <View style={{flexDirection: 'row', gap: 10, marginTop: 6}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
           style={{flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: 'transparent', borderColor: T.border}}>
           <Text style={{fontSize: fs(14), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
@@ -413,8 +434,6 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   const history = useAppStore(s => s.history);
   const front = useAppStore(s => s.front);
   const {t} = useTranslation();
-  // Visible failure instead of an unhandled rejection when a front/history
-  // write throws transiently.
   const onSaveHistory = (h: HistoryEntry[]) =>
     saveHistory(h).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
   const onSetFront = (f: FrontState | null) =>

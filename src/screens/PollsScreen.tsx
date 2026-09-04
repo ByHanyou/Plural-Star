@@ -15,6 +15,7 @@ interface Props {
 
 export const PollsScreen = ({theme: T}: Props) => {
   const members = useAppStore(s => s.members);
+  const front = useAppStore(s => s.front);
   const {t} = useTranslation();
   const fs = fontScale(T);
   const behavior = useKeyboardBehavior();
@@ -25,7 +26,15 @@ export const PollsScreen = ({theme: T}: Props) => {
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [hideVoters, setHideVoters] = useState(false);
-  const [voterId, setVoterId] = useState(activeMembers[0]?.id || '');
+  const [voterId, setVoterId] = useState(() => {
+    const votable = new Set([...activeMembers, ...facetMembers].map(m => m.id));
+    const fronting = [
+      ...(front?.primary?.memberIds || []),
+      ...(front?.coFront?.memberIds || []),
+      ...(front?.coConscious?.memberIds || []),
+    ].find(id => votable.has(id));
+    return fronting || activeMembers[0]?.id || '';
+  });
   const [voterPickerOpen, setVoterPickerOpen] = useState(false);
   const [voterSearch, setVoterSearch] = useState('');
 
@@ -53,9 +62,10 @@ export const PollsScreen = ({theme: T}: Props) => {
     if (!voterId) return;
     savePolls(polls.map(p => {
       if (p.id !== pollId) return p;
+      const alreadyVoted = p.options.some(o => o.id === optionId && o.votes.includes(voterId));
       const opts = p.options.map(o => {
         const without = o.votes.filter(v => v !== voterId);
-        return o.id === optionId ? {...o, votes: [...without, voterId]} : {...o, votes: without};
+        return o.id === optionId && !alreadyVoted ? {...o, votes: [...without, voterId]} : {...o, votes: without};
       });
       return {...p, options: opts};
     }));
@@ -116,7 +126,6 @@ export const PollsScreen = ({theme: T}: Props) => {
                   <Text style={{fontSize: fs(13), color: voterId === m.id ? T.accent : T.text}}>{m.name}</Text>
                 </TouchableOpacity>
               );
-              // Facets keep their own section: out of the member list, still pickable.
               const facets = sortMembersBySearch(facetMembers.filter(match), voterSearch.trim());
               return (
                 <>
@@ -179,7 +188,7 @@ export const PollsScreen = ({theme: T}: Props) => {
                 {isClosed && <Text style={{fontSize: fs(10), color: T.danger, fontWeight: '600', textTransform: 'uppercase'}}>{t('polls.closed')}</Text>}
               </View>
               <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 10}}>
-                {getName(poll.createdBy)} · {fmtTime(poll.createdAt)} · {t('polls.votes', {count: totalVotes})}
+                {poll.hideVoterNames ? '' : `${getName(poll.createdBy)} · `}{fmtTime(poll.createdAt)} · {t('polls.votes', {count: totalVotes})}
               </Text>
 
               {poll.options.map(opt => {
@@ -189,7 +198,7 @@ export const PollsScreen = ({theme: T}: Props) => {
                   <TouchableOpacity key={opt.id} onPress={() => !isClosed && vote(poll.id, opt.id)} activeOpacity={isClosed ? 1 : 0.7}
                     accessibilityRole="button" accessibilityLabel={`${opt.label}, ${pct}%`} accessibilityState={{selected: voted, disabled: isClosed}}
                     style={{borderRadius: 8, borderWidth: 1, borderColor: voted ? T.accent : T.border, backgroundColor: T.surface, marginBottom: 6, overflow: 'hidden'}}>
-                    <View style={{position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, backgroundColor: voted ? `${T.accent}15` : `${T.border}30`}} />
+                    <View style={{position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, backgroundColor: voted ? `${T.accent}55` : `${T.muted}45`}} />
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10}}>
                       <Text style={{fontSize: fs(13), color: voted ? T.accent : T.text, fontWeight: voted ? '600' : '400'}}>{opt.label}</Text>
                       <Text style={{fontSize: fs(12), color: T.muted}}>{pct}%</Text>

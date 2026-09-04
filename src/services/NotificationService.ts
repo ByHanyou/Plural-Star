@@ -8,9 +8,6 @@ import notifee, {
   IntervalTrigger,
   TimestampTrigger,
   RepeatFrequency,
-// react-native-notify-kit is the maintained drop-in fork of notifee (archived
-// Apr 2026). Same API, same native classes — verified against the published
-// tarball before switching.
 } from 'react-native-notify-kit';
 import {AppState, Platform} from 'react-native';
 import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime} from '../utils';
@@ -105,14 +102,6 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
 
   const titleNames = primaryNames || coFrontNames || coConsciousNames ||
     i18n.t('common.unknown', {defaultValue: 'Unknown'});
-  // Duration back in the TEXT, chronometer gone. The chronometer needed
-  // `timestamp: startTime`, and Android sorts the shade by that value — a
-  // front running for days pinned the notification BELOW day-old
-  // notifications, where no silent re-post could ever surface it ("refresh
-  // does nothing", "it went to the bottom"). Text durations go stale between
-  // re-posts, which is why every re-post path rebuilds this content fresh:
-  // the in-app 5-minute interval, the WorkManager refresh trigger, and the
-  // headless reassert.
   const title = front.startTime ? `◈ ${titleNames}  ·  ${fmtDur(front.startTime)}` : `◈ ${titleNames}`;
 
   const primaryTimed = resolveNamesWithSince(primaryIds, members, front);
@@ -150,9 +139,6 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
     summaryParts.push(i18n.t('notification.ccShort', {names: coConsciousNames, defaultValue: `CC: ${coConsciousNames}`}));
   if (primaryMood)
     summaryParts.push(i18n.t('notification.mood', {mood: primaryMood, defaultValue: `Mood: ${primaryMood}`}));
-  // Never return an empty body. A notification with a title and nothing under
-  // it is the "it shows legit nothing" report, and with the live duration gone
-  // from the text a solo primary fronter with no mood would leave this empty.
   if (summaryParts.length === 0) summaryParts.push(sinceLabel);
 
   return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n')};
@@ -169,20 +155,7 @@ const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback:
     visibility: AndroidVisibility.PUBLIC,
     pressAction: {id: 'default'},
     color: '#DAA520',
-    groupId: FRONT_GROUP_ID,
-    // The own front notification IS this group's summary. Posting a separate
-    // summary notification with the same text is what made the fronting line
-    // render twice whenever a friend was pinned.
-    groupSummary: true,
     sortKey: '0',
-    // NO timestamp / showChronometer here, deliberately. The chronometer only
-    // renders when `timestamp` is the front's start — and Android RANKS the
-    // shade by that same value, so a days-old front sat pinned under
-    // yesterday's notifications and silent re-posts could never lift it. It
-    // also reordered the GROUP: a friend whose front started more recently
-    // sorted ABOVE the own summary row ("it replaced the notification of my
-    // own with his"). Post time is the sort key now, so each interval re-post
-    // surfaces the group again, and sortKey orders the rows within it.
   };
   if (friendLines.length === 0) {
     const ownLines = (ownBigText ? ownBigText.split('\n') : []).slice(0, 6);
@@ -217,11 +190,6 @@ export const noteFrontNotifDismissed = async () => {
 
 let lastFrontSig = '';
 
-// The dismiss guard compares WHAT the front is, never how it is rendered.
-// The rendered text now carries live durations, so a text-based signature
-// changed on every re-post and a swiped-away notification resurrected on the
-// next 5-minute interval — the exact behavior the guard exists to prevent.
-// This stays identical until the front itself changes.
 const frontStructureSig = (front: FrontState | null): string => {
   if (!front) return 'none';
   return JSON.stringify([
@@ -281,10 +249,6 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
       title: f.displayName,
-      // Duration in the text, same trade as the own row: a chronometer
-      // timestamp re-sorted these rows by front age and pushed the whole
-      // group to the bottom of the shade. The text refreshes whenever the
-      // group re-posts (friend updates, the 5-minute interval, foreground).
       body: dur ? `${s.fronters}  ·  ${dur}` : s.fronters,
       big: lines.join('\n'),
     });
@@ -300,12 +264,6 @@ export const showFriendUpdateAlert = async (f: Friend) => {
   const dur = s.startTime ? fmtDur(s.startTime) : '';
   const lines = friendStatusLines(s);
   if (Platform.OS === 'ios') {
-    // iOS path. This used to be Android-only, which meant iOS users could only
-    // see friend front updates as lines INSIDE the Live Activity — forcing
-    // them to keep the persistent status on just to know their partner
-    // switched. A friend update is a transient event; it gets a normal banner,
-    // fully independent of the Live Activity. (Cross-platform notification
-    // rule: every alert needs an iOS path.)
     await notifee.displayNotification({
       id: `${FRIEND_ALERT_PREFIX}${f.peerId}`,
       title: f.displayName,
@@ -364,7 +322,6 @@ const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
         visibility: AndroidVisibility.PUBLIC,
         pressAction: {id: 'default'},
         color: '#DAA520',
-        groupId: FRONT_GROUP_ID,
         sortKey: `1${String(i).padStart(4, '0')}`,
         style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
@@ -404,37 +361,14 @@ export const showFrontNotification = async (
     const body = content ? content.body : (emergencyLine || onlineLabel);
     const ownBig = content ? content.bigText : (emergencyLine || '');
 
-    // There is NO separate summary notification any more. The old one carried
-    // `title: systemName` + the SAME `body` as the own front notification and
-    // sat in the same group, so with any friend pinned the shade showed the
-    // fronting line TWICE (reported, fixed, and reported again — the earlier
-    // `friendNotifs.length > 0` gate only hid it for people with no friends).
-    // The own front notification IS the group summary now, so a duplicate is
-    // structurally impossible: collapsed it is the header, expanded it is the
-    // header with the friend rows under it.
     try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
 
     const sig = frontStructureSig(front);
     if (frontDismissGuard !== null && sig === frontDismissGuard) {
-      // The user swiped the front notification away. The friend rows sit in the
-      // SAME group and are ongoing, so leaving them behind gives Android a
-      // group with children and no summary, and it draws its own empty header:
-      // a notification that appears from nowhere and "shows legit nothing".
-      // Dismissing the summary dismisses the group.
       await cancelStaleFriendNotifs(new Set());
       return;
     }
 
-    // Android 12+ forbids starting a foreground service from the background.
-    // Sync-applied front changes run exactly there, and posting with
-    // asForegroundService then crashed in notify-kit's ForegroundService.start
-    // (top Play Console crash on 1.15.0, ForegroundServiceStartNotAllowed +
-    // DidNotStartInTime family). Bind the FGS only when it is legal: app in
-    // the foreground, an FGS already running (re-posts to a live service are
-    // allowed), or an API level without the restriction. Otherwise post the
-    // same content as a plain ongoing notification — identical to what the
-    // background refresh trigger already does — and the FGS re-binds on the
-    // next foreground update.
     const canBindFgs =
       fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
     const cfg = frontAndroidConfig(ownBig, [], onlineLabel);
@@ -447,21 +381,11 @@ export const showFrontNotification = async (
         android: {...cfg, ...(canBindFgs ? {asForegroundService: true} : {})},
       });
     } catch (e) {
-      // fgsBound can go STALE: Android stops the service while the app is
-      // backgrounded, the flag still says bound, and the next background
-      // re-post tries to START an FGS from the background — which throws and
-      // used to leave the shade with nothing at all ("my fronting
-      // notification isn't showing whatsoever"). Post the same content plain;
-      // the FGS re-binds on the next foreground update.
       if (!canBindFgs) throw e;
       logError('notif', e);
       bound = false;
       await notifee.displayNotification({id: NOTIF_ID, title, body, android: cfg});
     }
-    // Children go up only AFTER their summary exists. Posting them first left a
-    // window — and, if this post then threw (the foreground-service start
-    // restriction is a live hazard here), a permanent state — where the group
-    // had rows but no header, which Android papers over with a blank one.
     await syncFriendNotifications();
     fgsBound = bound;
     lastFrontSig = sig;
@@ -478,15 +402,6 @@ export const scheduleFrontNotificationRefresh = async (
 ) => {
   try {
     if (Platform.OS !== 'android') return;
-    // No leading cancel. notify-kit enqueues this as unique periodic work with
-    // ExistingPeriodicWorkPolicy.UPDATE, so creating it again replaces the old
-    // one atomically. Cancelling first ran a separate async chain against the
-    // same unique work name, and with two schedule calls in flight a late
-    // cancel could land after the new enqueue and delete it. The trigger is the
-    // only thing that brings the notification back once Android reclaims the
-    // process, so losing it is exactly the "vanished until I opened the app"
-    // report. Bail-out paths below still cancel, because there the intent
-    // really is to stop refreshing.
     if (!front || !intervalMinutes || intervalMinutes < 15) {
       await cancelFrontNotificationRefresh();
       return;
@@ -507,13 +422,6 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
-        // Deliberately NOT asForegroundService here. This trigger fires from
-        // the background (WorkManager), and Android 12+ blocks starting a
-        // foreground service from the background — the re-post would throw
-        // ForegroundServiceStartNotAllowedException and the notification would
-        // stay gone, which is exactly the "vanished and never came back"
-        // report. A plain ongoing re-post always succeeds; the FGS re-binds
-        // the next time the app is opened (showFrontNotification).
         android: frontAndroidConfig(content.bigText, [], content.body),
       },
       trigger,
@@ -523,32 +431,19 @@ export const scheduleFrontNotificationRefresh = async (
   }
 };
 
-// Called from index.js's notifee.onBackgroundEvent when the refresh trigger
-// delivers while the process is dead (headless JS). Rebuilds the front
-// notification from storage with FRESH durations instead of the stale content
-// baked into the trigger at schedule time. Plain notification only — headless
-// runs in a background context, where Android 12+ forbids starting an FGS.
 let lastReassert = 0;
 
 export const reassertFrontNotification = async () => {
   try {
     if (Platform.OS !== 'android') return;
-    // Re-entry guard: if DELIVERED also fires for the re-post itself, this
-    // would loop — each display raising the event that causes the next
-    // display. One re-assert per minute is all resurrection ever needs.
     const now = Date.now();
     if (now - lastReassert < 60000) return;
     if (frontDismissGuard !== null) return;
     lastReassert = now;
-    // Lazy require: index.js calls this before React exists; keep the module
-    // graph for the headless path as small as possible.
     const {store, KEYS} = require('../storage');
     const settings = await store.get(KEYS.settings, null);
     if (settings && settings.notificationsEnabled === false) return;
     if (settings && settings.persistentFrontNotif === false) return;
-    // Headless context: App's effects never ran here, so the i18n overrides
-    // (Terminology Picker words, custom tier names) are unset unless hydrated
-    // from the settings just loaded. Same lazy-require rule as above.
     const {setTerminologyOverrides, setTierNameOverrides} = require('../i18n/terminology');
     setTerminologyOverrides(settings?.terminology);
     setTierNameOverrides(settings?.tierNames);
@@ -632,18 +527,6 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
         type: TriggerType.TIMESTAMP,
         timestamp: Date.now() + 60 * 60 * 1000,
         repeatFrequency: RepeatFrequency.HOURLY,
-        // Without an alarm these are ordinary scheduled work, which Doze defers
-        // or drops outright — the "front check notifications don't work either"
-        // half of the report. allowWhileIdle fires them through Doze.
-        // `allowWhileIdle` is DEPRECATED in the installed notifee (9.1.8) — its own
-        // typings say "use `type` instead".
-        //
-        // Deliberately SET_AND_ALLOW_WHILE_IDLE, not SET_EXACT_*: the EXACT variants
-        // need an exact-alarm permission, and Play restricts those to apps whose CORE
-        // purpose is alarms/timers/calendars. A front-check reminder is a secondary
-        // feature, so we would fail that policy. This type still fires through Doze,
-        // which is the actual problem — it just isn't second-accurate, and a "have you
-        // checked who's fronting?" nudge does not need to be.
         alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
       };
       await notifee.createTriggerNotification(
@@ -660,15 +543,6 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
         type: TriggerType.TIMESTAMP,
         timestamp: Date.now() + effectiveInterval * (i + 1) * 60 * 60 * 1000,
         repeatFrequency: RepeatFrequency.DAILY,
-        // `allowWhileIdle` is DEPRECATED in the installed notifee (9.1.8) — its own
-        // typings say "use `type` instead".
-        //
-        // Deliberately SET_AND_ALLOW_WHILE_IDLE, not SET_EXACT_*: the EXACT variants
-        // need an exact-alarm permission, and Play restricts those to apps whose CORE
-        // purpose is alarms/timers/calendars. A front-check reminder is a secondary
-        // feature, so we would fail that policy. This type still fires through Doze,
-        // which is the actual problem — it just isn't second-accurate, and a "have you
-        // checked who's fronting?" nudge does not need to be.
         alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
       };
       await notifee.createTriggerNotification(
@@ -763,16 +637,6 @@ export const rescheduleAppointmentReminders = async (_appointments: MedicalAppoi
   await cancelTriggersWithPrefix(APPT_ID_PREFIX);
 };
 
-// Day Planner notifications. SET_AND_ALLOW_WHILE_IDLE fires through Doze
-// without the exact-alarm permission Play restricts; notifee ignores
-// alarmManager on iOS, where TimestampTrigger is the timestamp-trigger path
-// the standing cross-platform rule requires.
-//
-// Cadences: daily and weekly map to notifee's native repeatFrequency, so they
-// keep firing even if the app never reopens. Every other cadence (every other
-// day/week, monthly, every other month, annually, one-time) has no native
-// repeat, so its NEXT occurrence is armed as a one-shot and re-armed on every
-// app start and every planner save.
 const plannerAndroidConfig = () => ({
   channelId: REMINDER_CHANNEL_ID,
   smallIcon: 'ic_stat_notification',

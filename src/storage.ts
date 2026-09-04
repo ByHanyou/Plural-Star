@@ -3,11 +3,6 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import {logError} from './utils/log';
 import {FRONT_CLEARED_KEY} from './network/types';
 
-/**
- * True for both shapes a cleared front can take: the `null` we actually write,
- * and a tier object that happens to hold nobody. Duplicated here rather than
- * imported from utils so storage stays free of the i18n/utils import chain.
- */
 const frontValueIsEmpty = (v: unknown): boolean => {
   if (v == null) return true;
   const f = v as any;

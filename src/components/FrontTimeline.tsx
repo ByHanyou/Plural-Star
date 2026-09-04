@@ -7,14 +7,6 @@ import {fontScale, ThemeColors} from '../theme';
 import {FlashList} from '@shopify/flash-list';
 import {HistoryEntry, Member, FrontTierKey, fmtTime, fmtDur, getLocale, nameCompare, buildEffectiveEnd} from '../utils';
 
-/**
- * SP-style front history graph: one row per member, colored spans on a shared
- * time axis. The window is a fixed range ending "now" until the user pages
- * back — buttons, not gestures, so it works under VoiceOver/TalkBack and every
- * bar is its own labeled element. Open entries take their effective end from
- * buildEffectiveEnd (the next switch closes them), matching the list view, and
- * a truly-current entry runs to the live now edge.
- */
 type RangeKey = 'day' | 'week' | 'month' | 'quarter';
 const RANGE_MS: Record<RangeKey, number> = {
   day: 86400000,
@@ -31,8 +23,6 @@ type Row = {member: Member; spans: Span[]; total: number};
 const LABEL_W = 96;
 const ROW_H = 34;
 
-// Visual weight per tier: primary solid, co-front slightly lighter, and
-// co-conscious a thin faint strip — same member color throughout.
 const TIER_BAR: Record<FrontTierKey, {height: number; opacity: number}> = {
   primary: {height: 16, opacity: 1},
   coFront: {height: 16, opacity: 0.75},
@@ -77,7 +67,6 @@ export const buildTimelineRows = (
   const rows: Row[] = [];
   for (const [id, spans] of byMember) {
     const member = memberMap.get(id)!;
-    // Co-conscious time is presence, not front time; it does not decide rank.
     const total = spans.reduce((acc, sp) => acc + (sp.tier === 'coConscious' ? 0 : sp.end - sp.start), 0);
     rows.push({member, spans, total});
   }
@@ -94,7 +83,6 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [range, setRange] = useState<RangeKey>('week');
-  // null anchor = the window ends at the live "now"; paging back pins it.
   const [endAnchor, setEndAnchor] = useState<number | null>(null);
 
   const now = Date.now();
@@ -105,7 +93,6 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
 
   const rows = useMemo(
     () => buildTimelineRows(history, members, start, end, now),
-    // `now` moves every render; the window bounds are what matter for rebuild.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [history, members, start, end],
   );
@@ -208,7 +195,7 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
       </View>
       {rows.length === 0 ? (
         <View style={{alignItems: 'center', paddingVertical: 48}}>
-          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◷</Text>
+          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◷</Text>
           <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>
             {singlet ? t('history.noHistorySinglet') : t('history.noHistory')}
           </Text>

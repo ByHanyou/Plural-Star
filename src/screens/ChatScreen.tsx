@@ -35,42 +35,20 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const onSaveChannels = saveChatChannels;
   const {t} = useTranslation();
   const fs = fontScale(T);
-  /**
-   * The composer used to sit inside a KeyboardAvoidingView, which works out its
-   * lift from its own measured frame. That failed here — users had the composer
-   * and the formatting bar hidden under the keyboard. Two things can break that
-   * measurement: the TabBar is a sibling BELOW this screen (so part of the gap to
-   * the window bottom isn't ours), and App.tsx keeps visited tabs mounted behind
-   * `display: 'none'`, which can leave a stale frame on a return visit.
-   *
-   * So measure both real numbers instead of trusting the frame: the keyboard's
-   * height, and the actual gap between the composer's bottom edge and the bottom
-   * of the window. Lift = keyboard − gap. That is correct whichever of the two
-   * was to blame, and re-measures on every layout, including tab re-entry.
-   */
   const [kbHeight, setKbHeight] = useState(0);
   const [gapBelow, setGapBelow] = useState(0);
   const composerRef = useRef<View>(null);
   useEffect(() => {
-    // iOS reports will*, Android only reliably reports did*.
     const evShow = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const evHide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const show = Keyboard.addListener(evShow as any, (e: any) => setKbHeight(e?.endCoordinates?.height ?? 0));
     const hide = Keyboard.addListener(evHide as any, () => setKbHeight(0));
     return () => { show.remove(); hide.remove(); };
   }, []);
-  // Mirror of the lift currently APPLIED, readable inside the async measure
-  // callback without a stale closure.
   const appliedLiftRef = useRef(0);
   const measureComposer = useCallback(() => {
     composerRef.current?.measureInWindow((_x, y, _w, h) => {
       const winH = Dimensions.get('window').height;
-      // Normalize back to the AT-REST position: the lift padding pushes the
-      // composer up by exactly appliedLiftRef.current, so a measure taken
-      // while lifted reads a gap that much larger. Without subtracting it,
-      // measure → lift → re-measure(sees lift) → gap grows → lift collapses
-      // → composer falls → measure → lift returns… — the visible flashing
-      // between lifted and not. Subtracting makes the loop a fixpoint.
       const gap = winH - (y + h) - appliedLiftRef.current;
       if (isFinite(gap)) setGapBelow(Math.max(0, gap));
     });
@@ -109,11 +87,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const sortedCategories = sortChatCategories(categories);
   const uncategorized = chatChannelsIn(activeChannels, null, categories);
 
-  /**
-   * Reorder writes sortOrder only for the ids handed in, so each list numbers
-   * itself from 0 and a channel's position is meaningful only inside its own
-   * category. Nothing outside the dragged list is touched.
-   */
   const applyChannelOrder = (orderedIds: string[]) => {
     const pos = new Map(orderedIds.map((id, i) => [id, i] as const));
     onSaveChannels(channels.map(c => (pos.has(c.id) ? {...c, sortOrder: pos.get(c.id)} : c)));
@@ -124,8 +97,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     saveChatCategories(categories.map(c => (pos.has(c.id) ? {...c, sortOrder: pos.get(c.id)} : c)));
   };
 
-  // `list` must be the order AFTER the move: "moved below X" names the row that
-  // ends up above it.
   const announceMove = (list: {name: string}[], to: number) => {
     const msg = to <= 0
       ? t('common.movedToTop')
@@ -178,9 +149,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const chDrag = useDragReorder({enabled: reorderOn, onDrop: onDropChannel});
   const catDrag = useDragReorder({enabled: reorderOn, onDrop: onDropCategory});
 
-  // One channel hook serves every category's list, so a drop target must belong
-  // to the SAME list as the row being dragged — index 2 of one category is not
-  // index 2 of another.
   const isChannelDropTarget = (ch: ChatChannel, i: number) =>
     chDrag.dragging && chDrag.drag.key !== ch.id && chDrag.drag.target === i && chDrag.drag.siblings.includes(ch.id);
 
@@ -209,8 +177,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     Alert.alert(t('chat.deleteCategory'), t('chat.deleteCategoryMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.delete'), style: 'destructive', onPress: () => {
-        // Deleting a category never deletes a channel. Its channels move to the
-        // uncategorized list, appended after whatever is already there.
         const inside = channels.filter(c => c.categoryId === id);
         if (inside.length > 0) {
           let next = uncategorized.length;
@@ -494,7 +460,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
       <View style={{paddingHorizontal: 16, paddingVertical: 6}}>
         {replyMsg && (
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 38, marginBottom: 4, opacity: 0.7}}>
-            <Text style={{fontSize: fs(10), color: T.dim}}>↳</Text>
+            <Text style={{fontSize: fs(10), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↳</Text>
             <Text style={{fontSize: fs(11), color: replyAuthor?.color || T.dim, fontWeight: '500'}}>{replyAuthor?.name || '?'}</Text>
             <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{replyMsg.content.length > 50 ? replyMsg.content.slice(0, 50) + '…' : replyMsg.content}</Text>
           </View>
@@ -765,7 +731,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
               </TouchableOpacity>
             );
             const roster = frontersFirst(sortMembersBySearch(members.filter(m => match(m) && !m.isFacet), memberSearch), front);
-            // Facets keep their own row: out of the member list, still pickable.
             const facets = sortMembersBySearch(members.filter(m => match(m) && m.isFacet), memberSearch);
             return (
               <>
@@ -824,27 +789,24 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
       {showFormatBar && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false}
-          // maxHeight was a hard 40px while every button inside scales with the
-          // user's text size, so at larger sizes the row was clipped and the
-          // formatting options looked cut off. Let it grow with the text.
           style={{maxHeight: Math.max(40, fs(12) * 2 + 28), flexGrow: 0, borderTopWidth: 1, borderTopColor: T.border, backgroundColor: T.surface}}
           contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 6, gap: 6, flexDirection: 'row', alignItems: 'center'}}>
           {[
-            {label: 'B', before: '**', after: '**'},
-            {label: 'I', before: '*', after: '*'},
-            {label: 'S', before: '~~', after: '~~'},
-            {label: 'H1', before: '# ', after: ''},
-            {label: 'H2', before: '## ', after: ''},
-            {label: '🔗', before: '[', after: '](url)'},
-            {label: '•', before: '- ', after: ''},
-            {label: '1.', before: '1. ', after: ''},
-            {label: '❝', before: '> ', after: ''},
-            {label: '</>', before: '`', after: '`'},
+            {label: 'B', a11y: 'markdown.toolBold', before: '**', after: '**'},
+            {label: 'I', a11y: 'markdown.toolItalic', before: '*', after: '*'},
+            {label: 'S', a11y: 'markdown.toolStrike', before: '~~', after: '~~'},
+            {label: 'H1', a11y: 'markdown.toolH1', before: '# ', after: ''},
+            {label: 'H2', a11y: 'markdown.toolH2', before: '## ', after: ''},
+            {label: '🔗', a11y: 'markdown.toolLink', before: '[', after: '](url)'},
+            {label: '•', a11y: 'markdown.toolBullets', before: '- ', after: ''},
+            {label: '1.', a11y: 'markdown.toolNumbered', before: '1. ', after: ''},
+            {label: '❝', a11y: 'markdown.toolQuote', before: '> ', after: ''},
+            {label: '</>', a11y: 'markdown.toolCode', before: '`', after: '`'},
           ].map(tool => (
             <TouchableOpacity key={tool.label} onPress={() => insertFormat(tool.before, tool.after)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={tool.label}
+              accessibilityRole="button" accessibilityLabel={t(tool.a11y)}
               style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: T.border, backgroundColor: T.bg}}>
-              <Text style={{fontSize: fs(12), fontWeight: tool.label === 'B' ? '700' : '500', fontStyle: tool.label === 'I' ? 'italic' : 'normal', textDecorationLine: tool.label === 'S' ? 'line-through' : 'none', color: T.dim}}>{tool.label}</Text>
+              <Text style={{fontSize: fs(12), fontWeight: tool.label === 'B' ? '700' : '500', fontStyle: tool.label === 'I' ? 'italic' : 'normal', textDecorationLine: tool.label === 'S' ? 'line-through' : 'none', color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{tool.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>

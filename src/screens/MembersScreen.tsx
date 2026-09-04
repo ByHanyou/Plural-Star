@@ -67,33 +67,16 @@ const MemberCard = React.memo(function MemberCard({
     [groups, m.groupIds],
   );
   const isFirst = index === 0;
-  // The 2-line preview: blank and whitespace-only lines in a description eat
-  // the whole preview (and a "\n\n" description rendered a card with a bare
-  // gap in it), so they are dropped here. The full profile shows the
-  // description untouched.
-  // String(), not `|| ''`: a truthy NON-STRING description (imported or synced
-  // data has carried numbers and objects) sails through `||` and then .split
-  // does not exist on it — Hermes reports that as "undefined is not a
-  // function" and the error boundary eats the whole Members tab on every
-  // render, surviving cache clears because the cause is the data.
   const descPreview = String(m.description ?? '').split('\n').filter(l => l.trim()).join('\n');
   const cardBorder = selectionMode
     ? (isSelected ? T.accent : T.border)
     : (isFronting ? `${m.color}60` : T.border);
-  // Card background per the display option: plain (default), a wash of the
-  // member's colour, or their banner behind the row. Banner falls back to the
-  // colour wash when the member has none, and the scrim is the card colour at
-  // ~78% so the theme's own text contrast still holds on top of any image.
   const bgMode = fields?.background || 'plain';
   const bannerBg = bgMode === 'banner' && m.banner ? m.banner : null;
   const cardBg = bgMode === 'plain' || selectionMode
     ? T.card
     : bannerBg ? T.card : `${m.color}18`;
   return (
-    // The whole card used to be one labeled touchable, which on iOS hid the
-    // reorder arrows and quick-front button from VoiceOver entirely. The card
-    // press now lives on a flex:1 content touchable; arrows, drag handle and
-    // quick-front are reachable siblings. Visuals unchanged.
     <View
       style={[s.card, {backgroundColor: cardBg, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8, overflow: 'hidden'}]}>
       {bannerBg && !selectionMode && (
@@ -140,7 +123,7 @@ const MemberCard = React.memo(function MemberCard({
           {fields?.descriptions !== false && descPreview ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}} numberOfLines={2}>{descPreview}</Text> : null}
           {fields?.groups !== false && memberGroups.length > 0 && (
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4}}>
-              {memberGroups.map(g => (<View key={g.id} style={{flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: `${g.color || T.accent}15`}}><View style={{width: 5, height: 5, borderRadius: 2.5, backgroundColor: g.color || T.accent}} /><Text style={{fontSize: fs(10), color: g.color || T.accent}}>{g.name}</Text></View>))}
+              {memberGroups.map(g => (<View key={g.id} style={{flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 999, backgroundColor: `${g.color || T.accent}15`}}><View style={{width: 5, height: 5, borderRadius: groupKind(g) === 'subsystem' ? 1 : 2.5, backgroundColor: g.color || T.accent}} /><Text style={{fontSize: fs(10), color: g.color || T.accent}}>{g.name}</Text></View>))}
             </View>
           )}
         </View>
@@ -190,10 +173,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   const groups = useAppStore(s => s.groups);
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
-  // The tab picks the CATEGORY; `archiveOnly` picks the state. Archive is the
-  // same screen with the same three tabs, showing what is archived, so an
-  // archived facet is found where a facet is expected instead of in one
-  // undifferentiated pile.
   const [memberTab, setMemberTab] = useState<'active' | 'facets' | 'customFronts'>('active');
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
@@ -290,17 +269,8 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
   const deferredQuery = useDeferredValue(query);
 
-  // Memoised, and that matters more than it looks: `filtered` below lists this
-  // in its dependency array, so while this was a fresh array on every render
-  // that useMemo could never hit and the whole filter + sort ran again for
-  // every keystroke, every selection toggle and every parent re-render.
   const tabMembers = useMemo(() => members.filter(m => {
     if (m.deleted) return false;
-    // State first, category second. The per-kind checks used to run BEFORE the
-    // archived test, so every custom front and every facet returned early and
-    // Archive could only ever contain plain members: archive a custom front and
-    // it vanished from Archive while still sitting in its own tab looking
-    // active. Now this one filter serves both screens.
     if (archiveOnly !== !!m.archived) return false;
     if (m.isCustomFront) return memberTab === 'customFronts';
     if (memberTab === 'customFronts') return false;
@@ -310,9 +280,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   }), [members, memberTab, archiveOnly]);
   const allFrontIds = useMemo(() => new Set(allFrontMemberIds(front)), [front]);
   const allTags = useMemo(() => [...new Set(tabMembers.flatMap(m => m.tags || []))].sort(), [tabMembers]);
-  // The tab badges count within the screen you are on: on Archive they count
-  // archived facets and custom fronts, on Members the ones still in use.
-  // One pass instead of a full scan per category per render.
   const {customFrontCount, facetCount} = useMemo(() => {
     let cf = 0, fac = 0;
     for (const m of members) {
@@ -326,8 +293,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   const activeGroupIds = useMemo(() => activeGroup ? new Set([activeGroup, ...descendantsOf(groups, activeGroup).map(g => g.id)]) : null, [activeGroup, groups]);
 
   const filtered = useMemo(() => sortMembers(tabMembers.filter(m => {
-    // Same hazard as descPreview: a non-string name or role from imported or
-    // synced data makes .toLowerCase() undefined and takes the tab down.
     const q = deferredQuery.toLowerCase();
     const nameMatch = !deferredQuery || String(m.name ?? '').toLowerCase().includes(q) || String(m.nickname ?? '').toLowerCase().includes(q) || String(m.role ?? '').toLowerCase().includes(q);
     const groupMatch = !activeGroupIds || (m.groupIds || []).some(id => activeGroupIds.has(id));
@@ -335,8 +300,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     return nameMatch && groupMatch && tagMatch;
   }), sortMode), [tabMembers, deferredQuery, activeGroupIds, activeTag, sortMode]);
 
-  // Never in Archive: manual order is the roster's own arrangement, and
-  // dragging archived rows would write sortOrder for people who are put away.
   const showReorder = !archiveOnly && sortMode === 'manual' && !query && !activeGroup && !activeTag;
 
   useEffect(() => {
@@ -345,18 +308,10 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   }, [deferredQuery, activeGroup, activeTag, memberTab]);
 
   const jumpToLetter = (letter: string) => {
-    // Fold diacritics so É files under E — otherwise those names are
-    // unreachable from the rail entirely. The regex range below is the
-    // combining-marks block U+0300–U+036F as literal (invisible) characters;
-    // don't "clean it up" — it's what strips the accents after NFD.
     const firstChar = (m: Member): string =>
       ((m.name || '').trim()[0] || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
     let idx = filtered.findIndex(m => firstChar(m) === letter);
     if (idx < 0) {
-      // Nearest-block fallback. Exact-match-only made every letter with no
-      // members a DEAD TAP — for a typical roster that is most of the rail,
-      // which read as "the rail doesn't work". A miss now lands on the next
-      // block in the current sort direction, like every contacts rail.
       idx = filtered.findIndex(m => sortMode === 'reverse-alphabetical'
         ? firstChar(m) < letter
         : firstChar(m) > letter);
@@ -417,7 +372,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       isLast={index === filtered.length - 1}
       selectionMode={selectionMode}
       isSelected={selectedIds.has(m.id)}
-      showReorder={showReorder}
+      showReorder={showReorder && reorderOn}
       front={front}
       allFrontIds={allFrontIds}
       groups={groups}
@@ -493,7 +448,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               style={[s.heading, {color: T.text}]}
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}>
-              {t('members.title')}
+              {memberTab === 'facets' ? t('members.facets') : memberTab === 'customFronts' ? t('members.customFronts') : t('members.title')}
             </Text>
           )}
           {listFields.count !== false && (
@@ -533,14 +488,12 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
       {selectionMode && selectedIds.size > 0 && (
         <View style={{flexDirection: 'row', gap: 8, marginBottom: 14}}>
-          {memberTab === 'active' && onBulkAddGroups && groups.length > 0 && (
+          {onBulkAddGroups && groups.length > 0 && (
             <TouchableOpacity onPress={() => {setGroupAssignSel(new Set()); setShowGroupAssign(true);}} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.assignGroup')}</Text>
             </TouchableOpacity>
           )}
-          {/* Archivable from every category tab, facets included — they were the
-              one kind with no way to archive at all. */}
           {!archiveOnly && (
             <TouchableOpacity onPress={confirmBulkArchive} activeOpacity={0.7} accessibilityRole="button"
               style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
@@ -560,9 +513,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         </View>
       )}
 
-      {/* Archive gets the SAME tab row: same three categories, filtered to what
-          is archived. Only the reorder lock is withheld, since archived order
-          is not something you arrange. */}
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}} contentContainerStyle={{alignItems: 'center'}}>
           {(['active', 'facets', 'customFronts'] as const).map(tab => (
@@ -571,8 +521,8 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
               <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}} numberOfLines={1}>
                 {tab === 'active' ? t('members.title')
-                  : tab === 'facets' ? `${t('members.facets')}${facetCount > 0 ? ` (${facetCount})` : ''}`
-                  : `${t('members.customFronts')}${customFrontCount > 0 ? ` (${customFrontCount})` : ''}`}
+                  : tab === 'facets' ? `${t('members.facets')}${listFields.count !== false && facetCount > 0 ? ` (${facetCount})` : ''}`
+                  : `${t('members.customFronts')}${listFields.count !== false && customFrontCount > 0 ? ` (${customFrontCount})` : ''}`}
               </Text>
             </TouchableOpacity>
           ))}
@@ -609,7 +559,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
                 accessibilityRole="button" accessibilityState={{selected: activeGroup === g.id}} accessibilityLabel={g.name}
                 style={[s.chip, {backgroundColor: activeGroup === g.id ? `${g.color || T.accent}18` : T.surface, borderColor: activeGroup === g.id ? `${g.color || T.accent}50` : T.border}]}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                  <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: g.color || T.accent}} />
+                  <View style={{width: 6, height: 6, borderRadius: groupKind(g) === 'subsystem' ? 1 : 3, backgroundColor: g.color || T.accent}} />
                   <Text style={{fontSize: fs(11), color: activeGroup === g.id ? (g.color || T.accent) : T.dim, fontWeight: activeGroup === g.id ? '600' : '400'}}>{g.name}</Text>
                 </View>
               </TouchableOpacity>
@@ -662,7 +612,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       ListHeaderComponent={ListHeader}
       ListEmptyComponent={tabMembers.length === 0 ? (
         <View style={s.empty}>
-          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◇</Text>
+          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◇</Text>
           <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{archiveOnly ? t('members.noArchived') : memberTab === 'customFronts' ? t('members.noCustomFronts') : memberTab === 'facets' ? t('members.noFacets') : t('members.noMembers')}</Text>
           {memberTab === 'active' && !archiveOnly && (
             <TouchableOpacity onPress={onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
@@ -709,7 +659,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
                 <View style={{width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: on ? T.accent : T.border, backgroundColor: on ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
                   {on ? <Text style={{fontSize: fs(11), color: T.bg, fontWeight: '700'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text> : null}
                 </View>
-                <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: g.color || T.accent}} />
+                <View style={{width: 8, height: 8, borderRadius: groupKind(g) === 'subsystem' ? 1 : 4, backgroundColor: g.color || T.accent}} />
                 <Text style={{flex: 1, fontSize: fs(14), color: T.text}} numberOfLines={1}>{g.name}</Text>
               </TouchableOpacity>
             ); })}
@@ -728,8 +678,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       </View>
     </Modal>
     <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
-      {/* Accessible scrim hid the whole tier picker from iOS VoiceOver; the
-          card's escape gesture now handles VO dismissal instead. */}
       <TouchableOpacity activeOpacity={1} onPress={() => setQuickFrontFor(null)} accessible={false} importantForAccessibility="no"
         style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32}}>
         <TouchableOpacity activeOpacity={1} accessible={false} accessibilityViewIsModal onAccessibilityEscape={() => setQuickFrontFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
@@ -747,8 +695,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
                 onPress={() => {
                   const mm = quickFrontFor;
                   setQuickFrontFor(null);
-                  // Awaited with a visible failure: a transient throw in the
-                  // front update was an unhandled rejection before.
                   if (mm && onQuickAddToFront) Promise.resolve(onQuickAddToFront(mm.id, k)).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
                 }}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 13, borderTopWidth: 1, borderTopColor: T.border}}>

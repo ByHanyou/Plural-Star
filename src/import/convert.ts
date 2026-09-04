@@ -79,8 +79,6 @@ export const mergeForeignMember = (merged: Member[], idMap: Record<string, strin
 export type ImportMode = 'overwrite' | 'update';
 
 export const finalizeMemberReplace = (merged: Member[], idMap: Record<string, string>, mode: ImportMode = 'overwrite'): Member[] => {
-  // Update mode refreshes matched members and adds new ones but never removes
-  // anything local — only Overwrite treats the file as the whole roster.
   if (mode !== 'overwrite') return merged;
   const kept = new Set(Object.values(idMap));
   return merged.map(m => {
@@ -106,21 +104,6 @@ export const mergeMediaIntoMembers = <K extends 'avatar' | 'banner'>(list: Membe
 
 export const psTime = (v: any): number => { if (!v) return 0; const ms = new Date(String(v)).getTime(); return isNaN(ms) ? 0 : ms; };
 
-/**
- * PluralSpace replaced its flat `data.json` export with an account-scoped
- * bundle in the OpenPlural interchange format:
- *
- *   manifest.json                            { format: "openplural", systems: [...] }
- *   account/account.json
- *   systems/<slug>/openplural.json           <- the actual system
- *   systems/<slug>/media/...
- *
- * Nothing about it matches the old shape — every collection was renamed, media
- * moved behind an asset table, and member role/status became a taxonomy. Rather
- * than fork the whole importer, normalise an OpenPlural system back into the
- * legacy shape the rest of the PS path already consumes, so old exports and new
- * ones travel the same code.
- */
 export const isOpenPluralSystem = (o: any): boolean =>
   !!o && typeof o === 'object' && typeof o.openplural_version === 'string'
   && Array.isArray(o.members) && Array.isArray(o.front_periods);
@@ -130,8 +113,6 @@ export const normalizeOpenPlural = (root: any, mediaPrefix = ''): any | null => 
   const sys = (Array.isArray(root.systems) ? root.systems : [])[0] || {};
   const assets = new Map<string, any>();
   for (const a of Array.isArray(root.assets) ? root.assets : []) if (a && a.id) assets.set(String(a.id), a);
-  // asset.uri is relative to the system folder ("media/x.jpg"), but zip entries
-  // are keyed from the archive root, so re-attach the prefix we found it under.
   const assetPath = (id: any): string => {
     const a = id ? assets.get(String(id)) : null;
     const uri = a && a.uri ? String(a.uri) : '';
@@ -140,8 +121,6 @@ export const normalizeOpenPlural = (root: any, mediaPrefix = ''): any | null => 
 
   const terms = new Map<string, any>();
   for (const t of Array.isArray(root.taxonomy_terms) ? root.taxonomy_terms : []) if (t && t.id) terms.set(String(t.id), t);
-  // Member "role" is no longer a column — it is a taxonomy term of kind 'role'
-  // assigned to the member. Terms of kind 'status' hang off front periods.
   const rolesByMember = new Map<string, string[]>();
   for (const a of Array.isArray(root.taxonomy_assignments) ? root.taxonomy_assignments : []) {
     if (!a || a.subject_type !== 'member') continue;
@@ -190,15 +169,6 @@ export const normalizeOpenPlural = (root: any, mediaPrefix = ''): any | null => 
   const periods = Array.isArray(root.front_periods) ? root.front_periods : [];
   const at = (v: any): number => { if (!v) return 0; const ms = new Date(String(v)).getTime(); return isNaN(ms) ? 0 : ms; };
 
-  /**
-   * OpenPlural dropped `is_live`, and PluralSpace CLOSES the fronting period
-   * when it writes the export — so read literally, every import ends with
-   * nobody fronting. Reopen the newest period, but only when it ends flush
-   * against the export, which is unambiguous in practice: in the reference
-   * export the newest period ends 26s before `exported_at` and the one before
-   * it ends 3 hours before. A front the user genuinely ended earlier stays
-   * ended — silently resurrecting those is the bug class fixed on 08-03.
-   */
   const LIVE_AT_EXPORT_MS = 5 * 60 * 1000;
   const exportedAt = at(root.exported_at);
   let liveEnd = 0;
@@ -208,14 +178,9 @@ export const normalizeOpenPlural = (root: any, mediaPrefix = ''): any | null => 
     if (!(liveEnd > 0 && gap >= 0 && gap <= LIVE_AT_EXPORT_MS)) liveEnd = 0;
   }
 
-  // One period can name several members at different tiers; the legacy shape is
-  // one row per member, so flatten. 'member' is PluralSpace's plain fronting
-  // role and maps to primary front, same as 'primary'.
   const fronts: any[] = [];
   for (const p of periods) {
     if (!p) continue;
-    // Co-fronters share the period's end instant, so compare on the value and
-    // every row of that final group reopens together.
     const live = !p.ended_at || (liveEnd > 0 && at(p.ended_at) === liveEnd);
     const assignments = Array.isArray(p.assignments) && p.assignments.length ? p.assignments : [{member_id: p.member_id, front_role: 'primary'}];
     for (const a of assignments) {

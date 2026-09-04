@@ -34,11 +34,6 @@ type Tool = 'draw' | 'move' | 'erase' | 'bucket' | 'poly' | ShapeTool;
 
 const isShapeTool = (tl: Tool): tl is ShapeTool => tl === 'line' || tl === 'rect' || tl === 'ellipse';
 
-/** Shape outlines as plain polyline points, so a committed shape IS an
- *  ordinary stroke: mirrors, sync and older builds render it with no format
- *  change. Closed shapes repeat their first point; the ellipse is a
- *  48-segment approximation. (The polygon tool builds its points tap by tap
- *  instead — see addPolyVertex.) */
 const shapePts = (shape: ShapeTool, x0: number, y0: number, x1: number, y1: number): number[] => {
   if (shape === 'line') return [x0, y0, x1, y1];
   if (shape === 'rect') return [x0, y0, x1, y0, x1, y1, x0, y1, x0, y0];
@@ -88,10 +83,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const dirtyRef = useRef(false);
   const bucketTapRef = useRef<{wx: number; wy: number; moved: boolean} | null>(null);
   const shapeStartRef = useRef<{x: number; y: number} | null>(null);
-  // Polygon tool (Paint-style): each tap adds a corner, lines connect them.
-  // Tapping the first corner again (3+ corners) or double-tapping the last
-  // one finishes; the shape commits closed, exactly two corners commit as a
-  // line. The in-progress polygon lives in `current` as the preview.
   const polyTapRef = useRef<{wx: number; wy: number; moved: boolean} | null>(null);
   const polyPtsRef = useRef<number[] | null>(null);
   const polyIdRef = useRef<string | null>(null);
@@ -156,7 +147,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     currentRef.current = null;
     setCurrent(null);
     if (!pts || pts.length < 4) return;
-    // 3+ corners close back to the first; exactly two commit as a line.
     const closed = pts.length >= 6 ? [...pts, pts[0], pts[1]] : pts;
     const s: Stroke = {id: uid(), c: colorRef.current, w: widthRef.current, pts: closed};
     const next = [...strokesRef.current, s];
@@ -191,8 +181,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     setCurrent(currentRef.current);
   };
 
-  // Leaving the polygon tool abandons the unfinished polygon, same as the
-  // drag shapes abandon on a two-finger gesture.
   useEffect(() => {
     if (tool !== 'poly' && polyPtsRef.current) cancelPoly();
   }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -229,7 +217,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         currentRef.current = {id: uid(), c: colorRef.current, w: widthRef.current, pts: [clampWorld(wx), clampWorld(wy)]};
         setCurrent(currentRef.current);
       } else if (isShapeTool(toolRef.current)) {
-        // Anchor corner; the preview stroke is rebuilt from it on every move.
         shapeStartRef.current = {x: clampWorld(wx), y: clampWorld(wy)};
         currentRef.current = {id: uid(), c: colorRef.current, w: widthRef.current, pts: [clampWorld(wx), clampWorld(wy)]};
         setCurrent(currentRef.current);
@@ -280,8 +267,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         return;
       }
       if (toolRef.current === 'poly') {
-        // Taps only; a drag is neither a corner nor a freehand append onto
-        // the polygon preview sitting in `current`.
         if (polyTapRef.current && (Math.abs(gs.dx) > 6 || Math.abs(gs.dy) > 6)) polyTapRef.current.moved = true;
         return;
       }
@@ -310,8 +295,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         return;
       }
       if (toolRef.current === 'poly') {
-        // The polygon preview lives in `current`; falling through would
-        // commit it on every tap. Corners are added here instead.
         const pTap = polyTapRef.current;
         polyTapRef.current = null;
         if (pTap && !pTap.moved) addPolyVertex(pTap.wx, pTap.wy);
@@ -319,8 +302,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       }
       const cur = currentRef.current;
       currentRef.current = null;
-      // A shape that was never dragged out is a tap, not a shape: committing
-      // it would leave an invisible dot the eraser then has to hunt down.
       const shapeTap = shapeStartRef.current !== null && cur !== null && cur.pts.length <= 2;
       shapeStartRef.current = null;
       if (cur && cur.pts.length >= 2 && !shapeTap) {
@@ -343,12 +324,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   }), [persist]);
 
   const bucketFill = (wx: number, wy: number) => {
-    // Real enclosure detection: all strokes' segments are walls, flood from
-    // the tap. Enclosed → fill exactly that region (works across multiple
-    // strokes and un-touching endpoints — the old single-stroke polygon test
-    // missed those and fell through to painting the whole board). Open →
-    // the deliberate background fill, which now only happens when the tap
-    // point genuinely isn't enclosed by anything. On a wall → do nothing.
     const region = traceEnclosedRegion(wx, wy, strokesRef.current);
     if (region === null) return;
     const fill: Stroke = Array.isArray(region)
@@ -448,8 +423,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const shapeName = (shape: ShapeTool) =>
     shape === 'line' ? t('whiteboard.shapeLine') : shape === 'rect' ? t('whiteboard.shapeRect') : t('whiteboard.shapeEllipse');
 
-  /** Screen-reader path for the shape tools: place the shape centred on the
-   *  VO cursor, sized by the step, same commit as a drag. */
   const voPlaceShape = (shape: ShapeTool) => {
     voStrokeIdRef.current = null;
     const c = voCursorRef.current;
@@ -464,8 +437,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     voAnnounce(`${t('whiteboard.voPlacedShape', {shape: shapeName(shape)})}. ${voPosText(c)}`);
   };
 
-  /** Screen-reader polygon: each activation drops a corner at the cursor;
-   *  finish commits through the same path as the tap flow. */
   const voPolyPoint = () => {
     voStrokeIdRef.current = null;
     const c = voCursorRef.current;

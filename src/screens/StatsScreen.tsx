@@ -9,6 +9,8 @@ import {loadChatMessages} from '../store/actions';
 import {Member, HistoryEntry, ChatMessage, fmtDur, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
+import {getTierNameOverride} from '../i18n/terminology';
+import type {TierNameKey} from '../i18n/terminology';
 
 type TimeRange = 'all' | '7d' | '30d' | 'custom';
 
@@ -26,11 +28,6 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
   const members = useAppStore(s => s.members);
   const chatMessages = useAppStore(s => s.allChatMessages);
   const chatChannels = useAppStore(s => s.chatChannels);
-  // Chat history is loaded HERE rather than at startup: it is the heaviest read
-  // in the app and this screen is its only consumer. Loading it on the launch
-  // path cost minutes of blank screen on mid-range Android. Runs once per visit
-  // and leaves the counts empty until it lands, which is a fraction of a second
-  // for a normal history and never blocks anything.
   useEffect(() => {
     let cancelled = false;
     if (chatChannels.length === 0) return;
@@ -39,6 +36,10 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
   }, [chatChannels]);
   const {t} = useTranslation();
   const fs = fontScale(T);
+  const tierHeading = (tier: TierNameKey, stock: string): string => {
+    const custom = getTierNameOverride(tier);
+    return custom ? t('stats.topTier', {tier: custom}) : stock;
+  };
   const [range, setRange] = useState<TimeRange>('all');
   const [customStart, setCustomStart] = useState<number>(Date.now() - 30 * 86400000);
   const [customEnd, setCustomEnd] = useState<number>(Date.now());
@@ -94,10 +95,6 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
     const coConCounts: Record<string, number> = {};
     const moodCounts: Record<string, number> = {};
     const locCounts: Record<string, number> = {};
-    // "Home" and "Home " and "home" are one place. GPS-written locations and
-    // hand-typed ones differ in whitespace and case, which split a location
-    // into duplicate leaderboard rows. Count under a normalized key; display
-    // the first spelling seen.
     const locDisplay: Record<string, string> = {};
     const countLocation = (raw: string) => {
       const trimmed = raw.trim();
@@ -268,7 +265,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
     const totalT = stats.topFronters.reduce((s, e) => s + e.time, 0) || 1;
     return (
       <View style={{marginBottom: 18}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.topStatuses') : t('stats.topFronters')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.topStatuses') : tierHeading('primary', t('stats.topFronters'))}</Text>
         <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border}}>
           {shown.map((entry, i) => {
             const member = getMember(entry.id);
@@ -368,8 +365,8 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       </View>
 
       <FrontLeaderboard />
-      {!singlet && <Leaderboard title={t('stats.topCoFronters')} boardKey="cofronters" entries={stats.topCoFronters} renderValue={v => `${v}x`} />}
-      {!singlet && <Leaderboard title={t('stats.topCoCon')} boardKey="cocon" entries={stats.topCoCon} renderValue={v => `${v}x`} />}
+      {!singlet && <Leaderboard title={tierHeading('coFront', t('stats.topCoFronters'))} boardKey="cofronters" entries={stats.topCoFronters} renderValue={v => `${v}x`} />}
+      {!singlet && <Leaderboard title={tierHeading('coConscious', t('stats.topCoCon'))} boardKey="cocon" entries={stats.topCoCon} renderValue={v => `${v}x`} />}
       {!singlet && <Leaderboard title={t('stats.topChatters')} boardKey="chatters" entries={stats.topChatters} renderValue={v => `${v} ${t('stats.msgsSuffix')}`} />}
       <Leaderboard title={t('stats.topMoods')} boardKey="moods" entries={stats.topMoods} renderValue={v => `${v}x`} formatKey={m => translateMood(m, t)} />
       <Leaderboard title={t('stats.topLocations')} boardKey="locations" entries={stats.topLocations} renderValue={v => `${v}x`} />
@@ -452,23 +449,26 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
               <Text style={{fontSize: fs(11), color: selectedStatMember === m.id ? m.color : T.dim}}>{m.name}</Text>
             </TouchableOpacity>
           );
-          // Facets keep their own row: out of the member list, still selectable.
           const facets = members.filter((m: Member) => m.isFacet && eligible(m));
+          const customFronts = singlet ? [] : members.filter((m: Member) => m.isCustomFront && !m.isFacet && eligible(m));
+          const mainRow = members.filter((m: Member) => !m.isFacet && (singlet || !m.isCustomFront) && eligible(m));
+          const subRow = (label: string, list: Member[]) => list.length > 0 && (
+            <>
+              <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{label}</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
+                <View style={{flexDirection: 'row', gap: 6}}>{list.map(chip)}</View>
+              </ScrollView>
+            </>
+          );
           return (
             <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: facets.length > 0 ? 4 : 10, flexGrow: 0}}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: facets.length > 0 || customFronts.length > 0 ? 4 : 10, flexGrow: 0}}>
                 <View style={{flexDirection: 'row', gap: 6}}>
-                  {members.filter((m: Member) => !m.isFacet && eligible(m)).map(chip)}
+                  {mainRow.map(chip)}
                 </View>
               </ScrollView>
-              {facets.length > 0 && (
-                <>
-                  <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('members.facets')}</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
-                    <View style={{flexDirection: 'row', gap: 6}}>{facets.map(chip)}</View>
-                  </ScrollView>
-                </>
-              )}
+              {subRow(t('members.facets'), facets)}
+              {subRow(t('members.customFronts'), customFronts)}
             </>
           );
         })()}

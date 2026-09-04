@@ -6,11 +6,6 @@ import { base58Encode, base58Decode, peerIdFromEd25519PublicKey } from './peerid
 
 export const IDENTITY_STORAGE_KEY = 'ps:networkIdentity';
 
-/**
- * Per-device sub-id. DOT prefix on purpose: `ps.` keys never match the sync
- * sweep's `startsWith('ps:')`, so this stays unique to this device even when
- * linked devices share one network identity. Generated once, silently.
- */
 export const DEVICE_SUB_ID_KEY = 'ps.deviceSubId';
 
 let cachedSubId: string | null = null;
@@ -45,7 +40,6 @@ interface StoredIdentity {
   boxSecretKey: string;
 }
 
-/** Drop the in-memory identity so the next load re-reads storage (used after adoption). */
 export const resetIdentityCache = (): void => {
   cached = null;
 };
@@ -72,18 +66,6 @@ const toStored = (id: Identity): StoredIdentity => ({
 
 let cached: Identity | null = null;
 
-/**
- * Per-device keypair, device-local forever (DOT prefix never syncs or exports).
- *
- * Linked devices share one SYSTEM identity so a friend can reach any of them at
- * a single address. The push gateway is a different story: it keys registrations
- * by peer id and holds ONE device token per key, so registering both devices
- * under the shared identity would make them overwrite each other's token and
- * only the last one to open would get alerts. Registration doesn't need the
- * system identity though — the gateway picks push targets by whose watch list
- * contains the friend that changed, not by who the relay delivers to. So each
- * device registers under this keypair: its own slot, own token, own watch list.
- */
 export const DEVICE_IDENTITY_KEY = 'ps.deviceIdentity';
 
 let cachedDevice: Identity | null = null;
@@ -99,9 +81,6 @@ export const getDeviceIdentity = async (): Promise<Identity> => {
       console.error('[NETWORK] stored device identity unreadable, reseeding:', e);
     }
   }
-  // Seed from whatever identity this device is using right now, so a device that
-  // has never adopted keeps the exact peer id it already registered with and its
-  // existing gateway registration carries over untouched.
   let seed: StoredIdentity | null = null;
   const current = await store.get<StoredIdentity>(IDENTITY_STORAGE_KEY, null);
   if (current?.edSecretKey && current?.boxSecretKey) {

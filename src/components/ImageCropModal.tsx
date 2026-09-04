@@ -6,15 +6,6 @@ import i18n from '../i18n/i18n';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 
-// The Edit half of the picture upload choice: a freeform crop over the picked
-// image, then @react-native-community/image-editor does the actual pixel
-// crop. The cropped file feeds the exact same save/resize path the Auto
-// option uses, so storage stays identical either way.
-//
-// Promise bridge instead of per-call-site modals: five pick sites share one
-// host mounted in App. RN Modal presents natively above TrueSheet (the View
-// Photo modal is the shipped precedent), so tree position does not matter.
-
 interface CropSource {
   uri: string;
   width?: number;
@@ -26,14 +17,13 @@ interface CropRequest {
   resolve: (r: {uri: string} | null) => void;
 }
 
-let hostOpen: ((req: CropRequest) => void) | null = null;
+const hosts: ((req: CropRequest) => void)[] = [];
 
-/** Resolves with the cropped file's uri, or null if the user backs out (or
- *  the host is not mounted, which callers must treat as cancel). */
 export const requestImageCrop = (src: CropSource): Promise<{uri: string} | null> =>
   new Promise(resolve => {
-    if (!hostOpen) { resolve(null); return; }
-    hostOpen({src, resolve});
+    const open = hosts[hosts.length - 1];
+    if (!open) { resolve(null); return; }
+    open({src, resolve});
   });
 
 const HANDLE = 28;
@@ -50,14 +40,12 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
   const [box, setBox] = useState<{w: number; h: number} | null>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const [busy, setBusy] = useState(false);
-  // Gestures mutate the ref and mirror to state; reading state inside a
-  // PanResponder created once would see the mount-time value forever.
   const rectRef = useRef<Rect | null>(null);
   const dispRef = useRef<Rect | null>(null);
   const startRef = useRef<Rect | null>(null);
 
   useEffect(() => {
-    hostOpen = (r: CropRequest) => {
+    const open = (r: CropRequest) => {
       setNatural(null); setBox(null); setRect(null); rectRef.current = null; setBusy(false);
       setReq(r);
       if (r.src.width && r.src.height) {
@@ -66,10 +54,13 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
         Image.getSize(r.src.uri, (w, h) => setNatural({w, h}), () => { r.resolve(null); setReq(null); });
       }
     };
-    return () => { hostOpen = null; };
+    hosts.push(open);
+    return () => {
+      const i = hosts.indexOf(open);
+      if (i >= 0) hosts.splice(i, 1);
+    };
   }, []);
 
-  // Displayed image rect: contain fit inside the measured box.
   const disp: Rect | null = natural && box ? (() => {
     const scale = Math.min(box.w / natural.w, box.h / natural.h);
     const w = natural.w * scale;
@@ -84,8 +75,6 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
       rectRef.current = full;
       setRect(full);
     }
-    // Depends on the derived rect being freshly computable; rect seeds once
-    // per request because hostOpen nulled it.
   }, [disp?.x, disp?.y, disp?.w, disp?.h]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const clampRect = (r: Rect): Rect => {
@@ -115,10 +104,8 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
         if (mode === 'tr' || mode === 'br') { w = s.w + g.dx; }
         if (mode === 'tl' || mode === 'tr') { y = s.y + g.dy; h = s.h - g.dy; }
         if (mode === 'bl' || mode === 'br') { h = s.h + g.dy; }
-        // Left/top edges stop at MIN_SIZE by pinning the opposite edge.
         if (w < MIN_SIZE) { if (mode === 'tl' || mode === 'bl') x = s.x + s.w - MIN_SIZE; w = MIN_SIZE; }
         if (h < MIN_SIZE) { if (mode === 'tl' || mode === 'tr') y = s.y + s.h - MIN_SIZE; h = MIN_SIZE; }
-        // Clamp within the displayed image without moving the anchored edges.
         const x1 = Math.max(d.x, x);
         const y1 = Math.max(d.y, y);
         const x2 = Math.min(d.x + d.w, x + w);
@@ -130,7 +117,6 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
     },
   });
 
-  // Created once; they read live values through the refs.
   const moveResponder = useRef(makeResponder('move')).current;
   const tlResponder = useRef(makeResponder('tl')).current;
   const trResponder = useRef(makeResponder('tr')).current;
@@ -163,8 +149,6 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
       const uri = typeof out === 'string' ? out : out?.uri;
       finish(uri ? {uri} : null);
     } catch {
-      // Crop failing must never eat the flow silently mid-air: backing out is
-      // a cancel, and the caller's picker can simply be reopened.
       finish(null);
     } finally {
       setBusy(false);
@@ -184,7 +168,6 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
           )}
           {rect && disp && (
             <>
-              {/* Dimmed surround, then the live window. */}
               <View pointerEvents="none" style={{position: 'absolute', left: disp.x, top: disp.y, width: disp.w, height: rect.y - disp.y, backgroundColor: 'rgba(0,0,0,0.55)'}} />
               <View pointerEvents="none" style={{position: 'absolute', left: disp.x, top: rect.y + rect.h, width: disp.w, height: disp.y + disp.h - rect.y - rect.h, backgroundColor: 'rgba(0,0,0,0.55)'}} />
               <View pointerEvents="none" style={{position: 'absolute', left: disp.x, top: rect.y, width: rect.x - disp.x, height: rect.h, backgroundColor: 'rgba(0,0,0,0.55)'}} />

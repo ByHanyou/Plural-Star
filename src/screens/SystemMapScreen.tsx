@@ -136,9 +136,6 @@ const buildLayout = (ms: Member[], rels: Relationship[]): {nodes: MapNode[]; byI
 
 const MemberPickerField = ({label, value, onChange, members, facets = [], T}: {
   label: string; value: string; onChange: (id: string) => void; members: Member[];
-  /** Their own labeled section, off-map ones included: a relationship used to
-   *  be impossible to CREATE until both facets were manually added to the map
-   *  first. Picking one here puts it on the map when the relationship saves. */
   facets?: Member[]; T: ThemeColors;
 }) => {
   const {t} = useTranslation();
@@ -190,13 +187,8 @@ const MemberPickerField = ({label, value, onChange, members, facets = [], T}: {
   );
 };
 
-// Multi-select twin of MemberPickerField for the connection editor's To side:
-// one pass can target several members (poly relationships). Rows toggle and
-// the list stays open; the trigger reads the joined selection.
 const MemberMultiPickerField = ({label, values, onToggle, members, facets = [], T}: {
   label: string; values: string[]; onToggle: (id: string) => void; members: Member[];
-  /** Their own labeled section, off-map ones included — same rule as the
-   *  single picker above. */
   facets?: Member[]; T: ThemeColors;
 }) => {
   const {t} = useTranslation();
@@ -302,32 +294,17 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const winH = useWindowDimensions().height;
   const editorScrollRef = useRef<ScrollView>(null);
   const [showArchived, setShowArchived] = useState(false);
-  // Default ON: facets have always rendered once added, so the toggle only
-  // ever hides them on request. Hiding leaves mapIds untouched — toggling
-  // back restores every facet exactly where it was.
   const [showFacets, setShowFacets] = useState(true);
   const [colorAll, setColorAll] = useState(false);
-  // Tombstoned members (deleted) stay in storage only so history, chat and map
-  // links keep resolving to a name. They must never be offered for selection,
-  // including when Archived is switched on, or they show up as members that
-  // cannot be found or archived anywhere else in the app.
   const [mapIds, setMapIds] = useState<string[]>([]);
   const mapIdSet = useMemo(() => new Set(mapIds), [mapIds]);
-  /** The plain roster. This is what any LIST of members offers, here and everywhere. */
   const rosterEligible = useMemo(() => members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted && (showArchived || !m.archived)), [members, showArchived]);
-  /** Facets, reachable only through their own Add control — never by appearing in the list. */
   const facetEligible = useMemo(() => members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted && (showArchived || !m.archived)), [members, showArchived]);
-  /** Everything allowed to sit ON the map: the roster, plus the facets someone
-   *  deliberately added. Keeping the added ones here is what lets a facet render
-   *  and take relationships once it has been put there on purpose. */
   const eligibleMembers = useMemo(
     () => [...rosterEligible, ...facetEligible.filter(m => mapIdSet.has(m.id))],
     [rosterEligible, facetEligible, mapIdSet],
   );
   const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id) && (showFacets || !m.isFacet)), [eligibleMembers, mapIdSet, showFacets]);
-  // Name lookups cover ALL facets, not just on-map ones: the relationship
-  // editor can now pick an off-map facet, and its preview line needs the name
-  // before the save puts them on the map.
   const memberById = useMemo(() => new Map([...rosterEligible, ...facetEligible].map(m => [m.id, m])), [rosterEligible, facetEligible]);
 
   const [relationships, setRelationships] = useState<Relationship[]>([]);
@@ -504,15 +481,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     return d !== undefined && d <= depth;
   };
 
-  /**
-   * A relationship belongs to the rings being shown only if it is one of the
-   * hops that GOT us there. Lighting every edge whose two ends are both in
-   * reach also lights the relationships BETWEEN two neighbours, which is not
-   * the selected member's relationship at all: at depth 1, picking someone
-   * related to both Jay and Jayne lit the Jay-Jayne line too. A lit edge is one
-   * that steps OUTWARD a ring; two members sitting in the same ring are related
-   * to each other, not to the selection, so their line stays quiet.
-   */
   const edgeLit = (fromId: string, toId: string): boolean => {
     if (!hopDistances || !selectedId) return false;
     const a = hopDistances.get(fromId);
@@ -662,12 +630,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     }
     const findDup = (to: string) => relationships.find(r => r.id !== editRel?.id && r.typeId === typeId
       && ((r.fromId === fromId && r.toId === to) || (!td.directional && r.fromId === to && r.toId === fromId)));
-    // "It says I've already added relationships I haven't": removing a member
-    // from the map keeps their relationships (they are still selectable, so
-    // they should still be there), which left this guard refusing over
-    // threads the user cannot SEE anywhere. Instead of dead-ending, offer the
-    // existing row for editing and put its endpoints back on the map so it is
-    // visible again.
     const offerDup = (dup: Relationship) => {
       Alert.alert(t('systemMap.title'), t('systemMap.duplicate'), [
         {text: t('common.cancel'), style: 'cancel'},
@@ -690,10 +652,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       setEditRel(null);
       return;
     }
-    // Multi-select To (poly relationships): one pass creates the same
-    // relationship to every selected member. Pairs that already have it are
-    // skipped rather than refused; only an all-duplicates save surfaces the
-    // duplicate prompt.
     const fresh = targets.filter(to => !findDup(to));
     if (fresh.length === 0) {
       offerDup(findDup(targets[0])!);
@@ -750,9 +708,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     Alert.alert(t('systemMap.deleteType'), t('systemMap.deleteTypeMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.delete'), style: 'destructive', onPress: async () => {
-        // A preset cannot be removed from the constant, so the deletion is
-        // stored as a tombstoned override on the same id; allRelationshipTypes
-        // drops it. Any prior rename/recolor override is replaced.
         await saveCustomTypes([...customTypes.filter(x => x.id !== td.id), {id: td.id, name: td.name, directional: td.directional, preset: true, deleted: true}]);
         await saveRelationships(relationships.filter(r => r.typeId !== td.id));
         if (typeId === td.id) setTypeId('');
@@ -761,7 +716,9 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   };
 
   const selectedMember = selectedId ? memberById.get(selectedId) : undefined;
-  const selectedRels = selectedId ? relationships.filter(r => r.fromId === selectedId || r.toId === selectedId) : [];
+  const selectedRels = selectedId
+    ? relationships.filter(r => (r.fromId === selectedId || r.toId === selectedId) && nodesById.has(r.fromId === selectedId ? r.toId : r.fromId))
+    : [];
   const selectedTd = typeById.get(typeId);
 
   return (
@@ -959,8 +916,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               const other = memberById.get(otherId);
               if (!other) return null;
               return (
-                // Edit and delete as siblings: the delete ✕ was a child of the
-                // labeled row touchable, unreachable by iOS VoiceOver.
                 <View key={r.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
                   <TouchableOpacity onPress={() => openEditor(r)} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityLabel={`${roleOfOther(r, selectedMember.id)}: ${other.name}`}
@@ -992,10 +947,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 {editRel ? t('systemMap.editRelationship') : t('systemMap.addRelationship')}
               </Text>
 
-              {/* All facets, not just on-map ones: a relationship between two
-                  facets was impossible to create until both were manually
-                  added to the map first (found on Desktop, same architecture
-                  here). Saving already puts every endpoint on the map. */}
               <MemberPickerField label={t('systemMap.from')} value={fromId} onChange={setFromId} members={rosterEligible} facets={facetEligible} T={T} />
 
               <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.type')}</Text>
@@ -1175,10 +1126,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
       {showMemberPicker && (
         <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kb}}>
-          {/* Fixed height, not maxHeight: sized to content, the whole sheet —
-              search box included — jumped taller and shorter as every
-              keystroke changed the result count ("search bar bounces around
-              when typing"). The list scrolls inside a stable frame instead. */}
           <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(winH * 0.75, winH - kb - 16))}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('members.addMember')}</Text>
@@ -1195,8 +1142,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 const q = memberPickerSearch.trim().toLowerCase();
                 const match = (m: Member) => !mapIdSet.has(m.id) && memberMatchesSearch(m, q);
                 const candidates = sortMembersBySearch(rosterEligible.filter(match), memberPickerSearch.trim());
-                // Facets get their own section, exactly like the front picker:
-                // out of the member list, still addable on purpose.
                 const facetCandidates = sortMembersBySearch(facetEligible.filter(match), memberPickerSearch.trim());
                 if (candidates.length === 0 && facetCandidates.length === 0) {
                   return <Text style={{fontSize: fs(12), color: T.muted, paddingVertical: 12}}>{t('mention.noMembers')}</Text>;

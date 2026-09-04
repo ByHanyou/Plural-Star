@@ -1,4 +1,5 @@
 import {saveAvatarFromUrl} from '../utils/mediaUtils';
+import {logError} from '../utils/log';
 
 export const normalizeSpAvatarUrl = (raw: any): string => {
   const s = String(raw || '').trim();
@@ -36,9 +37,8 @@ export const spGet = async (url: string, headers: any): Promise<any | null> => {
       const res = await fetch(url, {headers});
       if (res.ok) { try { return await res.json(); } catch { return null; } }
       if (res.status === 401 || res.status === 403) return null;
-      console.log(`[SP-FETCH] ${url} -> ${res.status} (attempt ${attempt + 1})`);
     } catch (e) {
-      console.log(`[SP-FETCH] ${url} network error (attempt ${attempt + 1}):`, e);
+      logError('sp-fetch', e);
     }
     if (attempt < 2) await new Promise<void>(r => setTimeout(() => r(), 700 * (attempt + 1)));
   }

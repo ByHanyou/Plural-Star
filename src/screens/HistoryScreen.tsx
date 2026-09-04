@@ -236,7 +236,6 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
 });
 
 export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, readOnly = false, historyOverride, membersOverride, journalOverride}: Props) => {
-  // The open entry's "→ now" duration freezes without a tick.
   useMinuteTick();
   const storeHistory = useAppStore(s => s.history);
   const storeJournal = useAppStore(s => s.journal);
@@ -464,7 +463,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
           contentContainerStyle={{padding: 16, paddingBottom: 32}}
           ListEmptyComponent={
             <View style={{alignItems: 'center', paddingVertical: 48}}>
-              <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}}>◷</Text>
+              <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◷</Text>
               <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>
                 {singlet ? t('history.noHistorySinglet') : t('history.noHistory')}
               </Text>
@@ -520,7 +519,6 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                             {selectedMemberId === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                           </TouchableOpacity>
                         );
-                        // Facets keep their own section: out of the member list, still selectable.
                         const facets = singlet ? [] : sortMembersBySearch(members.filter(m => m.isFacet && memberMatchesSearch(m, q)), memberSearch);
                         return (
                           <>

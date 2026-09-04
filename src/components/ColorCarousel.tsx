@@ -32,8 +32,6 @@ const ColorCarouselInner = ({value, onChange, T, size = 30}: {value: string; onC
 
   const cur = (value || '').toUpperCase();
 
-  // Built WITHOUT the selected value in scope: tapping a swatch must not rebuild
-  // 116 entries + 92 translation lookups. Selection is applied at render time.
   const baseEntries = useMemo<CarouselEntry[]>(() => {
     const out: CarouselEntry[] = [];
     const seen = new Set<string>();
