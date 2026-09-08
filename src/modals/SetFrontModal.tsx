@@ -3,16 +3,16 @@ import {View, TouchableOpacity, ScrollView, Keyboard, Alert} from 'react-native'
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {Member, MemberGroup, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch, memberMatchesSearch} from '../utils';
+import {Member, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {TFunction} from 'i18next';
 import {Btn, Field, SectionDivider, MoodPicker, EnergyRow, LocationPicker} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allAssigned, T, t, kindLabel}: {
+const TierMemberPicker = ({tierKey, selected, setSelected, members, allAssigned, T, t, kindLabel}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
-  members: Member[]; groups: MemberGroup[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
+  members: Member[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
   kindLabel?: string;
 }) => {
   const fs = fontScale(T);
@@ -110,7 +110,7 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
   );
 };
 
-export const SetFrontModal = ({visible, theme: T, members, groups, current, settings, lastKnownLocation, onSave, onClose}: any) => {
+export const SetFrontModal = ({visible, theme: T, members, current, settings, lastKnownLocation, onSave, onClose}: any) => {
   const fs = fontScale(T);
   const {t} = useTranslation();
   const [primaryIds, setPrimaryIds] = useState<Set<string>>(new Set());
@@ -206,12 +206,12 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     }}>{t('common.clear')}</Btn><Btn instant T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.title')}</Text>
-      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
+      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={regularMembers} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
-      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
+      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={facets} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
-        <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
+        <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={customFronts} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
       </>)}
       <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
@@ -223,12 +223,12 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
 
       <SectionDivider label={t('tier.coFront')} color={T.info} T={T} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.title')}</Text>
-      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
+      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={regularMembers} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
-      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
+      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={facets} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
-        <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
+        <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={customFronts} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
       </>)}
       <MoodPicker mood={coFrontMood} setMood={setCoFrontMood} customMood={coFrontCustomMood} setCustomMood={setCoFrontCustomMood} showCustom={coFrontShowCustom} setShowCustom={setCoFrontShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
@@ -240,12 +240,12 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
 
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.title')}</Text>
-      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
+      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={regularMembers} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
-      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
+      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={facets} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.customFronts')}</Text>
-        <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={customFronts} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
+        <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={customFronts} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.customFronts')} />
       </>)}
       <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />

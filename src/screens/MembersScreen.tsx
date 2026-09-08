@@ -4,9 +4,9 @@ import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {FlashList, FlashListRef} from '@shopify/flash-list';
 import {useTranslation} from 'react-i18next';
-import {Fonts, PALETTE, fontScale, ThemeColors} from '../theme';
+import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay} from '../utils';
+import {Member, MemberGroup, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, sortMembers, descendantsOf, groupKind, sortGroupsForDisplay} from '../utils';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {PlusMinusIcon} from '../components/Glyphs';
@@ -44,7 +44,6 @@ interface MemberCardProps {
   onToggleSelect: (id: string) => void;
   onEnterSelection: (id: string) => void;
   onReorder?: (id: string, direction: 'up' | 'down') => void;
-  onEditMember: (m: Member) => void;
   onQuickFront?: (m: Member) => void;
   onRemoveFromFront?: (m: Member) => void;
   fields: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; background?: 'plain' | 'color' | 'banner'};
@@ -56,7 +55,7 @@ interface MemberCardProps {
 const MemberCard = React.memo(function MemberCard({
   m, index, isLast, selectionMode, isSelected, showReorder,
   front, allFrontIds, groups, T, fs, t,
-  onActivate, onToggleSelect, onEnterSelection, onReorder, onEditMember, onQuickFront, onRemoveFromFront, fields, prevName, nextName, dragHandle,
+  onActivate, onToggleSelect, onEnterSelection, onReorder, onQuickFront, onRemoveFromFront, fields, prevName, nextName, dragHandle,
 }: MemberCardProps) {
   const tier = getMemberTier(m.id, front);
   const isFronting = allFrontIds.has(m.id);
@@ -158,7 +157,6 @@ interface Props {
   onAddFacet?: () => void;
   onEdit: (member: Member) => void;
   onView?: (member: Member) => void;
-  onSaveGroups: (groups: MemberGroup[]) => void;
   onSaveSortMode?: (mode: MemberSortMode) => void;
   onReorderMember?: (id: string, direction: 'up' | 'down') => void;
   onBulkArchive?: (ids: string[]) => void | Promise<void>;
@@ -171,7 +169,7 @@ interface Props {
   onRemoveFromFront?: (id: string) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
+export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
   const members = useAppStore(s => s.members);
   const front = useAppStore(s => s.front);
   const groups = useAppStore(s => s.groups);
@@ -404,7 +402,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       onToggleSelect={toggleSelected}
       onEnterSelection={enterSelection}
       onReorder={handleReorder}
-      onEditMember={onEdit}
       onQuickFront={onQuickAddToFront ? setQuickFrontFor : undefined}
       onRemoveFromFront={onRemoveFromFront ? (mm: Member) => {
         Alert.alert(t('members.removeFromFront'), t('members.removeFromFrontMsg', {name: mm.name}), [
@@ -422,7 +419,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       ) : undefined}
     />
     </View>
-  ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, onEdit, listFields, onQuickAddToFront, onRemoveFromFront, reorderOn, drag, dragging, registerHeight, makeHandlePanHandlers]);
+  ), [filtered, selectionMode, selectedIds, showReorder, front, allFrontIds, groups, T, fs, t, handleActivate, toggleSelected, enterSelection, handleReorder, listFields, onQuickAddToFront, onRemoveFromFront, reorderOn, drag, dragging, registerHeight, makeHandlePanHandlers]);
 
   const allVisibleIds = useMemo(() => filtered.map(m => m.id), [filtered]);
   const allSelectedInView = allVisibleIds.length > 0 && allVisibleIds.every(id => selectedIds.has(id));

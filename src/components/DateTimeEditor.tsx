@@ -6,7 +6,7 @@ import type {ThemeColors} from '../theme';
 import i18n from '../i18n/i18n';
 import {getLocale, uses12HourClock, dayPeriodLabel} from '../utils';
 
-export type DateTimeEditorMode =
+type DateTimeEditorMode =
   | 'datetime'
   | 'date'
   | 'time'

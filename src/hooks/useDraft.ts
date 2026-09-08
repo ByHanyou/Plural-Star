@@ -1,7 +1,7 @@
 import {useEffect, useRef} from 'react';
 import {store} from '../storage';
 
-export const draftKey = (kind: string, id: string): string => `ps.draft:${kind}:${id}`;
+const draftKey = (kind: string, id: string): string => `ps.draft:${kind}:${id}`;
 
 const cleared = new Set<string>();
 

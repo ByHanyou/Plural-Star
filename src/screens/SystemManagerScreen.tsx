@@ -12,7 +12,7 @@ import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 import {GroupBrowser} from '../components/GroupBrowser';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName, isRosterMember} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName, isRosterMember} from '../utils';
 
 interface Props {
   theme: ThemeColors;

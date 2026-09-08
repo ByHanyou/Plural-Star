@@ -19,7 +19,7 @@ import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
+export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const isNew = !member;

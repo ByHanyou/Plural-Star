@@ -1,13 +1,7 @@
 const BASE58_ALPHABET =
   '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-const BASE58_MAP: Record<string, number> = (() => {
-  const m: Record<string, number> = {};
-  for (let i = 0; i < BASE58_ALPHABET.length; i++) m[BASE58_ALPHABET[i]] = i;
-  return m;
-})();
-
-export const base58Encode = (bytes: Uint8Array): string => {
+const base58Encode = (bytes: Uint8Array): string => {
   if (bytes.length === 0) return '';
   let zeros = 0;
   while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
@@ -29,32 +23,6 @@ export const base58Encode = (bytes: Uint8Array): string => {
   let out = '';
   for (let i = 0; i < zeros; i++) out += '1';
   for (let i = digits.length - 1; i >= 0; i--) out += BASE58_ALPHABET[digits[i]];
-  return out;
-};
-
-export const base58Decode = (str: string): Uint8Array => {
-  if (str.length === 0) return new Uint8Array(0);
-  let zeros = 0;
-  while (zeros < str.length && str[zeros] === '1') zeros++;
-
-  const bytes: number[] = [0];
-  for (let i = zeros; i < str.length; i++) {
-    const val = BASE58_MAP[str[i]];
-    if (val === undefined) throw new Error(`invalid base58 character: ${str[i]}`);
-    let carry = val;
-    for (let j = 0; j < bytes.length; j++) {
-      carry += bytes[j] * 58;
-      bytes[j] = carry & 0xff;
-      carry >>= 8;
-    }
-    while (carry > 0) {
-      bytes.push(carry & 0xff);
-      carry >>= 8;
-    }
-  }
-
-  const out = new Uint8Array(zeros + bytes.length);
-  for (let i = 0; i < bytes.length; i++) out[zeros + i] = bytes[bytes.length - 1 - i];
   return out;
 };
 
@@ -91,27 +59,4 @@ export const peerIdFromEd25519PublicKey = (rawPub: Uint8Array): string => {
   }
   const mh = multihash(IDENTITY_CODE, marshaled);
   return base58Encode(mh);
-};
-
-export const ed25519PublicKeyFromPeerId = (peerId: string): Uint8Array | null => {
-  let mh: Uint8Array;
-  try {
-    mh = base58Decode(peerId);
-  } catch {
-    return null;
-  }
-  if (mh.length < 2 || mh[0] !== IDENTITY_CODE) return null;
-  const len = mh[1];
-  if (mh.length !== 2 + len) return null;
-  const marshaled = mh.subarray(2);
-  if (
-    marshaled.length !== 36 ||
-    marshaled[0] !== 0x08 ||
-    marshaled[1] !== 0x01 ||
-    marshaled[2] !== 0x12 ||
-    marshaled[3] !== 0x20
-  ) {
-    return null;
-  }
-  return marshaled.subarray(4);
 };

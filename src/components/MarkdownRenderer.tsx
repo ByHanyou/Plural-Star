@@ -164,27 +164,23 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
 };
 
 const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
-  const blocks: React.ReactNode[] = [];
-  let key = 0;
   const blockRe = /<(p|h[1-3]|blockquote|ul|ol|pre|hr|li|div)(\s[^>]*)?>|<\/(p|h[1-3]|blockquote|ul|ol|pre|li|div)>/g;
-  const tagStack: string[] = [];
   let segments: {tag: string; content: string; listItems?: string[]}[] = [];
   let current = '';
   let currentTag = 'p';
   let listItems: string[] = [];
-  let inList = '';
   let lastIdx = 0;
   let match;
 
   const raw = html.replace(/\n/g, '');
 
   while ((match = blockRe.exec(raw)) !== null) {
-    const [full, openTag, attrs, closeTag] = match;
+    const [full, openTag, , closeTag] = match;
     const tag = (openTag || closeTag || '').toLowerCase();
 
     if (openTag) {
       if (tag === 'hr') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; segments.push({tag: 'hr', content: ''}); continue; }
-      if (tag === 'ul' || tag === 'ol') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; inList = tag; listItems = []; continue; }
+      if (tag === 'ul' || tag === 'ol') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; listItems = []; continue; }
       if (tag === 'li') { current = ''; continue; }
       if (tag === 'pre' || tag === 'blockquote') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; currentTag = tag; continue; }
       if (current.trim()) segments.push({tag: currentTag, content: current});
@@ -192,7 +188,7 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
       currentTag = tag;
     } else if (closeTag) {
       if (closeTag === 'li') { listItems.push(current); current = ''; continue; }
-      if (closeTag === 'ul' || closeTag === 'ol') { segments.push({tag: closeTag, content: '', listItems: [...listItems]}); inList = ''; listItems = []; continue; }
+      if (closeTag === 'ul' || closeTag === 'ol') { segments.push({tag: closeTag, content: '', listItems: [...listItems]}); listItems = []; continue; }
       if (current.trim() || closeTag === 'p') segments.push({tag: currentTag, content: current});
       current = '';
       currentTag = 'p';

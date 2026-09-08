@@ -611,7 +611,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
         animTy.setValue(p.ty);
       }
     },
-    onPanResponderRelease: (evt, gs) => {
+    onPanResponderRelease: (_evt, gs) => {
       const drag = dragRef.current;
       dragRef.current = null;
       if (!panRef.current.moved) {

@@ -55,7 +55,7 @@ const luminance = (hex: string): number => {
 export const initialOn = (bg: string): string =>
   luminance(bg) > 0.35 ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.92)';
 
-export const contrastRatio = (hexA: string, hexB: string): number => {
+const contrastRatio = (hexA: string, hexB: string): number => {
   const lum = (hex: string): number => {
     const h = (hex || '').replace('#', '');
     const full = h.length === 3 ? h.split('').map(c => c + c).join('') : (h + '000000').slice(0, 6);
@@ -168,7 +168,7 @@ export const deriveTheme = (bg: string, accent: string, text: string, mid: strin
   };
 };
 
-export const DARK_PALETTE: CustomPalette = {
+const DARK_PALETTE: CustomPalette = {
   id: '__dark__',
   name: 'Obsidian',
   bg: '#0A1F2E',
@@ -177,7 +177,7 @@ export const DARK_PALETTE: CustomPalette = {
   mid: '#7A8A99',
 };
 
-export const LIGHT_PALETTE: CustomPalette = {
+const LIGHT_PALETTE: CustomPalette = {
   id: '__light__',
   name: 'Steel',
   bg: '#7A8A99',

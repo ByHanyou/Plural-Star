@@ -15,7 +15,7 @@ import {ImageCropHost} from './src/components/ImageCropModal';
 import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {store, KEYS, storageLooksWiped, restoreAllBackups, storageReadFailures, anyPsKeysExist} from './src/storage';
-import {SystemInfo, Member, MemberGroup, FrontState, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, DeviceCodes, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
+import {SystemInfo, Member, MemberGroup, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, DeviceCodes, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
 import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars, restoreMissingMediaFiles} from './src/utils/mediaUtils';
 import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, reschedulePlannerNotifications} from './src/services/NotificationService';
 import {waitForProtectedData} from './src/services/LiveActivityService';
@@ -49,7 +49,7 @@ import {TabBar, Tab, TAB_IDS} from './src/components/TabBar';
 import {useFrontNotifications} from './src/hooks/useFrontNotifications';
 import {useNoteboardNotifications} from './src/hooks/useNoteboardNotifications';
 import {useAppStore, DEFAULT_SETTINGS} from './src/store/appStore';
-import {saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkRemoveFromGroup, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
+import {saveSystem, saveMembers, savePalettes, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
 import {requestPermissions} from './src/utils/permissions';
 import {logError} from './src/utils/log';
 import {mergeHistoryEntries} from './src/import/convert';
@@ -100,7 +100,6 @@ function MainAppContent() {
   const setJournal = useAppStore(s => s.setJournal);
   const journalTemplates = useAppStore(s => s.journalTemplates);
   const setJournalTemplates = useAppStore(s => s.setJournalTemplates);
-  const shareSettings = useAppStore(s => s.shareSettings);
   const setShareSettings = useAppStore(s => s.setShareSettings);
   const appSettings = useAppStore(s => s.appSettings);
   const setAppSettings = useAppStore(s => s.setAppSettings);
@@ -162,14 +161,14 @@ function MainAppContent() {
     const hadAnyPsKeys = await anyPsKeysExist();
     let storageSuspect = false;
     if (!(await waitForProtectedData())) {
-      console.warn('[STARTUP] Protected data still locked (pre-unlock background launch) — marking storage suspect.');
+      if (__DEV__) console.warn('[STARTUP] Protected data still locked (pre-unlock background launch) — marking storage suspect.');
       storageSuspect = true;
     }
     try {
       if (!storageSuspect && await storageLooksWiped()) {
-        console.warn('[STARTUP] AsyncStorage blank but backups exist — restoring before load');
+        if (__DEV__) console.warn('[STARTUP] AsyncStorage blank but backups exist — restoring before load');
         const n = await restoreAllBackups();
-        console.warn(`[STARTUP] restored ${n} keys from file backups`);
+        if (__DEV__) console.warn(`[STARTUP] restored ${n} keys from file backups`);
         if (n === 0) storageSuspect = true;
       }
     } catch {
@@ -194,12 +193,12 @@ function MainAppContent() {
         store.get<ChatCategory[]>(KEYS.chatCategories, []),
       ]);
       if (!storageSuspect && !sys && (mem || []).length === 0 && (hist || []).length === 0 && AppState.currentState !== 'active') {
-        console.warn('[STARTUP] Blank load while app is not active — background/prewarm launch, storage may still be locked. Marking suspect; will retry on foreground.');
+        if (__DEV__) console.warn('[STARTUP] Blank load while app is not active — background/prewarm launch, storage may still be locked. Marking suspect; will retry on foreground.');
         storageSuspect = true;
         storageSuspectRef.current = true;
       }
       if (!storageSuspect && storageReadFailures() > readFailuresBefore) {
-        console.warn('[STARTUP] AsyncStorage read(s) FAILED during this load — marking suspect; will retry on foreground.');
+        if (__DEV__) console.warn('[STARTUP] AsyncStorage read(s) FAILED during this load — marking suspect; will retry on foreground.');
         storageSuspect = true;
         storageSuspectRef.current = true;
       }
@@ -255,21 +254,21 @@ function MainAppContent() {
         const realMemberCount = (loadedMembers || []).filter(m => !m.isCustomFront).length;
         const hasUserData = realMemberCount > 0 || (hist && hist.length > 0) || (jour && jour.length > 0) || (grps && grps.length > 0);
         if (hasUserData) {
-          console.warn(`[STARTUP] System missing but ${realMemberCount} members + data present — reconstructing system, NOT entering first-run.`);
+          if (__DEV__) console.warn(`[STARTUP] System missing but ${realMemberCount} members + data present — reconstructing system, NOT entering first-run.`);
           const recovered: SystemInfo = {name: '', description: ''};
           loadedSystem = recovered;
           if (!storageSuspect) await store.set(KEYS.system, recovered);
           setSystem(recovered);
         } else if (storageSuspect) {
-          console.warn('[STARTUP] Blank load with suspect storage — staying OUT of first-run; will retry on foreground.');
+          if (__DEV__) console.warn('[STARTUP] Blank load with suspect storage — staying OUT of first-run; will retry on foreground.');
           setSystem({name: '', description: ''});
         } else if (hadAnyPsKeys) {
-          console.warn('[STARTUP] Blank load BUT ps: keys existed BEFORE this load — this is not a fresh install. Staying OUT of first-run; will retry on foreground.');
+          if (__DEV__) console.warn('[STARTUP] Blank load BUT ps: keys existed BEFORE this load — this is not a fresh install. Staying OUT of first-run; will retry on foreground.');
           storageSuspect = true;
           storageSuspectRef.current = true;
           setSystem({name: '', description: ''});
         } else {
-          console.warn('[STARTUP] No system info loaded and no ps: keys present — entering first-run state.');
+          if (__DEV__) console.warn('[STARTUP] No system info loaded and no ps: keys present — entering first-run state.');
           setFirstRun(true);
         }
       } else {
@@ -297,7 +296,7 @@ function MainAppContent() {
       const rawHist = hist || [];
       const dedupedHist = mergeHistoryEntries([], rawHist);
       if (dedupedHist.length !== rawHist.length && !storageSuspect) {
-        console.warn(`[STARTUP] collapsed ${rawHist.length - dedupedHist.length} duplicate history entries`);
+        if (__DEV__) console.warn(`[STARTUP] collapsed ${rawHist.length - dedupedHist.length} duplicate history entries`);
         await store.set(KEYS.history, dedupedHist);
       }
       const migratedFront = migrateFrontState(fr) || findOpenFrontInHistory(dedupedHist);
@@ -385,10 +384,10 @@ function MainAppContent() {
       } else if (realCount > 0) {
         const r: SystemInfo = {name: '', description: ''};
         setSystem(r);
-        console.warn(`[STARTUP] load error but ${realCount} members recovered — reconstructed system instead of first-run.`);
+        if (__DEV__) console.warn(`[STARTUP] load error but ${realCount} members recovered — reconstructed system instead of first-run.`);
       } else {
         setSystem({name: '', description: ''});
-        console.warn('[STARTUP] load error with nothing recovered — staying OUT of first-run; will retry on foreground.');
+        if (__DEV__) console.warn('[STARTUP] load error with nothing recovered — staying OUT of first-run; will retry on foreground.');
       }
     } finally {
       setLoaded(true);
@@ -396,10 +395,10 @@ function MainAppContent() {
         if (suspectRetriesRef.current < 3) {
           const attempt = ++suspectRetriesRef.current;
           const delay = attempt * 800;
-          console.warn(`[STARTUP] suspect load — auto-retry ${attempt}/3 in ${delay}ms`);
+          if (__DEV__) console.warn(`[STARTUP] suspect load — auto-retry ${attempt}/3 in ${delay}ms`);
           setTimeout(() => { loadAllRef.current?.(); }, delay);
         } else {
-          console.warn('[STARTUP] suspect load — auto-retry budget exhausted; waiting for foreground.');
+          if (__DEV__) console.warn('[STARTUP] suspect load — auto-retry budget exhausted; waiting for foreground.');
         }
       } else {
         suspectRetriesRef.current = 0;
@@ -412,7 +411,7 @@ function MainAppContent() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', s => {
       if (s === 'active' && storageSuspectRef.current) {
-        console.warn('[STARTUP] foreground after suspect load — retrying loadAll');
+        if (__DEV__) console.warn('[STARTUP] foreground after suspect load — retrying loadAll');
         loadAll();
       }
       if (s === 'active') {
@@ -581,7 +580,6 @@ function MainAppContent() {
       onAdd={() => {}}
       onEdit={m => {setEditMember(m); setViewOnlyMember(false); setAddCustomFront(false); setShowMember(true);}}
       onView={m => {setEditMember(m); setViewOnlyMember(true); setShowMember(true);}}
-      onSaveGroups={saveGroups}
       onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
       onBulkDelete={bulkDeleteMembers}
     />
@@ -609,7 +607,7 @@ function MainAppContent() {
           onAddFacet={() => {setEditMember(null); setViewOnlyMember(false); setAddCustomFront(false); setAddFacet(true); setShowMember(true);}}
           onEdit={m => { if (m.isCustomFront) {setEditCustomFront(m); setShowCustomFront(true);} else {setEditMember(m); setViewOnlyMember(false); setShowMember(true);} }}
           onView={m => { if (m.isCustomFront) {setEditCustomFront(m); setShowCustomFront(true);} else {setEditMember(m); setViewOnlyMember(true); setShowMember(true);} }}
-          onSaveGroups={saveGroups} onSaveSortMode={saveMemberSortMode} onReorderMember={reorderMember}
+          onSaveSortMode={saveMemberSortMode} onReorderMember={reorderMember}
           onBulkArchive={(ids: string[]) => bulkSetArchived(ids, true)}
           onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
           onBulkDelete={bulkDeleteMembers}
@@ -647,7 +645,7 @@ function MainAppContent() {
           }}
           onClose={() => setShowSetFront(false)} />
       ) : (
-        <SetFrontModal visible={showSetFront} theme={C} members={members.filter(m => !m.archived)} groups={groups} current={front} settings={appSettings}
+        <SetFrontModal visible={showSetFront} theme={C} members={members.filter(m => !m.archived)} current={front} settings={appSettings}
           lastKnownLocation={lastKnownLocation}
           onSave={async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
             try { await updateFront(primary, coFront, coConscious); } catch (e: any) { Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')); return; }
@@ -668,7 +666,6 @@ function MainAppContent() {
         readOnly={viewOnlyMember}
         facetMode={addFacet || !!editMember?.isFacet}
         profileMode={isSinglet && editMember?.id === selfMember?.id && !editMember?.isCustomFront}
-        onRequestEdit={isSinglet && viewOnlyMember ? () => setViewOnlyMember(false) : undefined}
         isFronting={!!editMember && allFrontMemberIds(front).includes(editMember.id)}
         onMentionPress={openMemberById}
         onShowOnMap={showMemberOnMap}

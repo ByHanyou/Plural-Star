@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
-import {Member, FrontState, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, translateMood} from '../utils';
+import {Member, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, translateMood} from '../utils';
 
 interface Props {
   theme: ThemeColors;

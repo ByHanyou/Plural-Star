@@ -26,7 +26,7 @@ export type RestoreCtx = {
   control?: ImportControl;
 };
 
-export const runPhase = async (
+const runPhase = async (
   ctx: {control?: ImportControl; setRestoreProgress: any},
   label: string,
   work: () => Promise<void>,
@@ -39,8 +39,7 @@ export const runPhase = async (
   return true;
 };
 
-export const importBase64MemberMedia = async (
-    field: 'avatar' | 'banner',
+const importBase64MemberMedia = async (
     media: Record<string, string>,
     save: (memberId: string, raw: string) => Promise<string | null>,
     progressLabel: string,
@@ -81,7 +80,7 @@ const mergeById = <T extends {id?: any}>(existing: T[] | null | undefined, incom
   return out;
 };
 
-export const mergeBackupMembers = (existing: Member[], incoming: Member[]): Member[] => {
+const mergeBackupMembers = (existing: Member[], incoming: Member[]): Member[] => {
   const out = [...existing];
   const claimed = new Set<string>();
   incoming.forEach(im => {
@@ -97,7 +96,7 @@ export const mergeBackupMembers = (existing: Member[], incoming: Member[]): Memb
   return out;
 };
 
-export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCtx) => {
+const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCtx) => {
   const {restoreSel, importMode, setRestoreProgress, t} = ctx;
     const upd = importMode === 'update';
     if (restoreSel.journal && data.journal) {
@@ -153,7 +152,7 @@ export const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: Re
               : migrated;
             await store.set(chatMsgKey(chId), nextMsgs);
           } catch (chErr) {
-            console.error(`[RESTORE] failed channel ${chId}:`, chErr);
+            if (__DEV__) console.error(`[RESTORE] failed channel ${chId}:`, chErr);
           }
         }, 4, (done, total) => setRestoreProgress(t('share.progressChatN', {done, total})));
       }
@@ -330,7 +329,7 @@ const ourAssetFor = (zipFiles: Record<string, Uint8Array>, ownerId: string, role
   } catch { return null; }
 };
 
-export const ourFrontEventsToHistory = (ouFronts: any[], idMap: Record<string, string>): HistoryEntry[] => {
+const ourFrontEventsToHistory = (ouFronts: any[], idMap: Record<string, string>): HistoryEntry[] => {
   const rows = ouFronts
     .map((f: any) => ({
       ids: (Array.isArray(f.memberIds) ? f.memberIds : []).map((eid: any) => idMap[String(eid)]).filter(Boolean) as string[],
@@ -370,7 +369,7 @@ const ourZipAvatarFor = (zipFiles: Record<string, Uint8Array>, ownerId: string):
   return name ? zipFiles[name] : null;
 };
 
-export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: Record<string, Uint8Array> | null) => {
+const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: Record<string, Uint8Array> | null) => {
   const {restoreSel, importMode, setRestoreProgress, t} = ctx;
     const rawData = normalizeOurcana(rawDataIn);
     const ouSys = rawData.system || {};
@@ -508,7 +507,7 @@ export const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: 
     }
   };
 
-export const importMultiplicity = async (rawData: any, ctx: RestoreCtx) => {
+const importMultiplicity = async (rawData: any, ctx: RestoreCtx) => {
   const {restoreSel, importMode, setRestoreProgress, t} = ctx;
     const sys = rawData.system || {};
     const alters: any[] = Array.isArray(rawData.alters) ? rawData.alters : [];
@@ -576,11 +575,11 @@ export const handleRestore = (ctx: RestoreCtx) => {
             if (restoreSel.members && Array.isArray(data.members)) {
               let mem: any[] = data.members;
               if (restoreSel.avatars) {
-                const avatarMap = await importBase64MemberMedia('avatar', data.avatars || {}, (memberId, raw) => saveAvatar(memberId, raw).catch(() => null), t('share.progressAvatars'), 'share.progressAvatarsN', ctx);
+                const avatarMap = await importBase64MemberMedia(data.avatars || {}, (memberId, raw) => saveAvatar(memberId, raw).catch(() => null), t('share.progressAvatars'), 'share.progressAvatarsN', ctx);
                 mem = mem.map(m => avatarMap[m.id] ? {...m, avatar: avatarMap[m.id]} : m);
               }
               if (restoreSel.banners) {
-                const bannerMap = await importBase64MemberMedia('banner', data.banners || {}, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
+                const bannerMap = await importBase64MemberMedia(data.banners || {}, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
                 mem = mem.map(m => bannerMap[m.id] ? {...m, banner: bannerMap[m.id]} : m);
               }
               setRestoreProgress(t('share.progressSavingMembers'));
@@ -897,12 +896,12 @@ export const handleRestore = (ctx: RestoreCtx) => {
             const wantAvatars = restoreSel.avatars && data.avatars && Object.keys(data.avatars).length > 0;
             const wantBanners = restoreSel.banners && data.banners && Object.keys(data.banners).length > 0;
             if (wantAvatars) {
-              const avatarMap = await importBase64MemberMedia('avatar', data.avatars!, (memberId, raw) => saveAvatar(memberId, raw).catch(() => null), t('share.progressAvatars'), 'share.progressAvatarsN', ctx);
+              const avatarMap = await importBase64MemberMedia(data.avatars!, (memberId, raw) => saveAvatar(memberId, raw).catch(() => null), t('share.progressAvatars'), 'share.progressAvatarsN', ctx);
               membersAccum = mergeMediaIntoMembers(membersAccum, 'avatar', avatarMap);
               data.avatars = {};
             }
             if (wantBanners) {
-              const bannerMap = await importBase64MemberMedia('banner', data.banners!, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
+              const bannerMap = await importBase64MemberMedia(data.banners!, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
               membersAccum = mergeMediaIntoMembers(membersAccum, 'banner', bannerMap);
               data.banners = {};
             }
@@ -914,7 +913,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
             if (data.avatars && Object.keys(data.avatars).length > 0) {
               const existing = await getStoredMembers();
               const entries = Object.entries(data.avatars);
-              const avatarMap = await importBase64MemberMedia('avatar', data.avatars, (memberId, raw) => saveAvatar(memberId, raw).catch(() => null), t('share.progressAvatars'), 'share.progressAvatarsN', ctx);
+              const avatarMap = await importBase64MemberMedia(data.avatars, (memberId, raw) => saveAvatar(memberId, raw).catch(() => null), t('share.progressAvatars'), 'share.progressAvatarsN', ctx);
               const backupHasAvatar = new Set(entries.map(([id]) => id));
               const updated = existing.map(m => {
                 if (avatarMap[m.id]) return {...m, avatar: avatarMap[m.id]};
@@ -927,7 +926,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
             if (restoreSel.banners && data.banners && Object.keys(data.banners).length > 0) {
               const current = await getStoredMembers();
               const entries = Object.entries(data.banners);
-              const bannerMap = await importBase64MemberMedia('banner', data.banners, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
+              const bannerMap = await importBase64MemberMedia(data.banners, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
               const backupHasBanner = new Set(entries.map(([id]) => id));
               const updated = current.map(m => {
                 if (bannerMap[m.id]) return {...m, banner: bannerMap[m.id]};
@@ -940,7 +939,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
           } else if (restoreSel.banners && data.banners && Object.keys(data.banners).length > 0) {
             const current = await getStoredMembers();
             const entries = Object.entries(data.banners);
-            const bannerMap = await importBase64MemberMedia('banner', data.banners, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
+            const bannerMap = await importBase64MemberMedia(data.banners, (memberId, raw) => saveBannerFromBase64(memberId, raw).catch(() => null), t('share.progressBanners'), 'share.progressBannersN', ctx);
             const backupHasBanner2 = new Set(entries.map(([id]) => id));
             const updated = current.map(m => {
               if (bannerMap[m.id]) return {...m, banner: bannerMap[m.id]};

@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
 import {AccentText} from '../components/AccentText';
 import {RichText} from '../components/MarkdownRenderer';
-import {Member, FrontState, getInitials, allFrontMemberIds, singletStatuses} from '../utils';
+import {Member, getInitials, allFrontMemberIds, singletStatuses} from '../utils';
 import {useAppStore} from '../store/appStore';
 
 type SubTab = 'profile' | 'statuses';

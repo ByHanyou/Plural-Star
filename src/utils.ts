@@ -31,7 +31,7 @@ export const childrenOf = (nodes: MemberGroup[], parentId: string | null): Membe
     .filter(n => groupParent(n) === parentId)
     .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || nameCompare(a.name, b.name));
 
-export const groupDisplayOrder = (nodes: MemberGroup[]): Map<string, number> => {
+const groupDisplayOrder = (nodes: MemberGroup[]): Map<string, number> => {
   const order = new Map<string, number>();
   const walk = (parentId: string | null) => {
     for (const g of childrenOf(nodes, parentId)) {
@@ -68,28 +68,10 @@ export const descendantsOf = (nodes: MemberGroup[], id: string): MemberGroup[] =
   return out;
 };
 
-export const ancestorsOf = (nodes: MemberGroup[], id: string): MemberGroup[] => {
-  const byId = new Map(nodes.map(n => [n.id, n]));
-  const out: MemberGroup[] = [];
-  let cur = byId.get(id);
-  const seen = new Set<string>();
-  while (cur && groupParent(cur) != null) {
-    if (seen.has(cur.id)) break;
-    seen.add(cur.id);
-    const parent = byId.get(groupParent(cur)!);
-    if (!parent) break;
-    out.unshift(parent);
-    cur = parent;
-  }
-  return out;
-};
-
 export const isDescendant =(nodes: MemberGroup[], candidateId: string, ofId: string): boolean => {
   if (candidateId === ofId) return true;
   return descendantsOf(nodes, ofId).some(n => n.id === candidateId);
 };
-
-export const nodeDepth = (nodes: MemberGroup[], id: string): number => ancestorsOf(nodes, id).length;
 
 export type CustomFieldType = 'text' | 'markdown' | 'date' | 'dateRange' | 'number' | 'toggle' | 'color' | 'month' | 'year' | 'monthYear' | 'timestamp' | 'monthDay' | 'image';
 
@@ -116,7 +98,7 @@ export interface NoteboardEntry {
   read?: boolean;
 }
 
-export interface PollOption {
+interface PollOption {
   id: string;
   label: string;
   votes: string[];
@@ -166,9 +148,7 @@ export interface Member {
 export const isRosterMember = (m: Member): boolean =>
   !m.isCustomFront && !m.isFacet && !m.deleted;
 
-export const rosterMembers = (members: Member[]): Member[] => members.filter(isRosterMember);
-
-export const DEFAULT_CUSTOM_FRONT_NAMES = ['Chatty', 'Non-Verbal', 'IWC', 'DNI', 'Blurry', 'Blendy', 'Rapid Switching', 'Foggy', 'Grounded', 'Dissociated', 'Anxious', 'Depressed', 'Cheerful', 'Happy', 'Sad', 'Crisis', 'Melancholy', 'Stimming', 'Stressed', 'Working', 'Traveling', 'Sleeping', 'Hyperfocus'];
+const DEFAULT_CUSTOM_FRONT_NAMES = ['Chatty', 'Non-Verbal', 'IWC', 'DNI', 'Blurry', 'Blendy', 'Rapid Switching', 'Foggy', 'Grounded', 'Dissociated', 'Anxious', 'Depressed', 'Cheerful', 'Happy', 'Sad', 'Crisis', 'Melancholy', 'Stimming', 'Stressed', 'Working', 'Traveling', 'Sleeping', 'Hyperfocus'];
 
 const CUSTOM_FRONT_COLORS = ['#DAA520', '#7B9FE8', '#E87BA8', '#7BE8C4', '#A87BE8', '#E8A87B', '#6EC9A9', '#E87B7B', '#85B4E8', '#C97BE8', '#B4E885', '#E8C97B'];
 
@@ -216,7 +196,7 @@ export interface MedicalAppointment {
   createdAt: number;
 }
 
-export interface MedicalHistoryEntry {
+interface MedicalHistoryEntry {
   id: string;
   title: string;
   date?: number;
@@ -224,7 +204,7 @@ export interface MedicalHistoryEntry {
   createdAt: number;
 }
 
-export interface EmergencyInfo {
+interface EmergencyInfo {
   conditions?: string;
   allergies?: string;
   bloodType?: string;
@@ -274,7 +254,7 @@ export interface PlannerReminder {
 
 const plannerDayNumber = (d: Date): number => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000;
 
-export const daysInMonth = (year: number, monthZeroIndexed: number): number =>
+const daysInMonth = (year: number, monthZeroIndexed: number): number =>
   new Date(year, monthZeroIndexed + 1, 0).getDate();
 
 export const plannerOccursOnDay = (anchorTs: number, repeat: PlannerReminderRepeat | undefined, day: Date): boolean => {
@@ -302,7 +282,6 @@ export const plannerOccursOnDay = (anchorTs: number, repeat: PlannerReminderRepe
       return day.getDate() === dom;
     }
   }
-  return false;
 };
 
 export const plannerNextOccurrence = (anchorTs: number, repeat: PlannerReminderRepeat | undefined, after: number): number | null => {
@@ -335,39 +314,13 @@ export const DEFAULT_PLANNER: PlannerData = {
 export const isValidTimeHHMM = (v: string): boolean =>
   /^([01]?\d|2[0-3]):[0-5]\d$/.test(v.trim());
 
-export const time12to24 = (raw: string, ampm: 'AM' | 'PM'): string | null => {
-  const m = /^(\d{1,2})(?::(\d{2}))?$/.exec((raw || '').trim());
-  if (!m) return null;
-  let h = parseInt(m[1], 10);
-  const min = m[2] ? parseInt(m[2], 10) : 0;
-  if (h < 1 || h > 12 || min < 0 || min > 59) return null;
-  if (ampm === 'AM') { if (h === 12) h = 0; } else { if (h !== 12) h += 12; }
-  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-};
-
-export const formatTime12 = (hhmm24: string): string => {
-  const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm24 || '').trim());
-  if (!m) return hhmm24;
-  let h = parseInt(m[1], 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  h = h % 12; if (h === 0) h = 12;
-  return `${h}:${m[2]} ${ampm}`;
-};
-
-export const emergencyNotificationLine = (e: EmergencyInfo | undefined): string | null => {
-  if (!e || !e.showOnNotification) return null;
-  const parts = [e.conditions, e.allergies, e.bloodType].map(x => (x || '').trim()).filter(Boolean);
-  if (parts.length === 0) return null;
-  return `⚕ ${parts.join(' · ')}`;
-};
-
 export interface DeviceCodes {
   friendCode: string;
   syncCode: string;
   createdAt: number;
 }
 
-export const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
 let codeState = 0;
 
@@ -415,9 +368,7 @@ export const generateSyncCode = (): string =>
 
 export const DEFAULT_REL_COLOR = '#8A94A6';
 
-export const RELATIONSHIP_COLOR_CHOICES = ['#E05B5B', '#5BBF7A', '#D9B84A', '#E87BA8'];
-
-export const COLOR_NAMES: Record<string, string> = {
+const COLOR_NAMES: Record<string, string> = {
   '#FFFFFF': 'white',
   '#111111': 'black',
   '#E05B5B': 'red',
@@ -449,7 +400,7 @@ export const colorName = (hex: string, t: (k: string) => string): string => {
   return key ? t(`colors.${key}`) : hex;
 };
 
-export const BASE_COLORS = Object.keys(COLOR_NAMES);
+const BASE_COLORS = Object.keys(COLOR_NAMES);
 
 export type ColorSet = 'default' | 'darker' | 'pastel' | 'neon';
 export const COLOR_SETS: ColorSet[] = ['default', 'darker', 'pastel', 'neon'];
@@ -650,7 +601,7 @@ export interface ShareSettings {
 
 export type TextScale = 1.0 | 1.25 | 1.5;
 
-export type AccountMode = 'system' | 'singlet';
+type AccountMode = 'system' | 'singlet';
 
 export const SINGLET_HIDDEN_STATUS_NAMES = ['Blurry', 'Blendy', 'Rapid Switching', 'Dissociated'];
 export const singletStatuses = (members: Member[]): Member[] =>
@@ -714,7 +665,7 @@ export interface ExportPayload {
   shareSettings?: ShareSettings;
 }
 
-export type ChatMessageType = 'text' | 'image' | 'file' | 'reply' | 'reaction';
+type ChatMessageType = 'text' | 'image' | 'file' | 'reply' | 'reaction';
 
 export interface ChatMessage {
   id: string;
@@ -798,7 +749,7 @@ export const translateMood = (mood: string, t: (k: string) => string): string =>
   return parts.map(translateOne).join(', ');
 };
 
-export const MOOD_DELIMITER = ', ';
+const MOOD_DELIMITER = ', ';
 export const parseMoodList = (mood: string | undefined): string[] =>
   (mood || '').split(',').map(s => s.trim()).filter(Boolean);
 export const serializeMoodList = (moods: string[]): string =>
@@ -824,7 +775,7 @@ export const migrateFrontState = (raw: any): FrontState | null => {
   };
 };
 
-export const historyEntryToFrontState = (entry: HistoryEntry): FrontState => ({
+const historyEntryToFrontState = (entry: HistoryEntry): FrontState => ({
   primary: {
     memberIds: entry.memberIds,
     mood: entry.mood,
@@ -1005,21 +956,6 @@ export const uses12HourClock = (): boolean => clockInfo().hour12;
 
 export const dayPeriodLabel = (isPM: boolean): string => (isPM ? clockInfo().pm : clockInfo().am);
 
-export const fmtClock = (hours: number, minutes: number): string => {
-  const d = new Date(2000, 0, 1, hours, minutes, 0);
-  try {
-    return d.toLocaleTimeString(getLocale(), {hour: 'numeric', minute: '2-digit'});
-  } catch {
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  }
-};
-
-export const fmtClockHHMM = (hhmm: string): string => {
-  const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm || '').trim());
-  if (!m) return hhmm;
-  return fmtClock(parseInt(m[1], 10), parseInt(m[2], 10));
-};
-
 const numberFormatCache = new Map<string, (n: number) => string>();
 
 const numberFormatter = (style: 'decimal' | 'percent', minFrac: number, maxFrac: number): ((n: number) => string) => {
@@ -1106,12 +1042,6 @@ export const sortMembers = (members: Member[], mode: MemberSortMode = 'alphabeti
     case 'manual': return sorted.sort((a, b) => (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER));
     default: return sorted;
   }
-};
-
-export const TIER_LABELS: Record<FrontTierKey, string> = {
-  primary: 'Primary Front',
-  coFront: 'Co-Front',
-  coConscious: 'Co-Conscious',
 };
 
 export const TEXT_SCALE_OPTIONS: {label: string; value: TextScale}[] = [

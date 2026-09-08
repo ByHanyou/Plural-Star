@@ -1,10 +1,10 @@
-export const TERMINOLOGY_TERMS = ['member', 'members', 'fronter', 'fronters', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system'] as const;
-export type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
-export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
+const TERMINOLOGY_TERMS = ['member', 'members', 'fronter', 'fronters', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system'] as const;
+type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
+type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
 
 type TermFormsMap = Partial<Record<TerminologyTerm, string | string[]>>;
 
-export const TERM_FORMS: Record<string, TermFormsMap> = {
+const TERM_FORMS: Record<string, TermFormsMap> = {
   en: {
     member: ['Member', 'Headmate'],
     members: ['Members', 'Headmates'],
@@ -279,7 +279,7 @@ export const setTerminologyOverrides = (map?: TerminologyMap | null): void => {
   pairCache = new Map();
 };
 
-export const hasTerminologyOverrides = (): boolean => Object.keys(overrides).length > 0;
+const hasTerminologyOverrides = (): boolean => Object.keys(overrides).length > 0;
 
 export type TierNameKey = 'primary' | 'coFront' | 'coConscious';
 export type TierNameMap = Partial<Record<TierNameKey, string>>;
@@ -295,7 +295,7 @@ export const setTierNameOverrides = (map?: TierNameMap | null): void => {
   tierNames = clean;
 };
 
-export const hasTierNameOverrides = (): boolean => Object.keys(tierNames).length > 0;
+const hasTierNameOverrides = (): boolean => Object.keys(tierNames).length > 0;
 export const getTierNameOverride = (k: TierNameKey): string | undefined => tierNames[k];
 
 const TIER_LABEL_KEYS: Record<string, TierNameKey> = {
@@ -319,7 +319,7 @@ const TIER_LINE_KEYS: Record<string, TierNameKey> = {
   'notification.ccShort': 'coConscious',
 };
 
-export const applyTierNames = (value: string, key: string, options: unknown): string => {
+const applyTierNames = (value: string, key: string, options: unknown): string => {
   if (!hasTierNameOverrides()) return value;
   const label = TIER_LABEL_KEYS[key];
   if (label && tierNames[label]) return tierNames[label]!;
@@ -335,7 +335,7 @@ export const applyTierNames = (value: string, key: string, options: unknown): st
 
 const isWordChar = (ch: string | undefined): boolean => !!ch && /[\p{L}\p{N}]/u.test(ch);
 
-export const replaceTerm = (text: string, form: string, replacement: string, fixArticles = false): string => {
+const replaceTerm = (text: string, form: string, replacement: string, fixArticles = false): string => {
   if (!form || !replacement) return text;
   const lower = text.toLowerCase();
   const needle = form.toLowerCase();
@@ -389,7 +389,7 @@ const pairsFor = (language: string): [TerminologyTerm, string, string][] => {
   return pairs;
 };
 
-export const applyTerminology = (value: string, language: string): string => {
+const applyTerminology = (value: string, language: string): string => {
   if (!hasTerminologyOverrides()) return value;
   const pairs = pairsFor(language);
   if (pairs.length === 0) return value;
