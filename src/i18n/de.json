@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "Fronter",
     "front": "Front",
     "members": "Mitglieder",
     "hub": "Zentrum",
@@ -254,6 +255,7 @@
     "moveUp": "Nach oben",
     "noCustomFronts": "Noch keine benutzerdefinierten Fronten.",
     "selectAction": "Auswählen",
+    "deselectAction": "Abwählen",
     "addToFront": "Zur Front hinzufügen",
     "removeFromFront": "Von der Front entfernen",
     "removeFromFrontMsg": "{{name}} aus der Front nehmen?",
@@ -278,8 +280,12 @@
     "searchToAddKind": "Tippe um {{kind}} zu suchen…",
     "archived": "Archiviert",
     "noArchived": "Keine archivierten Mitglieder.",
+    "noArchivedFacets": "Keine archivierten Facetten.",
+    "noArchivedCustomFronts": "Keine archivierten benutzerdefinierten Fronten.",
     "count": "{{count}} Mitglied",
     "count_other": "{{count}} Mitglieder",
+    "countFronters": "{{count}} Fronter",
+    "countFronters_other": "{{count}} Fronter",
     "countFiltered": "{{filtered}} von {{total}} Mitgliedern"
   },
   "history": {
@@ -1026,6 +1032,8 @@
     "publishFailed": "Dein Code konnte nicht veröffentlicht werden — prüfe deine Verbindung und versuche es erneut."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronter",
     "title": "Terminologie",
     "hint": "Benenne um, wie die App diese Begriffe nennt. Dein Wort ersetzt überall das Standardwort. Leer = Standard. In manchen Sprachen werden nur die Grundformen ersetzt.",
     "member": "Mitglied",
@@ -1196,6 +1204,7 @@
     "typeName": "Typname",
     "directional": "Gerichtet",
     "showColors": "Farben",
+    "lockPositions": "Positionen sperren",
     "inverseName": "Umgekehrte Bezeichnung",
     "typeColor": "Farbe",
     "longPressDelete": "Eigenen Typ lange drücken, um ihn zu löschen.",

@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "Фронтери",
     "front": "Фронт",
     "members": "Учасники",
     "hub": "Хаб",
@@ -254,6 +255,7 @@
     "moveUp": "Вгору",
     "noCustomFronts": "Поки немає користувацьких фронтів.",
     "selectAction": "Вибрати",
+    "deselectAction": "Зняти вибір",
     "addToFront": "Додати у фронт",
     "removeFromFront": "Прибрати з фронту",
     "removeFromFrontMsg": "Прибрати {{name}} з фронту?",
@@ -278,10 +280,16 @@
     "searchToAddKind": "Введіть, щоб знайти: {{kind}}…",
     "archived": "В архіві",
     "noArchived": "Архів порожній.",
+    "noArchivedFacets": "Немає архівних граней.",
+    "noArchivedCustomFronts": "Немає архівних користувацьких фронтів.",
     "count": "{{count}} учасник",
     "count_few": "{{count}} учасники",
     "count_many": "{{count}} учасників",
     "count_other": "{{count}} учасників",
+    "countFronters": "{{count}} фронтер",
+    "countFronters_few": "{{count}} фронтери",
+    "countFronters_many": "{{count}} фронтерів",
+    "countFronters_other": "{{count}} фронтерів",
     "countFiltered": "{{filtered}} з {{total}} учасників"
   },
   "history": {
@@ -1032,6 +1040,8 @@
     "publishFailed": "Не вдалося опублікувати код — перевірте з'єднання та спробуйте ще раз."
   },
   "terminology": {
+    "fronter": "Фронтер",
+    "fronters": "Фронтери",
     "title": "Термінологія",
     "hint": "Перейменуйте поняття, які використовує застосунок. Ваше слово замінить стандартне всюди. Порожнє поле поверне стандартне. У деяких мовах замінюються лише базові форми.",
     "member": "Учасник",
@@ -1206,6 +1216,7 @@
     "typeName": "Назва типу",
     "directional": "Спрямований",
     "showColors": "Кольори",
+    "lockPositions": "Закріпити позиції",
     "inverseName": "Зворотна мітка",
     "typeColor": "Колір",
     "longPressDelete": "Утримуйте власний тип, щоб видалити його.",

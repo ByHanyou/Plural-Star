@@ -81,8 +81,8 @@ export type NetMessage =
   | { t: 'device_adopt'; identity: {v: number; edSecretKey: string; boxSecretKey: string}; friends: Friend[] }
   | { t: 'friends_push'; friends: Friend[]; removed?: FriendTombstone[] }
   | { t: 'not_friends' }
-  | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean }
-  | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean }
+  | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean; resolved?: boolean }
+  | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean; resolved?: boolean }
   | { t: 'sync_req'; hashes: Record<string, string> }
   | { t: 'dm'; body: string; ts: number }
   | { t: 'mirror_req'; feature: MirrorFeature }

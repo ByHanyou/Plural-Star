@@ -110,6 +110,7 @@
     "retry": "Thử lại"
   },
   "tabs": {
+    "fronters": "Người front",
     "front": "Front",
     "members": "Thành viên",
     "hub": "Trung tâm",
@@ -218,6 +219,7 @@
     "moveUp": "Di chuyển lên",
     "noCustomFronts": "Chưa có front tùy chỉnh nào.",
     "selectAction": "Chọn",
+    "deselectAction": "Bỏ chọn",
     "addToFront": "Thêm vào front",
     "removeFromFront": "Gỡ khỏi front",
     "removeFromFrontMsg": "Gỡ {{name}} khỏi front?",
@@ -233,6 +235,8 @@
     "title": "Thành viên",
     "count": "{{count}} thành viên",
     "count_other": "{{count}} thành viên",
+    "countFronters": "{{count}} người front",
+    "countFronters_other": "{{count}} người front",
     "countFiltered": "{{filtered}} trên {{total}} thành viên",
     "add": "+ Thêm",
     "search": "Tìm kiếm…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Gõ để tìm {{kind}}…",
     "archived": "Đã lưu trữ",
     "noArchived": "Không có thành viên lưu trữ.",
+    "noArchivedFacets": "Không có diện lưu trữ.",
+    "noArchivedCustomFronts": "Không có front tùy chỉnh lưu trữ.",
     "select": "Chọn",
     "selectAll": "Tất cả",
     "selectNone": "Không chọn",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Không thể công bố mã của bạn — kiểm tra kết nối và thử lại."
   },
   "terminology": {
+    "fronter": "Người front",
+    "fronters": "Người front",
     "title": "Thuật ngữ",
     "hint": "Đổi tên các khái niệm mà ứng dụng sử dụng. Từ của bạn sẽ thay thế từ mặc định ở mọi nơi. Để trống sẽ dùng mặc định. Ở một số ngôn ngữ, chỉ dạng cơ bản được thay thế.",
     "member": "Thành viên",
@@ -1195,6 +1203,7 @@
     "typeName": "Tên Loại",
     "directional": "Có hướng",
     "showColors": "Màu sắc",
+    "lockPositions": "Khóa vị trí",
     "inverseName": "Nhãn Ngược",
     "typeColor": "Màu",
     "longPressDelete": "Nhấn giữ một loại tùy chỉnh để xóa.",

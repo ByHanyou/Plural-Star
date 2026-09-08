@@ -96,6 +96,9 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
               </Text>
             ) : (
               <>
+                {filtered.length > 0 && (
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4}}>{i18n.t('members.title')}</Text>
+                )}
                 {filtered.map(m => (
                   <TouchableOpacity key={m.id} onPress={() => onPick(m)} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityLabel={m.name}
@@ -131,7 +134,14 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
 const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, members}: {initialContent: string; theme: ThemeColors; onSave: (text: string) => void; onClose: () => void; title: string; members?: Member[]}) => {
   const fs = fontScale(T);
   const insets = useSafeAreaInsets();
-  const [text, setText] = useState(initialContent || '');
+  const [text, setTextState] = useState(initialContent || '');
+  const textRef = useRef(text);
+  textRef.current = text;
+  const setText = (next: string | ((prev: string) => string)) => {
+    const resolved = typeof next === 'function' ? next(textRef.current) : next;
+    textRef.current = resolved;
+    setTextState(resolved);
+  };
   const [showMentionPicker, setShowMentionPicker] = useState(false);
   const [kbHeight, setKbHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -165,11 +175,14 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   };
 
   const handleSave = () => {
-    try {
-      onSave(text);
-    } catch (e) {
-      console.error('[PS] save error:', e);
-    }
+    Keyboard.dismiss();
+    setTimeout(() => {
+      try {
+        onSave(textRef.current);
+      } catch (e) {
+        console.error('[PS] save error:', e);
+      }
+    }, 60);
   };
 
   return (

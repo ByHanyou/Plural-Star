@@ -1,5 +1,5 @@
-import React, {useState, useEffect} from 'react';
-import {View, TouchableOpacity, ScrollView, Image, Alert, Modal} from 'react-native';
+import React, {useState, useEffect, useRef} from 'react';
+import {View, TouchableOpacity, ScrollView, Image, Alert, Modal, Keyboard} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {pickImageForUpload} from '../utils/imagePicker';
@@ -28,6 +28,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [showClone, setShowClone] = useState(false);
   const [cloneSel, setCloneSel] = useState({name: true, pronouns: true, role: true, color: true, description: true});
   const [f, setF] = useState<Member>(member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []});
+  const fRef = useRef(f);
+  fRef.current = f;
   const [confirmDel, setConfirmDel] = useState(false);
   const [viewPfp, setViewPfp] = useState(false);
   const [pfpFull, setPfpFull] = useState<string | null>(null);
@@ -68,7 +70,10 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     avatarTransparent: cur.avatar ? cur.avatarTransparent : d.avatarTransparent,
     banner: cur.banner || d.banner,
   })));
-  const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
+  const set = (k: keyof Member, v: any) => {
+    fRef.current = {...fRef.current, [k]: v};
+    setF(x => ({...x, [k]: v}));
+  };
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
   const applyCustomHex = () => { const n = normalizeHex(hexInput); if (!isValidHex(n)) return; set('color', n); setShowHexEntry(false); };
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
@@ -132,11 +137,15 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   }, [visible, memberTab, isNew, readMode]);
 
   const setFieldVal = (fieldId: string, newVal: string | number | boolean | null) => {
-    const existing = f.customFields || [];
-    const updated = existing.some(v => v.fieldId === fieldId)
-      ? existing.map(v => v.fieldId === fieldId ? {...v, value: newVal} : v)
-      : [...existing, {fieldId, value: newVal}];
-    set('customFields' as any, updated);
+    const apply = (x: Member): Member => {
+      const existing = x.customFields || [];
+      const updated = existing.some(v => v.fieldId === fieldId)
+        ? existing.map(v => v.fieldId === fieldId ? {...v, value: newVal} : v)
+        : [...existing, {fieldId, value: newVal}];
+      return {...x, customFields: updated};
+    };
+    fRef.current = apply(fRef.current);
+    setF(apply);
   };
 
   const pickCfImage = async (fieldId: string) => {
@@ -202,7 +211,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       {!isNew && !confirmDel && <Btn instant variant="ghost" T={T} onPress={() => setShowClone(true)}>{t('members.clone')}</Btn>}
       {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('member', draftId); onClose();}}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={async () => {const nm = (f.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...f, name: nm}); clearDraft('member', draftId); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
+      {!confirmDel && <Btn instant T={T} onPress={async () => {Keyboard.dismiss(); const cur = fRef.current; const nm = (cur.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...cur, name: nm}); clearDraft('member', draftId); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
 
       {!isNew && !profileMode && !readOnly && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}}

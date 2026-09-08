@@ -110,6 +110,7 @@
     "retry": "Försök igen"
   },
   "tabs": {
+    "fronters": "Frontare",
     "front": "Front",
     "members": "Medlemmar",
     "hub": "Hub",
@@ -215,6 +216,7 @@
     "moveUp": "Flytta upp",
     "noCustomFronts": "Inga egna fronter ännu.",
     "selectAction": "Välj",
+    "deselectAction": "Avmarkera",
     "addToFront": "Lägg till i fronten",
     "removeFromFront": "Ta bort från fronten",
     "removeFromFrontMsg": "Ta {{name}} ur fronten?",
@@ -233,6 +235,8 @@
     "title": "Medlemmar",
     "count": "{{count}} medlem",
     "count_other": "{{count}} medlemmar",
+    "countFronters": "{{count}} frontare",
+    "countFronters_other": "{{count}} frontare",
     "countFiltered": "{{filtered}} av {{total}} medlemmar",
     "add": "+ Lägg till",
     "search": "Sök…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Skriv för att söka {{kind}}…",
     "archived": "Arkiverade",
     "noArchived": "Inga arkiverade medlemmar.",
+    "noArchivedFacets": "Inga arkiverade fasetter.",
+    "noArchivedCustomFronts": "Inga arkiverade egna fronter.",
     "select": "Välj",
     "selectAll": "Alla",
     "selectNone": "Inga",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Kunde inte publicera din kod — kontrollera anslutningen och försök igen."
   },
   "terminology": {
+    "fronter": "Frontare",
+    "fronters": "Frontare",
     "title": "Terminologi",
     "hint": "Byt namn på det appen kallar dessa. Ditt ord ersätter standardordet överallt. Tomt använder standard. I vissa språk ersätts bara grundformerna.",
     "member": "Medlem",
@@ -1174,6 +1182,7 @@
     "showOnMap": "Visa på kartan",
     "addMember": "+ Medlem",
     "showColors": "Färger",
+    "lockPositions": "Lås positioner",
     "emptyMap": "Kartan är tom. Tryck på + Medlem för att lägga till medlemmar, eller + Lägg till relation för att koppla ihop dem.",
     "depth": "Kopplingar utåt",
     "removeFromMap": "Ta bort från kartan",

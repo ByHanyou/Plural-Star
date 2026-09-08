@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "Frontere",
     "front": "Front",
     "members": "Medlemmer",
     "hub": "Hub",
@@ -251,6 +252,7 @@
     "moveUp": "Flytt opp",
     "noCustomFronts": "Ingen egendefinerte fronter ennå.",
     "selectAction": "Velg",
+    "deselectAction": "Fjern markering",
     "addToFront": "Legg til i front",
     "removeFromFront": "Fjern fra front",
     "removeFromFrontMsg": "Ta {{name}} ut av fronten?",
@@ -278,8 +280,12 @@
     "searchToAddKind": "Skriv for å søke i {{kind}}…",
     "archived": "Arkivert",
     "noArchived": "Ingen arkiverte medlemmer.",
+    "noArchivedFacets": "Ingen arkiverte fasetter.",
+    "noArchivedCustomFronts": "Ingen arkiverte egendefinerte fronter.",
     "count": "{{count}} medlem",
     "count_other": "{{count}} medlemmer",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} frontere",
     "countFiltered": "{{filtered}} av {{total}} medlemmer"
   },
   "history": {
@@ -1026,6 +1032,8 @@
     "publishFailed": "Kunne ikke publisere koden din — sjekk tilkoblingen og prøv igjen."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Frontere",
     "title": "Terminologi",
     "hint": "Gi nytt navn til det appen kaller disse. Ordet ditt erstatter standardordet overalt. Tomt bruker standard. I noen språk erstattes bare grunnformene.",
     "member": "Medlem",
@@ -1196,6 +1204,7 @@
     "typeName": "Typenavn",
     "directional": "Rettet",
     "showColors": "Farger",
+    "lockPositions": "Lås posisjoner",
     "inverseName": "Omvendt etikett",
     "typeColor": "Farge",
     "longPressDelete": "Hold inne en egendefinert type for å slette den.",

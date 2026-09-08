@@ -307,6 +307,9 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
           {showAuthorResults && filteredAuthors.length > 0 && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
               <ScrollView nestedScrollEnabled>
+                {filteredAuthors.length > 0 && (
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.title')}</Text>
+                )}
                 {filteredAuthors.map(m => (
                   <TouchableOpacity key={m.id} onPress={() => {setActiveAuthor(activeAuthor === m.id ? null : m.id); setAuthorSearch(''); setShowAuthorResults(false);}} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityState={{selected: activeAuthor === m.id}} accessibilityLabel={m.name}

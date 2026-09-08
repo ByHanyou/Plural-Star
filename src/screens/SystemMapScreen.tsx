@@ -161,6 +161,9 @@ const MemberPickerField = ({label, value, onChange, members, facets = [], T}: {
           <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('common.search')} placeholder={t('common.search')} placeholderTextColor={T.muted} autoFocus
             style={{backgroundColor: T.surface, color: T.text, fontSize: fs(13), paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}} />
           <ScrollView style={{maxHeight: 180}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {filtered.length > 0 && (
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.border}}>{t('members.title')}</Text>
+            )}
             {filtered.slice(0, 30).map(m => (
               <TouchableOpacity key={m.id} onPress={() => {onChange(m.id); setOpen(false); setSearch('');}} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: value === m.id}}
@@ -216,6 +219,9 @@ const MemberMultiPickerField = ({label, values, onToggle, members, facets = [], 
           <TextInput value={search} onChangeText={setSearch} accessibilityLabel={t('common.search')} placeholder={t('common.search')} placeholderTextColor={T.muted} autoFocus
             style={{backgroundColor: T.surface, color: T.text, fontSize: fs(13), paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}} />
           <ScrollView style={{maxHeight: 180}} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {filtered.length > 0 && (
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: T.border}}>{t('members.title')}</Text>
+            )}
             {filtered.slice(0, 30).map(m => {
               const on = values.includes(m.id);
               return (
@@ -292,10 +298,20 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const fs = fontScale(T);
   const kb = useKeyboardHeight();
   const winH = useWindowDimensions().height;
+  const hostRef = useRef<View>(null);
+  const [hostBox, setHostBox] = useState({y: 0, h: 0});
+  const measureHost = () => {
+    hostRef.current?.measureInWindow((_x, y, _w, h) => { if (h > 0) setHostBox({y, h}); });
+  };
+  const hostH = hostBox.h > 0 ? hostBox.h : winH;
+  const kbIn = hostBox.h > 0 ? Math.max(0, kb - Math.max(0, winH - (hostBox.y + hostBox.h))) : kb;
   const editorScrollRef = useRef<ScrollView>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [showFacets, setShowFacets] = useState(true);
   const [colorAll, setColorAll] = useState(false);
+  const [lockPositions, setLockPositions] = useState(false);
+  const lockPositionsRef = useRef(false);
+  lockPositionsRef.current = lockPositions;
   const [mapIds, setMapIds] = useState<string[]>([]);
   const mapIdSet = useMemo(() => new Set(mapIds), [mapIds]);
   const rosterEligible = useMemo(() => members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted && (showArchived || !m.archived)), [members, showArchived]);
@@ -309,7 +325,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [posOverrides, setPosOverrides] = useState<Record<string, {x: number; y: number}>>({});
-  useEffect(() => { onRelCountChange?.(relationships.length); }, [relationships.length, onRelCountChange]);
   const [customTypes, setCustomTypes] = useState<RelationshipTypeDef[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   useEffect(() => { if (focus) setSelectedId(focus.id); }, [focus]);
@@ -334,7 +349,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
   useEffect(() => {
     (async () => {
-      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets] = await Promise.all([
+      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets, savedLock] = await Promise.all([
         store.get<Relationship[]>(KEYS.relationships, []),
         store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []),
         store.get<string[]>(KEYS.systemMapMembers),
@@ -342,10 +357,12 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
         store.get<boolean>('ps.mapShowArchived', false),
         store.get<boolean>('ps.mapColorThreads', false),
         store.get<boolean>('ps.mapShowFacets', true),
+        store.get<boolean>('ps.mapLockPositions', false),
       ]);
       setShowArchived(!!savedShowArchived);
       setColorAll(!!savedColorAll);
       setShowFacets(savedShowFacets !== false);
+      setLockPositions(!!savedLock);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
       const ids = new Set(members.map(m => m.id));
@@ -383,6 +400,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     const v = !colorAll;
     setColorAll(v);
     store.set('ps.mapColorThreads', v).catch(() => {});
+  };
+  const toggleLockPositions = () => {
+    const v = !lockPositions;
+    setLockPositions(v);
+    store.set('ps.mapLockPositions', v).catch(() => {});
   };
 
   const saveMapIds = async (next: string[]) => {
@@ -433,6 +455,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     return changed ? out : layout.nodes;
   }, [layout, posOverrides]);
   const nodesById = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
+  const visibleRels = useMemo(
+    () => relationships.filter(r => nodesById.has(r.fromId) && nodesById.has(r.toId)),
+    [relationships, nodesById],
+  );
+  useEffect(() => { onRelCountChange?.(visibleRels.length); }, [visibleRels.length, onRelCountChange]);
   const maxExtentEff = useMemo(() => {
     let me = layout.maxExtent;
     for (const id in posOverrides) {
@@ -441,7 +468,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     }
     return me;
   }, [layout, posOverrides]);
-  const degrees = useMemo(() => relationshipDegrees(mapMembers.map(m => m.id), relationships), [mapMembers, relationships]);
+  const degrees = useMemo(() => relationshipDegrees(mapMembers.map(m => m.id), visibleRels), [mapMembers, visibleRels]);
   const usageByType = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const r of relationships) counts[r.typeId] = (counts[r.typeId] || 0) + 1;
@@ -451,8 +478,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const hopDistances = useMemo(() => {
     if (!selectedId) return null;
     const adjacency = new Map<string, string[]>();
-    for (const r of relationships) {
-      if (!mapIdSet.has(r.fromId) || !mapIdSet.has(r.toId)) continue;
+    for (const r of visibleRels) {
       if (!adjacency.has(r.fromId)) adjacency.set(r.fromId, []);
       if (!adjacency.has(r.toId)) adjacency.set(r.toId, []);
       adjacency.get(r.fromId)!.push(r.toId);
@@ -473,7 +499,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       frontier = next;
     }
     return dist;
-  }, [selectedId, relationships, mapIdSet]);
+  }, [selectedId, visibleRels]);
 
   const inReach = (id: string): boolean => {
     if (!hopDistances) return false;
@@ -549,7 +575,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       p.startScale = p.scale;
       p.startDist = 0;
       p.moved = false;
-      const hit = nodeAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
+      const hit = lockPositionsRef.current ? null : nodeAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
       dragRef.current = hit ? {id: hit.id, startX: hit.x, startY: hit.y} : null;
     },
     onPanResponderMove: (evt, gs) => {
@@ -722,9 +748,9 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const selectedTd = typeById.get(typeId);
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View ref={hostRef} onLayout={measureHost} style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
-        <TouchableOpacity onPress={() => {setShowMemberPicker(true); setMemberPickerSearch('');}} activeOpacity={0.7}
+        <TouchableOpacity onPress={() => {setShowMemberPicker(true); setMemberPickerSearch(''); measureHost();}} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={t('members.addMember')}
           style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}}>{t('systemMap.addMember')}</Text>
@@ -754,6 +780,12 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
           style={{borderWidth: 1, borderColor: colorAll ? `${T.accent}40` : T.border, backgroundColor: colorAll ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: colorAll ? T.accent : T.dim}}>{t('systemMap.showColors')}</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={toggleLockPositions} activeOpacity={0.7}
+          accessibilityRole="switch" accessibilityState={{checked: lockPositions}} accessibilityLabel={t('systemMap.lockPositions')}
+          style={{flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: lockPositions ? `${T.accent}40` : T.border, backgroundColor: lockPositions ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          <Text style={{fontSize: fs(12)}} accessibilityElementsHidden importantForAccessibility="no">{lockPositions ? '🔒' : '🔓'}</Text>
+          <Text style={{fontSize: fs(12), fontWeight: '600', color: lockPositions ? T.accent : T.dim}}>{t('systemMap.lockPositions')}</Text>
+        </TouchableOpacity>
       </View>
 
       <View
@@ -775,7 +807,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             height: WORLD,
             transform: [{translateX: animTx}, {translateY: animTy}, {scale: animScale}],
           }}>
-            {relationships.map(r => {
+            {visibleRels.map(r => {
               const a = nodesById.get(r.fromId);
               const b = nodesById.get(r.toId);
               if (!a || !b) return null;
@@ -940,8 +972,8 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showEditor && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kb}}>
-          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(winH * 0.88, winH - kb - 16)}}>
+        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <ScrollView ref={editorScrollRef} contentContainerStyle={{padding: 16, paddingBottom: 28}} keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={{fontSize: fs(17), fontWeight: '600', color: T.text, marginBottom: 14}}>
                 {editRel ? t('systemMap.editRelationship') : t('systemMap.addRelationship')}
@@ -1028,8 +1060,8 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showConnections && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kb}}>
-          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(winH * 0.88, winH - kb - 16)}}>
+        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('systemMap.connections')}</Text>
               <TouchableOpacity onPress={() => {setShowConnections(false); setShowAddType(false); setEditTypeId(null);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{padding: 4}}>
@@ -1125,8 +1157,8 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showMemberPicker && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kb}}>
-          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(winH * 0.75, winH - kb - 16))}}>
+        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(hostH * 0.75, hostH - kbIn - 16))}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('members.addMember')}</Text>
               <TouchableOpacity onPress={() => setShowMemberPicker(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{padding: 4}}>
@@ -1160,6 +1192,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 );
                 return (
                   <>
+                    {shown.length > 0 && (
+                      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>
+                        {t('members.title')}
+                      </Text>
+                    )}
                     {shown.map(row)}
                     {candidates.length > PICKER_CAP && (
                       <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', paddingVertical: 10, textAlign: 'center'}}>

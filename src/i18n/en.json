@@ -110,6 +110,7 @@
     "retry": "Try again"
   },
   "tabs": {
+    "fronters": "Fronters",
     "front": "Front",
     "members": "Members",
     "hub": "Hub",
@@ -215,6 +216,7 @@
     "moveUp": "Move up",
     "noCustomFronts": "No custom fronts yet.",
     "selectAction": "Select",
+    "deselectAction": "Deselect",
     "addToFront": "Add to front",
     "removeFromFront": "Remove from front",
     "removeFromFrontMsg": "Take {{name}} out of the front?",
@@ -233,6 +235,8 @@
     "title": "Members",
     "count": "{{count}} member",
     "count_other": "{{count}} members",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} fronters",
     "countFiltered": "{{filtered}} of {{total}} members",
     "add": "+ Add",
     "search": "Search…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Type to search {{kind}}…",
     "archived": "Archived",
     "noArchived": "No archived members.",
+    "noArchivedFacets": "No archived facets.",
+    "noArchivedCustomFronts": "No archived custom fronts.",
     "select": "Select",
     "selectAll": "All",
     "selectNone": "None",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Couldn't publish your code — check your connection and try again."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronters",
     "title": "Terminology",
     "hint": "Rename what the app calls these. Your word replaces the default everywhere. Blank uses the default. In some languages only the base word forms are replaced.",
     "member": "Member",
@@ -1174,6 +1182,7 @@
     "showOnMap": "Show on Map",
     "addMember": "+ Member",
     "showColors": "Colors",
+    "lockPositions": "Lock positions",
     "emptyMap": "The map is empty. Tap + Member to add members, or + Add Relationship to connect them.",
     "depth": "Connections out",
     "removeFromMap": "Remove from map",

@@ -97,6 +97,9 @@ export const GroupBrowser = ({
           </View>
         </ScrollView>
       )}
+      {folderMembers.length > 0 && (
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 12, marginBottom: 6}}>{t('members.title')}</Text>
+      )}
       {folderMembers.map(m => {
         if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
         return (

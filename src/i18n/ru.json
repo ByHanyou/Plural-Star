@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "Фронтеры",
     "front": "Фронт",
     "members": "Участники",
     "hub": "Хаб",
@@ -251,6 +252,7 @@
     "moveUp": "Вверх",
     "noCustomFronts": "Пока нет пользовательских фронтов.",
     "selectAction": "Выбрать",
+    "deselectAction": "Снять выбор",
     "addToFront": "Добавить во фронт",
     "removeFromFront": "Убрать из фронта",
     "removeFromFrontMsg": "Убрать {{name}} из фронта?",
@@ -278,10 +280,16 @@
     "searchToAddKind": "Введите, чтобы найти: {{kind}}…",
     "archived": "В архиве",
     "noArchived": "Архив пуст.",
+    "noArchivedFacets": "Нет архивных граней.",
+    "noArchivedCustomFronts": "Нет архивных пользовательских фронтов.",
     "count": "{{count}} участник",
     "count_few": "{{count}} участника",
     "count_many": "{{count}} участников",
     "count_other": "{{count}} участников",
+    "countFronters": "{{count}} фронтер",
+    "countFronters_few": "{{count}} фронтера",
+    "countFronters_many": "{{count}} фронтеров",
+    "countFronters_other": "{{count}} фронтеров",
     "countFiltered": "{{filtered}} из {{total}} участников"
   },
   "history": {
@@ -1032,6 +1040,8 @@
     "publishFailed": "Не удалось опубликовать код — проверьте подключение и попробуйте снова."
   },
   "terminology": {
+    "fronter": "Фронтер",
+    "fronters": "Фронтеры",
     "title": "Терминология",
     "hint": "Переименуйте понятия, которые использует приложение. Ваше слово заменит стандартное везде. Пустое поле вернёт стандартное. В некоторых языках заменяются только базовые формы.",
     "member": "Участник",
@@ -1206,6 +1216,7 @@
     "typeName": "Название типа",
     "directional": "Направленная",
     "showColors": "Цвета",
+    "lockPositions": "Закрепить позиции",
     "inverseName": "Обратная метка",
     "typeColor": "Цвет",
     "longPressDelete": "Удерживайте свой тип, чтобы удалить его.",

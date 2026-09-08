@@ -110,6 +110,7 @@
     "retry": "Cuba lagi"
   },
   "tabs": {
+    "fronters": "Fronter",
     "front": "Front",
     "members": "Ahli",
     "hub": "Hab",
@@ -218,6 +219,7 @@
     "moveUp": "Alih ke atas",
     "noCustomFronts": "Tiada front tersuai lagi.",
     "selectAction": "Pilih",
+    "deselectAction": "Nyahpilih",
     "addToFront": "Tambah ke front",
     "removeFromFront": "Keluarkan dari front",
     "removeFromFrontMsg": "Keluarkan {{name}} dari front?",
@@ -233,6 +235,8 @@
     "title": "Ahli",
     "count": "{{count}} ahli",
     "count_other": "{{count}} ahli",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} fronter",
     "countFiltered": "{{filtered}} daripada {{total}} ahli",
     "add": "+ Tambah",
     "search": "Cari…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Taip untuk mencari {{kind}}…",
     "archived": "Diarkib",
     "noArchived": "Tiada ahli diarkib.",
+    "noArchivedFacets": "Tiada facet diarkib.",
+    "noArchivedCustomFronts": "Tiada front tersuai diarkib.",
     "select": "Pilih",
     "selectAll": "Semua",
     "selectNone": "Tiada",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Kod anda tidak dapat diterbitkan — semak sambungan anda dan cuba lagi."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronter",
     "title": "Terminologi",
     "hint": "Namakan semula istilah yang digunakan aplikasi. Perkataan anda menggantikan yang lalai di mana-mana sahaja. Kosong menggunakan lalai. Dalam sesetengah bahasa, hanya bentuk asas diganti.",
     "member": "Ahli",
@@ -1195,6 +1203,7 @@
     "typeName": "Nama Jenis",
     "directional": "Berarah",
     "showColors": "Warna",
+    "lockPositions": "Kunci kedudukan",
     "inverseName": "Label Songsang",
     "typeColor": "Warna",
     "longPressDelete": "Tekan lama jenis tersuai untuk memadamnya.",

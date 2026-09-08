@@ -6,7 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {loadChatMessages} from '../store/actions';
-import {Member, HistoryEntry, ChatMessage, fmtDur, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
+import {Member, HistoryEntry, ChatMessage, fmtDur, fmtNum, fmtPercent, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
 import {getTierNameOverride} from '../i18n/terminology';
@@ -243,7 +243,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
                   <Text style={{flex: 1, fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>
                     {member ? member.name : (formatKey ? formatKey(key) : key)}
                   </Text>
-                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{`${((value / total) * 100).toFixed(1)}% / ${renderValue(value)}`}</Text>
+                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{`${fmtPercent(value / total, 1, 1)} / ${renderValue(value)}`}</Text>
                 </View>
                 <View style={{height: 6, borderRadius: 3, backgroundColor: T.surface, overflow: 'hidden'}}>
                   <View style={{height: 6, width: `${pct}%`, borderRadius: 3, backgroundColor: barColor}} />
@@ -281,7 +281,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
                     <Text style={{fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>{member ? member.name : entry.id}</Text>
                     <Text style={{fontSize: fs(10), color: T.muted}}>{entry.sessions} {t('stats.sessions').toLowerCase()}</Text>
                   </View>
-                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{`${((entry.time / totalT) * 100).toFixed(1)}% / ${fmtDur(0, entry.time)}`}</Text>
+                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{`${fmtPercent(entry.time / totalT, 1, 1)} / ${fmtDur(0, entry.time)}`}</Text>
                 </View>
                 <View style={{height: 6, borderRadius: 3, backgroundColor: T.surface, overflow: 'hidden'}}>
                   <View style={{height: 6, width: `${pct}%`, borderRadius: 3, backgroundColor: barColor}} />
@@ -383,7 +383,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
                 <View style={{width: 80, height: 6, backgroundColor: T.surface, borderRadius: 3, overflow: 'hidden'}}>
                   <View style={{height: '100%', width: `${(avg / 10) * 100}%`, backgroundColor: m?.color || T.accent, borderRadius: 3}} />
                 </View>
-                <Text style={{fontSize: fs(11), color: T.muted, width: 40, textAlign: 'right'}}>{avg}/10</Text>
+                <Text style={{fontSize: fs(11), color: T.muted, width: 40, textAlign: 'right'}}>{fmtNum(avg, 1)}/10</Text>
               </View>
             );
           })}
@@ -492,8 +492,19 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
           });
           const sm = getMember(selectedStatMember);
           const topCoAll = Object.entries(coMembers).sort((a, b) => b[1] - a[1]);
-          const coLimit = limitFor('coMembers');
-          const topCo = topCoAll.slice(0, coLimit);
+          const coKind = (id: string): 'member' | 'facet' | 'customFront' => {
+            const cm = getMember(id);
+            if (cm?.isFacet) return 'facet';
+            if (cm?.isCustomFront) return 'customFront';
+            return 'member';
+          };
+          const coGroups: {key: string; label: string; all: [string, number][]}[] = singlet
+            ? [{key: 'coMembers', label: t('stats.coStatuses'), all: topCoAll}]
+            : [
+              {key: 'coMembers', label: t('stats.topCoMembers'), all: topCoAll.filter(([id]) => coKind(id) === 'member')},
+              {key: 'coFacets', label: t('members.facets'), all: topCoAll.filter(([id]) => coKind(id) === 'facet')},
+              {key: 'coCustomFronts', label: t('members.customFronts'), all: topCoAll.filter(([id]) => coKind(id) === 'customFront')},
+            ];
           const topMdAll = Object.entries(moods).sort((a, b) => b[1] - a[1]);
           const mdLimit = limitFor('coMoods');
           const topMd = topMdAll.slice(0, mdLimit);
@@ -503,24 +514,29 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
             <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12}}>
               <View style={{flexDirection: 'row', gap: 16, marginBottom: 10}}>
                 <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{entries.length}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('stats.sessionsSuffix')}</Text></View>
-                {avgE !== null && <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{avgE}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('energy.outOf10')}</Text></View>}
+                {avgE !== null && <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{fmtNum(avgE, 1)}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('energy.outOf10')}</Text></View>}
               </View>
-              {topCo.length > 0 && (
-                <View style={{marginBottom: 8}}>
-                  <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{singlet ? t('stats.coStatuses') : t('stats.topCoMembers')}</Text>
-                  {topCo.map(([id, count]) => {
-                    const cm = getMember(id);
-                    return (
-                      <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
-                        <Avatar member={cm} size={18} T={T} />
-                        <Text style={{flex: 1, fontSize: fs(12), color: T.text}}>{cm?.name || '?'}</Text>
-                        <Text style={{fontSize: fs(11), color: T.muted}}>{count}x</Text>
-                      </View>
-                    );
-                  })}
-                  <ShowMoreRow boardKey="coMembers" total={topCoAll.length} limit={coLimit} />
-                </View>
-              )}
+              {coGroups.map(g => {
+                if (g.all.length === 0) return null;
+                const limit = limitFor(g.key);
+                const rows = g.all.slice(0, limit);
+                return (
+                  <View key={g.key} style={{marginBottom: 8}}>
+                    <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{g.label}</Text>
+                    {rows.map(([id, count]) => {
+                      const cm = getMember(id);
+                      return (
+                        <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
+                          <Avatar member={cm} size={18} T={T} />
+                          <Text style={{flex: 1, fontSize: fs(12), color: T.text}}>{cm?.name || '?'}</Text>
+                          <Text style={{fontSize: fs(11), color: T.muted}}>{count}x</Text>
+                        </View>
+                      );
+                    })}
+                    <ShowMoreRow boardKey={g.key} total={g.all.length} limit={limit} />
+                  </View>
+                );
+              })}
               {topMd.length > 0 && (
                 <View>
                   <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{t('stats.topMoods')}</Text>

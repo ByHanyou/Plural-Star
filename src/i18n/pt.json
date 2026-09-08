@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "Fronters",
     "front": "Frente",
     "members": "Membros",
     "hub": "Central",
@@ -251,6 +252,7 @@
     "moveUp": "Mover para cima",
     "noCustomFronts": "Ainda não há frentes personalizadas.",
     "selectAction": "Selecionar",
+    "deselectAction": "Desmarcar",
     "addToFront": "Adicionar ao front",
     "removeFromFront": "Remover do front",
     "removeFromFrontMsg": "Tirar {{name}} do front?",
@@ -278,8 +280,12 @@
     "searchToAddKind": "Digite para pesquisar {{kind}}…",
     "archived": "Arquivados",
     "noArchived": "Nenhum membro arquivado.",
+    "noArchivedFacets": "Nenhuma faceta arquivada.",
+    "noArchivedCustomFronts": "Nenhuma frente personalizada arquivada.",
     "count": "{{count}} membro",
     "count_other": "{{count}} membros",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} fronters",
     "countFiltered": "{{filtered}} de {{total}} membros"
   },
   "history": {
@@ -1026,6 +1032,8 @@
     "publishFailed": "Não foi possível publicar seu código — verifique sua conexão e tente novamente."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronters",
     "title": "Terminologia",
     "hint": "Renomeie como o app chama estes conceitos. Sua palavra substitui a padrão em todo o app. Em branco usa a padrão. Em alguns idiomas apenas as formas base são substituídas.",
     "member": "Membro",
@@ -1196,6 +1204,7 @@
     "typeName": "Nome do tipo",
     "directional": "Direcional",
     "showColors": "Cores",
+    "lockPositions": "Bloquear posições",
     "inverseName": "Rótulo inverso",
     "typeColor": "Cor",
     "longPressDelete": "Mantenha pressionado um tipo personalizado para excluí-lo.",

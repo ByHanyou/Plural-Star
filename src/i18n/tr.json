@@ -110,6 +110,7 @@
     "retry": "Tekrar dene"
   },
   "tabs": {
+    "fronters": "Frontta Olanlar",
     "front": "Front",
     "members": "Üyeler",
     "hub": "Merkez",
@@ -218,6 +219,7 @@
     "moveUp": "Yukarı taşı",
     "noCustomFronts": "Henüz özel front yok.",
     "selectAction": "Seç",
+    "deselectAction": "Seçimi kaldır",
     "addToFront": "Fronta ekle",
     "removeFromFront": "Fronttan çıkar",
     "removeFromFrontMsg": "{{name}} fronttan çıkarılsın mı?",
@@ -233,6 +235,8 @@
     "title": "Üyeler",
     "count": "{{count}} üye",
     "count_other": "{{count}} üye",
+    "countFronters": "{{count}} frontta olan",
+    "countFronters_other": "{{count}} frontta olan",
     "countFiltered": "{{total}} üyeden {{filtered}}",
     "add": "+ Ekle",
     "search": "Ara…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "{{kind}} aramak için yazın…",
     "archived": "Arşivlenmiş",
     "noArchived": "Arşivlenmiş üye yok.",
+    "noArchivedFacets": "Arşivlenmiş yön yok.",
+    "noArchivedCustomFronts": "Arşivlenmiş özel front yok.",
     "select": "Seç",
     "selectAll": "Tümü",
     "selectNone": "Hiçbiri",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Kodun yayınlanamadı — bağlantını kontrol edip yeniden dene."
   },
   "terminology": {
+    "fronter": "Frontta Olan",
+    "fronters": "Frontta Olanlar",
     "title": "Terminoloji",
     "hint": "Uygulamanın bu kavramlara verdiği adları değiştir. Senin sözcüğün varsayılanın yerine her yerde geçer. Boş bırakılırsa varsayılan kullanılır. Bazı dillerde yalnızca temel biçimler değiştirilir.",
     "member": "Üye",
@@ -1196,6 +1204,7 @@
     "typeName": "Tür Adı",
     "directional": "Yönlü",
     "showColors": "Renkler",
+    "lockPositions": "Konumları kilitle",
     "inverseName": "Ters Etiket",
     "typeColor": "Renk",
     "longPressDelete": "Özel bir türü silmek için basılı tutun.",

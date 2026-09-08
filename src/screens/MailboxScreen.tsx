@@ -121,7 +121,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
 
   const send = (recipientId: string, senderId: string) => {
     if (!recipientId || !senderId || !text.trim()) return;
-    const targets = recipientId === ALL_RECIPIENTS ? active.map(m => m.id) : [recipientId];
+    const targets = recipientId === ALL_RECIPIENTS ? active.map(m => m.id).filter(id => id !== senderId) : [recipientId];
     if (targets.length === 0) return;
     const body = text.trim();
     const now = Date.now();
@@ -158,6 +158,9 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             borderColor: selected === ALL_RECIPIENTS ? `${T.accent}50` : T.border}}>
           <Text style={{fontSize: fs(11), fontWeight: '600', color: selected === ALL_RECIPIENTS ? T.accent : T.dim}}>{t('mailbox.everyone')} · {active.length}</Text>
         </TouchableOpacity>
+      )}
+      {active.length > 0 && (
+        <Text accessibilityRole="header" style={{width: '100%', fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('members.title')}</Text>
       )}
       {active.map(m => (
         <TouchableOpacity key={m.id} onPress={() => onSelect(m.id)} activeOpacity={0.7}

@@ -205,7 +205,8 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       ]);
     }}>{t('common.clear')}</Btn><Btn instant T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
-      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.title')}</Text>
+      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
       <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
@@ -221,7 +222,8 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       <Field label={t('modal.noteOptional')} value={primaryNote} onChange={setPrimaryNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
 
       <SectionDivider label={t('tier.coFront')} color={T.info} T={T} />
-      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.title')}</Text>
+      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
       <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>
@@ -237,7 +239,8 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       <Field label={t('modal.noteOptional')} value={coFrontNote} onChange={setCoFrontNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
 
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
-      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.title')}</Text>
+      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={regularMembers} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.title')} />
       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('members.facets')}</Text>
       <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} members={facets} groups={groups} allAssigned={allAssigned} T={T} t={t} kindLabel={t('members.facets')} />
       {(<>

@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "フロンター",
     "front": "フロント",
     "members": "メンバー",
     "hub": "ハブ",
@@ -254,6 +255,7 @@
     "moveUp": "上へ移動",
     "noCustomFronts": "カスタムフロントはまだありません。",
     "selectAction": "選択",
+    "deselectAction": "選択解除",
     "addToFront": "フロントに追加",
     "removeFromFront": "フロントから外す",
     "removeFromFrontMsg": "{{name}}をフロントから外しますか？",
@@ -278,8 +280,12 @@
     "searchToAddKind": "{{kind}}を検索…",
     "archived": "アーカイブ済み",
     "noArchived": "アーカイブされたメンバーはいません。",
+    "noArchivedFacets": "アーカイブされた側面はありません。",
+    "noArchivedCustomFronts": "アーカイブされたカスタムフロントはありません。",
     "count": "{{count}} 人のメンバー",
     "count_other": "{{count}} 人のメンバー",
+    "countFronters": "フロンター {{count}} 人",
+    "countFronters_other": "フロンター {{count}} 人",
     "countFiltered": "{{total}} 人中 {{filtered}} 人"
   },
   "history": {
@@ -1026,6 +1032,8 @@
     "publishFailed": "コードを公開できませんでした。接続を確認してもう一度お試しください。"
   },
   "terminology": {
+    "fronter": "フロンター",
+    "fronters": "フロンター",
     "title": "用語設定",
     "hint": "アプリで使う呼び方を変更できます。入力した語がデフォルトの語をどこでも置き換えます。空欄ならデフォルトを使用します。一部の言語では基本形のみ置き換えられます。",
     "member": "メンバー",
@@ -1195,6 +1203,7 @@
     "typeName": "種類の名前",
     "directional": "方向あり",
     "showColors": "色",
+    "lockPositions": "位置をロック",
     "inverseName": "逆方向のラベル",
     "typeColor": "色",
     "longPressDelete": "カスタム種類を長押しすると削除できます。",

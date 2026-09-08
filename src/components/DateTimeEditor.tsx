@@ -4,7 +4,7 @@ import {Text, TextInput} from './AppText';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import i18n from '../i18n/i18n';
-import {getLocale} from '../utils';
+import {getLocale, uses12HourClock, dayPeriodLabel} from '../utils';
 
 export type DateTimeEditorMode =
   | 'datetime'
@@ -71,7 +71,13 @@ const EditableCell = ({
       <TextInput
         value={text}
         accessibilityLabel={a11yLabel || i18n.t('a11y.value')}
-        onChangeText={t => { editing.current = true; setText(t.replace(/[^0-9]/g, '')); }}
+        onChangeText={raw => {
+          editing.current = true;
+          const cleaned = raw.replace(/[^0-9]/g, '');
+          setText(cleaned);
+          const n = parseInt(cleaned, 10);
+          if (!Number.isNaN(n) && n >= min && n <= max) onCommit(n);
+        }}
         onFocus={() => { editing.current = true; }}
         onBlur={() => commit()}
         onSubmitEditing={commit}
@@ -99,7 +105,8 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
   const hours = date.getHours();
   const minutes = date.getMinutes();
   const isPM = hours >= 12;
-  const displayHour = hours % 12 || 12;
+  const twelveHour = uses12HourClock();
+  const displayHour = twelveHour ? (hours % 12 || 12) : hours;
 
   const showMonth = mode !== 'time' && mode !== 'year';
   const showDay   = mode === 'datetime' || mode === 'date' || mode === 'monthDay';
@@ -142,6 +149,11 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
     const d = new Date(date);
     const h24 = (h12 % 12) + (isPM ? 12 : 0);
     d.setHours(h24);
+    onChange(d);
+  };
+  const commitHour24 = (h24: number) => {
+    const d = new Date(date);
+    d.setHours(clamp(h24, 0, 23));
     onChange(d);
   };
   const commitMinute = (m: number) => {
@@ -213,8 +225,8 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
               <>
                 {(showMonth || showDay || showYear) && <View style={{width: 12}} />}
                 <EditableCell
-                  value={displayHour} pad={2} min={1} max={12}
-                  onCommit={commitHour12} onStep={d => stepBy('hour', d)}
+                  value={displayHour} pad={2} min={twelveHour ? 1 : 0} max={twelveHour ? 12 : 23}
+                  onCommit={twelveHour ? commitHour12 : commitHour24} onStep={d => stepBy('hour', d)}
                   width={44} label="HH" a11yLabel={i18n.t('a11y.hour')} T={T}
                 />
                 <Text style={{fontSize: fs(18), color: T.dim, fontWeight: '700', marginHorizontal: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">:</Text>
@@ -223,11 +235,13 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                   onCommit={commitMinute} onStep={d => stepBy('minute', d)}
                   width={44} label="MIN" a11yLabel={i18n.t('a11y.minute')} T={T}
                 />
-                <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}
-                  accessibilityRole="button" accessibilityLabel={isPM ? i18n.t('a11y.switchToAm') : i18n.t('a11y.switchToPm')}
-                  style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, marginLeft: 4}}>
-                  <Text style={{fontSize: fs(13), color: T.accent, fontWeight: '600'}}>{isPM ? 'PM' : 'AM'}</Text>
-                </TouchableOpacity>
+                {twelveHour && (
+                  <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}
+                    accessibilityRole="button" accessibilityLabel={isPM ? i18n.t('a11y.switchToAm') : i18n.t('a11y.switchToPm')}
+                    style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, marginLeft: 4}}>
+                    <Text style={{fontSize: fs(13), color: T.accent, fontWeight: '600'}}>{dayPeriodLabel(isPM)}</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>

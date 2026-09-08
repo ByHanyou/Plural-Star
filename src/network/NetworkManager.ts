@@ -1,7 +1,7 @@
 import { Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import { saveAvatar, saveBannerFromBase64, mirrorThumbDataUri } from '../utils/mediaUtils';
+import { saveAvatar, saveBannerFromBase64, saveBioImage, mirrorThumbDataUri } from '../utils/mediaUtils';
 import { logError } from '../utils/log';
 import { store, KEYS } from '../storage';
 import {
@@ -203,7 +203,7 @@ class NetworkManagerImpl {
   private mirrorTimer: ReturnType<typeof setTimeout> | null = null;
   private lastPushAt = 0;
   private syncing = false;
-  private chunkBuffers: Map<string, {parts: string[]; total: number; seqs: Set<number>; init: boolean}> = new Map();
+  private chunkBuffers: Map<string, {parts: string[]; total: number; seqs: Set<number>; init: boolean; resolved: boolean}> = new Map();
   private pendingConflicts: Map<string, {key: string; remoteValue: string; remoteHash: string}[]> = new Map();
   private syncAppliedListeners: Set<() => void> = new Set();
   private syncConflictListeners: Set<(c: {peerId: string; deviceName: string; keys: string[]}) => void> = new Set();
@@ -780,7 +780,7 @@ class NetworkManagerImpl {
         break;
       }
       case 'sync': {
-        this.applySync(sender, msg.keys, !!msg.init, !!msg.initDone).catch(e => console.warn('[NETWORK] applySync failed:', e));
+        this.applySync(sender, msg.keys, !!msg.init, !!msg.initDone, !!msg.resolved).catch(e => console.warn('[NETWORK] applySync failed:', e));
         break;
       }
       case 'sync_req': {
@@ -2089,6 +2089,12 @@ class NetworkManagerImpl {
             const uri = await this.readImageDataUri(val);
             if (uri) out[key] = uri;
           }
+          if (!Array.isArray(m.customFields)) continue;
+          for (const c of m.customFields) {
+            if (!c || !c.fieldId || typeof c.value !== 'string' || !c.value.startsWith('file://')) continue;
+            const uri = await this.readImageDataUri(c.value);
+            if (uri) out[`ps:media:cf:${m.id}:${c.fieldId}`] = uri;
+          }
         }
       }
     }
@@ -2108,49 +2114,110 @@ class NetworkManagerImpl {
     return out;
   }
 
-  private async applyMedia(key: string, dataUri: string): Promise<void> {
+  private pendingMedia: Map<string, {v: string; h: string}> = new Map();
+  private static readonly PENDING_MEDIA_MAX = 300;
+
+  private stashPendingMedia(key: string, v: string, h: string): void {
+    if (this.pendingMedia.has(key)) this.pendingMedia.delete(key);
+    while (this.pendingMedia.size >= NetworkManagerImpl.PENDING_MEDIA_MAX) {
+      const first = this.pendingMedia.keys().next().value;
+      if (first === undefined) break;
+      this.pendingMedia.delete(first);
+    }
+    this.pendingMedia.set(key, {v, h});
+  }
+
+  private async flushPendingMedia(applied: string[]): Promise<void> {
+    if (this.pendingMedia.size === 0) return;
+    for (const [key, entry] of Array.from(this.pendingMedia.entries())) {
+      const ok = await this.applyMedia(key, entry.v);
+      if (!ok) continue;
+      this.pendingMedia.delete(key);
+      this.lastHashes[key] = entry.h;
+      applied.push(key);
+    }
+  }
+
+  private async applyMedia(key: string, dataUri: string): Promise<boolean> {
     if (key === 'ps:media:sysav' || key === 'ps:media:sysbn') {
       const isAv = key === 'ps:media:sysav';
       let uri: string;
       try {
         uri = isAv ? await saveAvatar('system-avatar', dataUri) : await saveBannerFromBase64('system-banner', dataUri);
       } catch {
-        return;
+        return false;
       }
       const rawSys = await AsyncStorage.getItem(KEYS.system);
-      if (!rawSys) return;
+      if (!rawSys) return false;
       try {
         const sys = JSON.parse(rawSys);
-        if (!sys || typeof sys !== 'object' || Array.isArray(sys)) return;
+        if (!sys || typeof sys !== 'object' || Array.isArray(sys)) return false;
         sys[isAv ? 'avatar' : 'banner'] = uri;
         const v = JSON.stringify(sys);
         await AsyncStorage.setItem(KEYS.system, v);
         this.lastHashes[KEYS.system] = syncHash(v);
-      } catch {}
-      return;
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    const cf = key.match(/^ps:media:cf:(.+):([^:]+)$/);
+    if (cf) {
+      const memberId = cf[1];
+      const fieldId = cf[2];
+      const raw = await AsyncStorage.getItem(KEYS.members);
+      if (!raw) return false;
+      try {
+        const list = JSON.parse(raw);
+        if (!Array.isArray(list)) return false;
+        const idx = list.findIndex((x: any) => x && x.id === memberId);
+        if (idx < 0) return false;
+        const fields: any[] = Array.isArray(list[idx].customFields) ? list[idx].customFields : [];
+        const fi = fields.findIndex((c: any) => c && c.fieldId === fieldId);
+        if (fi < 0) return false;
+        const b64 = dataUri.includes(',') ? dataUri.split(',')[1] : dataUri;
+        const ext = b64.startsWith('/9j/') ? 'jpg' : b64.startsWith('R0lGO') ? 'gif' : b64.startsWith('UklGR') ? 'webp' : 'png';
+        const uri = await saveBioImage(`cf-${memberId}-${fieldId}`, dataUri, ext);
+        fields[fi] = {...fields[fi], value: uri};
+        list[idx].customFields = fields;
+        const v = JSON.stringify(list);
+        await AsyncStorage.setItem(KEYS.members, v);
+        this.lastHashes[KEYS.members] = syncHash(v);
+        return true;
+      } catch {
+        return false;
+      }
     }
     const m = key.match(/^ps:media:(av|bn):(.+)$/);
-    if (!m) return;
+    if (!m) return false;
     const kind = m[1];
     const memberId = m[2];
+    const raw = await AsyncStorage.getItem(KEYS.members);
+    if (!raw) return false;
+    let list: any;
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      return false;
+    }
+    if (!Array.isArray(list)) return false;
+    const idx = list.findIndex((x: any) => x && x.id === memberId);
+    if (idx < 0) return false;
     let uri: string;
     try {
       uri = kind === 'av' ? await saveAvatar(memberId, dataUri) : await saveBannerFromBase64(memberId, dataUri);
     } catch {
-      return;
+      return false;
     }
-    const raw = await AsyncStorage.getItem(KEYS.members);
-    if (!raw) return;
     try {
-      const list = JSON.parse(raw);
-      if (!Array.isArray(list)) return;
-      const idx = list.findIndex((x: any) => x && x.id === memberId);
-      if (idx < 0) return;
       list[idx][kind === 'av' ? 'avatar' : 'banner'] = uri;
       const v = JSON.stringify(list);
       await AsyncStorage.setItem(KEYS.members, v);
       this.lastHashes[KEYS.members] = syncHash(v);
-    } catch {}
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async frontClearedAt(): Promise<number | null> {
@@ -2221,6 +2288,12 @@ class NetworkManagerImpl {
         const lm = byId.get(mm.id);
         mm.avatar = lm?.avatar;
         mm.banner = lm?.banner;
+        if (!lm || !Array.isArray(mm.customFields) || !Array.isArray(lm.customFields)) continue;
+        for (const c of mm.customFields) {
+          if (!c || typeof c.value !== 'string' || !c.value.startsWith('data:')) continue;
+          const lc = lm.customFields.find((x: any) => x && x.fieldId === c.fieldId);
+          if (lc && typeof lc.value === 'string' && lc.value.startsWith('file://')) c.value = lc.value;
+        }
       }
       return JSON.stringify(inc);
     } catch {
@@ -2337,6 +2410,7 @@ class NetworkManagerImpl {
     }
     const devices = this.acceptedDevices();
     if (devices.length === 0) return;
+    if (!devices.some(d => this.isReachable(d.peerId))) return;
     const now = Date.now();
     if (now - this.lastPushAt < SYNC_MIN_INTERVAL_MS) {
       this.notifyDataChanged();
@@ -2505,12 +2579,12 @@ class NetworkManagerImpl {
     }
   }
 
-  private handleSyncChunk(sender: FriendIdentity, m: {key: string; h: string; seq: number; total: number; data: string; init?: boolean}): void {
+  private handleSyncChunk(sender: FriendIdentity, m: {key: string; h: string; seq: number; total: number; data: string; init?: boolean; resolved?: boolean}): void {
     if (!m.key || m.total <= 0 || m.total > SYNC_MAX_PARTS || m.seq < 0 || m.seq >= m.total) return;
     const id = `${sender.peerId}:${m.key}:${m.h}`;
     let buf = this.chunkBuffers.get(id);
     if (!buf) {
-      buf = {parts: new Array(m.total).fill(''), total: m.total, seqs: new Set(), init: !!m.init};
+      buf = {parts: new Array(m.total).fill(''), total: m.total, seqs: new Set(), init: !!m.init, resolved: !!m.resolved};
       this.chunkBuffers.set(id, buf);
     }
     buf.parts[m.seq] = m.data;
@@ -2518,12 +2592,13 @@ class NetworkManagerImpl {
     if (buf.seqs.size >= buf.total) {
       const v = buf.parts.join('');
       const wasInit = buf.init;
+      const wasResolved = buf.resolved;
       this.chunkBuffers.delete(id);
-      this.applySync(sender, {[m.key]: {v, h: m.h}}, wasInit).catch(e => console.warn('[NETWORK] applySync(chunk) failed:', e));
+      this.applySync(sender, {[m.key]: {v, h: m.h}}, wasInit, false, wasResolved).catch(e => console.warn('[NETWORK] applySync(chunk) failed:', e));
     }
   }
 
-  private async applySync(sender: FriendIdentity, keys: Record<string, {v: string; h: string}>, init = false, initDone = false): Promise<void> {
+  private async applySync(sender: FriendIdentity, keys: Record<string, {v: string; h: string}>, init = false, initDone = false, resolved = false): Promise<void> {
     this.snapMemo = null;
     let dev = this.friends.find(f => f.peerId === sender.peerId && f.kind === 'device');
     if (!dev || dev.status === 'entered_mine') return;
@@ -2551,14 +2626,18 @@ class NetworkManagerImpl {
       const incoming = keys[k];
       if (k.startsWith('ps:media:')) {
         if (this.lastHashes[k] !== incoming.h) {
-          await this.applyMedia(k, incoming.v);
-          this.lastHashes[k] = incoming.h;
-          applied.push(k);
+          const ok = await this.applyMedia(k, incoming.v);
+          if (ok) {
+            this.lastHashes[k] = incoming.h;
+            applied.push(k);
+          } else {
+            this.stashPendingMedia(k, incoming.v, incoming.h);
+          }
         }
         continue;
       }
       const localRaw = await AsyncStorage.getItem(k);
-      if (k === KEYS.front && !cloning) {
+      if (k === KEYS.front && !cloning && !resolved) {
         const incT = this.frontStartTime(incoming.v);
         const locT = this.frontStartTime(localRaw);
         if (incT != null && locT != null && incT < locT) continue;
@@ -2603,7 +2682,7 @@ class NetworkManagerImpl {
         }
         applied.push(k);
       };
-      if (cloning) {
+      if (cloning || resolved) {
         await writeValue();
         continue;
       }
@@ -2625,6 +2704,17 @@ class NetworkManagerImpl {
       } else {
         conflicts.push({key: k, remoteValue: incoming.v, remoteHash: incoming.h});
       }
+    }
+    if (resolved) {
+      const pending = this.pendingConflicts.get(sender.peerId);
+      if (pending) {
+        const rest = pending.filter(c => !(c.key in keys));
+        if (rest.length) this.pendingConflicts.set(sender.peerId, rest);
+        else this.pendingConflicts.delete(sender.peerId);
+      }
+    }
+    if (applied.includes(KEYS.members) || applied.includes(KEYS.system)) {
+      await this.flushPendingMedia(applied);
     }
     if (initDone && dev.initRole === 'target' && dev.initPending) {
       this.upsertFriend({ ...dev, initPending: false });
@@ -2767,18 +2857,50 @@ class NetworkManagerImpl {
       }
       this.emitSyncApplied();
     } else {
-      const push: Record<string, {v: string; h: string}> = {};
+      const push: {k: string; v: string; h: string}[] = [];
       for (const c of conflicts) {
         const localRaw = await AsyncStorage.getItem(c.key);
         if (localRaw != null) {
           const h = syncHash(localRaw);
           this.lastHashes[c.key] = h;
-          push[c.key] = {v: localRaw, h};
+          push.push({k: c.key, v: localRaw, h});
         }
       }
-      try {
-        await this.sendTo(peerId, {t: 'sync', keys: push});
-      } catch {}
+      const sendOne = async (msg: NetMessage) => {
+        try {
+          await this.sendTo(peerId, msg);
+        } catch {
+          await sleep(SYNC_PACE_MS);
+          try {
+            await this.sendTo(peerId, msg);
+          } catch {}
+        }
+        await sleep(SYNC_PACE_MS);
+      };
+      let batch: Record<string, {v: string; h: string}> = {};
+      let size = 0;
+      const flush = async () => {
+        if (Object.keys(batch).length === 0) return;
+        const payload = batch;
+        batch = {};
+        size = 0;
+        await sendOne({t: 'sync', keys: payload, resolved: true});
+      };
+      for (const c of push) {
+        if (c.v.length > SYNC_MSG_BUDGET) {
+          await flush();
+          const total = Math.ceil(c.v.length / SYNC_CHUNK_SIZE);
+          for (let seq = 0; seq < total; seq++) {
+            const data = c.v.slice(seq * SYNC_CHUNK_SIZE, (seq + 1) * SYNC_CHUNK_SIZE);
+            await sendOne({t: 'sync_chunk', key: c.k, h: c.h, seq, total, data, resolved: true});
+          }
+        } else {
+          if (size + c.v.length > SYNC_MSG_BUDGET && Object.keys(batch).length) await flush();
+          batch[c.k] = {v: c.v, h: c.h};
+          size += c.v.length;
+        }
+      }
+      await flush();
     }
     await store.set(SYNC_STATE_KEY, this.lastHashes);
     this.pendingConflicts.delete(peerId);

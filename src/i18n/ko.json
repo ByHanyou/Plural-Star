@@ -110,6 +110,7 @@
     "retry": "다시 시도"
   },
   "tabs": {
+    "fronters": "프런터",
     "front": "프런트",
     "members": "멤버",
     "hub": "허브",
@@ -215,6 +216,7 @@
     "moveUp": "위로 이동",
     "noCustomFronts": "아직 커스텀 프런트가 없어요.",
     "selectAction": "선택",
+    "deselectAction": "선택 해제",
     "addToFront": "프런트에 추가",
     "removeFromFront": "프런트에서 빼기",
     "removeFromFrontMsg": "{{name}} 님을 프런트에서 뺄까요?",
@@ -233,6 +235,8 @@
     "title": "멤버",
     "count": "멤버 {{count}}명",
     "count_other": "멤버 {{count}}명",
+    "countFronters": "프런터 {{count}}명",
+    "countFronters_other": "프런터 {{count}}명",
     "countFiltered": "멤버 {{total}}명 중 {{filtered}}명",
     "add": "+ 추가",
     "search": "검색…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "{{kind}} 검색…",
     "archived": "보관됨",
     "noArchived": "보관된 멤버가 없어요.",
+    "noArchivedFacets": "보관된 패싯이 없어요.",
+    "noArchivedCustomFronts": "보관된 커스텀 프런트가 없어요.",
     "select": "선택",
     "selectAll": "전체",
     "selectNone": "없음",
@@ -1026,6 +1032,8 @@
     "publishFailed": "코드를 게시할 수 없었어요 — 연결을 확인하고 다시 시도하세요."
   },
   "terminology": {
+    "fronter": "프런터",
+    "fronters": "프런터",
     "title": "용어",
     "hint": "앱에서 사용하는 용어를 바꿔 보세요. 입력한 단어가 기본 용어를 어디서나 대체해요. 비워 두면 기본값을 사용해요. 일부 언어에서는 기본형만 대체돼요.",
     "member": "멤버",
@@ -1173,6 +1181,7 @@
     "showOnMap": "지도에 표시",
     "addMember": "+ 멤버",
     "showColors": "색상",
+    "lockPositions": "위치 잠금",
     "emptyMap": "지도가 비어 있어요. + 멤버로 멤버를 추가하거나, + 관계 추가로 연결해 보세요.",
     "depth": "연결 범위",
     "removeFromMap": "지도에서 제거",

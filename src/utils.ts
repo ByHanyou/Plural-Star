@@ -951,8 +951,99 @@ export const getLocale = (): string => {
   return tag;
 };
 
+let collatorCache: {tag: string; cmp: (a: string, b: string) => number} | null = null;
+
+const localeComparer = (): ((a: string, b: string) => number) => {
+  const tag = getLocale();
+  if (collatorCache && collatorCache.tag === tag) return collatorCache.cmp;
+  let cmp: (a: string, b: string) => number = (a, b) => a.localeCompare(b);
+  try {
+    const IntlAny: any = typeof Intl !== 'undefined' ? Intl : null;
+    if (IntlAny && typeof IntlAny.Collator === 'function') {
+      const collator = new IntlAny.Collator(tag);
+      cmp = (a, b) => collator.compare(a, b);
+    }
+  } catch {}
+  collatorCache = {tag, cmp};
+  return cmp;
+};
+
 export const nameCompare = (a: unknown, b: unknown): number =>
-  String(a ?? '').localeCompare(String(b ?? ''), getLocale());
+  localeComparer()(String(a ?? ''), String(b ?? ''));
+
+let clockCache: {tag: string; hour12: boolean; am: string; pm: string} | null = null;
+
+const clockInfo = (): {tag: string; hour12: boolean; am: string; pm: string} => {
+  const tag = getLocale();
+  if (clockCache && clockCache.tag === tag) return clockCache;
+  let hour12 = true;
+  let am = 'AM';
+  let pm = 'PM';
+  try {
+    const IntlAny: any = typeof Intl !== 'undefined' ? Intl : null;
+    if (IntlAny && typeof IntlAny.DateTimeFormat === 'function') {
+      const resolved = new IntlAny.DateTimeFormat(tag, {hour: 'numeric'}).resolvedOptions();
+      if (typeof resolved.hour12 === 'boolean') hour12 = resolved.hour12;
+      else if (typeof resolved.hourCycle === 'string') hour12 = resolved.hourCycle === 'h11' || resolved.hourCycle === 'h12';
+      const twelve = new IntlAny.DateTimeFormat(tag, {hour: 'numeric', hour12: true});
+      if (typeof twelve.formatToParts === 'function') {
+        const period = (d: Date): string | null => {
+          const part = twelve.formatToParts(d).find((p: any) => p && p.type === 'dayPeriod');
+          return part && part.value ? String(part.value) : null;
+        };
+        const a = period(new Date(2000, 0, 1, 1, 0, 0));
+        const p = period(new Date(2000, 0, 1, 13, 0, 0));
+        if (a && p && a !== p) { am = a; pm = p; }
+      }
+    }
+  } catch {}
+  clockCache = {tag, hour12, am, pm};
+  return clockCache;
+};
+
+export const uses12HourClock = (): boolean => clockInfo().hour12;
+
+export const dayPeriodLabel = (isPM: boolean): string => (isPM ? clockInfo().pm : clockInfo().am);
+
+export const fmtClock = (hours: number, minutes: number): string => {
+  const d = new Date(2000, 0, 1, hours, minutes, 0);
+  try {
+    return d.toLocaleTimeString(getLocale(), {hour: 'numeric', minute: '2-digit'});
+  } catch {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+};
+
+export const fmtClockHHMM = (hhmm: string): string => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((hhmm || '').trim());
+  if (!m) return hhmm;
+  return fmtClock(parseInt(m[1], 10), parseInt(m[2], 10));
+};
+
+const numberFormatCache = new Map<string, (n: number) => string>();
+
+const numberFormatter = (style: 'decimal' | 'percent', minFrac: number, maxFrac: number): ((n: number) => string) => {
+  const tag = getLocale();
+  const key = `${tag}|${style}|${minFrac}|${maxFrac}`;
+  const cached = numberFormatCache.get(key);
+  if (cached) return cached;
+  let fmt: (n: number) => string = n => (style === 'percent' ? `${(n * 100).toFixed(maxFrac)}%` : n.toFixed(maxFrac));
+  try {
+    const IntlAny: any = typeof Intl !== 'undefined' ? Intl : null;
+    if (IntlAny && typeof IntlAny.NumberFormat === 'function') {
+      const nf = new IntlAny.NumberFormat(tag, {style, minimumFractionDigits: minFrac, maximumFractionDigits: maxFrac});
+      fmt = n => nf.format(n);
+    }
+  } catch {}
+  numberFormatCache.set(key, fmt);
+  return fmt;
+};
+
+export const fmtNum = (n: number, maxFractionDigits = 1, minFractionDigits = 0): string =>
+  numberFormatter('decimal', Math.min(minFractionDigits, maxFractionDigits), maxFractionDigits)(n);
+
+export const fmtPercent = (ratio: number, maxFractionDigits = 1, minFractionDigits = 0): string =>
+  numberFormatter('percent', Math.min(minFractionDigits, maxFractionDigits), maxFractionDigits)(ratio);
 
 export const fmtTime = (ts: number): string =>
   new Date(ts).toLocaleString(getLocale(), {

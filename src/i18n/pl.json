@@ -110,6 +110,7 @@
     "retry": "Spróbuj ponownie"
   },
   "tabs": {
+    "fronters": "Frontujący",
     "front": "Front",
     "members": "Członkowie",
     "hub": "Centrum",
@@ -215,6 +216,7 @@
     "moveUp": "Przenieś w górę",
     "noCustomFronts": "Nie ma jeszcze własnych frontów.",
     "selectAction": "Wybierz",
+    "deselectAction": "Odznacz",
     "addToFront": "Dodaj do frontu",
     "removeFromFront": "Usuń z frontu",
     "removeFromFrontMsg": "Usunąć {{name}} z frontu?",
@@ -233,6 +235,8 @@
     "title": "Członkowie",
     "count": "Członkowie: {{count}}",
     "count_other": "Członkowie: {{count}}",
+    "countFronters": "Frontujący: {{count}}",
+    "countFronters_other": "Frontujący: {{count}}",
     "countFiltered": "{{filtered}} z {{total}} członków",
     "add": "+ Dodaj",
     "search": "Szukaj…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Wpisz, aby wyszukać: {{kind}}…",
     "archived": "Zarchiwizowani",
     "noArchived": "Brak zarchiwizowanych członków.",
+    "noArchivedFacets": "Brak zarchiwizowanych aspektów.",
+    "noArchivedCustomFronts": "Brak zarchiwizowanych własnych frontów.",
     "select": "Wybierz",
     "selectAll": "Wszystko",
     "selectNone": "Nic",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Nie udało się opublikować twojego kodu — sprawdź połączenie i spróbuj ponownie."
   },
   "terminology": {
+    "fronter": "Frontujący",
+    "fronters": "Frontujący",
     "title": "Terminologia",
     "hint": "Zmień nazwy pojęć używanych w aplikacji. Twoje słowo zastąpi domyślne wszędzie. Puste pole przywraca domyślne. W niektórych językach zastępowane są tylko formy podstawowe.",
     "member": "Członek",
@@ -1176,6 +1184,7 @@
     "showOnMap": "Pokaż na mapie",
     "addMember": "+ Członek",
     "showColors": "Kolory",
+    "lockPositions": "Zablokuj pozycje",
     "emptyMap": "Mapa jest pusta. Dotknij + Członek, aby dodać członków, albo + Dodaj relację, aby ich połączyć.",
     "depth": "Zasięg połączeń",
     "removeFromMap": "Usuń z mapy",

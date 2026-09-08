@@ -60,6 +60,7 @@ export const pickImageForUpload = async (
   });
   if (choice === 'cancel') return null;
   if (choice === 'auto') return img;
+  await new Promise<void>(r => setTimeout(r, 500));
   const cropUri = img.uri.startsWith('file://') || img.uri.startsWith('content://') ? img.uri : `file://${img.uri}`;
   const cropped = await requestImageCrop({uri: cropUri, width: img.width, height: img.height});
   if (!cropped) return null;

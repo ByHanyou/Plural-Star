@@ -8,7 +8,7 @@ import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
 import {saveHistory} from '../store/actions';
 import {AccentText} from '../components/AccentText';
-import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, TIER_LABELS, translateMood, sortMembersBySearch, memberMatchesSearch, singletStatuses, buildEffectiveEnd} from '../utils';
+import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, fmtNum, TIER_LABELS, translateMood, sortMembersBySearch, memberMatchesSearch, singletStatuses, buildEffectiveEnd} from '../utils';
 import {store, KEYS} from '../storage';
 import {FlashList} from '@shopify/flash-list';
 import {FrontTimeline} from '../components/FrontTimeline';
@@ -416,7 +416,8 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
   const pickerMembers = singlet
     ? [...members.filter(m => m.id === selfId), ...singletStatuses(members)]
-    : members.filter(m => !m.isFacet);
+    : members.filter(m => !m.isFacet && !m.isCustomFront && !m.deleted);
+  const pickerCustomFronts = singlet ? [] : members.filter(m => m.isCustomFront && !m.deleted);
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
@@ -479,7 +480,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
       {subTab === 'member' && (
         <View style={{flex: 1}}>
-          {pickerMembers.length === 0 ? (
+          {pickerMembers.length === 0 && pickerCustomFronts.length === 0 && !members.some(m => m.isFacet && !m.deleted) ? (
             <View style={{alignItems: 'center', paddingVertical: 48}}>
               <Text style={{fontSize: fs(13), color: T.dim}}>{singlet ? t('profile.noStatuses') : t('history.noMembers')}</Text>
             </View>
@@ -519,14 +520,26 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                             {selectedMemberId === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                           </TouchableOpacity>
                         );
-                        const facets = singlet ? [] : sortMembersBySearch(members.filter(m => m.isFacet && memberMatchesSearch(m, q)), memberSearch);
+                        const facets = singlet ? [] : sortMembersBySearch(members.filter(m => m.isFacet && !m.deleted && memberMatchesSearch(m, q)), memberSearch);
+                        const customFronts = sortMembersBySearch(pickerCustomFronts.filter(m => memberMatchesSearch(m, q)), memberSearch);
+                        const roster = sortMembersBySearch(pickerMembers.filter(m => memberMatchesSearch(m, q)), memberSearch);
+                        const header = (label: string) => (
+                          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{label}</Text>
+                        );
                         return (
                           <>
-                            {sortMembersBySearch(pickerMembers.filter(m => memberMatchesSearch(m, q)), memberSearch).map(row)}
+                            {!singlet && roster.length > 0 && header(t('members.title'))}
+                            {roster.map(row)}
                             {facets.length > 0 && (
                               <>
-                                <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
+                                {header(t('members.facets'))}
                                 {facets.map(row)}
+                              </>
+                            )}
+                            {customFronts.length > 0 && (
+                              <>
+                                {header(t('members.customFronts'))}
+                                {customFronts.map(row)}
                               </>
                             )}
                           </>
@@ -578,7 +591,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                     {avgEnergy !== null && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
                         <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('stats.avgEnergy')}</Text>
-                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{avgEnergy.toFixed(1)}/10</Text>
+                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{fmtNum(avgEnergy, 1, 1)}/10</Text>
                       </View>
                     )}
                   </View>

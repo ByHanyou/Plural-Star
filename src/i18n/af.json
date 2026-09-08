@@ -110,6 +110,7 @@
     "retry": "Probeer weer"
   },
   "tabs": {
+    "fronters": "Fronters",
     "front": "Front",
     "members": "Lede",
     "hub": "Hub",
@@ -215,6 +216,7 @@
     "moveUp": "Skuif op",
     "noCustomFronts": "Nog geen pasgemaakte fronte nie.",
     "selectAction": "Kies",
+    "deselectAction": "Ontkies",
     "addToFront": "Voeg by front",
     "removeFromFront": "Verwyder uit front",
     "removeFromFrontMsg": "Haal {{name}} uit die front?",
@@ -233,6 +235,8 @@
     "title": "Lede",
     "count": "{{count}} lid",
     "count_other": "{{count}} lede",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} fronters",
     "countFiltered": "{{filtered}} van {{total}} lede",
     "add": "+ Voeg by",
     "search": "Soek…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Tik om {{kind}} te soek…",
     "archived": "Geargiveer",
     "noArchived": "Geen geargiveerde lede nie.",
+    "noArchivedFacets": "Geen geargiveerde fasette nie.",
+    "noArchivedCustomFronts": "Geen geargiveerde pasgemaakte fronte nie.",
     "select": "Kies",
     "selectAll": "Almal",
     "selectNone": "Geen",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Kon nie jou kode publiseer nie — kontroleer jou verbinding en probeer weer."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronters",
     "title": "Terminologie",
     "hint": "Hernoem wat die app hierdie dinge noem. Jou woord vervang die verstek oral. Leeg gebruik die verstek. In sommige tale word slegs basisvorme vervang.",
     "member": "Lid",
@@ -1174,6 +1182,7 @@
     "showOnMap": "Wys op kaart",
     "addMember": "+ Lid",
     "showColors": "Kleure",
+    "lockPositions": "Vergrendel posisies",
     "emptyMap": "Die kaart is leeg. Tik + Lid om lede by te voeg, of + Voeg verhouding by om hulle te verbind.",
     "depth": "Verbindings uit",
     "removeFromMap": "Verwyder van kaart",

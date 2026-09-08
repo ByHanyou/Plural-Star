@@ -8,7 +8,7 @@ import {readFileText} from '../utils/fileBytes';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
 import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
-import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory, fmtTime} from '../utils';
+import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory, fmtTime, fmtNum} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
 type ImportSource = 'backup' | 'journal' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace' | 'plurallog' | 'parallax';
@@ -588,7 +588,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                 <>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     {recoverEntries.map(entry => {
-                      const sizeLabel = entry.sizeBytes > 1024 * 1024 ? `${(entry.sizeBytes / 1024 / 1024).toFixed(1)} MB` : entry.sizeBytes > 1024 ? `${(entry.sizeBytes / 1024).toFixed(0)} KB` : `${entry.sizeBytes} B`;
+                      const sizeLabel = entry.sizeBytes > 1024 * 1024 ? `${fmtNum(entry.sizeBytes / 1024 / 1024, 1, 1)} MB` : entry.sizeBytes > 1024 ? `${fmtNum(entry.sizeBytes / 1024, 0)} KB` : `${fmtNum(entry.sizeBytes, 0)} B`;
                       const dateLabel = entry.mtime ? fmtTime(entry.mtime) : '';
                       const checked = !!recoverSel[entry.key];
                       return (

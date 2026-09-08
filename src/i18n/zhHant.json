@@ -110,6 +110,7 @@
     "retry": "再試一次"
   },
   "tabs": {
+    "fronters": "前台者",
     "front": "前台",
     "members": "成員",
     "hub": "中心",
@@ -218,6 +219,7 @@
     "moveUp": "上移",
     "noCustomFronts": "尚無自訂前台。",
     "selectAction": "選取",
+    "deselectAction": "取消選取",
     "addToFront": "新增至前台",
     "removeFromFront": "從前台移除",
     "removeFromFrontMsg": "將 {{name}} 從前台移除？",
@@ -233,6 +235,8 @@
     "title": "成員",
     "count": "{{count}} 位成員",
     "count_other": "{{count}} 位成員",
+    "countFronters": "{{count}} 位前台者",
+    "countFronters_other": "{{count}} 位前台者",
     "countFiltered": "{{total}} 位成員中的 {{filtered}} 位",
     "add": "+ 新增",
     "search": "搜尋…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "輸入以搜尋{{kind}}…",
     "archived": "已封存",
     "noArchived": "沒有已封存的成員。",
+    "noArchivedFacets": "沒有已封存的側面。",
+    "noArchivedCustomFronts": "沒有已封存的自訂前台。",
     "select": "選取",
     "selectAll": "全部",
     "selectNone": "全不選",
@@ -1026,6 +1032,8 @@
     "publishFailed": "無法發布你的好友碼——請檢查網路連線後再試一次。"
   },
   "terminology": {
+    "fronter": "前台者",
+    "fronters": "前台者",
     "title": "術語設定",
     "hint": "自訂應用程式中這些概念的稱呼。你的用詞將在所有位置取代預設用詞。留空則使用預設。部分語言僅取代基本形式。",
     "member": "成員",
@@ -1195,6 +1203,7 @@
     "typeName": "類型名稱",
     "directional": "有方向",
     "showColors": "顏色",
+    "lockPositions": "鎖定位置",
     "inverseName": "反向標籤",
     "typeColor": "顏色",
     "longPressDelete": "長按自訂類型即可刪除。",

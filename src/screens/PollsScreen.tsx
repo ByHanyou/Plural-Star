@@ -127,9 +127,13 @@ export const PollsScreen = ({theme: T}: Props) => {
                 </TouchableOpacity>
               );
               const facets = sortMembersBySearch(facetMembers.filter(match), voterSearch.trim());
+              const roster = sortMembersBySearch(activeMembers.filter(match), voterSearch.trim());
               return (
                 <>
-                  {sortMembersBySearch(activeMembers.filter(match), voterSearch.trim()).map(row)}
+                  {roster.length > 0 && (
+                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4}}>{t('members.title')}</Text>
+                  )}
+                  {roster.map(row)}
                   {facets.length > 0 && (
                     <>
                       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4}}>{t('members.facets')}</Text>

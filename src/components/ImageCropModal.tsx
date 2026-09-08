@@ -13,17 +13,19 @@ interface CropSource {
 }
 
 interface CropRequest {
+  id: number;
   src: CropSource;
   resolve: (r: {uri: string} | null) => void;
 }
 
 const hosts: ((req: CropRequest) => void)[] = [];
+let nextRequestId = 1;
 
 export const requestImageCrop = (src: CropSource): Promise<{uri: string} | null> =>
   new Promise(resolve => {
     const open = hosts[hosts.length - 1];
     if (!open) { resolve(null); return; }
-    open({src, resolve});
+    open({id: nextRequestId++, src, resolve});
   });
 
 const HANDLE = 28;
@@ -43,21 +45,31 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
   const rectRef = useRef<Rect | null>(null);
   const dispRef = useRef<Rect | null>(null);
   const startRef = useRef<Rect | null>(null);
+  const reqRef = useRef<CropRequest | null>(null);
 
   useEffect(() => {
     const open = (r: CropRequest) => {
+      const stale = reqRef.current;
+      reqRef.current = r;
+      if (stale) stale.resolve(null);
       setNatural(null); setBox(null); setRect(null); rectRef.current = null; setBusy(false);
       setReq(r);
       if (r.src.width && r.src.height) {
         setNatural({w: r.src.width, h: r.src.height});
       } else {
-        Image.getSize(r.src.uri, (w, h) => setNatural({w, h}), () => { r.resolve(null); setReq(null); });
+        Image.getSize(r.src.uri, (w, h) => setNatural({w, h}), () => {
+          if (reqRef.current === r) { reqRef.current = null; setReq(null); }
+          r.resolve(null);
+        });
       }
     };
     hosts.push(open);
     return () => {
       const i = hosts.indexOf(open);
       if (i >= 0) hosts.splice(i, 1);
+      const pending = reqRef.current;
+      reqRef.current = null;
+      if (pending) pending.resolve(null);
     };
   }, []);
 
@@ -124,7 +136,8 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
   const brResponder = useRef(makeResponder('br')).current;
 
   const finish = (result: {uri: string} | null) => {
-    const r = req;
+    const r = reqRef.current;
+    reqRef.current = null;
     setReq(null);
     r?.resolve(result);
   };
@@ -157,7 +170,7 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
 
   if (!req) return null;
   return (
-    <Modal visible transparent={false} animationType="fade" onRequestClose={() => finish(null)}>
+    <Modal key={req.id} visible transparent={false} animationType="fade" onRequestClose={() => finish(null)}>
       <View style={{flex: 1, backgroundColor: '#000'}}>
         <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: '#fff', textAlign: 'center', paddingTop: 48, paddingBottom: 8}} maxFontSizeMultiplier={1.3}>
           {i18n.t('modal.cropImage')}

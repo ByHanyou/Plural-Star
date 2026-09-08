@@ -110,6 +110,7 @@
     "retry": "ลองอีกครั้ง"
   },
   "tabs": {
+    "fronters": "ผู้ฟรอนต์",
     "front": "ฟรอนต์",
     "members": "สมาชิก",
     "hub": "ศูนย์กลาง",
@@ -218,6 +219,7 @@
     "moveUp": "เลื่อนขึ้น",
     "noCustomFronts": "ยังไม่มีฟรอนต์กำหนดเอง",
     "selectAction": "เลือก",
+    "deselectAction": "ยกเลิกการเลือก",
     "addToFront": "เพิ่มเข้าฟรอนต์",
     "removeFromFront": "นำออกจากฟรอนต์",
     "removeFromFrontMsg": "นำ {{name}} ออกจากฟรอนต์หรือไม่?",
@@ -233,6 +235,8 @@
     "title": "สมาชิก",
     "count": "{{count}} สมาชิก",
     "count_other": "{{count}} สมาชิก",
+    "countFronters": "ผู้ฟรอนต์ {{count}} คน",
+    "countFronters_other": "ผู้ฟรอนต์ {{count}} คน",
     "countFiltered": "{{filtered}} จาก {{total}} สมาชิก",
     "add": "+ เพิ่ม",
     "search": "ค้นหา…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "พิมพ์เพื่อค้นหา {{kind}}…",
     "archived": "เก็บถาวร",
     "noArchived": "ไม่มีสมาชิกที่เก็บถาวร",
+    "noArchivedFacets": "ไม่มีแง่มุมที่เก็บถาวร",
+    "noArchivedCustomFronts": "ไม่มีฟรอนต์กำหนดเองที่เก็บถาวร",
     "select": "เลือก",
     "selectAll": "ทั้งหมด",
     "selectNone": "ไม่เลือก",
@@ -1026,6 +1032,8 @@
     "publishFailed": "ไม่สามารถเผยแพร่รหัสของคุณได้ — ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
   },
   "terminology": {
+    "fronter": "ผู้ฟรอนต์",
+    "fronters": "ผู้ฟรอนต์",
     "title": "คำศัพท์",
     "hint": "เปลี่ยนชื่อคำที่แอปใช้เรียกสิ่งเหล่านี้ คำของคุณจะแทนที่คำเริ่มต้นทุกที่ เว้นว่างเพื่อใช้ค่าเริ่มต้น ในบางภาษาจะแทนที่เฉพาะรูปพื้นฐานเท่านั้น",
     "member": "สมาชิก",
@@ -1195,6 +1203,7 @@
     "typeName": "ชื่อประเภท",
     "directional": "มีทิศทาง",
     "showColors": "สี",
+    "lockPositions": "ล็อกตำแหน่ง",
     "inverseName": "ป้ายชื่อย้อนกลับ",
     "typeColor": "สี",
     "longPressDelete": "กดค้างที่ประเภทกำหนดเองเพื่อลบ",

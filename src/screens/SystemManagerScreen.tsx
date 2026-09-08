@@ -442,6 +442,9 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                 accessibilityLabel={t('common.search')}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: fs(13), marginBottom: 10}} />
               <ScrollView style={{flexShrink: 1}} keyboardShouldPersistTaps="handled">
+                {addCandidates.length > 0 && (
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingBottom: 4}}>{t('members.title')}</Text>
+                )}
                 {addCandidates.map(m => {
                   const checked = addPickIds.includes(m.id);
                   return (

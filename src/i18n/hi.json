@@ -110,6 +110,7 @@
     "retry": "फिर कोशिश करें"
   },
   "tabs": {
+    "fronters": "फ्रंटर्स",
     "front": "फ्रंट",
     "members": "सदस्य",
     "hub": "हब",
@@ -215,6 +216,7 @@
     "moveUp": "ऊपर ले जाएँ",
     "noCustomFronts": "अभी कोई कस्टम फ्रंट नहीं।",
     "selectAction": "चुनें",
+    "deselectAction": "चयन हटाएँ",
     "addToFront": "फ्रंट में जोड़ें",
     "removeFromFront": "फ्रंट से निकालें",
     "removeFromFrontMsg": "{{name}} को फ्रंट से निकालें?",
@@ -233,6 +235,8 @@
     "title": "सदस्य",
     "count": "{{count}} सदस्य",
     "count_other": "{{count}} सदस्य",
+    "countFronters": "{{count}} फ्रंटर",
+    "countFronters_other": "{{count}} फ्रंटर्स",
     "countFiltered": "{{total}} में से {{filtered}} सदस्य",
     "add": "+ जोड़ें",
     "search": "खोजें…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "{{kind}} खोजने के लिए टाइप करें…",
     "archived": "आर्काइव में",
     "noArchived": "कोई आर्काइव सदस्य नहीं।",
+    "noArchivedFacets": "कोई आर्काइव फ़ेसेट नहीं।",
+    "noArchivedCustomFronts": "कोई आर्काइव कस्टम फ्रंट नहीं।",
     "select": "चुनें",
     "selectAll": "सभी",
     "selectNone": "कोई नहीं",
@@ -1026,6 +1032,8 @@
     "publishFailed": "आपका कोड प्रकाशित नहीं हो सका — कनेक्शन जाँचकर फिर कोशिश करें।"
   },
   "terminology": {
+    "fronter": "फ्रंटर",
+    "fronters": "फ्रंटर्स",
     "title": "शब्दावली",
     "hint": "ऐप इन चीज़ों को जो नाम देता है उन्हें बदलें। आपका शब्द हर जगह डिफ़ॉल्ट की जगह लेगा। खाली छोड़ने पर डिफ़ॉल्ट उपयोग होगा। कुछ भाषाओं में केवल मूल रूप ही बदले जाते हैं।",
     "member": "सदस्य",
@@ -1174,6 +1182,7 @@
     "showOnMap": "मैप पर दिखाएँ",
     "addMember": "+ सदस्य",
     "showColors": "रंग",
+    "lockPositions": "स्थितियाँ लॉक करें",
     "emptyMap": "मैप खाली है। सदस्य जोड़ने के लिए + सदस्य टैप करें, या उन्हें जोड़ने के लिए + रिश्ता जोड़ें।",
     "depth": "कनेक्शन दायरा",
     "removeFromMap": "मैप से हटाएँ",

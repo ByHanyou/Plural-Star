@@ -93,9 +93,13 @@ export const ensureReadable = (color: string, bg: string, min: number): string =
   return mix(color, pole, hi);
 };
 
+export const textFloor = (bg: string): number =>
+  Math.max(contrastRatio('#000000', bg), contrastRatio('#FFFFFF', bg)) >= 7 ? 4.5 : 3;
+
 export const deriveTheme = (bg: string, accent: string, text: string, mid: string): ThemeColors => {
   const lum = luminance(bg);
   const isLight = lum > 0.3;
+  const floor = textFloor(bg);
 
   const surfaceT = isLight ? 0.04 : 0.08;
   const cardT = isLight ? 0.07 : 0.14;
@@ -107,8 +111,8 @@ export const deriveTheme = (bg: string, accent: string, text: string, mid: strin
   const border = mix(bg, mid, borderT);
   const borderLt = mix(bg, mid, borderLtT);
 
-  const effText = ensureReadable(text, bg, 4.5);
-  const dim = ensureReadable(mix(effText, mid, 0.12), bg, 4.5);
+  const effText = ensureReadable(text, bg, floor);
+  const dim = ensureReadable(mix(effText, mid, 0.12), bg, floor);
   const muted = ensureReadable(mix(effText, mid, 0.30), bg, 3);
   const toggleOff = mix(bg, mid, 0.22);
 

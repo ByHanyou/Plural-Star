@@ -480,7 +480,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
               )
             ) : msg.type === 'file' ? (
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, marginTop: 4}}>
-                <Text style={{fontSize: fs(18)}}>📄</Text>
+                <Text style={{fontSize: fs(18)}} accessibilityElementsHidden importantForAccessibility="no">📄</Text>
                 <Text style={{fontSize: fs(13), color: T.info, flex: 1}} numberOfLines={1}>{getChatMediaFileName(msg.content)}</Text>
               </View>
             ) : (
@@ -734,6 +734,9 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
             const facets = sortMembersBySearch(members.filter(m => match(m) && m.isFacet), memberSearch);
             return (
               <>
+                {roster.length > 0 && (
+                  <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('members.title')}</Text>
+                )}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={{flexDirection: 'row', gap: 6}}>{roster.map(chip)}</View>
                 </ScrollView>

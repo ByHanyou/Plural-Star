@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useRef} from 'react';
 import {View, TouchableOpacity} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
@@ -16,6 +16,8 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
   const isNew = !template;
   const blank = (): JournalTemplate => ({id: uid(), name: '', title: '', body: '', hashtags: [], createdAt: Date.now()});
   const [f, setF] = useState<JournalTemplate>(template || blank());
+  const fRef = useRef(f);
+  fRef.current = f;
   const [tagInput, setTagInput] = useState('');
   const [showBodyEditor, setShowBodyEditor] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -29,7 +31,10 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
   }, [visible, template]);
   const draftId = isNew ? 'new' : (template?.id || f.id);
   useDraft<JournalTemplate>('journalTemplate', draftId, visible, f, d => setF(d));
-  const set = (k: keyof JournalTemplate, v: any) => setF(x => ({...x, [k]: v}));
+  const set = (k: keyof JournalTemplate, v: any) => {
+    fRef.current = {...fRef.current, [k]: v};
+    setF(x => ({...x, [k]: v}));
+  };
   const addTag = () => {
     const raw = tagInput.trim().replace(/^#/, '').toLowerCase();
     if (!raw) return;
@@ -54,8 +59,9 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
               : <Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>
           )}
           <Btn instant T={T} onPress={() => {
-            if (!f.name.trim()) return;
-            onSave({...f, name: f.name.trim(), title: f.title.trim()});
+            const cur = fRef.current;
+            if (!(cur.name || '').trim()) return;
+            onSave({...cur, name: cur.name.trim(), title: (cur.title || '').trim()});
             clearDraft('journalTemplate', draftId);
             onClose();
           }}>{t('common.save')}</Btn>

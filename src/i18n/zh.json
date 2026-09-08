@@ -133,6 +133,7 @@
     "ok": "好的"
   },
   "tabs": {
+    "fronters": "前台者",
     "front": "前台",
     "members": "成员",
     "hub": "中心",
@@ -254,6 +255,7 @@
     "moveUp": "上移",
     "noCustomFronts": "暂无自定义前台。",
     "selectAction": "选择",
+    "deselectAction": "取消选择",
     "addToFront": "添加到前台",
     "removeFromFront": "从前台移除",
     "removeFromFrontMsg": "将 {{name}} 从前台移除？",
@@ -278,8 +280,12 @@
     "searchToAddKind": "输入以搜索{{kind}}…",
     "archived": "已归档",
     "noArchived": "没有已归档的成员。",
+    "noArchivedFacets": "没有已归档的侧面。",
+    "noArchivedCustomFronts": "没有已归档的自定义前台。",
     "count": "{{count}} 位成员",
     "count_other": "{{count}} 位成员",
+    "countFronters": "{{count}} 位前台者",
+    "countFronters_other": "{{count}} 位前台者",
     "countFiltered": "{{total}} 位成员中的 {{filtered}} 位"
   },
   "history": {
@@ -1026,6 +1032,8 @@
     "publishFailed": "无法发布你的好友码——请检查网络连接后重试。"
   },
   "terminology": {
+    "fronter": "前台者",
+    "fronters": "前台者",
     "title": "术语设置",
     "hint": "自定义应用中这些概念的叫法。你的用词将在所有位置替换默认用词。留空则使用默认。部分语言仅替换基本形式。",
     "member": "成员",
@@ -1195,6 +1203,7 @@
     "typeName": "类型名称",
     "directional": "有方向",
     "showColors": "颜色",
+    "lockPositions": "锁定位置",
     "inverseName": "反向标签",
     "typeColor": "颜色",
     "longPressDelete": "长按自定义类型可将其删除。",

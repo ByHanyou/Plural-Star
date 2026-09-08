@@ -103,10 +103,14 @@ const MemberCard = React.memo(function MemberCard({
           accessibilityLabel={[m.name, badgeCfg ? t(badgeCfg.i18nKey) : null, fields?.pronouns !== false ? m.pronouns : null, fields?.roles !== false ? m.role : null, fields?.groups !== false && memberGroups.length ? memberGroups.map(g => g.name).join(', ') : null, fields?.descriptions !== false ? descPreview : null].filter(Boolean).join(', ')}
           accessibilityState={selectionMode ? {selected: isSelected} : undefined}
           onPress={selectionMode ? () => onToggleSelect(m.id) : () => onActivate(m)}
-          onLongPress={() => onEnterSelection(m.id)}
+          onLongPress={() => selectionMode ? onToggleSelect(m.id) : onEnterSelection(m.id)}
           delayLongPress={350}
-          accessibilityActions={[{name: 'longpress', label: t('members.selectAction')}]}
-          onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'longpress') onEnterSelection(m.id); }}
+          accessibilityActions={[{name: 'longpress', label: selectionMode && isSelected ? t('members.deselectAction') : t('members.selectAction')}]}
+          onAccessibilityAction={(e) => {
+            if (e.nativeEvent.actionName !== 'longpress') return;
+            if (selectionMode) onToggleSelect(m.id);
+            else onEnterSelection(m.id);
+          }}
           style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14}}>
         {selectionMode && (
           <View style={{width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isSelected ? T.accent : T.border, backgroundColor: isSelected ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
@@ -280,14 +284,31 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   }), [members, memberTab, archiveOnly]);
   const allFrontIds = useMemo(() => new Set(allFrontMemberIds(front)), [front]);
   const allTags = useMemo(() => [...new Set(tabMembers.flatMap(m => m.tags || []))].sort(), [tabMembers]);
-  const {customFrontCount, facetCount} = useMemo(() => {
-    let cf = 0, fac = 0;
+  const groupChoices = useMemo(() => sortGroupsForDisplay(groups, groups), [groups]);
+  const activeGroupName = activeGroup ? (groups.find(g => g.id === activeGroup)?.name || '') : t('memberGroups.allGroups');
+  const stepGroup = (dir: 1 | -1) => {
+    const ids: (string | null)[] = [null, ...groupChoices.map(g => g.id)];
+    const idx = Math.max(0, ids.indexOf(activeGroup));
+    const next = ids[Math.max(0, Math.min(ids.length - 1, idx + dir))];
+    setActiveGroup(next);
+    AccessibilityInfo.announceForAccessibility(next ? (groups.find(g => g.id === next)?.name || '') : t('memberGroups.allGroups'));
+  };
+  const stepTag = (dir: 1 | -1) => {
+    const tags: (string | null)[] = [null, ...allTags];
+    const idx = Math.max(0, tags.indexOf(activeTag));
+    const next = tags[Math.max(0, Math.min(tags.length - 1, idx + dir))];
+    setActiveTag(next);
+    AccessibilityInfo.announceForAccessibility(next || t('members.allTags'));
+  };
+  const {customFrontCount, facetCount, rosterCount} = useMemo(() => {
+    let cf = 0, fac = 0, ros = 0;
     for (const m of members) {
       if (m.deleted || archiveOnly !== !!m.archived) continue;
       if (m.isCustomFront) cf++;
       else if (m.isFacet) fac++;
+      else ros++;
     }
-    return {customFrontCount: cf, facetCount: fac};
+    return {customFrontCount: cf, facetCount: fac, rosterCount: ros};
   }, [members, archiveOnly]);
 
   const activeGroupIds = useMemo(() => activeGroup ? new Set([activeGroup, ...descendantsOf(groups, activeGroup).map(g => g.id)]) : null, [activeGroup, groups]);
@@ -448,7 +469,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               style={[s.heading, {color: T.text}]}
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}>
-              {memberTab === 'facets' ? t('members.facets') : memberTab === 'customFronts' ? t('members.customFronts') : t('members.title')}
+              {t('tabs.fronters')}
             </Text>
           )}
           {listFields.count !== false && (
@@ -457,9 +478,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               ? t(memberTab === 'facets' ? 'members.countFilteredFacet'
                 : memberTab === 'customFronts' ? 'members.countFilteredCustomFront'
                 : 'members.countFiltered', {filtered: filtered.length, total: tabMembers.length})
-              : t(memberTab === 'facets' ? 'members.countFacet'
-                : memberTab === 'customFronts' ? 'members.countCustomFront'
-                : 'members.count', {count: tabMembers.length})}
+              : t('members.countFronters', {count: rosterCount + facetCount + customFrontCount})}
           </Text>
           )}
           <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
@@ -474,7 +493,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
                 accessibilityLabel={memberTab === 'customFronts' ? t('members.addCustomFront') : memberTab === 'facets' ? t('members.addFacet') : t('members.add')}
                 style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
                 <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>
-                  {memberTab === 'customFronts' ? `+ ${t('members.customFront')}` : memberTab === 'facets' ? `+ ${t('members.facet')}` : t('members.add')}
+                  {memberTab === 'customFronts' ? `+ ${t('members.customFront')}` : memberTab === 'facets' ? `+ ${t('members.facet')}` : `+ ${t('modal.member')}`}
                 </Text>
               </TouchableOpacity>
             )}
@@ -520,7 +539,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
               style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
               <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}} numberOfLines={1}>
-                {tab === 'active' ? t('members.title')
+                {tab === 'active' ? `${t('members.title')}${listFields.count !== false && rosterCount > 0 ? ` (${rosterCount})` : ''}`
                   : tab === 'facets' ? `${t('members.facets')}${listFields.count !== false && facetCount > 0 ? ` (${facetCount})` : ''}`
                   : `${t('members.customFronts')}${listFields.count !== false && customFrontCount > 0 ? ` (${customFrontCount})` : ''}`}
               </Text>
@@ -548,41 +567,51 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
       {groups.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 6}}>
-          <View style={{flexDirection: 'row', gap: 6}}>
-            <TouchableOpacity onPress={() => setActiveGroup(null)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityState={{selected: !activeGroup}} accessibilityLabel={t('memberGroups.allGroups')}
-              style={[s.chip, {backgroundColor: !activeGroup ? `${T.accent}18` : T.surface, borderColor: !activeGroup ? `${T.accent}50` : T.border}]}>
-              <Text style={{fontSize: fs(11), color: !activeGroup ? T.accent : T.dim, fontWeight: !activeGroup ? '600' : '400'}}>{t('memberGroups.allGroups')}</Text>
-            </TouchableOpacity>
-            {sortGroupsForDisplay(groups, groups).map(g => (
-              <TouchableOpacity key={g.id} onPress={() => setActiveGroup(activeGroup === g.id ? null : g.id)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityState={{selected: activeGroup === g.id}} accessibilityLabel={g.name}
-                style={[s.chip, {backgroundColor: activeGroup === g.id ? `${g.color || T.accent}18` : T.surface, borderColor: activeGroup === g.id ? `${g.color || T.accent}50` : T.border}]}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                  <View style={{width: 6, height: 6, borderRadius: groupKind(g) === 'subsystem' ? 1 : 3, backgroundColor: g.color || T.accent}} />
-                  <Text style={{fontSize: fs(11), color: activeGroup === g.id ? (g.color || T.accent) : T.dim, fontWeight: activeGroup === g.id ? '600' : '400'}}>{g.name}</Text>
-                </View>
+          <View accessible accessibilityRole="adjustable" accessibilityLabel={t('memberGroups.title')}
+            accessibilityValue={{text: activeGroupName}}
+            accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+            onAccessibilityAction={e => stepGroup(e.nativeEvent.actionName === 'increment' ? 1 : -1)}>
+            <View style={{flexDirection: 'row', gap: 6}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+              <TouchableOpacity onPress={() => setActiveGroup(null)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityState={{selected: !activeGroup}} accessibilityLabel={t('memberGroups.allGroups')}
+                style={[s.chip, {backgroundColor: !activeGroup ? `${T.accent}18` : T.surface, borderColor: !activeGroup ? `${T.accent}50` : T.border}]}>
+                <Text style={{fontSize: fs(11), color: !activeGroup ? T.accent : T.dim, fontWeight: !activeGroup ? '600' : '400'}}>{t('memberGroups.allGroups')}</Text>
               </TouchableOpacity>
-            ))}
+              {groupChoices.map(g => (
+                <TouchableOpacity key={g.id} onPress={() => setActiveGroup(activeGroup === g.id ? null : g.id)} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityState={{selected: activeGroup === g.id}} accessibilityLabel={g.name}
+                  style={[s.chip, {backgroundColor: activeGroup === g.id ? `${g.color || T.accent}18` : T.surface, borderColor: activeGroup === g.id ? `${g.color || T.accent}50` : T.border}]}>
+                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
+                    <View style={{width: 6, height: 6, borderRadius: groupKind(g) === 'subsystem' ? 1 : 3, backgroundColor: g.color || T.accent}} />
+                    <Text style={{fontSize: fs(11), color: activeGroup === g.id ? (g.color || T.accent) : T.dim, fontWeight: activeGroup === g.id ? '600' : '400'}}>{g.name}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </ScrollView>
       )}
 
       {allTags.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 8}}>
-          <View style={{flexDirection: 'row', gap: 6}}>
-            <TouchableOpacity onPress={() => setActiveTag(null)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityState={{selected: !activeTag}} accessibilityLabel={t('members.allTags')}
-              style={[s.chip, {backgroundColor: !activeTag ? `${T.info}18` : T.surface, borderColor: !activeTag ? `${T.info}50` : T.border}]}>
-              <Text style={{fontSize: fs(11), color: !activeTag ? T.info : T.dim, fontWeight: !activeTag ? '600' : '400'}}>{t('members.allTags')}</Text>
-            </TouchableOpacity>
-            {allTags.map(tag => (
-              <TouchableOpacity key={tag} onPress={() => setActiveTag(activeTag === tag ? null : tag)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityState={{selected: activeTag === tag}} accessibilityLabel={tag}
-                style={[s.chip, {backgroundColor: activeTag === tag ? `${T.info}18` : T.surface, borderColor: activeTag === tag ? `${T.info}50` : T.border}]}>
-                <Text style={{fontSize: fs(11), color: activeTag === tag ? T.info : T.dim, fontWeight: activeTag === tag ? '600' : '400'}}>{tag}</Text>
+          <View accessible accessibilityRole="adjustable" accessibilityLabel={t('modal.tags')}
+            accessibilityValue={{text: activeTag || t('members.allTags')}}
+            accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+            onAccessibilityAction={e => stepTag(e.nativeEvent.actionName === 'increment' ? 1 : -1)}>
+            <View style={{flexDirection: 'row', gap: 6}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+              <TouchableOpacity onPress={() => setActiveTag(null)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityState={{selected: !activeTag}} accessibilityLabel={t('members.allTags')}
+                style={[s.chip, {backgroundColor: !activeTag ? `${T.info}18` : T.surface, borderColor: !activeTag ? `${T.info}50` : T.border}]}>
+                <Text style={{fontSize: fs(11), color: !activeTag ? T.info : T.dim, fontWeight: !activeTag ? '600' : '400'}}>{t('members.allTags')}</Text>
               </TouchableOpacity>
-            ))}
+              {allTags.map(tag => (
+                <TouchableOpacity key={tag} onPress={() => setActiveTag(activeTag === tag ? null : tag)} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityState={{selected: activeTag === tag}} accessibilityLabel={tag}
+                  style={[s.chip, {backgroundColor: activeTag === tag ? `${T.info}18` : T.surface, borderColor: activeTag === tag ? `${T.info}50` : T.border}]}>
+                  <Text style={{fontSize: fs(11), color: activeTag === tag ? T.info : T.dim, fontWeight: activeTag === tag ? '600' : '400'}}>{tag}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         </ScrollView>
       )}
@@ -613,18 +642,20 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       ListEmptyComponent={tabMembers.length === 0 ? (
         <View style={s.empty}>
           <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◇</Text>
-          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{archiveOnly ? t('members.noArchived') : memberTab === 'customFronts' ? t('members.noCustomFronts') : memberTab === 'facets' ? t('members.noFacets') : t('members.noMembers')}</Text>
+          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>{archiveOnly
+            ? (memberTab === 'customFronts' ? t('members.noArchivedCustomFronts') : memberTab === 'facets' ? t('members.noArchivedFacets') : t('members.noArchived'))
+            : memberTab === 'customFronts' ? t('members.noCustomFronts') : memberTab === 'facets' ? t('members.noFacets') : t('members.noMembers')}</Text>
           {memberTab === 'active' && !archiveOnly && (
             <TouchableOpacity onPress={onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addMember')}</Text>
             </TouchableOpacity>
           )}
-          {memberTab === 'customFronts' && (
+          {memberTab === 'customFronts' && !archiveOnly && (
             <TouchableOpacity onPress={onAddCustomFront || onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addCustomFront')}</Text>
             </TouchableOpacity>
           )}
-          {memberTab === 'facets' && (
+          {memberTab === 'facets' && !archiveOnly && (
             <TouchableOpacity onPress={onAddFacet || onAdd} activeOpacity={0.7} accessibilityRole="button" style={[s.addBtn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('members.addFacet')}</Text>
             </TouchableOpacity>

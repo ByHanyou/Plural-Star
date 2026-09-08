@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "Edessä olevat",
     "front": "Edessä",
     "members": "Jäsenet",
     "hub": "Keskus",
@@ -251,6 +252,7 @@
     "moveUp": "Siirrä ylös",
     "noCustomFronts": "Ei vielä mukautettuja fronteja.",
     "selectAction": "Valitse",
+    "deselectAction": "Poista valinta",
     "addToFront": "Lisää frontiin",
     "removeFromFront": "Poista frontista",
     "removeFromFrontMsg": "Poistetaanko {{name}} frontista?",
@@ -278,8 +280,12 @@
     "searchToAddKind": "Kirjoita hakeaksesi: {{kind}}…",
     "archived": "Arkistoitu",
     "noArchived": "Ei arkistoituja jäseniä.",
+    "noArchivedFacets": "Ei arkistoituja puolia.",
+    "noArchivedCustomFronts": "Ei arkistoituja mukautettuja frontteja.",
     "count": "{{count}} jäsen",
     "count_other": "{{count}} jäsentä",
+    "countFronters": "{{count}} edessä oleva",
+    "countFronters_other": "{{count}} edessä olevaa",
     "countFiltered": "{{filtered}} / {{total}} jäsentä"
   },
   "history": {
@@ -1026,6 +1032,8 @@
     "publishFailed": "Koodin julkaisu epäonnistui — tarkista yhteytesi ja yritä uudelleen."
   },
   "terminology": {
+    "fronter": "Edessä oleva",
+    "fronters": "Edessä olevat",
     "title": "Terminologia",
     "hint": "Nimeä uudelleen, miksi sovellus kutsuu näitä. Sanasi korvaa oletussanan kaikkialla. Tyhjä käyttää oletusta. Joissakin kielissä vain perusmuodot korvataan.",
     "member": "Jäsen",
@@ -1196,6 +1204,7 @@
     "typeName": "Tyypin nimi",
     "directional": "Suunnattu",
     "showColors": "Värit",
+    "lockPositions": "Lukitse sijainnit",
     "inverseName": "Käänteinen nimike",
     "typeColor": "Väri",
     "longPressDelete": "Poista oma tyyppi painamalla sitä pitkään.",

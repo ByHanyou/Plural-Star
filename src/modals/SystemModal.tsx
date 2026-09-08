@@ -3,7 +3,7 @@ import {View, TouchableOpacity, Alert, Text as RawText} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {BUILTIN_PALETTES, FONT_OPTIONS, fontScale, ensureReadable} from '../theme';
+import {BUILTIN_PALETTES, FONT_OPTIONS, fontScale, ensureReadable, textFloor} from '../theme';
 import type {CustomPalette, FontChoice, ThemeColors} from '../theme';
 import {uid, isValidHex, normalizeHex, TextScale, TEXT_SCALE_OPTIONS} from '../utils';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
@@ -157,7 +157,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
                   <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palBg), normalizeHex(palAccent), 4.5)}}>{t('modal.palPreviewAccent')}</Text>
                 </View>
                 <View style={{flex: 1, height: 24, borderRadius: 4, alignItems: 'center', justifyContent: 'center'}}>
-                  <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palText), normalizeHex(palBg), 4.5)}}>{t('modal.palPreviewText')}</Text>
+                  <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palText), normalizeHex(palBg), textFloor(normalizeHex(palBg)))}}>{t('modal.palPreviewText')}</Text>
                 </View>
                 <View style={{flex: 1, height: 24, borderRadius: 4, backgroundColor: normalizeHex(palMid), alignItems: 'center', justifyContent: 'center'}}>
                   <Text style={{fontSize: fs(10), fontWeight: '600', color: ensureReadable(normalizeHex(palBg), normalizeHex(palMid), 4.5)}}>{t('modal.palPreviewMid')}</Text>
@@ -278,7 +278,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('terminology.title')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('terminology.hint')}</Text>
         </View>
-        {([['member', 'members'], ['group', 'groups'], ['facet', 'facets'], ['front', 'fronting'], ['system']] as const).map(pair => (
+        {([['member', 'members'], ['fronter', 'fronters'], ['group', 'groups'], ['facet', 'facets'], ['front', 'fronting'], ['system']] as const).map(pair => (
           <View key={pair[0]} style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
             {pair.map(term => (
               <View key={term} style={{flex: 1}}>

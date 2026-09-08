@@ -154,6 +154,19 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
 
   return (
     <View>
+      {locked && (
+        <View pointerEvents="box-none" style={{position: 'absolute', left: 0, top: 0, right: 0, height: 160, zIndex: 2, alignItems: 'center', justifyContent: 'center'}}>
+          <TouchableOpacity
+            onPress={() => setLocked(false)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('lock.unlock')}
+            style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.65)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)'}}>
+            <Text style={{fontSize: 14}}>🔒</Text>
+            <Text style={{fontSize: 13, fontWeight: '600', color: '#FFFFFF'}}>{t('lock.unlock')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
       <View style={{opacity: locked ? 0.45 : 1}}>
         <View
           onLayout={e => { const {width, height} = e.nativeEvent.layout; sqRef.current = {w: width, h: height}; setSqSize({w: width, h: height}); }}

@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {View, TouchableOpacity, ScrollView, Modal} from 'react-native';
+import React, {useState, useRef} from 'react';
+import {View, TouchableOpacity, ScrollView, Modal, Keyboard} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
@@ -15,6 +15,8 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
   const {t} = useTranslation();
   const isNew = !entry;
   const [f, setF] = useState<JournalEntry>(entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()});
+  const fRef = useRef(f);
+  fRef.current = f;
   const [showPwField, setShowPwField] = useState(false); const [tagInput, setTagInput] = useState('');
   const [authorSearch, setAuthorSearch] = useState('');
   const [showBodyEditor, setShowBodyEditor] = useState(false);
@@ -23,7 +25,10 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
   React.useEffect(() => { if (visible) { const fresh = entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()}; setF(fresh); setShowPwField(!!fresh.password); setTagInput(''); setAuthorSearch(''); setShowBodyEditor(false); setShowTemplatePicker(false); setViewMode(!!entry); } }, [visible, entry]);
   const draftId = isNew ? 'new' : (entry?.id || f.id);
   useDraft<JournalEntry>('journal', lockView || viewMode ? '' : draftId, visible, f, d => setF(d));
-  const set = (k: keyof JournalEntry, v: any) => setF(x => ({...x, [k]: v}));
+  const set = (k: keyof JournalEntry, v: any) => {
+    fRef.current = {...fRef.current, [k]: v};
+    setF(x => ({...x, [k]: v}));
+  };
   const togAuthor = (id: string) => set('authorIds', (f.authorIds || []).includes(id) ? (f.authorIds || []).filter((i: string) => i !== id) : [...(f.authorIds || []), id]);
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.hashtags || []; if (!cur.includes(`#${raw}`)) set('hashtags', [...cur, `#${raw}`]); setTagInput(''); };
   const applyTemplate = (tpl: JournalTemplate) => {
@@ -39,7 +44,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
         ? (lockView
           ? <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.close')}</Btn>
           : <Btn instant T={T} onPress={() => setViewMode(false)}>{t('common.edit')}</Btn>)
-        : <Btn instant T={T} onPress={() => {onSave({...f, timestamp: isNew ? Date.now() : f.timestamp, password: showPwField && f.password ? f.password : undefined}); clearDraft('journal', draftId); onClose();}}>{t('common.save')}</Btn>}>
+        : <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; onSave({...cur, timestamp: isNew ? Date.now() : cur.timestamp, password: showPwField && cur.password ? cur.password : undefined}); clearDraft('journal', draftId); onClose();}}>{t('common.save')}</Btn>}>
       {viewMode ? (
         <>
           <Text style={{fontFamily: Fonts.display, fontSize: fs(20), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 4}}>{f.title || t('common.untitled')}</Text>
@@ -145,9 +150,13 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
                   );
                 };
                 const facets = sortMembersBySearch<Member>(members.filter((m: Member) => m.isFacet && match(m)), authorSearch);
+                const roster = sortMembersBySearch<Member>(members.filter((m: Member) => !m.isFacet && match(m)), authorSearch);
                 return (
                   <>
-                    {sortMembersBySearch<Member>(members.filter((m: Member) => !m.isFacet && match(m)), authorSearch).map(row)}
+                    {roster.length > 0 && (
+                      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4}}>{t('members.title')}</Text>
+                    )}
+                    {roster.map(row)}
                     {facets.length > 0 && (
                       <>
                         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>

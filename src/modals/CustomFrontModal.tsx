@@ -1,5 +1,5 @@
-import React, {useState} from 'react';
-import {View, TouchableOpacity, Image, Alert} from 'react-native';
+import React, {useState, useRef} from 'react';
+import {View, TouchableOpacity, Image, Alert, Keyboard} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {pickImageForUpload} from '../utils/imagePicker';
@@ -20,6 +20,8 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
   const isNew = !customFront;
   const blank = (): Member => ({id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: [], isCustomFront: true});
   const [f, setF] = useState<Member>(customFront || blank());
+  const fRef = useRef(f);
+  fRef.current = f;
   const [confirmDel, setConfirmDel] = useState(false);
   const [showLink, setShowLink] = useState(false);
   const [linkInput, setLinkInput] = useState('');
@@ -33,7 +35,10 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
     avatarTransparent: cur.avatar ? cur.avatarTransparent : d.avatarTransparent,
     banner: cur.banner || d.banner,
   })));
-  const set = (k: keyof Member, v: any) => setF(x => ({...x, [k]: v}));
+  const set = (k: keyof Member, v: any) => {
+    fRef.current = {...fRef.current, [k]: v};
+    setF(x => ({...x, [k]: v}));
+  };
   const applyLink = async () => {
     const url = linkInput.trim();
     if (!/^https?:\/\//i.test(url)) { Alert.alert(t('modal.pfpFailed')); return; }
@@ -66,7 +71,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
       {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(f.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('customFront', draftId); onClose();}}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={() => {if (f.name.trim()) {onSave({...f, isCustomFront: true}); clearDraft('customFront', draftId); onClose();}}}>{t('common.save')}</Btn>}</>}>
+      {!confirmDel && <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; if ((cur.name || '').trim()) {onSave({...cur, isCustomFront: true}); clearDraft('customFront', draftId); onClose();}}}>{t('common.save')}</Btn>}</>}>
       <View style={{alignItems: 'center', marginBottom: 16}}>
         <TouchableOpacity onPress={pickPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>
           {f.avatar ? (

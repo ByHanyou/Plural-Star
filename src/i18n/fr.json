@@ -133,6 +133,7 @@
     "ok": "OK"
   },
   "tabs": {
+    "fronters": "Fronters",
     "front": "Front",
     "members": "Membres",
     "hub": "Centre",
@@ -254,6 +255,7 @@
     "moveUp": "Déplacer vers le haut",
     "noCustomFronts": "Aucun front personnalisé pour le moment.",
     "selectAction": "Sélectionner",
+    "deselectAction": "Désélectionner",
     "addToFront": "Ajouter au front",
     "removeFromFront": "Retirer du front",
     "removeFromFrontMsg": "Retirer {{name}} du front ?",
@@ -278,8 +280,12 @@
     "searchToAddKind": "Tapez pour rechercher {{kind}}…",
     "archived": "Archivés",
     "noArchived": "Aucun membre archivé.",
+    "noArchivedFacets": "Aucune facette archivée.",
+    "noArchivedCustomFronts": "Aucun front personnalisé archivé.",
     "count": "{{count}} membre",
     "count_other": "{{count}} membres",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} fronters",
     "countFiltered": "{{filtered}} sur {{total}} membres"
   },
   "history": {
@@ -1026,6 +1032,8 @@
     "publishFailed": "Impossible de publier ton code — vérifie ta connexion et réessaie."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronters",
     "title": "Terminologie",
     "hint": "Renomme ce que l'app appelle ces concepts. Ton mot remplace le mot par défaut partout. Vide = mot par défaut. Dans certaines langues, seules les formes de base sont remplacées.",
     "member": "Membre",
@@ -1196,6 +1204,7 @@
     "typeName": "Nom du type",
     "directional": "Directionnel",
     "showColors": "Couleurs",
+    "lockPositions": "Verrouiller les positions",
     "inverseName": "Libellé inverse",
     "typeColor": "Couleur",
     "longPressDelete": "Appuyez longuement sur un type personnalisé pour le supprimer.",

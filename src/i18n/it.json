@@ -110,6 +110,7 @@
     "retry": "Riprova"
   },
   "tabs": {
+    "fronters": "Fronter",
     "front": "Front",
     "members": "Membri",
     "hub": "Hub",
@@ -218,6 +219,7 @@
     "moveUp": "Sposta su",
     "noCustomFronts": "Nessun front personalizzato ancora.",
     "selectAction": "Seleziona",
+    "deselectAction": "Deseleziona",
     "addToFront": "Aggiungi al front",
     "removeFromFront": "Rimuovi dal front",
     "removeFromFrontMsg": "Togliere {{name}} dal front?",
@@ -233,6 +235,8 @@
     "title": "Membri",
     "count": "{{count}} membro",
     "count_other": "{{count}} membri",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} fronter",
     "countFiltered": "{{filtered}} di {{total}} membri",
     "add": "+ Aggiungi",
     "search": "Cerca…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Digita per cercare {{kind}}…",
     "archived": "Archiviati",
     "noArchived": "Nessun membro archiviato.",
+    "noArchivedFacets": "Nessuna sfaccettatura archiviata.",
+    "noArchivedCustomFronts": "Nessun front personalizzato archiviato.",
     "select": "Seleziona",
     "selectAll": "Tutti",
     "selectNone": "Nessuno",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Impossibile pubblicare il tuo codice — controlla la connessione e riprova."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronter",
     "title": "Terminologia",
     "hint": "Rinomina come l'app chiama questi concetti. La tua parola sostituisce quella predefinita ovunque. Vuoto usa la predefinita. In alcune lingue vengono sostituite solo le forme base.",
     "member": "Membro",
@@ -1196,6 +1204,7 @@
     "typeName": "Nome del Tipo",
     "directional": "Direzionale",
     "showColors": "Colori",
+    "lockPositions": "Blocca posizioni",
     "inverseName": "Etichetta Inversa",
     "typeColor": "Colore",
     "longPressDelete": "Tieni premuto un tipo personalizzato per eliminarlo.",

@@ -110,6 +110,7 @@
     "retry": "Opnieuw proberen"
   },
   "tabs": {
+    "fronters": "Fronters",
     "front": "Front",
     "members": "Leden",
     "hub": "Hub",
@@ -215,6 +216,7 @@
     "moveUp": "Omhoog",
     "noCustomFronts": "Nog geen aangepaste fronts.",
     "selectAction": "Selecteren",
+    "deselectAction": "Deselecteren",
     "addToFront": "Aan front toevoegen",
     "removeFromFront": "Uit front halen",
     "removeFromFrontMsg": "{{name}} uit de front halen?",
@@ -233,6 +235,8 @@
     "title": "Leden",
     "count": "{{count}} lid",
     "count_other": "{{count}} leden",
+    "countFronters": "{{count}} fronter",
+    "countFronters_other": "{{count}} fronters",
     "countFiltered": "{{filtered}} van {{total}} leden",
     "add": "+ Toevoegen",
     "search": "Zoeken…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Typ om {{kind}} te zoeken…",
     "archived": "Gearchiveerd",
     "noArchived": "Geen gearchiveerde leden.",
+    "noArchivedFacets": "Geen gearchiveerde facetten.",
+    "noArchivedCustomFronts": "Geen gearchiveerde aangepaste fronts.",
     "select": "Selecteren",
     "selectAll": "Alles",
     "selectNone": "Geen",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Kon je code niet publiceren — controleer je verbinding en probeer opnieuw."
   },
   "terminology": {
+    "fronter": "Fronter",
+    "fronters": "Fronters",
     "title": "Terminologie",
     "hint": "Hernoem hoe de app deze begrippen noemt. Jouw woord vervangt overal het standaardwoord. Leeg gebruikt de standaard. In sommige talen worden alleen de basisvormen vervangen.",
     "member": "Lid",
@@ -1174,6 +1182,7 @@
     "showOnMap": "Op kaart tonen",
     "addMember": "+ Lid",
     "showColors": "Kleuren",
+    "lockPositions": "Posities vergrendelen",
     "emptyMap": "De kaart is leeg. Tik op + Lid om leden toe te voegen, of + Relatie toevoegen om ze te verbinden.",
     "depth": "Verbindingen ver",
     "removeFromMap": "Van kaart verwijderen",

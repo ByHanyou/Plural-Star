@@ -20,6 +20,7 @@ export const TabBar = ({C, tab, isSinglet, onPressTab}: {C: ThemeColors; tab: Ta
   const tabLabel = (id: Tab): string => {
     if (isSinglet && id === 'front') return t('tabs.status');
     if (isSinglet && id === 'members') return t('tabs.profile');
+    if (id === 'members') return t('tabs.fronters');
     return t(`tabs.${id}`);
   };
   return (

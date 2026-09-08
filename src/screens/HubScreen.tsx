@@ -384,21 +384,21 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
         <TierMemberPicker tierKey="primary" label={t('status.statuses')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={statusPool} allSelected={allSelected} T={T} />
       ) : (
         <>
-          <TierMemberPicker tierKey="primary" label={t('tier.primaryFront')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={regularMembers} allSelected={allSelected} T={T} />
+          <TierMemberPicker tierKey="primary" label={t('tier.primaryFront')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={regularMembers} allSelected={allSelected} T={T} searchKind={t('members.title')} />
           {facetMembers.length > 0 && (
             <TierMemberPicker tierKey="primary" label={t('members.facets')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
           )}
           {customFronts.length > 0 && (
             <TierMemberPicker tierKey="primary" label={t('members.customFronts')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
           )}
-          <TierMemberPicker tierKey="coFront" label={t('tier.coFront')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={regularMembers} allSelected={allSelected} T={T} />
+          <TierMemberPicker tierKey="coFront" label={t('tier.coFront')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={regularMembers} allSelected={allSelected} T={T} searchKind={t('members.title')} />
           {facetMembers.length > 0 && (
             <TierMemberPicker tierKey="coFront" label={t('members.facets')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
           )}
           {customFronts.length > 0 && (
             <TierMemberPicker tierKey="coFront" label={t('members.customFronts')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
           )}
-          <TierMemberPicker tierKey="coConscious" label={t('tier.coConscious')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={regularMembers} allSelected={allSelected} T={T} />
+          <TierMemberPicker tierKey="coConscious" label={t('tier.coConscious')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={regularMembers} allSelected={allSelected} T={T} searchKind={t('members.title')} />
           {facetMembers.length > 0 && (
             <TierMemberPicker tierKey="coConscious" label={t('members.facets')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
           )}
@@ -838,8 +838,15 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
               onPress={() => handleTilePress(tile)}
               onLayout={e => { tileSizeRef.current = {w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height}; }}
               activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={tile.label}
+              accessibilityRole={tileReorderOn ? 'adjustable' : 'button'}
+              accessibilityLabel={tileReorderOn ? `${t('common.dragReorder')}, ${tile.label}` : tile.label}
+              accessibilityValue={tileReorderOn ? {text: String(i + 1)} : undefined}
+              accessibilityActions={tileReorderOn ? [{name: 'increment'}, {name: 'decrement'}, {name: 'activate'}] : undefined}
+              onAccessibilityAction={tileReorderOn ? e => {
+                const action = e.nativeEvent.actionName;
+                if (action === 'activate') handleTilePress(tile);
+                else moveTileStep(tile.id, action === 'increment' ? 1 : -1);
+              } : undefined}
               style={{
                 width: tileWidth,
                 height: tileHeight,
@@ -856,14 +863,8 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
               {tileReorderOn && (
                 <View
                   {...makeTileResponder(tile.id).panHandlers}
-                  accessible
-                  accessibilityRole="adjustable"
-                  accessibilityLabel={`${t('common.dragReorder')}, ${tile.label}`}
-                  accessibilityValue={{text: String(i + 1)}}
-                  accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
-                  onAccessibilityAction={e => {
-                    moveTileStep(tile.id, e.nativeEvent.actionName === 'increment' ? 1 : -1);
-                  }}
+                  accessible={false}
+                  accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
                   style={{position: 'absolute', top: 0, left: 0, paddingHorizontal: 10, paddingVertical: 8, zIndex: 2}}>
                   <Text style={{fontSize: fs(13), color: T.accent}} accessibilityElementsHidden importantForAccessibility="no">⠿</Text>
                 </View>

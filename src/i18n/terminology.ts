@@ -1,4 +1,4 @@
-export const TERMINOLOGY_TERMS = ['member', 'members', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system'] as const;
+export const TERMINOLOGY_TERMS = ['member', 'members', 'fronter', 'fronters', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system'] as const;
 export type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
 export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
 
@@ -8,6 +8,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   en: {
     member: ['Member', 'Headmate'],
     members: ['Members', 'Headmates'],
+    fronter: 'Fronter',
+    fronters: 'Fronters',
     group: 'Group',
     groups: 'Groups',
     facet: 'Facet',
@@ -19,6 +21,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   es: {
     member: ['Miembro', 'Compañero'],
     members: 'Miembros',
+    fronter: 'Fronter',
+    fronters: 'Fronters',
     group: 'Grupo',
     groups: 'Grupos',
     facet: 'Faceta',
@@ -29,6 +33,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   fr: {
     member: ['Membre', 'Compagnon'],
     members: 'Membres',
+    fronter: 'Fronter',
+    fronters: 'Fronters',
     group: 'Groupe',
     groups: 'Groupes',
     facet: 'Facette',
@@ -39,6 +45,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   de: {
     member: ['Mitglied', 'Kopfbewohner', 'Kopfbewohners'],
     members: 'Mitglieder',
+    fronter: 'Fronter',
     group: 'Gruppe',
     groups: 'Gruppen',
     facet: 'Facette',
@@ -50,6 +57,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   pt: {
     member: 'Membro',
     members: 'Membros',
+    fronter: 'Fronter',
+    fronters: 'Fronters',
     group: 'Grupo',
     groups: 'Grupos',
     facet: 'Faceta',
@@ -60,6 +69,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   fi: {
     member: 'Jäsen',
     members: 'Jäsenet',
+    fronter: 'Edessä oleva',
+    fronters: 'Edessä olevat',
     group: 'Ryhmä',
     groups: 'Ryhmät',
     facet: 'Puoli',
@@ -70,6 +81,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   nb: {
     member: 'Medlem',
     members: 'Medlemmer',
+    fronter: 'Fronter',
+    fronters: 'Frontere',
     group: 'Gruppe',
     groups: 'Grupper',
     facet: 'Fasett',
@@ -80,6 +93,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   sv: {
     member: 'Medlem',
     members: 'Medlemmar',
+    fronter: 'Frontare',
     group: 'Grupp',
     groups: 'Grupper',
     facet: 'Fasett',
@@ -90,6 +104,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   nl: {
     member: ['Lid', 'Headmate'],
     members: 'Leden',
+    fronter: 'Fronter',
+    fronters: 'Fronters',
     group: 'Groep',
     groups: 'Groepen',
     facet: 'Facet',
@@ -100,6 +116,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   is: {
     member: ['Meðlimur', 'Headmate'],
     members: 'Meðlimir',
+    fronter: 'Frontari',
+    fronters: 'Frontarar',
     group: 'Hópur',
     groups: 'Hópar',
     facet: 'Hlið',
@@ -110,6 +128,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   it: {
     member: ['Membro', 'Headmate'],
     members: 'Membri',
+    fronter: 'Fronter',
     group: 'Gruppo',
     groups: 'Gruppi',
     facet: 'Sfaccettatura',
@@ -120,6 +139,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   pl: {
     member: ['Członek', 'Headmate'],
     members: 'Członkowie',
+    fronter: 'Frontujący',
     group: 'Grupa',
     groups: 'Grupy',
     facet: 'Aspekt',
@@ -130,6 +150,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   tr: {
     member: ['Üye', 'Headmate'],
     members: 'Üyeler',
+    fronter: 'Frontta Olan',
+    fronters: 'Frontta Olanlar',
     group: 'Grup',
     groups: 'Gruplar',
     facet: 'Yön',
@@ -139,6 +161,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   ms: {
     member: ['Ahli', 'Headmate'],
+    fronter: 'Fronter',
     group: 'Kumpulan',
     facet: 'Facet',
     front: 'Front',
@@ -146,6 +169,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   vi: {
     member: ['Thành viên', 'Headmate'],
+    fronter: 'Người front',
     group: 'Nhóm',
     facet: 'Diện',
     front: 'Front',
@@ -153,6 +177,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   th: {
     member: ['สมาชิก', 'เฮดเมท'],
+    fronter: 'ผู้ฟรอนต์',
     group: 'กลุ่ม',
     facet: 'แง่มุม',
     front: 'ฟรอนต์',
@@ -160,6 +185,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   hi: {
     member: ['सदस्य', 'हेडमेट'],
+    fronter: 'फ्रंटर',
+    fronters: 'फ्रंटर्स',
     group: 'समूह',
     facet: 'फ़ेसेट',
     front: 'फ्रंट',
@@ -169,6 +196,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   af: {
     member: ['Lid', 'Headmate'],
     members: 'Lede',
+    fronter: 'Fronter',
+    fronters: 'Fronters',
     group: 'Groep',
     groups: 'Groepe',
     facet: 'Faset',
@@ -179,6 +208,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   ko: {
     member: ['멤버', '헤드메이트'],
+    fronter: '프런터',
     group: '그룹',
     facet: '패싯',
     front: '프런트',
@@ -187,6 +217,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   ja: {
     member: 'メンバー',
+    fronter: 'フロンター',
     group: 'グループ',
     facet: '側面',
     front: 'フロント',
@@ -194,6 +225,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   zh: {
     member: ['成员', '伙伴'],
+    fronter: '前台者',
     group: '组',
     facet: '侧面',
     front: '前台',
@@ -201,6 +233,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   },
   zhHant: {
     member: ['成員', '腦內夥伴', '夥伴'],
+    fronter: '前台者',
     group: '群組',
     facet: '側面',
     front: '前台',
@@ -209,6 +242,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   ru: {
     member: 'Участник',
     members: 'Участники',
+    fronter: 'Фронтер',
+    fronters: 'Фронтеры',
     group: 'Группа',
     groups: 'Группы',
     facet: 'Грань',
@@ -219,6 +254,8 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
   uk: {
     member: 'Учасник',
     members: 'Учасники',
+    fronter: 'Фронтер',
+    fronters: 'Фронтери',
     group: 'Група',
     groups: 'Групи',
     facet: 'Грань',

@@ -110,6 +110,7 @@
     "retry": "Reyna aftur"
   },
   "tabs": {
+    "fronters": "Frontarar",
     "front": "Front",
     "members": "Meðlimir",
     "hub": "Miðstöð",
@@ -215,6 +216,7 @@
     "moveUp": "Færa upp",
     "noCustomFronts": "Engin sérsniðin front enn.",
     "selectAction": "Velja",
+    "deselectAction": "Afvelja",
     "addToFront": "Bæta í front",
     "removeFromFront": "Taka úr fronti",
     "removeFromFrontMsg": "Taka {{name}} úr frontinum?",
@@ -233,6 +235,8 @@
     "title": "Meðlimir",
     "count": "{{count}} meðlimur",
     "count_other": "{{count}} meðlimir",
+    "countFronters": "{{count}} frontari",
+    "countFronters_other": "{{count}} frontarar",
     "countFiltered": "{{filtered}} af {{total}} meðlimum",
     "add": "+ Bæta við",
     "search": "Leita…",
@@ -245,6 +249,8 @@
     "searchToAddKind": "Skrifaðu til að leita að {{kind}}…",
     "archived": "Í safni",
     "noArchived": "Engir meðlimir í safni.",
+    "noArchivedFacets": "Engar hliðar í safni.",
+    "noArchivedCustomFronts": "Engin sérsniðin front í safni.",
     "select": "Velja",
     "selectAll": "Allt",
     "selectNone": "Ekkert",
@@ -1026,6 +1032,8 @@
     "publishFailed": "Gat ekki birt kóðann þinn — athugaðu tenginguna og reyndu aftur."
   },
   "terminology": {
+    "fronter": "Frontari",
+    "fronters": "Frontarar",
     "title": "Hugtakanotkun",
     "hint": "Endurnefndu það sem appið kallar þetta. Orðið þitt kemur í stað sjálfgefna orðsins alls staðar. Tómt notar sjálfgefið. Í sumum tungumálum er aðeins grunnmyndum skipt út.",
     "member": "Meðlimur",
@@ -1174,6 +1182,7 @@
     "showOnMap": "Sýna á korti",
     "addMember": "+ Meðlimur",
     "showColors": "Litir",
+    "lockPositions": "Læsa staðsetningar",
     "emptyMap": "Kortið er tómt. Ýttu á + Meðlimur til að bæta við meðlimum, eða + Bæta við tengslum til að tengja þá.",
     "depth": "Tengsl út",
     "removeFromMap": "Fjarlægja af korti",
