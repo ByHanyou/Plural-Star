@@ -341,7 +341,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
             Alert.alert(t('share.importStopped', {count: e?.completedCount ?? 0}));
             return;
           }
-          console.error('[EXT-IMPORT] failed:', e);
+          if (__DEV__) console.error('[EXT-IMPORT] failed:', e);
           Alert.alert(t('share.importFailed'), t('share.importPartialError', {error: e?.message || String(e)}));
         }
       }},

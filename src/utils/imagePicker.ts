@@ -19,7 +19,7 @@ const normalizePhotoQuality = (quality?: number): PhotoQuality => {
   return Number(clamped.toFixed(1)) as PhotoQuality;
 };
 
-export const pickImageFromGallery = async (
+const pickImageFromGallery = async (
   opts: {includeBase64?: boolean; quality?: number; maxWidth?: number; maxHeight?: number} = {},
 ): Promise<PickedImage | null> => {
   const result = await launchImageLibrary({

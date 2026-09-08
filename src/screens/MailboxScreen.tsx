@@ -3,7 +3,7 @@ import {View, TouchableOpacity, Alert, Modal} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Member, NoteboardEntry, uid, fmtTime, getInitials} from '../utils';
+import {NoteboardEntry, uid, fmtTime, getInitials} from '../utils';
 import {fontScale, ThemeColors, initialOn} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveMember} from '../store/actions';

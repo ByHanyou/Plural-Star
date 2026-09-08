@@ -5,7 +5,7 @@ import {Text, TextInput} from '../components/AppText';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {fontScale, ThemeColors} from '../theme';
 import {CustomFieldDef, CustomFieldType, uid} from '../utils';
 import {store, KEYS} from '../storage';
 

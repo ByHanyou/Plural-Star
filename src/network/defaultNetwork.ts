@@ -1,11 +1,11 @@
 import { NetworkDef } from './types';
 
-export const DEFAULT_RELAY_URL = 'http://pluralstar.dedyn.io:7523';
-export const DEFAULT_RELAY_TOKEN = '';
+const DEFAULT_RELAY_URL = 'http://pluralstar.dedyn.io:7523';
+const DEFAULT_RELAY_TOKEN = '';
 
 export const DEFAULT_GATEWAY_URL = 'http://pluralstar.dedyn.io:7524';
 
-export const DEFAULT_NETWORK: NetworkDef = {
+const DEFAULT_NETWORK: NetworkDef = {
   id: 'plural-star-global',
   name: 'Plural Star Global',
   relayUrl: DEFAULT_RELAY_URL,

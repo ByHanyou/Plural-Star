@@ -1,5 +1,4 @@
 import {saveAvatarFromUrl} from '../utils/mediaUtils';
-import {logError} from '../utils/log';
 
 export const normalizeSpAvatarUrl = (raw: any): string => {
   const s = String(raw || '').trim();
@@ -29,18 +28,4 @@ export const downloadFirstAvatar = async (memberId: string, urls: string[]): Pro
     if (attempt === 0) await new Promise<void>(res => setTimeout(() => res(), 1200));
   }
   return undefined;
-};
-
-export const spGet = async (url: string, headers: any): Promise<any | null> => {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const res = await fetch(url, {headers});
-      if (res.ok) { try { return await res.json(); } catch { return null; } }
-      if (res.status === 401 || res.status === 403) return null;
-    } catch (e) {
-      logError('sp-fetch', e);
-    }
-    if (attempt < 2) await new Promise<void>(r => setTimeout(() => r(), 700 * (attempt + 1)));
-  }
-  return null;
 };

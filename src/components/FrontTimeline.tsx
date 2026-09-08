@@ -29,7 +29,7 @@ const TIER_BAR: Record<FrontTierKey, {height: number; opacity: number}> = {
   coConscious: {height: 7, opacity: 0.45},
 };
 
-export const buildTimelineRows = (
+const buildTimelineRows = (
   history: HistoryEntry[],
   members: Member[],
   start: number,

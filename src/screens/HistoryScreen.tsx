@@ -8,8 +8,7 @@ import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
 import {saveHistory} from '../store/actions';
 import {AccentText} from '../components/AccentText';
-import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, fmtNum, TIER_LABELS, translateMood, sortMembersBySearch, memberMatchesSearch, singletStatuses, buildEffectiveEnd} from '../utils';
-import {store, KEYS} from '../storage';
+import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, fmtNum, translateMood, sortMembersBySearch, memberMatchesSearch, singletStatuses, buildEffectiveEnd} from '../utils';
 import {FlashList} from '@shopify/flash-list';
 import {FrontTimeline} from '../components/FrontTimeline';
 
@@ -244,7 +243,6 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
   const journal = journalOverride ?? storeJournal;
   const members = membersOverride ?? storeMembers;
   const onSaveHistory = saveHistory;
-  const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
   const [subTab, setSubTab] = useState<SubTab>('front');
@@ -349,9 +347,6 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
       />
     );
   }, [expandedEntries, memberMap, T, fs, t, singlet, selfId, toggleEntryExpanded, onEditEntry, startDelete, readOnly]);
-
-  const tierNames = (ids: string[] | undefined) =>
-    (ids || []).map(id => memberMap.get(id)).filter(Boolean).map(m => m!.name).join(', ');
 
   const mergedSessions = useMemo(() => {
     if (!selectedMemberId) return [];

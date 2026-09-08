@@ -4,20 +4,8 @@ import {DYSLEXIC_FONT, resolveFontVariant} from '../theme';
 
 let _family: string | null = null;
 export const setAppTextFont = (family: string | null) => { _family = family; };
-export const getAppTextFont = () => _family;
-export const setAppTextDyslexicEnabled = (on: boolean) => { _family = on ? DYSLEXIC_FONT : null; };
-export const isAppTextDyslexicEnabled = () => _family === DYSLEXIC_FONT;
 
 const DYSLEXIC_SCALE = 0.88;
-
-const stripDyslexicFont = (style: any): any => {
-  const flat: any = StyleSheet.flatten(style);
-  if (flat && flat.fontFamily === DYSLEXIC_FONT) {
-    const {fontFamily: _drop, ...rest} = flat;
-    return rest;
-  }
-  return style;
-};
 
 const applyDyslexicScale = (style: any): any => {
   const flat: any = StyleSheet.flatten(style);
