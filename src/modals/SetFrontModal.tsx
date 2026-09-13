@@ -82,9 +82,14 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 6}} />
 
       {(search || filterTag) && filtered.length > 0 && (
-        <View style={{maxHeight: 180, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, overflow: 'hidden'}}>
-          <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
-            {filtered.slice(0, 20).map(m => {
+        // No ScrollView here. One nested inside the sheet's own scroller
+        // cannot be scrolled on Android: the sheet's BottomSheetBehavior takes
+        // the drag and React Native's ScrollView does not join the
+        // nested-scrolling protocol, so every match past the first few rows of
+        // the 180px box was unreachable. The list is already capped at 20, so
+        // it is drawn inline and the sheet scrolls it like everything else.
+        <View style={{borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, overflow: 'hidden'}}>
+          {filtered.slice(0, 20).map(m => {
               const assignedTo = allAssigned[m.id];
               const otherTier = assignedTo && assignedTo !== tierKey;
               const otherLabel = otherTier ? (assignedTo === 'primary' ? t('tier.primaryShort') : assignedTo === 'coFront' ? t('tier.coFrontShort') : t('tier.coConShort')) : '';
@@ -94,12 +99,15 @@ const TierMemberPicker = ({tierKey, selected, setSelected, members, groups, allA
                   style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherTier ? 0.45 : 1}}>
                   <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
                   <Text style={{flex: 1, minWidth: 0, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                  {m.pronouns ? <Text style={{flexShrink: 1, maxWidth: '45%', fontSize: fs(11), color: T.muted}} numberOfLines={1}>{m.pronouns}</Text> : null}
+                  {/* No hard 45% cap. At a large text scale that left room for
+                      about three characters, so every set of pronouns came out
+                      as an ellipsis. flexShrink alone gives them whatever the
+                      name does not need. */}
+                  {m.pronouns ? <Text style={{flexShrink: 1, fontSize: fs(11), color: T.muted}} numberOfLines={1}>{m.pronouns}</Text> : null}
                   {otherTier && otherLabel ? <Text style={{flexShrink: 0, fontSize: fs(10), color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
         </View>
       )}
 
@@ -127,7 +135,13 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
   React.useEffect(() => {
     if (visible) {
       const c: FrontState | null = current;
-      setPrimaryIds(new Set(c?.primary?.memberIds || [])); setCoFrontIds(new Set(c?.coFront?.memberIds || [])); setCoConsciousIds(new Set(c?.coConscious?.memberIds || []));
+      // Seed the tiers disjoint, highest tier wins. A saved state that already
+      // carries the same member twice used to be shown twice and written back
+      // out twice on the next save.
+      const seedP = new Set<string>(c?.primary?.memberIds || []);
+      const seedCf = new Set<string>((c?.coFront?.memberIds || []).filter((id: string) => !seedP.has(id)));
+      const seedCc = new Set<string>((c?.coConscious?.memberIds || []).filter((id: string) => !seedP.has(id) && !seedCf.has(id)));
+      setPrimaryIds(seedP); setCoFrontIds(seedCf); setCoConsciousIds(seedCc);
       setPrimaryMood(c?.primary?.mood || ''); setPrimaryCustomMood(''); setPrimaryShowCustom(false); setPrimaryLocation(c?.primary?.location || (settings?.gpsEnabled ? lastKnownLocation : '') || ''); setPrimaryNote(c?.primary?.note || '');
       setCoFrontMood(c?.coFront?.mood || ''); setCoFrontCustomMood(''); setCoFrontShowCustom(false); setCoFrontNote(c?.coFront?.note || ''); setCoFrontLocation(c?.coFront?.location || '');
       setCoConsciousMood(c?.coConscious?.mood || ''); setCoConsciousCustomMood(''); setCoConsciousShowCustom(false); setCoConsciousNote(c?.coConscious?.note || ''); setCoConsciousLocation(c?.coConscious?.location || '');
@@ -165,19 +179,24 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
     return map;
   }, [primaryIds, coFrontIds, coConsciousIds]);
 
-  const makeExclusiveSetter = (tier: FrontTierKey, setter: (s: Set<string>) => void) => (newSet: Set<string>) => {
-    const setters: Record<FrontTierKey, (s: Set<string>) => void> = {primary: setPrimaryIds, coFront: setCoFrontIds, coConscious: setCoConsciousIds};
-    const sets: Record<FrontTierKey, Set<string>> = {primary: primaryIds, coFront: coFrontIds, coConscious: coConsciousIds};
-    const added = [...newSet].filter(id => !sets[tier].has(id));
-    for (const [key, otherSetter] of Object.entries(setters)) {
-      if (key !== tier) {
-        const otherSet = sets[key as FrontTierKey];
-        const cleaned = new Set(otherSet);
+  // The other two tiers drop everything this tier now holds, computed inside
+  // the updater from live state instead of the render-time snapshot. Reading
+  // the snapshot meant two taps in one tick found nothing to remove and left
+  // the same member sitting in two tiers at once. Clearing against the whole
+  // new set rather than only the additions also heals a duplicate that was
+  // already in the saved state the moment either tier is touched.
+  const makeExclusiveSetter = (tier: FrontTierKey, setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (newSet: Set<string>) => {
+    const setters: Record<FrontTierKey, React.Dispatch<React.SetStateAction<Set<string>>>> =
+      {primary: setPrimaryIds, coFront: setCoFrontIds, coConscious: setCoConsciousIds};
+    (Object.keys(setters) as FrontTierKey[]).forEach(key => {
+      if (key === tier) return;
+      setters[key](prev => {
         let changed = false;
-        added.forEach(id => { if (cleaned.has(id)) { cleaned.delete(id); changed = true; } });
-        if (changed) otherSetter(cleaned);
-      }
-    }
+        const cleaned = new Set(prev);
+        newSet.forEach(id => { if (cleaned.delete(id)) changed = true; });
+        return changed ? cleaned : prev;
+      });
+    });
     setter(newSet);
   };
 

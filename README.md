@@ -76,6 +76,15 @@ Chart the relationships between your headmates on an interactive force-directed 
 **🛰 Friends & Syncing**  
 Connect with other systems and your own devices over the Plural Star network — fully end-to-end encrypted, with the relay seeing nothing but sealed blobs. Add friends with short shareable codes (mutual by design: both sides must enter each other's code within 30 minutes) and see their current front — fronters, mood, location — update live with online status from the Network tile. Link your own devices with a directed first copy — you choose which device sends and which receives — then everything stays in sync both ways automatically: members, history, journal, chat, polls, settings, even profile pictures and banners. Pin up to five friends into the persistent notification and watch their fronts change without opening the app; on iOS, pinned friends appear on the Live Island. Networking is fully opt-in and off by default.
 
+**☁ Cloud Services** *(Experimental)*  
+An alternative to device-to-device syncing for people who would rather not keep two devices paired and awake. Keep an encrypted copy of your system on the Plural Star cloud and link your other devices to it with one password. Everything is sealed on your device before it leaves, so the node stores blobs it cannot read; the password is never sent anywhere and there is no reset, which is the price of the node genuinely not being able to open your vault. Optionally include full-size banners, custom-field images, and chat attachments alongside the data and avatars. Unlinking a device deletes nothing, and a vault with no linked device for 30 days is removed. Cloud Services and device syncing never run at once, and the app refuses whichever one you did not pick first.
+
+**🗓 Day Planner**  
+A month calendar for appointments and recurring reminders. Appointments carry a title, time, optional location and notes, an optional colored mark on the calendar, a reminder at the time or 30 minutes, 1 hour, or 1 day before, and repeat rules from one-time through daily, every other day, weekly, every other week, monthly, every other month, and annually. Separate standing reminders fire at as many times of day as you set. Adding and editing happen on their own screens rather than in a dialog, so long notes have room.
+
+**🖌 Whiteboard**  
+A shared scratch surface in the Hub: freehand drawing with adjustable brush size, line, rectangle, ellipse, and Paint-style polygon tools, a fill bucket, eraser, and undo. Clearing it confirms three times. It is fully drivable from VoiceOver and TalkBack through an adjustable step size and a rotor command list, so the board is not a sighted-only feature.
+
 **◷ History & Insights**  
 Front History gives you a complete timestamped log of every switch, organized by day, with co-front and co-conscious tiers displayed inline. Member History shows everything about a specific headmate — every front session across all tiers, mood changes, location changes, note updates, energy levels, and journal entries they authored — alongside a summary of total time fronted, sessions, top mood, and top location. Add retroactive history entries manually with full three-tier support, mood, location, and energy, searchable Custom Front pickers for Front and Co-Front, start/end time selection, and a "Current" option for ongoing sessions — the app detects overlaps with existing entries and lets you choose how to handle them.
 
@@ -83,15 +92,15 @@ Front History gives you a complete timestamped log of every switch, organized by
 System-wide stats at a glance: total fronting time, session count, and message count with time range filtering (All Time, 7 Days, 30 Days, or a custom date range). Expandable leaderboards (top 5, up to 25) for fronters, co-fronters, co-conscious, chatters, moods, and locations. Peak Hours and Energy-by-Hour charts show when your system is most active and how energy trends through the day, plus per-member breakdowns of sessions, average energy, top co-members, and top moods.
 
 **⌨ System Chat**  
-Local-only IRC-style chat for your system. Create, rename, and organize channels (up to 100) with defaults for General, Venting, and Planning. Select a speaker from your member roster independently of who's fronting — chat activity doesn't affect front or history. Send text messages, share images (stored as base64 — delete the source and the chat copy persists), reply to messages, and react with emoji. Archive channels to free storage with the option to close the channel or continue fresh with a clean slate — archived messages export as `ChannelName_YYYY-MM-DD.json`.
+Local-only IRC-style chat for your system. Create, rename, and organize channels (up to 100) with defaults for General, Venting, and Planning. Group channels into named categories and drag them into the order you want. Select a speaker from your member roster independently of who's fronting — chat activity doesn't affect front or history. Send text messages, share images (stored as base64 — delete the source and the chat copy persists), reply to messages, and react with emoji. Archive channels to free storage with the option to close the channel or continue fresh with a clean slate — archived messages export as `ChannelName_YYYY-MM-DD.json`.
 
 **◉ System Journal**  
 Write journal entries with the same editor available in member profiles. Entries open in a clean read-only view with a one-tap Edit button. Pin important entries to the top of the list, and start new ones from saved templates with preset titles, bodies, and tags. Tag entries with authors (searchable by name), add topic hashtags (searchable by tag), and optionally lock individual entries or the entire journal behind passwords. Export individual entries or the full journal in `.txt`, `.md`, or `.json`.
 
 **⇅ Import & Export**  
-Migrating from another app? Import your full system data — members, history, custom fields, and system info — from Simply Plural, PluralKit, Tupperbox, Octocon, Ampersand, Ourcana, HiveMind, or PluralSpace, via API token or export file. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Profile pictures are imported from avatar URLs. Custom field names and values are mapped automatically with bidirectional ID normalization.
+Migrating from another app? Import your full system data — members, history, custom fields, and system info — from Simply Plural, PluralKit, Octocon, Ampersand, Ourcana, HiveMind, Tupperbox, Parallax, PluralLog, or PluralSpace, via API token or export file. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Profile pictures are imported from avatar URLs. Custom field names and values are mapped automatically with bidirectional ID normalization.
 
-Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Granular per-category toggles — pick exactly what to export or restore: system info, members, avatars, banners, front history, journal, groups, chat, moods, palettes, settings, custom fields, mailbox, polls, System Map relationships, medical. Import `.txt`, `.md`, or `.json` files directly as journal entries.
+Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Granular per-category toggles — pick exactly what to export or restore: system info, members, profile pictures, banners, front history, journal, member groups, chat, custom moods, theme palettes, app settings, custom fields, mailbox, polls, journal templates, System Map relationships, whiteboard, and planner. Import `.txt`, `.md`, or `.json` files directly as journal entries.
 
 Imports **replace** your roster rather than piling duplicates on top of it, and members that aren't in the incoming file are archived rather than deleted — so their history, chat lines, and map connections keep resolving to a name.
 
@@ -116,7 +125,9 @@ Full interface available in English, Español, Français, Deutsch, Nederlands, P
 - Searchable member and Custom Front pickers in front selection
 - Per-member history with full event log
 - Custom Fronts (Sleeping, Blurry, etc.) selectable in Update Front and Retro History
-- Token and file imports from eight plural apps with co-front grouping
+- Facets: sub-parts kept alongside the main roster, with their own list and filters, so they don't crowd the member list
+- Terminology picker: rename Fronter, Member, Group, Facet, Front, and System, plus the three fronting tier names, to your system's own words
+- Token and file imports from ten plural apps with co-front grouping
 - Full data export and restore with per-category granularity
 - Discord community accessible directly from the Hub
 
@@ -139,13 +150,14 @@ Dates, times, and number formatting follow your selected app language across all
 
 ## Privacy
 
-Everything lives on your device. No accounts, no cloud sync, no tracking, no ads.
+Everything lives on your device. No accounts, no tracking, no ads. Nothing leaves the device unless you turn on one of the optional features below, and the two that do send anything seal it first.
 
 The only outbound requests are:
 - **GPS location** (optional, off by default) — coordinates are sent to [OpenStreetMap Nominatim](https://nominatim.openstreetmap.org) to resolve a neighbourhood or city name. Raw coordinates are never stored.
 - **Simply Plural / PluralKit import** (optional) — your token is used for a single one-time request and never stored.
 - **Avatar downloads during import** (optional) — when an export references profile pictures by URL rather than embedding them, those images are fetched once so they end up on your device. File-based imports that carry their own images, such as Ampersand `.ampar` archives and PluralSpace bundles, make no network requests at all.
 - **Friends & Syncing** (optional, off by default) — end-to-end encrypted; the relay only ever sees sealed blobs it cannot read.
+- **Cloud Services** (optional, off by default, experimental): your vault is encrypted on the device with a key derived from a password that is never transmitted, so the node stores objects it has no way to open. There is no account and no password reset.
 
 Full privacy policy: [https://byhanyou.github.io/Plural-Star/](https://byhanyou.github.io/Plural-Star/)
 

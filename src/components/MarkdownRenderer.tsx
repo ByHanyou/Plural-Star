@@ -6,11 +6,23 @@ import i18n from '../i18n/i18n';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 
-const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\S*)?/gi;
+// No /g. A global module-level regex is stateful, and Desktop's copy of this
+// line has never had the flag. With /g, String.match returns every match and
+// no .index, so a line holding two bare image URLs silently dropped the second.
+const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\S*)?/i;
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/;
 const MENTION_RE = /@\[([^\]]+)\]\(member:([a-zA-Z0-9_-]+)\)/g;
 
 const fs = (s: number, T: ThemeColors): number => fontScale(T)(s);
+
+// Only web and mail links open. Descriptions can come from friends, and
+// Linking.openURL would otherwise hand any scheme (intent:, tel:, another
+// app's) straight to the OS. The promise is caught: an unopenable URL rejects.
+const openSafeLink = (href: string): void => {
+  const h = (href || '').trim();
+  if (!/^(https?:\/\/|mailto:)/i.test(h)) return;
+  Linking.openURL(h).catch(() => {});
+};
 
 const isValidImageUri = (u: unknown): u is string => {
   if (typeof u !== 'string') return false;
@@ -28,25 +40,57 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: ThemeColors}) =>
   return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
+// No Image.getSize here any more. It fired a SECOND request just to measure,
+// and that probe was doing real damage: it fails on its own for URLs that
+// <Image> loads perfectly (hosts wanting headers, transient network), it
+// reports half-size on some Android builds, and repeated calls poison Fresco's
+// memory pool, which breaks the render that follows
+// (facebook/react-native#19604, #22145, react-native#10170). Its failure was
+// wired to `failed`, so a probe that lost meant <Image> was never mounted at
+// all: the pasted URL in a description rendered as nothing, intermittently,
+// exactly as reported. The ratio now starts as the author's hint or a neutral
+// guess and is corrected by onLoad, which reports the real dimensions from the
+// load that was going to happen anyway. onError is the only failure signal.
 const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hintRatio?: number; hintW?: number}) => {
   const [ratio, setRatio] = React.useState<number | null>(hintRatio || null);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
-    let live = true;
     setFailed(false);
-    if (hintRatio) { setRatio(hintRatio); return; }
-    setRatio(null);
-    Image.getSize(uri, (w, h) => { if (live && w > 0 && h > 0) setRatio(w / h); }, () => { if (live) setFailed(true); });
-    return () => { live = false; };
+    setRatio(hintRatio || null);
   }, [uri, hintRatio]);
   if (failed) {
     return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
   const r = ratio || 1.5;
+  // A portrait image used to get a full-width 280-tall box, so a phone
+  // screenshot showed as a thin sliver in a wide empty field that reads as "the
+  // photo did not load". Portrait now sizes BY HEIGHT and takes its natural
+  // width, left-aligned, with the full width still available as the ceiling.
   const sizing = hintW && hintW > 0
     ? {width: hintW, maxWidth: '100%' as const, aspectRatio: r, alignSelf: 'flex-start' as const}
-    : r >= 1 ? {width: '100%' as const, aspectRatio: r} : {width: '100%' as const, height: 280};
-  return <Image source={{uri}} style={[{borderRadius: 8, marginVertical: 2}, sizing]} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
+    : r >= 1
+    ? {width: '100%' as const, aspectRatio: r}
+    : {height: 280, aspectRatio: r, maxWidth: '100%' as const, alignSelf: 'flex-start' as const};
+  return (
+    <Image
+      source={{uri}}
+      style={[{borderRadius: 8, marginVertical: 2}, sizing]}
+      resizeMode="contain"
+      accessibilityRole="image"
+      accessibilityLabel={i18n.t('a11y.image')}
+      // The load that was going to happen anyway reports the real dimensions,
+      // so the placeholder ratio is corrected the moment the picture is on
+      // screen. An explicit author hint is left alone.
+      onLoad={e => {
+        if (hintRatio) return;
+        const src: any = (e?.nativeEvent as any)?.source;
+        if (!src || !(src.width > 0) || !(src.height > 0)) return;
+        const real = src.width / src.height;
+        setRatio(prev => (prev && Math.abs(prev - real) < 0.01 ? prev : real));
+      }}
+      onError={() => setFailed(true)}
+    />
+  );
 };
 
 const renderTextWithMentions = (
@@ -129,7 +173,10 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
         const w = widthMatch ? Number(widthMatch[1]) : undefined;
         const h = heightMatch ? Number(heightMatch[1]) : undefined;
         if (isValidUrl) {
-          parts.push(<Image key={key++} source={{uri: url}} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} />);
+          // UriImage, not a bare Image: this one had no onError, so a URL that
+          // failed to load left a silent blank 200x200 box instead of the
+          // "image unavailable" line every other path shows.
+          parts.push(<UriImage key={key++} uri={url} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} T={T} />);
         } else {
           parts.push(<Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImageUrl', {url})}</Text>);
         }
@@ -155,7 +202,7 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
       case 'em': case 'i': parts.push(<Text key={key++} style={{fontStyle: 'italic'}}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break;
       case 's': case 'del': parts.push(<Text key={key++} style={{textDecorationLine: 'line-through'}}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break;
       case 'code': parts.push(<Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, fontSize: fs(12, T)}}>{` ${decodeEntities(inner)} `}</Text>); break;
-      case 'a': { const href = (attrs.match(/href=["']([^"']+)["']/) || [])[1] || ''; parts.push(<Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => href && Linking.openURL(href)}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break; }
+      case 'a': { const href = (attrs.match(/href=["']([^"']+)["']/) || [])[1] || ''; parts.push(<Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => openSafeLink(href)}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break; }
       default: { const wrapped = wrapText(decodeEntities(inner)); if (wrapped) parts.push(wrapped); }
     }
     remaining = remaining.slice(inlineM.index + inlineM[0].length);
@@ -239,7 +286,7 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
                   const sideH = (wAttr && hAttr) ? Math.round(sideW * (Number(hAttr[1]) / Number(wAttr[1]))) : Math.round(sideW * 1.4);
                   return (
                     <View key={i} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
-                      <Image source={{uri: url}} style={{width: sideW, height: sideH, borderRadius: 8}} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} />
+                      <UriImage uri={url} style={{width: sideW, height: sideH, borderRadius: 8}} T={T} />
                       <Text style={{flex: 1, fontSize: fs(13, T), color: T.dim, lineHeight: 20}}>{renderInlineHTML(restHtml, T, members, onMentionPress)}</Text>
                     </View>
                   );
@@ -285,7 +332,7 @@ const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentio
       if (!isValidImageUri(url)) return <Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>;
       return <UriImage key={key++} uri={url} style={{width: 200, height: 200, borderRadius: 8}} T={T} />;
     }],
-    [/\[(.+?)\]\((.+?)\)/, m => <Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => Linking.openURL(m[2])}>{m[1]}</Text>],
+    [/\[(.+?)\]\((.+?)\)/, m => <Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => openSafeLink(m[2])}>{m[1]}</Text>],
   ];
   while (remaining.length > 0) {
     let earliest: {idx: number; len: number; node: React.ReactNode} | null = null;

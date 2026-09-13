@@ -1,6 +1,6 @@
 import {NativeModules, Platform} from 'react-native';
 import type {FrontState, Member} from '../utils';
-import {fmtDur} from '../utils';
+import {fmtDur, frontSessionStart} from '../utils';
 
 type LiveActivityModule = {
   startOrUpdate(payload: Record<string, unknown>): Promise<unknown>;
@@ -84,8 +84,8 @@ export const updateFrontLiveActivity = async (
     mood: front.primary.mood,
     location: front.primary.location,
     note: front.primary.note || undefined,
-    startTime: front.startTime,
-    statusLine: fmtDur(front.startTime),
+    startTime: frontSessionStart(front),
+    statusLine: fmtDur(frontSessionStart(front)),
     friendsText: friendsText || undefined,
   });
 };

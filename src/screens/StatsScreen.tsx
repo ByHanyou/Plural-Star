@@ -437,7 +437,12 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       )}
 
       <View style={{marginBottom: 16}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.statusDetails') : t('stats.topCoMembers')}</Text>
+        {/* The section heading names the ACTIVITY, so it uses the fronting
+            term; the boards inside it name the CATEGORIES. Using the members
+            term here made the heading read "Top Co-Alters" above a list whose
+            own first board was also the members term, with Facets and Custom
+            Fronts as siblings under it. */}
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.statusDetails') : t('stats.topCoFronters')}</Text>
         {(() => {
           const eligible = (m: Member) => !m.archived && (!singlet || (m.isCustomFront && !SINGLET_HIDDEN_STATUS_NAMES.includes(m.name)));
           const chip = (m: Member) => (
@@ -501,7 +506,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
           const coGroups: {key: string; label: string; all: [string, number][]}[] = singlet
             ? [{key: 'coMembers', label: t('stats.coStatuses'), all: topCoAll}]
             : [
-              {key: 'coMembers', label: t('stats.topCoMembers'), all: topCoAll.filter(([id]) => coKind(id) === 'member')},
+              {key: 'coMembers', label: t('members.title'), all: topCoAll.filter(([id]) => coKind(id) === 'member')},
               {key: 'coFacets', label: t('members.facets'), all: topCoAll.filter(([id]) => coKind(id) === 'facet')},
               {key: 'coCustomFronts', label: t('members.customFronts'), all: topCoAll.filter(([id]) => coKind(id) === 'customFront')},
             ];

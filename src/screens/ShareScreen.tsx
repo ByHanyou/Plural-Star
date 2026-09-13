@@ -321,6 +321,18 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     }
   };
 
+  // A restore or an import in Overwrite mode removes what the file does not
+  // contain (spec 5.4: "Replace-mode import; restore from backup"). It asks
+  // first and names what is lost; the destructive button gives it the second
+  // step while a vault is linked. Update mode removes nothing and just runs.
+  const confirmOverwrite = (title: string, run: () => void) => {
+    if (importMode !== 'overwrite') { run(); return; }
+    Alert.alert(title, t('share.importModeOverwriteHint'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('common.confirm'), style: 'destructive', onPress: run},
+    ]);
+  };
+
   const handleDeleteAccount = () => {
     Alert.alert(t('share.deleteAllDataTitle'), t('share.deleteAllDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
@@ -556,7 +568,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
                     : restoring ? <View style={{alignItems: 'center', paddingVertical: 16}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress || t('share.importing')}</Text></View>
-                    : <TouchableOpacity onPress={() => {
+                    : <TouchableOpacity onPress={() => confirmOverwrite(t('share.restoreSelectedData'), () => {
                       const control = new ImportControl(setRestoreProgress);
                       const phases = Math.max(3, Object.values(restoreSel).filter(Boolean).length);
                       control.plan(phases);
@@ -568,7 +580,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                         setRestoring(v);
                       };
                       handleRestore({restorePath, restorePreview, restoreIsBundle, restoreSel, importMode, setRestoring: setRestoringArmed, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history, control});
-                    }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
+                    })} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
                 </>
               )}
               <Divider label={t('share.recoverData')} />
@@ -666,7 +678,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => handleExtImport({extPreview, importSource, extSel, importMode, system, members, history, t, setRestoreProgress, setExtPreview, setExtToken, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleExtImport({extPreview, importSource, extSel, importMode, system, members, history, t, setRestoreProgress, setExtPreview, setExtToken, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -697,7 +709,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: extPreview.groups.length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => handleSPFileConfirmImport({extPreview, extSel, importMode, system, members, history, t, setExtPreview, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleSPFileConfirmImport({extPreview, extSel, importMode, system, members, history, t, setExtPreview, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -727,7 +739,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <SectionRow label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
                     <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
-                  <TouchableOpacity onPress={() => handleAmpersandConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleAmpersandConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -757,7 +769,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => handleTupperboxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleTupperboxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -810,7 +822,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow label={t('polls.title')} value={extSel.polls} onToggle={() => togE('polls')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => handlePluralSpaceConfirm({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralSpaceConfirm({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -853,7 +865,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow label={t('mailbox.title')} value={extSel.mailbox} onToggle={() => togE('mailbox')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => handlePluralLogConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralLogConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -885,7 +897,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => handleParallaxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleParallaxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>

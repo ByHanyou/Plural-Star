@@ -8,6 +8,7 @@ import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {Member, MemberPoll, PollOption, uid, fmtTime, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
 
 interface Props {
   theme: ThemeColors;
@@ -38,8 +39,12 @@ export const PollsScreen = ({theme: T}: Props) => {
   const [voterPickerOpen, setVoterPickerOpen] = useState(false);
   const [voterSearch, setVoterSearch] = useState('');
 
+  // Loaded here, not in the app store, so a sync that changes it must reload
+  // it or the next save here would write the stale list over it.
   useEffect(() => {
-    store.get<MemberPoll[]>(KEYS.polls, []).then(p => setPolls(p || []));
+    const load = () => { store.get<MemberPoll[]>(KEYS.polls, []).then(p => setPolls(p || [])); };
+    load();
+    return NetworkManager.onSyncApplied(load);
   }, []);
 
   const savePolls = async (updated: MemberPoll[]) => {

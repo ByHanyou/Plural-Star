@@ -10,7 +10,7 @@ import notifee, {
   RepeatFrequency,
 } from 'react-native-notify-kit';
 import {AppState, Platform} from 'react-native';
-import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime} from '../utils';
+import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime, frontSessionStart} from '../utils';
 import {logError} from '../utils/log';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
@@ -102,7 +102,11 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
 
   const titleNames = primaryNames || coFrontNames || coConsciousNames ||
     i18n.t('common.unknown', {defaultValue: 'Unknown'});
-  const title = front.startTime ? `◈ ${titleNames}  ·  ${fmtDur(front.startTime)}` : `◈ ${titleNames}`;
+  // No duration in the title. The Android chronometer in frontAndroidConfig
+  // renders it live from front.startTime; a second copy here would be a
+  // snapshot frozen at post time. The expanded lines keep "Since HH:MM", which
+  // is absolute and cannot go stale.
+  const title = `◈ ${titleNames}`;
 
   const primaryTimed = resolveNamesWithSince(primaryIds, members, front);
   const coFrontTimed = resolveNamesWithSince(coFrontIds, members, front);
@@ -126,7 +130,8 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
     lines.push(i18n.t('notification.at', {location: primaryLocation, defaultValue: `At: ${primaryLocation}`}));
   if (primaryNote)
     lines.push(i18n.t('notification.note', {note: primaryNote, defaultValue: `Note: ${primaryNote}`}));
-  const sinceLabel = i18n.t('notification.since', {time: fmtTime(front.startTime), defaultValue: `Since ${fmtTime(front.startTime)}`});
+  const sinceTime = fmtTime(frontSessionStart(front));
+  const sinceLabel = i18n.t('notification.since', {time: sinceTime, defaultValue: `Since ${sinceTime}`});
   lines.push(sinceLabel);
 
   if (emergencyLine) lines.push(emergencyLine);
@@ -144,7 +149,12 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n')};
 };
 
-const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback: string) => {
+const frontAndroidConfig = (
+  ownBigText: string,
+  friendLines: string[],
+  fallback: string,
+  sinceTs?: number,
+) => {
   const base = {
     channelId: NOTIF_CHANNEL_ID,
     ongoing: true,
@@ -156,6 +166,16 @@ const frontAndroidConfig = (ownBigText: string, friendLines: string[], fallback:
     pressAction: {id: 'default'},
     color: '#DAA520',
     sortKey: '0',
+    // The OS draws a live counting timer from `timestamp` when both flags are
+    // set, and it is the ONLY duration here that stays true without the app
+    // re-posting. The chronometer is drawn INTO the timestamp slot, so
+    // showTimestamp has to be true as well or some OEMs quietly fall back to a
+    // static clock. Nothing in the title or body may print a snapshot duration
+    // alongside it: a snapshot is frozen the moment it is posted, which is the
+    // "still says 1d 5h" report that keeps coming back.
+    ...(sinceTs && sinceTs > 0
+      ? {timestamp: sinceTs, showTimestamp: true, showChronometer: true}
+      : {}),
   };
   if (friendLines.length === 0) {
     const ownLines = (ownBigText ? ownBigText.split('\n') : []).slice(0, 6);
@@ -199,7 +219,7 @@ const frontStructureSig = (front: FrontState | null): string => {
     getTierField(front, 'primary', 'mood') || '',
     getTierField(front, 'primary', 'location') || '',
     getTierField(front, 'primary', 'note') || '',
-    front.startTime || 0,
+    frontSessionStart(front) || 0,
     emergencyLine || '',
   ]);
 };
@@ -235,22 +255,26 @@ const friendStatusLines = (s: FrontShare): string[] => {
   return lines;
 };
 
-const buildFriendNotifs = (): {id: string; title: string; body: string; big: string}[] => {
+const buildFriendNotifs = (): {id: string; title: string; body: string; big: string; sinceTs: number}[] => {
   const st = NetworkManager.getState();
   if (!st.enabled) return [];
-  const out: {id: string; title: string; body: string; big: string}[] = [];
+  const out: {id: string; title: string; body: string; big: string; sinceTs: number}[] = [];
   for (const f of st.friends) {
     if (out.length >= MAX_NOTIF_FRIENDS) break;
     if (friendNotifyLevel(f) !== 'full' || f.status !== 'accepted') continue;
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const lines = friendStatusLines(s);
-    const dur = typeof s.startTime === 'number' && s.startTime > 0 ? fmtDur(s.startTime) : '';
+    // No snapshot duration in the body. Each friend row is its own
+    // notification, so it gets its own chronometer counting from their
+    // startTime; friendStatusLines already carries an absolute "Since HH:MM"
+    // in the expanded view.
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
       title: f.displayName,
-      body: dur ? `${s.fronters}  ·  ${dur}` : s.fronters,
+      body: s.fronters,
       big: lines.join('\n'),
+      sinceTs: typeof s.startTime === 'number' && s.startTime > 0 ? s.startTime : 0,
     });
   }
   return out;
@@ -323,6 +347,9 @@ const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
         pressAction: {id: 'default'},
         color: '#DAA520',
         sortKey: `1${String(i).padStart(4, '0')}`,
+        ...(d.sinceTs > 0
+          ? {timestamp: d.sinceTs, showTimestamp: true, showChronometer: true}
+          : {}),
         style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
     });
@@ -371,7 +398,7 @@ export const showFrontNotification = async (
 
     const canBindFgs =
       fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
-    const cfg = frontAndroidConfig(ownBig, [], onlineLabel);
+    const cfg = frontAndroidConfig(ownBig, [], onlineLabel, front?.startTime);
     let bound = canBindFgs;
     try {
       await notifee.displayNotification({
@@ -422,7 +449,7 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
-        android: frontAndroidConfig(content.bigText, [], content.body),
+        android: frontAndroidConfig(content.bigText, [], content.body, frontSessionStart(front)),
       },
       trigger,
     );
@@ -457,7 +484,7 @@ export const reassertFrontNotification = async () => {
       id: NOTIF_ID,
       title: content.title,
       body: content.body,
-      android: frontAndroidConfig(content.bigText, [], content.body),
+      android: frontAndroidConfig(content.bigText, [], content.body, frontSessionStart(front)),
     });
   } catch (e) {
     logError('notif', e);

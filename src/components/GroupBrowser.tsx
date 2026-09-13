@@ -41,9 +41,14 @@ export const GroupBrowser = ({
   const fs = fontScale(T);
 
   const listable = members.filter(isRosterMember);
-  const roster = members.filter(isRosterMember);
   const facetListable = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted);
   const cfListable = members.filter(m => m.isCustomFront && !m.deleted);
+  // The folder count now matches what opening the folder shows: members,
+  // facets and custom fronts together. Counting only the roster meant a group
+  // holding mostly facets reported a number nothing on screen agreed with,
+  // which is what kept being reported as an inaccurate count. The three lists
+  // are disjoint, so this cannot double-count.
+  const countable = [...listable, ...facetListable, ...cfListable];
   const folders = childrenOf(groups, browseId);
   const inFolder = (list: Member[]) => (browseId === null
     ? list.filter(m => !(m.groupIds || []).length)
@@ -67,7 +72,7 @@ export const GroupBrowser = ({
       </View>
       {banner}
       {folders.map(g => {
-        const cnt = roster.filter(m => (m.groupIds || []).includes(g.id)).length;
+        const cnt = countable.filter(m => (m.groupIds || []).includes(g.id)).length;
         const subs = childrenOf(groups, g.id).length;
         return (
           <TouchableOpacity key={g.id} onPress={() => onNavigate(g.id)} activeOpacity={0.7}

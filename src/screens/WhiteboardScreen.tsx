@@ -4,6 +4,7 @@ import Svg, {G, Path} from 'react-native-svg';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
 import {uid} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {logError} from '../utils/log';
@@ -99,10 +100,15 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const setCursor = (c: {x: number; y: number}) => { voCursorRef.current = c; setVoCursor(c); };
 
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       const saved = await store.get<Stroke[]>(KEYS.whiteboard, []);
       if (saved && Array.isArray(saved)) setStrokes(saved.filter(s => s && Array.isArray(s.pts) && s.pts.length >= 2));
-    })();
+    };
+    load();
+    // A sync that brought strokes from another device must land here, or
+    // the next stroke saved from this screen's list would write over them.
+    // Not while something drawn here is still unsaved.
+    return NetworkManager.onSyncApplied(() => { if (!dirtyRef.current) load(); });
   }, []);
 
   const persist = useCallback((next: Stroke[]) => {

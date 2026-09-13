@@ -906,6 +906,28 @@ export const withMemberSince = (next: FrontState | null, prev: FrontState | null
   return {...next, memberSince: since};
 };
 
+// When the current front actually began, for anything that shows a running
+// clock. front.startTime doubles as the history segment marker and is pushed
+// to now every time a mood, location or energy changes, so the header read
+// "Fronting for <1m" while the per-member timers beside it kept counting the
+// real elapsed time. The earliest memberSince is the honest answer, and taking
+// the minimum of the two means the header can never read shorter than any
+// timer drawn under it.
+export const frontSessionStart = (f: FrontState): number => {
+  // Legacy fronts reach this without the tier objects, so read them the same
+  // defensive way frontersFirst does rather than assuming the current shape.
+  const any = f as any;
+  const tier = (x: any): string[] => (x && Array.isArray(x.memberIds) ? x.memberIds : []);
+  const since: Record<string, number> = any?.memberSince || {};
+  let earliest = 0;
+  for (const id of [...tier(any?.primary), ...tier(any?.coFront), ...tier(any?.coConscious)]) {
+    const at = since[id];
+    if (typeof at === 'number' && at > 0 && (earliest === 0 || at < earliest)) earliest = at;
+  }
+  if (!earliest) return f.startTime;
+  return Math.min(earliest, f.startTime);
+};
+
 export const frontToHistoryEntry = (f: FrontState, endTime: number | null, changeType: HistoryChangeType = 'front', changeTier?: FrontTierKey): HistoryEntry => ({
   memberIds: f.primary.memberIds,
   startTime: f.startTime,

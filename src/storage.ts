@@ -46,7 +46,17 @@ const CRITICAL_KEYS = new Set([
   KEYS.journal, KEYS.groups, KEYS.chatChannels, KEYS.chatCategories, KEYS.relationships,
   KEYS.deviceCodes, KEYS.medical, KEYS.planner,
   'ps:networkIdentity', 'ps:networkFriends', 'ps:networkSettings',
+  // Everything else a system writes by hand. Android reads a row back only up
+  // to about 2 MB (CursorWindow); the write succeeds regardless, so a channel
+  // or a whiteboard that grows past it would read as empty and the next save
+  // would overwrite it. The file backup is what makes such a key readable.
+  KEYS.whiteboard, KEYS.polls, KEYS.noteboards, KEYS.customFieldDefs, KEYS.journalTemplates,
+  KEYS.relationshipTypes, KEYS.systemMapMembers, KEYS.systemMapPositions, KEYS.palettes,
+  KEYS.customColors, KEYS.share, KEYS.settings, 'ps:privacyBuckets',
 ]);
+
+// Chat message lists are one key per channel.
+const isCritical = (key: string): boolean => CRITICAL_KEYS.has(key) || key.startsWith('ps:chat:');
 
 const STORAGE_DEBUG = __DEV__;
 
@@ -101,7 +111,9 @@ export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
     const out: RecoverableEntry[] = [];
     for (const f of files) {
       if (f.type !== 'file' || !f.filename.endsWith('.json')) continue;
-      const key = `ps:${f.filename.replace(/\.json$/, '').replace(/^ps_/, '')}`;
+      // backupPath turns every ':' into '_' (no key name or channel id holds
+      // an underscore), so every '_' turns back: ps_chat_<id> is ps:chat:<id>.
+      const key = `ps:${f.filename.replace(/\.json$/, '').replace(/^ps_/, '').replace(/_/g, ':')}`;
       try {
         const raw = await ReactNativeBlobUtil.fs.readFile(f.path, 'utf8');
         const parsed = JSON.parse(raw);
@@ -184,6 +196,17 @@ export const restoreFromBackup = async (key: string): Promise<boolean> => {
   }
 };
 
+// One listener for "something was saved", used by Cloud Services so that every
+// Save also saves to the cloud (SPEC 8.1) without each action knowing about
+// it. Applying data FROM the cloud writes AsyncStorage directly, not through
+// here, so it cannot echo back into another upload. `removed` is true for a
+// store.remove: the one signal that a key left on purpose, as opposed to one
+// that merely read back missing and should be repaired from the vault.
+let writeListener: ((key: string, removed?: boolean) => void) | null = null;
+export const onStoreWrite = (fn: ((key: string, removed?: boolean) => void) | null): void => {
+  writeListener = fn;
+};
+
 export const store = {
   async get<T>(key: string, fallback: T | null = null): Promise<T | null> {
     let raw: string | null = null;
@@ -198,11 +221,11 @@ export const store = {
     if (raw !== null) {
       try {
         const parsed = JSON.parse(raw) as T;
-        if (STORAGE_DEBUG && CRITICAL_KEYS.has(key)) {
+        if (STORAGE_DEBUG && isCritical(key)) {
           const len = Array.isArray(parsed) ? `${parsed.length} items` : 'object';
           console.log(`[STORAGE] get ${key} (${raw.length}b, ${len})`);
         }
-        if (CRITICAL_KEYS.has(key) && Array.isArray(parsed) && (parsed as any[]).length === 0) {
+        if (isCritical(key) && Array.isArray(parsed) && (parsed as any[]).length === 0) {
           const backup = await readBackup<T>(key);
           if (backup !== null && Array.isArray(backup) && (backup as any[]).length > 0) {
             console.warn(`[STORAGE] Recovered ${key} from backup (was empty)`);
@@ -216,7 +239,7 @@ export const store = {
         console.error(`[STORAGE] JSON.parse failed for ${key}, trying backup:`, e);
       }
     }
-    if (CRITICAL_KEYS.has(key)) {
+    if (isCritical(key)) {
       const backup = await readBackup<T>(key);
       if (backup !== null) {
         console.warn(`[STORAGE] Recovered ${key} from backup (AsyncStorage was ${asyncStorageOk ? 'null' : 'broken'})`);
@@ -224,7 +247,7 @@ export const store = {
         return backup;
       }
     }
-    if (STORAGE_DEBUG && CRITICAL_KEYS.has(key)) console.log(`[STORAGE] get ${key} returned fallback`);
+    if (STORAGE_DEBUG && isCritical(key)) console.log(`[STORAGE] get ${key} returned fallback`);
     return fallback;
   },
   async set(key: string, value: unknown): Promise<void> {
@@ -235,12 +258,12 @@ export const store = {
     }
     try {
       await AsyncStorage.setItem(key, json);
-      if (STORAGE_DEBUG && CRITICAL_KEYS.has(key)) console.log(`[STORAGE] set ${key} OK (${json.length}b)`);
+      if (STORAGE_DEBUG && isCritical(key)) console.log(`[STORAGE] set ${key} OK (${json.length}b)`);
     } catch (e) {
       asyncStorageOk = false;
       console.error(`[STORAGE] AsyncStorage.setItem FAILED for ${key} (${json.length}b):`, e);
     }
-    if (CRITICAL_KEYS.has(key)) {
+    if (isCritical(key)) {
       const isArray = Array.isArray(value);
       if (!isArray) {
         if (value != null) {
@@ -266,16 +289,22 @@ export const store = {
         }
       }
     }
+    if (writeListener) {
+      try { writeListener(key); } catch {}
+    }
   },
   async remove(key: string): Promise<void> {
     try {
       await AsyncStorage.removeItem(key);
-      if (CRITICAL_KEYS.has(key)) {
+      if (isCritical(key)) {
         const path = backupPath(key);
         const exists = await ReactNativeBlobUtil.fs.exists(path);
         if (exists) await ReactNativeBlobUtil.fs.unlink(path);
       }
     } catch (e) { console.error('Storage remove error:', e); }
+    if (writeListener) {
+      try { writeListener(key, true); } catch {}
+    }
   },
   async clearAll(): Promise<void> {
     try {

@@ -19,6 +19,7 @@ import {RichText as RichContent} from '../components/MarkdownRenderer';
 import {saveChatMedia, getChatMediaFileName} from '../utils/mediaUtils';
 import {readClipboardImage} from '../utils/clipboardImage';
 import {showChatPingNotification} from '../services/NotificationService';
+import {NetworkManager} from '../network/NetworkManager';
 
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😢', '😮', '🎉', '✨', '🔥'];
 
@@ -207,6 +208,17 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     if (activeChannelId) loadMessages(activeChannelId);
   }, [activeChannelId]);
 
+  // A sync (device lane or the vault) can land messages in the open channel.
+  // Reload so they show, and so a send does not save a stale list over them.
+  useEffect(() => NetworkManager.onSyncApplied(() => {
+    if (activeChannelId) loadMessages(activeChannelId);
+  }), [activeChannelId, loadMessages]);
+
+  // Sends that await something (a picker, a file read) must append to the
+  // list as it is when the await ends, not as it was when they began.
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  messagesRef.current = messages;
+
   const saveMessages = async (channelId: string, msgs: ChatMessage[]) => {
     setMessages(msgs);
     await store.set(chatMsgKey(channelId), msgs);
@@ -223,7 +235,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
       replyToId: replyTo?.id,
       timestamp: Date.now(),
     };
-    const updated = [...messages, msg];
+    const updated = [...messagesRef.current, msg];
     await saveMessages(activeChannelId, updated);
     setInput('');
     setReplyTo(null);
@@ -251,7 +263,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
         content: fileUri,
         timestamp: Date.now(),
       };
-      const updated = [...messages, msg];
+      const updated = [...messagesRef.current, msg];
       await saveMessages(activeChannelId, updated);
       isAtBottomRef.current = true;
     setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
@@ -278,7 +290,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
         content: fileUri,
         timestamp: Date.now(),
       };
-      const updated = [...messages, msg];
+      const updated = [...messagesRef.current, msg];
       await saveMessages(activeChannelId, updated);
       isAtBottomRef.current = true;
       setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
@@ -473,7 +485,9 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
               <Text style={{fontSize: fs(10), color: T.muted}}>{fmtTime(msg.timestamp)}</Text>
             </View>
             {msg.type === 'image' ? (
-              (typeof msg.content === 'string' && msg.content.trim().length > 0) ? (
+              // 'cloud:media' is the vault's placeholder for bytes this device
+              // has not received (full-size images off, or not pulled yet).
+              (typeof msg.content === 'string' && msg.content.trim().length > 0 && msg.content !== 'cloud:media') ? (
                 <Image source={{uri: msg.content.trim()}} accessibilityRole="image" accessibilityLabel={t('a11y.image')} style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
               ) : (
                 <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginTop: 4}}>{t('chat.imageUnavailable')}</Text>

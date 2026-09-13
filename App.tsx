@@ -41,6 +41,8 @@ import {StatusScreen} from './src/screens/StatusScreen';
 import {ProfileScreen} from './src/screens/ProfileScreen';
 import {NetworkScreen} from './src/screens/NetworkScreen';
 import {NetworkManager} from './src/network/NetworkManager';
+import {CloudServices, bootCloudServices} from './src/cloud/cloudPlatform';
+import {installDestructiveGuard} from './src/cloud/destructiveGuard';
 import {SetFrontModal, SetStatusModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal, SystemProfileModal, CustomFrontModal} from './src/modals';
 import {AppErrorBoundary} from './src/components/AppErrorBoundary';
 import {SplashView} from './src/components/SplashView';
@@ -418,12 +420,25 @@ function MainAppContent() {
       if (s === 'active') {
         NetworkManager.requestFriendFronts();
         NetworkManager.flushPendingFronts();
+        // Spec 8.2: every foreground is a wake check against the vault.
+        CloudServices.wake();
       }
     });
     return () => sub.remove();
   }, [loadAll]);
-  useEffect(() => { NetworkManager.init().catch(e => console.error('[NETWORK] init failed:', e)); }, []);
-  useEffect(() => { NetworkManager.notifyDataChanged(); }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
+  useEffect(() => {
+    NetworkManager.init()
+      .catch(e => console.error('[NETWORK] init failed:', e))
+      .finally(() => {
+        bootCloudServices();
+        installDestructiveGuard();
+      });
+  }, []);
+  useEffect(() => {
+    NetworkManager.notifyDataChanged();
+    // Spec 8.1: every save also saves to the cloud. Debounced inside.
+    CloudServices.schedulePush();
+  }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
   useEffect(() => NetworkManager.onSyncApplied(() => { loadAll(); }), [loadAll]);
   useEffect(() => NetworkManager.onSyncConflict(c => {
     Alert.alert(
@@ -474,6 +489,9 @@ function MainAppContent() {
   useEffect(() => { store.get<string>('ps:lastLocation').then(loc => { if (loc) setLastKnownLocation(loc); }); }, []);
 
   const handleDeleteAccount = async () => {
+    // Leave the vault first. Wiping a linked device must never empty the
+    // vault or the other devices; unlinking never does (spec 5.3).
+    await CloudServices.unlink().catch(() => {});
     await clearFrontNotification(); await store.clearAll(); await clearAllMedia();
     setSystem({name: '', description: ''}); setMembers([]); setFront(null);
     setHistory([]); setJournal([]); setJournalTemplates([]);

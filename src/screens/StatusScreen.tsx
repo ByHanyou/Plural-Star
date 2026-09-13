@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
-import {Member, FrontState, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, translateMood} from '../utils';
+import {Member, FrontState, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, frontSessionStart, translateMood} from '../utils';
 
 interface Props {
   theme: ThemeColors;
@@ -89,7 +89,7 @@ export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Pro
             ) : null}
             {front ? (
               <Text style={{fontSize: fs(11), color: T.muted, marginTop: 8}}>
-                {t('status.since', {time: fmtTime(front.startTime)})} · {fmtDur(front.startTime)}
+                {t('status.since', {time: fmtTime(frontSessionStart(front))})} · {fmtDur(frontSessionStart(front))}
               </Text>
             ) : null}
           </TouchableOpacity>

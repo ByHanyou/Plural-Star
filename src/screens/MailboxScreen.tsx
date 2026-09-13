@@ -8,6 +8,7 @@ import {fontScale, ThemeColors, initialOn} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveMember} from '../store/actions';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
@@ -40,8 +41,12 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
   const [toId, setToId] = useState('');
   const [text, setText] = useState('');
 
+  // Loaded here, not in the app store, so a sync that changes it must reload
+  // it or the next save here would write the stale list over it.
   useEffect(() => {
-    store.get<NoteboardEntry[]>(KEYS.noteboards, []).then(n => setNotes(n || []));
+    const load = () => { store.get<NoteboardEntry[]>(KEYS.noteboards, []).then(n => setNotes(n || [])); };
+    load();
+    return NetworkManager.onSyncApplied(load);
   }, []);
 
   const real = (members || []).filter(m => !m.isCustomFront && !m.isFacet);

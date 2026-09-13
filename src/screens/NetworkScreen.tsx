@@ -15,6 +15,9 @@ import {NetworkManager} from '../network/NetworkManager';
 import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode, PRIVACY_BUCKETS_KEY, MirrorFeature, friendNotifyLevel} from '../network/types';
 import {MirrorScreen} from './MirrorScreen';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
+import {CloudServices} from '../cloud/cloudPlatform';
+import {useCloud} from '../cloud/useCloud';
+import {passwordRuleFailing} from '../cloud/cloudCrypto';
 
 interface Props {
   theme: ThemeColors;
@@ -91,14 +94,26 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const [fieldDefs, setFieldDefs] = useState<CustomFieldDef[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [relTypes, setRelTypes] = useState<RelationshipTypeDef[]>([]);
+  const cloud = useCloud();
+  const [cloudOn, setCloudOn] = useState(false);
+  const [cloudPw, setCloudPw] = useState('');
+  const [cloudMedia, setCloudMedia] = useState(false);
+  const cloudRule = passwordRuleFailing(cloudPw);
+  const cloudBusy = cloud.phase !== 'idle';
 
   useEffect(() => {
-    store.get<PrivacyBucket[]>(PRIVACY_BUCKETS_KEY, []).then(saved => {
-      if (saved && Array.isArray(saved)) setBuckets(saved.map(normalizeBucket));
-    }).catch(e => logError('network', e));
-    store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || [])).catch(e => logError('network', e));
-    store.get<Relationship[]>(KEYS.relationships, []).then(r => setRelationships(r || [])).catch(e => logError('network', e));
-    store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []).then(rt => setRelTypes(rt || [])).catch(e => logError('network', e));
+    const load = () => {
+      store.get<PrivacyBucket[]>(PRIVACY_BUCKETS_KEY, []).then(saved => {
+        if (saved && Array.isArray(saved)) setBuckets(saved.map(normalizeBucket));
+      }).catch(e => logError('network', e));
+      store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || [])).catch(e => logError('network', e));
+      store.get<Relationship[]>(KEYS.relationships, []).then(r => setRelationships(r || [])).catch(e => logError('network', e));
+      store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []).then(rt => setRelTypes(rt || [])).catch(e => logError('network', e));
+    };
+    load();
+    // Buckets travel in the vault; a pulled change must land here or the
+    // next bucket save would write the stale list over it.
+    return NetworkManager.onSyncApplied(load);
   }, []);
 
   const saveBuckets = async (next: Bucket[]) => {
@@ -167,14 +182,106 @@ export const NetworkScreen = ({theme: T}: Props) => {
   };
 
   const onToggle = (v: boolean) => guard(() => NetworkManager.setEnabled(v));
-  const onSaveRelay = () => guard(() => NetworkManager.setRelayOverride(relayUrl.trim() || undefined, relayToken.trim() || undefined));
-  const onGenerate = (kind: Kind) => guard(async () => {
-    try {
-      await NetworkManager.generateCode(kind);
-    } catch {
-      throw new Error(t('network.publishFailed'));
+
+  // ---- Cloud Services (SPEC section 5) --------------------------------------
+  // The toggle refuses while device syncing is on and points at the warning;
+  // the two never run together. Submit derives the credentials and asks the
+  // node whether the vault exists: new = created and uploaded here, existing =
+  // an Import pop-up with a second confirmation that names what is lost.
+  const cloudRuleText = (): string => {
+    switch (cloudRule) {
+      case 'length': return t('network.cloudRuleLength');
+      case 'upper': return t('network.cloudRuleUpper');
+      case 'lower': return t('network.cloudRuleLower');
+      case 'digit': return t('network.cloudRuleDigit');
+      case 'symbol': return t('network.cloudRuleSymbol');
+      default: return '';
     }
-  });
+  };
+  const cloudPhaseText = (): string => {
+    switch (cloud.phase) {
+      case 'deriving': return t('network.cloudDeriving');
+      case 'uploading': return t('network.cloudUploading');
+      case 'importing': return t('network.cloudImporting');
+      case 'checking': return t('network.cloudChecking');
+      default: return '';
+    }
+  };
+  const onCloudToggle = (v: boolean) => {
+    if (v && net.devices.length > 0) {
+      Alert.alert(t('network.cloudTitle'), t('network.cloudWarning'));
+      return;
+    }
+    setCloudOn(v);
+    if (!v) { setCloudPw(''); CloudServices.cancelPendingLink(); }
+  };
+  const onCloudSubmit = async () => {
+    if (cloudRule || cloudBusy) return;
+    const pw = cloudPw;
+    try {
+      const outcome = await CloudServices.linkWithPassword(pw, cloudMedia);
+      if (outcome.kind === 'created') { setCloudPw(''); return; }
+      Alert.alert(t('network.cloudExistsTitle'), t('network.cloudExistsMsg'), [
+        {text: t('common.cancel'), style: 'cancel', onPress: () => CloudServices.cancelPendingLink()},
+        {text: t('network.cloudImport'), style: 'destructive', onPress: () => {
+          Alert.alert(t('network.cloudImportConfirmTitle'), t('network.cloudImportConfirmMsg'), [
+            {text: t('common.cancel'), style: 'cancel', onPress: () => CloudServices.cancelPendingLink()},
+            {text: t('network.cloudImport'), style: 'destructive', onPress: () => {
+              CloudServices.importExisting(cloudMedia)
+                .then(() => setCloudPw(''))
+                .catch((e: any) => Alert.alert(t('network.errorTitle'), String(e?.message || e)));
+            }},
+          ]);
+        }},
+      ]);
+    } catch (e: any) {
+      Alert.alert(t('network.errorTitle'), String(e?.message || e));
+    }
+  };
+  const onCloudUnlink = () => {
+    Alert.alert(t('network.cloudUnlink'), t('network.cloudUnlinkMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('network.cloudUnlink'), style: 'destructive', onPress: () => {
+        Alert.alert(t('network.cloudUnlink'), t('network.cloudUnlinkConfirm2'), [
+          {text: t('common.cancel'), style: 'cancel'},
+          {text: t('network.cloudUnlink'), style: 'destructive', onPress: () => {
+            CloudServices.unlink().then(() => setCloudOn(false)).catch((e: any) => Alert.alert(t('network.errorTitle'), String(e?.message || e)));
+          }},
+        ]);
+      }},
+    ]);
+  };
+  const onSaveRelay = () => guard(() => NetworkManager.setRelayOverride(relayUrl.trim() || undefined, relayToken.trim() || undefined));
+  // Spec 5.1, both directions: the cloud toggle refuses while devices are
+  // paired, and device pairing refuses while the vault is linked.
+  const cloudBlocksSync = (kind: Kind): boolean => {
+    if (kind !== 'device' || !cloud.linked) return false;
+    Alert.alert(t('network.cloudTitle'), t('network.cloudBlocksSync'));
+    return true;
+  };
+  // The engine records failures in English for the log. Map the ones a person
+  // can act on to translated text, and fall back to the raw line otherwise.
+  const cloudErrorText = (raw: string): string => {
+    const s = raw.toLowerCase();
+    const m = raw.match(/^Left out, larger than \d+ MB: (.*)$/);
+    if (m) return t('network.cloudErrTooLarge', {keys: m[1]});
+    if (s.includes('object too large')) return t('network.cloudErrTooLarge', {keys: ''});
+    if (s.includes('rate limited') || s.includes('429')) return t('network.cloudErrRate');
+    if (s.includes('quota') || s.includes('watermark') || s.includes('507')) return t('network.cloudErrFull');
+    if (s.includes('undecryptable') || s.includes('malformed') || s.includes('hash mismatch') || s.includes('bad password')) return t('network.cloudErrCorrupt');
+    if (s.includes('conflict') || s.includes('network') || s.includes('timed out') || s.includes('failed') || s.includes('fetch') || s.includes('not connected') || s.includes('unreach') || /http 5\d\d/.test(s)) return t('network.cloudErrNetwork');
+    return raw;
+  };
+  const onGenerate = (kind: Kind) => {
+    if (cloudBlocksSync(kind)) return;
+    guard(async () => {
+      try {
+        await NetworkManager.generateCode(kind);
+      } catch {
+        throw new Error(t('network.publishFailed'));
+      }
+    });
+  };
 
   const onCopy = (kind: Kind, code: string | null) => {
     if (!code) return;
@@ -208,6 +315,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
 
   const onEnter = (kind: Kind, value: string, clear: () => void) => {
     if (!value.trim()) return;
+    if (cloudBlocksSync(kind)) return;
     if (kind === 'device') {
       Alert.alert(
         t('network.syncDirectionTitle'),
@@ -589,6 +697,98 @@ export const NetworkScreen = ({theme: T}: Props) => {
                   net.devices.map(f => renderRow(f, <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{deviceStatusText(f)}</Text>, deviceStatusText(f)))
                 )}
               </View>
+            </View>
+
+            {/* SPEC 5.1: directly under "Sync your devices", warning first. */}
+            <Text style={{fontSize: fs(12), color: T.danger, marginTop: -4, marginBottom: 10, paddingHorizontal: 2}} accessibilityRole="text">
+              {t('network.cloudWarning')}
+            </Text>
+
+            <View style={card}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
+                <Text accessibilityRole="header" style={[labelStyle, {marginBottom: 0}]}>{t('network.cloudTitle')}</Text>
+                <View style={{paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999, borderWidth: 1, borderColor: `${T.info}60`, backgroundColor: `${T.info}18`}}>
+                  <Text style={{fontSize: fs(9), letterSpacing: 0.8, textTransform: 'uppercase', color: T.info, fontWeight: '700'}}>{t('network.cloudExperimental')}</Text>
+                </View>
+              </View>
+              <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 12}}>{t('network.cloudDesc')}</Text>
+
+              {cloud.linked ? (
+                <>
+                  <Text style={{fontSize: fs(12), color: T.text}}>{t('network.cloudLinkedDevices', {n: cloud.deviceCount})}</Text>
+                  {cloud.lastSyncAt > 0 && (
+                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{t('network.cloudLastSync', {time: fmtTime(cloud.lastSyncAt)})}</Text>
+                  )}
+                  {cloud.pendingKeys > 0 && (
+                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{t('network.cloudPending', {n: cloud.pendingKeys})}</Text>
+                  )}
+                  {cloudBusy && (
+                    <Text style={{fontSize: fs(11), color: T.accent, marginTop: 6}} accessibilityLiveRegion="polite">
+                      {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${Math.round(cloud.progress * 100)}%` : ''}
+                    </Text>
+                  )}
+                  {cloud.lastError ? (
+                    <Text style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '')})}</Text>
+                  ) : null}
+                  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14}}>
+                    <View style={{flex: 1, marginRight: 12}}>
+                      <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}}>{t('network.cloudMediaTier')}</Text>
+                      <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{t('network.cloudMediaTierDesc')}</Text>
+                    </View>
+                    <Switch value={cloud.mediaTier} disabled={cloudBusy} onValueChange={v => CloudServices.setMediaTier(v).catch(() => {})}
+                      accessibilityRole="switch" accessibilityLabel={t('network.cloudMediaTier')} accessibilityState={{checked: cloud.mediaTier, disabled: cloudBusy}} />
+                  </View>
+                  <TouchableOpacity onPress={onCloudUnlink} disabled={cloudBusy} activeOpacity={0.8}
+                    style={{marginTop: 14, borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: `${T.danger}60`, backgroundColor: `${T.danger}12`}}
+                    accessibilityRole="button" accessibilityLabel={t('network.cloudUnlink')} accessibilityState={{disabled: cloudBusy}}>
+                    <Text style={{color: T.danger, fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudUnlink')}</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+                    <Text style={{fontSize: fs(15), fontWeight: '600', color: T.text, flex: 1, marginRight: 12}}>{t('network.cloudEnable')}</Text>
+                    <Switch value={cloudOn} disabled={cloudBusy || !cloud.available} onValueChange={onCloudToggle}
+                      accessibilityRole="switch" accessibilityLabel={t('network.cloudEnable')} accessibilityState={{checked: cloudOn, disabled: cloudBusy || !cloud.available}} />
+                  </View>
+                  {!cloud.available && (
+                    <Text style={{fontSize: fs(11), color: T.muted, marginTop: 8}}>{t('network.cloudUnavailable')}</Text>
+                  )}
+                  {cloudOn && (
+                    <View style={{marginTop: 12}}>
+                      <Text style={labelStyle} nativeID="lblCloudPw">{t('network.cloudPassword')}</Text>
+                      <TextInput value={cloudPw} onChangeText={setCloudPw} secureTextEntry autoCapitalize="none" autoCorrect={false}
+                        textContentType="password" placeholder={t('network.cloudPassword')} placeholderTextColor={T.muted}
+                        style={inputStyle} editable={!cloudBusy}
+                        accessibilityLabel={t('network.cloudPassword')} accessibilityLabelledBy="lblCloudPw" />
+                      <Text style={{fontSize: fs(11), color: cloudPw && cloudRule ? T.danger : T.dim, marginTop: 6}} accessibilityLiveRegion="polite">
+                        {cloudPw && cloudRule ? cloudRuleText() : t('network.cloudPasswordHint')}
+                      </Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12}}>
+                        <View style={{flex: 1, marginRight: 12}}>
+                          <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}}>{t('network.cloudMediaTier')}</Text>
+                          <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{t('network.cloudMediaTierDesc')}</Text>
+                        </View>
+                        <Switch value={cloudMedia} disabled={cloudBusy} onValueChange={setCloudMedia}
+                          accessibilityRole="switch" accessibilityLabel={t('network.cloudMediaTier')} accessibilityState={{checked: cloudMedia, disabled: cloudBusy}} />
+                      </View>
+                      <TouchableOpacity onPress={onCloudSubmit} disabled={!!cloudRule || cloudBusy} activeOpacity={0.8}
+                        style={[primaryBtn, {marginTop: 12, opacity: !!cloudRule || cloudBusy ? 0.45 : 1}]}
+                        accessibilityRole="button" accessibilityLabel={t('network.cloudSubmit')} accessibilityState={{disabled: !!cloudRule || cloudBusy}}>
+                        <Text style={{color: '#fff', fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudSubmit')}</Text>
+                      </TouchableOpacity>
+                      {cloudBusy && (
+                        <Text style={{fontSize: fs(11), color: T.accent, marginTop: 8}} accessibilityLiveRegion="polite">
+                          {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${Math.round(cloud.progress * 100)}%` : ''}
+                        </Text>
+                      )}
+                      {cloud.lastError ? (
+                        <Text style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '')})}</Text>
+                      ) : null}
+                    </View>
+                  )}
+                </>
+              )}
             </View>
 
             <View style={card}>

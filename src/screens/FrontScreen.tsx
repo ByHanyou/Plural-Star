@@ -19,6 +19,7 @@ import {
   Member,
   fmtTime,
   fmtDur,
+  frontSessionStart,
   isFrontEmpty,
 } from '../utils';
 
@@ -146,8 +147,8 @@ const TierCard = ({
           <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8, marginBottom: 8}}>
             <Text style={{fontSize: fs(11), color: T.muted}}>
               {t('front.frontingFor')}{' '}
-              <Text style={{color: T.accent}}>{fmtDur(front.startTime)}</Text>{' '}
-              · {t('front.since')} {fmtTime(front.startTime)}
+              <Text style={{color: T.accent}}>{fmtDur(frontSessionStart(front))}</Text>{' '}
+              · {t('front.since')} {fmtTime(frontSessionStart(front))}
             </Text>
           </View>
         )}

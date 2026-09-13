@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle, LayoutChangeEvent} from 'react-native';
 import {KeyboardAwareScrollView, KeyboardStickyView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useDragReorder} from '../hooks/useDragReorder';
@@ -8,6 +8,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {CustomFieldDef, CustomFieldType, uid} from '../utils';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
 
 const FIELD_TYPES: {type: CustomFieldType; label: string; icon: string}[] = [
   {type: 'text', label: 'Text', icon: 'Tt'},
@@ -38,6 +39,17 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [newType, setNewType] = useState<CustomFieldType>('text');
   const [newMarkdown, setNewMarkdown] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  // The bottom bar is absolutely positioned, so the list has to reserve its
+  // real height rather than a guessed 100. Measured, not assumed, because the
+  // bar grows with the text scale and with the type picker open. Only accept a
+  // change bigger than a point so a rounding wobble cannot start a re-layout
+  // loop between the bar and the padding it drives.
+  const [barH, setBarH] = useState(0);
+  const onBarLayout = (e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    setBarH(prev => (Math.abs(prev - h) > 1 ? h : prev));
+  };
+  const clearance = Math.max(barH, 64) + 24;
   const [editId, setEditId] = useState<string | null>(null);
   const [retypeId, setRetypeId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -57,8 +69,12 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   };
   const {drag, dragging, registerHeight, makeHandlePanHandlers} = useDragReorder({enabled: reorderOn, onDrop: onDropField});
 
+  // Loaded here, not in the app store, so a sync that changes it must reload
+  // it or the next save here would write the stale list over it.
   useEffect(() => {
-    store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || []));
+    const load = () => { store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || [])); };
+    load();
+    return NetworkManager.onSyncApplied(load);
   }, []);
 
   const save = async (updated: CustomFieldDef[]) => {
@@ -121,7 +137,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
 
   return (
     <View style={{flex: 1}}>
-      <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} scrollEnabled={!dragging} bottomOffset={80}>
+      <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: clearance}} scrollEnabled={!dragging} bottomOffset={clearance}>
         {fields.length > 1 && (
           <View style={{flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10}}>
             <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
@@ -230,7 +246,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
       </KeyboardAwareScrollView>
 
       <KeyboardStickyView style={{position: 'absolute', bottom: 0, left: 0, right: 0}}>
-      <View style={{backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
+      <View onLayout={onBarLayout} style={{backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
         <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
           <TextInput value={newName} onChangeText={setNewName} accessibilityLabel={t('customFields.fieldName')} placeholder={t('customFields.fieldName')} placeholderTextColor={T.muted}
             style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
@@ -248,7 +264,11 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
         </View>
 
         {showTypePicker && (
-          <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, marginTop: 8, overflow: 'hidden'}}>
+          // Thirteen types at full height turned this bar into the whole
+          // screen. Bounded to roughly six rows and scrolled; this ScrollView
+          // is not nested inside another scroller, so it scrolls normally.
+          <ScrollView style={{maxHeight: 240, marginTop: 8}} keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             {FIELD_TYPES.map(ft => (
               <TouchableOpacity key={ft.type} onPress={() => {setNewType(ft.type); setShowTypePicker(false);}} activeOpacity={0.7}
                 accessibilityRole="menuitem" accessibilityState={{selected: newType === ft.type}} accessibilityLabel={typeLabel(ft.type)}
@@ -258,7 +278,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
                 <Text style={{fontSize: fs(13), color: newType === ft.type ? T.accent : T.text, fontWeight: newType === ft.type ? '600' : '400'}}>{typeLabel(ft.type)}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         )}
       </View>
       </KeyboardStickyView>

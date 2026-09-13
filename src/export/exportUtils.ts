@@ -16,6 +16,7 @@ import {
   ExportPayload,
   fmtTime,
   fmtDur,
+  getLocale,
 } from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
 import {parallelMap} from '../utils/concurrency';
@@ -240,7 +241,7 @@ export const buildHtmlExport = (
   <body>
   <h1>${system.name}</h1>
   ${system.description ? `<p style="font-size:16px;color:#555;margin-top:0">${system.description}</p>` : ''}
-  <div class="meta">${i18n.t('share.exportDocMeta', {date: new Date().toLocaleString(i18n.language, {dateStyle: 'long', timeStyle: 'short'}), members: members.filter(m => !m.isCustomFront && !m.isFacet).length, journal: journal.length, history: history.length})}</div>
+  <div class="meta">${i18n.t('share.exportDocMeta', {date: new Date().toLocaleString(getLocale(), {dateStyle: 'long', timeStyle: 'short'}), members: members.filter(m => !m.isCustomFront && !m.isFacet).length, journal: journal.length, history: history.length})}</div>
   <h2>${i18n.t('share.exportDocMembers')}</h2>
   ${members.filter(m => !m.isCustomFront && !m.isFacet).length ? `<table><thead><tr><th>${i18n.t('share.exportDocName')}</th><th>${i18n.t('share.exportDocPronouns')}</th><th>${i18n.t('share.exportDocRole')}</th><th>${i18n.t('share.exportDocDescription')}</th></tr></thead><tbody>${memberRows}</tbody></table>` : `<p style="color:#888">${i18n.t('share.exportDocNoMembers')}</p>`}
   <h2>${i18n.t('share.exportDocJournal')}</h2>
@@ -274,7 +275,7 @@ export const buildEmailBody = (
     })
     .join('\n');
 
-  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString(i18n.language)}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
+  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString(getLocale())}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
 };
 
 
@@ -728,7 +729,7 @@ export const exportEmail = (
   recipient: string,
 ): void => {
   const subject = encodeURIComponent(
-    `${system.name} — ${i18n.t('share.exportDocTitle')} · ${new Date().toLocaleDateString(i18n.language, {month: 'long', day: 'numeric', year: 'numeric'})}`,
+    `${system.name} — ${i18n.t('share.exportDocTitle')} · ${new Date().toLocaleDateString(getLocale(), {month: 'long', day: 'numeric', year: 'numeric'})}`,
   );
   const body = encodeURIComponent(buildEmailBody(system, members, history, journal));
   Linking.openURL(`mailto:${recipient}?subject=${subject}&body=${body}`);

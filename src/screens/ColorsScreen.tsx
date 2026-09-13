@@ -6,6 +6,7 @@ import {fontScale, ThemeColors} from '../theme';
 import {ColorPicker} from '../components/ColorPicker';
 import {PRESET_COLORS, PresetColor, presetColorName, COLOR_SETS, ColorSet, MAX_CUSTOM_COLORS, normalizeCustomColors, isValidHex, normalizeHex} from '../utils';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
 import {logError} from '../utils/log';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
@@ -30,7 +31,9 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
   const [editValue, setEditValue] = useState('#FF0000');
 
   useEffect(() => {
-    store.get<string[]>(KEYS.customColors, []).then(v => setCustomColors(normalizeCustomColors(v)));
+    const load = () => { store.get<string[]>(KEYS.customColors, []).then(v => setCustomColors(normalizeCustomColors(v))); };
+    load();
+    return NetworkManager.onSyncApplied(load);
   }, []);
 
   const saveColors = (next: string[]) => {

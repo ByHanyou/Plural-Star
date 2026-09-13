@@ -1,4 +1,4 @@
-import { Member } from '../utils';
+import { Member, frontSessionStart } from '../utils';
 import { FrontShare } from './types';
 
 const getTierIds = (front: any, tier: string): string[] => {
@@ -43,7 +43,10 @@ export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<
     mood: primary ? getTierField(front, 'primary', 'mood') : undefined,
     location: primary ? getTierField(front, 'primary', 'location') : undefined,
     note: primary ? getTierField(front, 'primary', 'note') : undefined,
-    startTime: typeof front.startTime === 'number' ? front.startTime : undefined,
+    // The session start, not the history segment marker, so a friend's
+    // "fronting since" reads the same as ours instead of resetting to now
+    // every time a mood or location changes.
+    startTime: typeof front.startTime === 'number' ? frontSessionStart(front) : undefined,
   };
 };
 

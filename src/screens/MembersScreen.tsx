@@ -478,7 +478,12 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               ? t(memberTab === 'facets' ? 'members.countFilteredFacet'
                 : memberTab === 'customFronts' ? 'members.countFilteredCustomFront'
                 : 'members.countFiltered', {filtered: filtered.length, total: tabMembers.length})
-              : t('members.countFronters', {count: rosterCount + facetCount + customFrontCount})}
+              : t(memberTab === 'facets' ? 'members.countFacet'
+                : memberTab === 'customFronts' ? 'members.countCustomFront'
+                : 'members.countFronters',
+                {count: memberTab === 'facets' ? facetCount
+                  : memberTab === 'customFronts' ? customFrontCount
+                  : rosterCount})}
           </Text>
           )}
           <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
@@ -719,8 +724,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
             ['primary', t('tier.primaryFront'), T.accent],
             ['coFront', t('tier.coFront'), T.info || T.accent],
             ['coConscious', t('tier.coConscious'), T.success || T.accent],
-          ] as [FrontTierKey, string, string][])
-            .filter(([k]) => !(quickFrontFor?.isCustomFront && k === 'coConscious')))
+          ] as [FrontTierKey, string, string][]))
             .map(([k, label, color]) => (
               <TouchableOpacity key={k} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label}
                 onPress={() => {

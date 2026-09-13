@@ -139,6 +139,9 @@ export const SYNC_EXCLUDE_KEYS = [
   'ps:networkSyncState',
   'ps:deviceCodes',
   'ps:medical',
+  // Cloud Services link state holds the vault's master key. It never leaves
+  // the device by any lane, including the vault it unlocks.
+  'ps:cloudVault',
 ];
 
 export const SYNC_STATE_KEY = 'ps:networkSyncState';

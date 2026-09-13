@@ -12,7 +12,7 @@ import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 import {GroupBrowser} from '../components/GroupBrowser';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName, isRosterMember} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName} from '../utils';
 
 interface Props {
   theme: ThemeColors;
@@ -224,7 +224,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     seen.add(g.id);
     const isEditing = editId === g.id;
     const isSub = groupKind(g) === 'subsystem';
-    const memberCount = members.filter(m => isRosterMember(m) && (m.groupIds || []).includes(g.id)).length;
+    // Counts everything the group actually holds and that browsing it shows:
+    // members, facets and custom fronts. Roster-only meant a group of facets
+    // read as 0.
+    const memberCount = members.filter(m => !m.deleted && !m.archived && (m.groupIds || []).includes(g.id)).length;
     const moving = movingIds;
     const canDrop = !!moving && !moving.includes(g.id) && !moving.some(id => isDescendant(groups, g.id, id));
     const isSelected = selectedIds.includes(g.id);
@@ -297,6 +300,14 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   };
 
   const browseEligible = members.filter(m => !m.archived && !m.isCustomFront && !m.isFacet);
+  // GroupBrowser splits what it is handed into its own Members, Facets and
+  // Custom Fronts sections. Handing it browseEligible, which has already
+  // stripped facets and custom fronts, left those two sections permanently
+  // empty: a group could hold facets and custom fronts (they are addable just
+  // below) and browsing it showed only alters. It gets the unsplit list and
+  // does its own categorising; its per-folder count stays roster-only, which
+  // is the deliberate "listing and counting are different questions" rule.
+  const browseListable = members.filter(m => !m.archived && !m.deleted);
   if (browse) {
     const folderMembers = browseId === null
       ? browseEligible.filter(m => !(m.groupIds || []).length)
@@ -329,7 +340,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
         <GroupBrowser
           T={T}
           groups={groups}
-          members={browseEligible}
+          members={browseListable}
           browseId={browseId}
           onNavigate={goBrowseTo}
           onViewMember={id => onViewMember && onViewMember(id)}

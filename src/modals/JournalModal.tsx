@@ -10,6 +10,10 @@ import {RichTextEditor} from '../components/RichTextEditor';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
+// The author search results are rendered inline, so they are capped rather
+// than made scrollable. See the comment at the results box below.
+const AUTHOR_RESULTS_MAX = 20;
+
 export const JournalModal = ({visible, theme: T, entry, members, templates, onSave, onClose, onMentionPress, lockView = false}: any) => {
   const fs = fontScale(T);
   const {t} = useTranslation();
@@ -132,9 +136,14 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
           autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
           style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 4}} />
         {authorSearch.length > 0 && (
-          <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 160, overflow: 'hidden', marginBottom: 8}}>
-            <ScrollView nestedScrollEnabled>
-              {(() => {
+          // No ScrollView here. One nested inside the sheet's own scroller
+          // cannot be scrolled on Android: the sheet's BottomSheetBehavior
+          // takes the drag and React Native's ScrollView does not join the
+          // nested-scrolling protocol, so every match past the first few rows
+          // of the 160px box was unreachable. The list is capped and drawn
+          // inline instead, and the sheet scrolls it like everything else.
+          <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 8}}>
+            {(() => {
                 const q = authorSearch.toLowerCase();
                 const match = (m: Member) => !m.archived && !m.isCustomFront && memberMatchesSearch(m, q);
                 const row = (m: Member) => {
@@ -151,22 +160,23 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
                 };
                 const facets = sortMembersBySearch<Member>(members.filter((m: Member) => m.isFacet && match(m)), authorSearch);
                 const roster = sortMembersBySearch<Member>(members.filter((m: Member) => !m.isFacet && match(m)), authorSearch);
+                const shownRoster = roster.slice(0, AUTHOR_RESULTS_MAX);
+                const shownFacets = facets.slice(0, Math.max(0, AUTHOR_RESULTS_MAX - shownRoster.length));
                 return (
                   <>
-                    {roster.length > 0 && (
+                    {shownRoster.length > 0 && (
                       <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4}}>{t('members.title')}</Text>
                     )}
-                    {roster.map(row)}
-                    {facets.length > 0 && (
+                    {shownRoster.map(row)}
+                    {shownFacets.length > 0 && (
                       <>
                         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
-                        {facets.map(row)}
+                        {shownFacets.map(row)}
                       </>
                     )}
                   </>
                 );
               })()}
-            </ScrollView>
           </View>
         )}
       </>)}

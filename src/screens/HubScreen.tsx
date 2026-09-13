@@ -171,11 +171,27 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 
   const findOverlaps = (start: number, end: number | null): HistoryEntry[] => {
     const effectiveEnd = end ?? Date.now();
+    // A row with no endTime is only genuinely open if nothing started after
+    // it. Stale open rows do accumulate (any switch written without closing
+    // the previous one leaves two), and reading every one of them as running
+    // until now made them collide with everything, which is the phantom
+    // "Overlap Detected" against an entry from days ago that only went away
+    // by unticking Current and saving again. A later start closes an open row
+    // here, exactly as the history list and timeline already render it.
+    const closedBy = (e: HistoryEntry): number => {
+      let next = Infinity;
+      for (const o of history) {
+        if (!o.startTime || o === e) continue;
+        if (o.changeType && o.changeType !== 'front') continue;
+        if (o.startTime > e.startTime && o.startTime < next) next = o.startTime;
+      }
+      return next === Infinity ? Date.now() : next;
+    };
     return history.filter((e, i) => {
       if (!e.startTime) return false;
       if (isEditing && i === editIndex) return false;
       if (e.changeType && e.changeType !== 'front') return false;
-      const eEnd = e.endTime ?? Date.now();
+      const eEnd = e.endTime ?? closedBy(e);
       return e.startTime < effectiveEnd && start < eEnd;
     });
   };

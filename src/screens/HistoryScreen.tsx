@@ -1,5 +1,5 @@
 import React, {useState, useMemo, useCallback, useDeferredValue} from 'react';
-import {View, ScrollView, TouchableOpacity, StyleSheet, Alert} from 'react-native';
+import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, useWindowDimensions} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
@@ -22,6 +22,16 @@ const tierDetailsFor = (memberId: string, entry: HistoryEntry): {mood?: string; 
   const tier = memberTierInEntry(memberId, entry);
   if (tier === 'coFront') return {mood: entry.coFrontMood, note: entry.coFrontNote, location: entry.coFrontLocation, energy: entry.coFrontEnergy};
   if (tier === 'coConscious') return {mood: entry.coConsciousMood, note: entry.coConsciousNote, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy};
+  return {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
+};
+
+// A mood / location / note event records one tier's change, so its details have
+// to come from that tier. Reading the member's own tier instead meant a co-front
+// change was labelled from primary's fields and then drawn with nothing under
+// the label, which is the "Mood & Location Changed, no details" card.
+const changeTierDetailsFor = (entry: HistoryEntry): {mood?: string; note?: string; location?: string; energy?: number} => {
+  if (entry.changeTier === 'coFront') return {mood: entry.coFrontMood, note: entry.coFrontNote, location: entry.coFrontLocation, energy: entry.coFrontEnergy};
+  if (entry.changeTier === 'coConscious') return {mood: entry.coConsciousMood, note: entry.coConsciousNote, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy};
   return {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
 };
 
@@ -152,7 +162,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
             {entry.location && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
                 <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.location}</Text>
+                <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{entry.location}</Text>
               </View>
             )}
             {entry.energyLevel !== undefined && (
@@ -180,7 +190,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
                 {td.location ? (
                   <View style={[s.badge, {backgroundColor: T.surface}]}>
                     <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                    <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{td.location}</Text>
+                    <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{td.location}</Text>
                   </View>
                 ) : null}
                 {td.energy !== undefined ? (
@@ -247,6 +257,8 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
   const getMember = (id: string) => members.find(m => m.id === id);
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
+  const win = useWindowDimensions();
+  const landscape = win.width > win.height;
   const [subTab, setSubTab] = useState<SubTab>('front');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -404,9 +416,20 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
     journal:  '📖',
   };
 
-  const getEventLabel = (type: string, entry: HistoryEntry): string => {
+  // Details for one row. A front session belongs to the member you picked, so
+  // it reads their tier; a mood / location / note event belongs to the tier
+  // that changed, so it reads that one. The label is then decided from the very
+  // same values the card is about to draw, so the two can never disagree.
+  const eventDetails = (type: string, entry: HistoryEntry) =>
+    type === 'mood' || type === 'location' || type === 'note'
+      ? changeTierDetailsFor(entry)
+      : selectedMemberId
+      ? tierDetailsFor(selectedMemberId, entry)
+      : {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
+
+  const getEventLabel = (type: string, entry: HistoryEntry, d: {mood?: string; location?: string}): string => {
     const tierSuffix = entry.changeTier && entry.changeTier !== 'primary' ? t('history.tierSuffix', {tier: t(`tier.${entry.changeTier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : '';
-    if ((type === 'mood' || type === 'location') && entry.mood && entry.location) return t('history.moodLocationChanged') + tierSuffix;
+    if ((type === 'mood' || type === 'location') && d.mood && d.location) return t('history.moodLocationChanged') + tierSuffix;
     if (type === 'mood')     return t('history.moodChanged') + tierSuffix;
     if (type === 'location') return t('history.locationChanged') + tierSuffix;
     if (type === 'note')     return t('history.noteUpdated') + tierSuffix;
@@ -421,10 +444,14 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
-      <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: 16}}>
+      {/* In landscape the whole viewport is only a few hundred points tall and
+          the header ate most of it before a single row of history showed. The
+          title shrinks and the paddings halve rather than disappearing: the
+          heading is this screen's only landmark and screen readers need it. */}
+      <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: landscape ? 6 : 16}}>
         <Text
           accessibilityRole="header"
-          style={[s.heading, {color: T.text}]}
+          style={[s.heading, {color: T.text}, landscape && {fontSize: fs(15)}]}
           numberOfLines={1}
           maxFontSizeMultiplier={1.2}>
           {t('history.title')}
@@ -436,6 +463,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
               style={[s.subtab, {
                 flex: 1,
                 alignItems: 'center',
+                paddingVertical: landscape ? 5 : 10,
                 borderBottomWidth: 2,
                 borderBottomColor: subTab === tab ? T.accent : 'transparent',
               }]}>
@@ -612,7 +640,8 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                 }
                 renderItem={({item: event, index: i}: {item: any; index: number}) => {
                     const icon = EVENT_ICONS[event.type] || '◈';
-                    const label = 'entry' in event ? getEventLabel(event.type, event.entry) : getEventLabel(event.type, {} as any);
+                    const details = 'entry' in event && event.entry ? eventDetails(event.type, event.entry) : {};
+                    const label = 'entry' in event ? getEventLabel(event.type, event.entry, details) : getEventLabel(event.type, {} as any, {});
                     const color = event.type === 'front'
                       ? T.accent
                       : event.type === 'journal'
@@ -636,7 +665,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
                           {'entry' in event && event.entry && (() => {
                             const e = event.entry;
-                            const d = selectedMemberId ? tierDetailsFor(selectedMemberId, e) : {mood: e.mood, note: e.note, location: e.location, energy: e.energyLevel};
+                            const d = details;
                             const isOpen = e.endTime === null && event.type === 'front';
                             return (
                               <>
@@ -657,7 +686,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                                     {d.location && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
                                         <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{d.location}</Text>
+                                        <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{d.location}</Text>
                                       </View>
                                     )}
                                     {d.energy !== undefined && (
@@ -716,6 +745,9 @@ const s = StyleSheet.create({
   heading: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', marginBottom: 0},
   subtab: {paddingHorizontal: 16, paddingVertical: 10, marginBottom: -1},
   card: {borderRadius: 12, borderWidth: 1, padding: 12},
-  badge: {flexDirection: 'row', alignItems: 'center', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3},
+  // maxWidth keeps a long value (a typed-out location, a custom mood) inside
+  // the card instead of running off the edge once the text scale is turned up;
+  // the value Text inside is flexShrink 1 so it truncates rather than clips.
+  badge: {flexDirection: 'row', alignItems: 'center', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, maxWidth: '100%'},
   stat: {flex: 1, borderRadius: 10, borderWidth: 1, padding: 10},
 });

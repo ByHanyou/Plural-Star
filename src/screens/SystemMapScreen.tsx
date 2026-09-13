@@ -8,6 +8,7 @@ import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {TogglePill} from '../components/ToggleSwitch';
 import {logError} from '../utils/log';
+import {NetworkManager} from '../network/NetworkManager';
 import {store, KEYS} from '../storage';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
@@ -321,6 +322,13 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     [rosterEligible, facetEligible, mapIdSet],
   );
   const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id) && (showFacets || !m.isFacet)), [eligibleMembers, mapIdSet, showFacets]);
+  // Exactly the picker's own predicate minus the search box, so the button
+  // disables precisely when opening it would show an empty list.
+  const addableCount = useMemo(
+    () => rosterEligible.filter(m => !mapIdSet.has(m.id)).length +
+      facetEligible.filter(m => !mapIdSet.has(m.id)).length,
+    [rosterEligible, facetEligible, mapIdSet],
+  );
   const memberById = useMemo(() => new Map([...rosterEligible, ...facetEligible].map(m => [m.id, m])), [rosterEligible, facetEligible]);
 
   const [relationships, setRelationships] = useState<Relationship[]>([]);
@@ -348,7 +356,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const presetTypes = useMemo(() => types.filter(td => td.preset), [types]);
 
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets, savedLock] = await Promise.all([
         store.get<Relationship[]>(KEYS.relationships, []),
         store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []),
@@ -383,7 +391,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
         setMapIds(seeded);
         await store.set(KEYS.systemMapMembers, seeded);
       }
-    })();
+    };
+    load().catch(e => logError('systemMap', e));
+    // Relationships, types, map membership and positions live here, not in
+    // the app store: a sync that changes them must reload them.
+    return NetworkManager.onSyncApplied(() => { load().catch(e => logError('systemMap', e)); });
   }, []);
 
   const toggleShowArchived = () => {
@@ -751,8 +763,10 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     <View ref={hostRef} onLayout={measureHost} style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
         <TouchableOpacity onPress={() => {setShowMemberPicker(true); setMemberPickerSearch(''); measureHost();}} activeOpacity={0.7}
+          disabled={addableCount === 0}
           accessibilityRole="button" accessibilityLabel={t('members.addMember')}
-          style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          accessibilityState={{disabled: addableCount === 0}}
+          style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, opacity: addableCount === 0 ? 0.45 : 1}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}}>{t('systemMap.addMember')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => {setShowConnections(true); setShowAddType(false); setEditTypeId(null);}} activeOpacity={0.7}

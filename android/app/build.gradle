@@ -24,8 +24,8 @@ android {
         applicationId "com.pluralspace.app"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 81
-        versionName "1.19.2"
+        versionCode 82
+        versionName "1.20.0"
     }
 
     signingConfigs {

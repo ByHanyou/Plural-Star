@@ -34,15 +34,29 @@ const isMono =(style: any): boolean => {
 
 const isBoldWeight = (w: any): boolean => w === 'bold' || (w != null && Number(w) >= 600);
 
+// Android under-measures text width in two ways that clip the last glyph, and
+// both get worse as the text scale goes up. Synthetic bold overhangs the box it
+// was measured in, and letterSpacing is applied after the final character
+// without being counted in the width. The default-font path has compensated for
+// bold since the Oppo/OnePlus cut-off reports; the custom-font and dyslexic
+// paths never did, and nothing anywhere compensated for letterSpacing, which is
+// why uppercase letter-spaced labels (the tab bar, section headers) lost their
+// last letter at large text sizes.
+const androidTailPad = (out: any): any => {
+  if (Platform.OS !== 'android' || !out) return out;
+  let pad = 0;
+  if (isBoldWeight(out.fontWeight)) pad += 3;
+  if (typeof out.letterSpacing === 'number' && out.letterSpacing > 0) pad += Math.ceil(out.letterSpacing);
+  if (!pad) return out;
+  return {...out, paddingRight: (typeof out.paddingRight === 'number' ? out.paddingRight : 0) + pad};
+};
+
 const defaultStyle = (style: any): any => {
   const flat: any = StyleSheet.flatten(style);
   if (!flat) return style;
   const out: any = {...flat};
   if (out.fontFamily === DYSLEXIC_FONT) delete out.fontFamily;
-  if (Platform.OS === 'android' && isBoldWeight(out.fontWeight)) {
-    out.paddingRight = (typeof out.paddingRight === 'number' ? out.paddingRight : 0) + 3;
-  }
-  return out;
+  return androidTailPad(out);
 };
 
 const buildCustomStyle =(style: any, family: string): any => {
@@ -54,14 +68,16 @@ const buildCustomStyle =(style: any, family: string): any => {
   const next: any = {...flat, fontFamily: face};
   if (hasBold) delete next.fontWeight;
   if (hasItalic || (Platform.OS === 'android' && wantItalic && !hasItalic)) delete next.fontStyle;
-  return next;
+  // After the deletes: a font with a real bold face is not synthesised, so it
+  // needs no bold padding, and androidTailPad sees that from the dropped weight.
+  return androidTailPad(next);
 };
 
 export const Text = React.forwardRef<RNText, TextProps>((props, ref) => {
   const {style, ...rest} = props;
   if (!_family) return <RNText ref={ref} style={defaultStyle(style)} {...rest} />;
   if (_family === DYSLEXIC_FONT) {
-    const styled = applyDyslexicScale(style);
+    const styled = androidTailPad(StyleSheet.flatten(applyDyslexicScale(style)));
     return <RNText ref={ref} style={isMono(style) ? styled : [styled, {fontFamily: _family}]} {...rest} />;
   }
   return <RNText ref={ref} style={buildCustomStyle(style, _family)} {...rest} />;
@@ -71,7 +87,7 @@ export const TextInput = React.forwardRef<RNTextInput, TextInputProps>((props, r
   const {style, ...rest} = props;
   if (!_family) return <RNTextInput ref={ref} style={defaultStyle(style)} {...rest} />;
   if (_family === DYSLEXIC_FONT) {
-    const styled = applyDyslexicScale(style);
+    const styled = androidTailPad(StyleSheet.flatten(applyDyslexicScale(style)));
     return <RNTextInput ref={ref} style={isMono(style) ? styled : [styled, {fontFamily: _family}]} {...rest} />;
   }
   return <RNTextInput ref={ref} style={buildCustomStyle(style, _family)} {...rest} />;
