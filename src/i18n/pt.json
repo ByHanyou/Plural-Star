@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "AAAA",
+    "hour": "HH",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Cores",
     "rowDefault": "Padrão",
@@ -59,7 +66,8 @@
     "toolDivider": "Divisor",
     "imageUnavailable": "[imagem indisponível]",
     "brokenImage": "[imagem quebrada]",
-    "brokenImageUrl": "[imagem quebrada: {{url}}]"
+    "brokenImageUrl": "[imagem quebrada: {{url}}]",
+    "spoiler": "Spoiler, toque para revelar"
   },
   "a11y": {
     "settings": "Configurações",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} membros",
     "countFronters": "{{count}} fronter",
     "countFronters_other": "{{count}} fronters",
-    "countFiltered": "{{filtered}} de {{total}} membros"
+    "countFiltered": "{{filtered}} de {{total}} membros",
+    "recentlyDeleted": "Excluídos recentemente"
   },
   "history": {
     "editEntry": "Editar",
@@ -1003,7 +1012,7 @@
     "online": "Online",
     "offline": "Offline",
     "tabPrivacy": "Privacidade",
-    "privacyDesc": "Os círculos de privacidade decidem o que os amigos neles podem ver: tudo, uma seleção ou nada, por recurso. Atribuir amigos chegará com a expansão de compartilhamento.",
+    "privacyDesc": "Os círculos de privacidade decidem o que os amigos neles podem ver: tudo, uma seleção ou nada, por recurso.",
     "buckets": "Círculos",
     "noBuckets": "Ainda não há círculos.",
     "newBucket": "Novo círculo",
@@ -1088,7 +1097,11 @@
     "tierHint": "Renomeie os níveis de fronting. Sua palavra substitui a padrão em todo o app. Em branco usa a padrão.",
     "tierPrimary": "Frente Principal",
     "tierCoFront": "Co-Frente",
-    "tierCoConscious": "Co-Consciente"
+    "tierCoConscious": "Co-Consciente",
+    "journal": "Diário",
+    "hub": "Central",
+    "history": "Histórico",
+    "archive": "Arquivo"
   },
   "planner": {
     "title": "Planejador Diário",
@@ -1145,6 +1158,7 @@
     "title": "Caixa de correio",
     "compose": "Escrever",
     "everyone": "Todo mundo",
+    "allOthers": "Todos os outros Membros",
     "from": "De",
     "to": "Para",
     "send": "Enviar",

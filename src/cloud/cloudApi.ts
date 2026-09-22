@@ -1,8 +1,3 @@
-// Cloud Services: the HTTP client for the node's /cloud/vault/* routes.
-// Byte-identical between the mobile and Desktop repos; the transport is
-// injected. Spec: PluralStarCloudNode/SPEC.md section 13, and the node's
-// internal/cloud/handlers.go, which is the contract this file is written to.
-
 import {CloudError, CloudRequest, CloudResponse, CloudTransport, RemoteDevice, RemoteManifest, Tier, VaultInfo} from './cloudTypes';
 import {base64ToBytes, bytesToBase64} from './cloudCrypto';
 import {strFromU8, strToU8} from 'fflate';
@@ -12,8 +7,6 @@ const HEADER_VAULT_AUTH = 'X-Vault-Auth';
 const HEADER_TIER = 'X-Ps-Tier';
 const HEADER_UPLOAD_OFFSET = 'upload-offset';
 
-// 2 MiB per PUT: small enough that a dropped mobile connection loses little,
-// and the node resumes from the Upload-Offset it reports on HEAD.
 export const UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
 const JSON_TIMEOUT_MS = 15000;
 const OBJECT_TIMEOUT_MS = 120000;
@@ -88,10 +81,6 @@ export class CloudApi {
     return {status: res.status, body: this.parseJson(res), headers: res.headers};
   }
 
-  // ---- discovery -------------------------------------------------------
-
-  // The node advertises cloud support in /health. Nothing about cloud is
-  // hardcoded in the apps beyond the relay URL they already have.
   async cloudAvailable(): Promise<boolean> {
     try {
       const {body} = await this.json('GET', '/health');
@@ -101,8 +90,6 @@ export class CloudApi {
       return false;
     }
   }
-
-  // ---- vault lifecycle ---------------------------------------------------
 
   async lookup(lookupId: string): Promise<boolean> {
     const {body} = await this.json('POST', '/cloud/vault/lookup', undefined, {lookup_id: lookupId});
@@ -136,7 +123,6 @@ export class CloudApi {
     try {
       res = await this.json('GET', '/cloud/vault/manifest', creds, undefined, version ? `version=${version}` : undefined);
     } catch (e) {
-      // A vault that exists but has never had a manifest written yet.
       if (e instanceof CloudError && e.status === 404 && e.code !== 'no vault') return null;
       throw e;
     }
@@ -150,8 +136,6 @@ export class CloudApi {
     };
   }
 
-  // Returns the new version. Throws CloudError 409 with extra.version when the
-  // expected version is stale: pull, merge, retry.
   async putManifest(creds: VaultCreds, expectedVersion: number, ciphertext: Uint8Array, objects: {id: string; tier: Tier; size: number}[]): Promise<number> {
     const {body} = await this.json('PUT', '/cloud/vault/manifest', creds, {
       expected_version: expectedVersion,
@@ -161,10 +145,6 @@ export class CloudApi {
     return Number(body?.version) || 0;
   }
 
-  // ---- objects ----------------------------------------------------------
-
-  // {exists: true} when the vault already owns a complete copy; otherwise the
-  // byte offset a resumed upload should continue from (0 for a fresh one).
   async objectStatus(creds: VaultCreds, id: string): Promise<{exists: boolean; offset: number}> {
     const res = await this.send({
       method: 'HEAD',
@@ -191,15 +171,10 @@ export class CloudApi {
     return base64ToBytes(res.bodyBase64);
   }
 
-  // Chunked and resumable. Each PUT carries Content-Range; the node answers 202
-  // with the bytes it now holds until the last chunk completes it. A 409 with
-  // `received` means our idea of the offset was stale, so we adopt the node's
-  // and continue from there.
   async putObject(creds: VaultCreds, id: string, tier: Tier, ciphertext: Uint8Array, onProgress?: (sent: number, total: number) => void): Promise<void> {
     const total = ciphertext.length;
     const status = await this.objectStatus(creds, id);
     if (status.exists) {
-      // Commit the existing bytes to this vault (dedupe across vaults).
       await this.putChunk(creds, id, tier, ciphertext.subarray(0, Math.min(total, 1)), 0, total);
       onProgress?.(total, total);
       return;
@@ -239,8 +214,6 @@ export class CloudApi {
     const body = this.parseJson(res) || {};
     return {complete: !!body.complete};
   }
-
-  // ---- devices ----------------------------------------------------------
 
   async linkDevice(creds: VaultCreds, subId: string, label: string): Promise<RemoteDevice[]> {
     const {body} = await this.json('POST', '/cloud/vault/devices', creds, {

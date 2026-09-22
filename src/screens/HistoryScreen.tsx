@@ -25,10 +25,6 @@ const tierDetailsFor = (memberId: string, entry: HistoryEntry): {mood?: string; 
   return {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
 };
 
-// A mood / location / note event records one tier's change, so its details have
-// to come from that tier. Reading the member's own tier instead meant a co-front
-// change was labelled from primary's fields and then drawn with nothing under
-// the label, which is the "Mood & Location Changed, no details" card.
 const changeTierDetailsFor = (entry: HistoryEntry): {mood?: string; note?: string; location?: string; energy?: number} => {
   if (entry.changeTier === 'coFront') return {mood: entry.coFrontMood, note: entry.coFrontNote, location: entry.coFrontLocation, energy: entry.coFrontEnergy};
   if (entry.changeTier === 'coConscious') return {mood: entry.coConsciousMood, note: entry.coConsciousNote, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy};
@@ -392,6 +388,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
       ...mergedSessions.map(m => ({
         type: 'front',
         time: m.startTime,
+        tier: m.tier,
         entry: {...m.last, startTime: m.startTime, endTime: m.endTime},
       })),
       ...history
@@ -416,10 +413,6 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
     journal:  '📖',
   };
 
-  // Details for one row. A front session belongs to the member you picked, so
-  // it reads their tier; a mood / location / note event belongs to the tier
-  // that changed, so it reads that one. The label is then decided from the very
-  // same values the card is about to draw, so the two can never disagree.
   const eventDetails = (type: string, entry: HistoryEntry) =>
     type === 'mood' || type === 'location' || type === 'note'
       ? changeTierDetailsFor(entry)
@@ -427,15 +420,19 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
       ? tierDetailsFor(selectedMemberId, entry)
       : {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
 
-  const getEventLabel = (type: string, entry: HistoryEntry, d: {mood?: string; location?: string}): string => {
-    const tierSuffix = entry.changeTier && entry.changeTier !== 'primary' ? t('history.tierSuffix', {tier: t(`tier.${entry.changeTier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : '';
+  const suffixFor = (tier?: FrontTierKey | null): string =>
+    tier && tier !== 'primary' ? t('history.tierSuffix', {tier: t(`tier.${tier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : '';
+
+  const getEventLabel = (type: string, entry: HistoryEntry, d: {mood?: string; location?: string}, frontTier?: FrontTierKey | null): string => {
+    const tierSuffix = suffixFor(entry.changeTier);
     if ((type === 'mood' || type === 'location') && d.mood && d.location) return t('history.moodLocationChanged') + tierSuffix;
     if (type === 'mood')     return t('history.moodChanged') + tierSuffix;
     if (type === 'location') return t('history.locationChanged') + tierSuffix;
     if (type === 'note')     return t('history.noteUpdated') + tierSuffix;
     if (type === 'journal')  return t('history.journalEntry');
-    return singlet ? t('history.statusChange') : t('history.frontSwitch');
+    return (singlet ? t('history.statusChange') : t('history.frontSwitch')) + (singlet ? '' : suffixFor(frontTier));
   };
+  const tierColor = (tier?: FrontTierKey | null): string => tier === 'coFront' ? T.info : tier === 'coConscious' ? T.success : T.accent;
 
   const pickerMembers = singlet
     ? [...members.filter(m => m.id === selfId), ...singletStatuses(members)]
@@ -444,10 +441,6 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
-      {/* In landscape the whole viewport is only a few hundred points tall and
-          the header ate most of it before a single row of history showed. The
-          title shrinks and the paddings halve rather than disappearing: the
-          heading is this screen's only landmark and screen readers need it. */}
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: landscape ? 6 : 16}}>
         <Text
           accessibilityRole="header"
@@ -641,9 +634,9 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                 renderItem={({item: event, index: i}: {item: any; index: number}) => {
                     const icon = EVENT_ICONS[event.type] || '◈';
                     const details = 'entry' in event && event.entry ? eventDetails(event.type, event.entry) : {};
-                    const label = 'entry' in event ? getEventLabel(event.type, event.entry, details) : getEventLabel(event.type, {} as any, {});
+                    const label = 'entry' in event ? getEventLabel(event.type, event.entry, details, event.tier) : getEventLabel(event.type, {} as any, {});
                     const color = event.type === 'front'
-                      ? T.accent
+                      ? tierColor(event.tier)
                       : event.type === 'journal'
                       ? T.info
                       : T.dim;
@@ -745,9 +738,6 @@ const s = StyleSheet.create({
   heading: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', marginBottom: 0},
   subtab: {paddingHorizontal: 16, paddingVertical: 10, marginBottom: -1},
   card: {borderRadius: 12, borderWidth: 1, padding: 12},
-  // maxWidth keeps a long value (a typed-out location, a custom mood) inside
-  // the card instead of running off the edge once the text scale is turned up;
-  // the value Text inside is flexShrink 1 so it truncates rather than clips.
   badge: {flexDirection: 'row', alignItems: 'center', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, maxWidth: '100%'},
   stat: {flex: 1, borderRadius: 10, borderWidth: 1, padding: 10},
 });

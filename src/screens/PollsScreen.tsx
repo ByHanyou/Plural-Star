@@ -39,8 +39,6 @@ export const PollsScreen = ({theme: T}: Props) => {
   const [voterPickerOpen, setVoterPickerOpen] = useState(false);
   const [voterSearch, setVoterSearch] = useState('');
 
-  // Loaded here, not in the app store, so a sync that changes it must reload
-  // it or the next save here would write the stale list over it.
   useEffect(() => {
     const load = () => { store.get<MemberPoll[]>(KEYS.polls, []).then(p => setPolls(p || [])); };
     load();

@@ -1,19 +1,3 @@
-// Cloud Services: the vault engine. Byte-identical between the mobile and
-// Desktop repos; everything that touches a platform comes in through
-// CloudPlatform. Spec: PluralStarCloudNode/SPEC.md sections 5, 7 and 8.
-//
-// The model in one paragraph. The local snapshot is the same map of storage
-// keys the device-to-device sync already builds (`ps:*` JSON strings plus
-// `ps:media:*` data URIs), extended with the network identity and the friend
-// list because the vault carries those (DECISION 2). Each key becomes one
-// encrypted object; the encrypted manifest lists every key with its object ID
-// and a content hash. `known` on this device is the manifest as it stood the
-// last time this device agreed with the cloud. A key whose local hash differs
-// from `known` is the outbox. A sync merges: our unconflicted changes go up,
-// anything the cloud changed comes down, and where both sides changed the same
-// key the cloud wins (spec 8.3, "the cloud is king"). One code path does the
-// initial upload, the wake check, the save push and the repair.
-
 import {CloudApi, VaultCreds} from './cloudApi';
 import {
   CLOUD_LINK_KEY,
@@ -46,16 +30,12 @@ import {
 export const CLOUD_IDENTITY_KEY = 'ps:networkIdentity';
 export const CLOUD_FRIENDS_KEY = 'ps:cloud:friends';
 export const CLOUD_TOMBSTONES_KEY = 'ps:cloud:friendTombstones';
-// A platform puts this in the snapshot, in place of the bytes, for a media
-// key whose file it holds a reference to but cannot read (missing on disk).
-// The engine then pulls the vault's copy back (spec 8.2, "re-fetch any media
-// file missing on disk") instead of taking the absence for a deletion.
 export const CLOUD_MEDIA_MISSING = 'cloud:missing';
 
 const MANIFEST_V = 1 as const;
 const OBJECT_MAX_BYTES = 25 * 1024 * 1024;
-// Sealed bytes kept for retry, all keys together (see CloudService.sealed).
 const SEALED_KEEP_MAX_BYTES = 64 * 1024 * 1024;
+const HASH_YIELD_KEYS = 8;
 const PUSH_DEBOUNCE_MS = 4000;
 const RETRY_BASE_MS = 5000;
 const RETRY_MAX_MS = 5 * 60 * 1000;
@@ -64,15 +44,10 @@ const CHECK_MIN_INTERVAL_MS = 20000;
 export interface CloudPlatform {
   transport: CloudTransport;
   relay(): {relayUrl: string; token: string};
-  // The full local snapshot, keys -> raw string values (JSON or data URI).
   snapshot(): Promise<Record<string, string>>;
-  // Write incoming values through the existing restore path (cloud wins).
   apply(keys: Record<string, string>): Promise<void>;
-  // Cloud removed a key that we still hold and never touched.
   remove(key: string): Promise<void>;
-  // Import only: take on the vault's identity and friend list.
   adoptIdentity(identityRaw: string, friendsRaw: string | null): Promise<void>;
-  // Later syncs: merge friend changes the way sibling devices do.
   mergeFriends(friendsRaw: string | null, tombstonesRaw: string | null): Promise<void>;
   reencodeImage(dataUri: string): Promise<string>;
   localHash(raw: string): string;
@@ -95,9 +70,6 @@ const tierOf = (kind: EntryKind): Tier => (kind === 'data' || kind === 'avatar' 
 
 const isMediaKey = (key: string): boolean => key.startsWith('ps:media:');
 
-// The data key a media entry belongs to. A media key absent from a snapshot
-// is a removal only when this record is present and no longer names it;
-// with the record itself absent the bytes are simply not readable yet.
 const ownerKeyOf = (path: string): string => {
   if (path.startsWith('ps:media:chat:')) return `ps:chat:${path.slice('ps:media:chat:'.length).split(':')[0]}`;
   if (path === 'ps:media:sysav' || path === 'ps:media:sysbn') return 'ps:system';
@@ -124,22 +96,16 @@ export class CloudService {
   private retryAttempt = 0;
   private syncing: Promise<void> | null = null;
   private queued: Promise<void> | null = null;
-  // Sealed bytes of uploads that did not complete, by key. A retry re-sends
-  // the SAME object (same ID) so the node's Upload-Offset resume applies;
-  // sealing again would mint a new nonce, a new ID and start from zero.
   private sealed: Map<string, {hash: string; ct: Uint8Array}> = new Map();
   private sealedBytes = 0;
-  // Keys refused this run because their object would exceed the ceiling
-  // (spec 7.3). Reported after the run instead of being wiped by its success.
   private tooLarge: string[] = [];
+  private unbackedMedia: string[] = [];
   private lastCheckStartedAt = 0;
   private loaded = false;
 
   constructor(platform: CloudPlatform) {
     this.p = platform;
   }
-
-  // ---- state ------------------------------------------------------------
 
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn);
@@ -158,6 +124,7 @@ export class CloudService {
       deviceCount: this.deviceCount,
       lastSyncAt: this.link?.lastCheckAt || 0,
       pendingKeys: this.pendingKeys,
+      unbackedMedia: this.unbackedMedia.length,
     };
   }
 
@@ -210,7 +177,6 @@ export class CloudService {
     this.emit();
   }
 
-  // Feature detection from /health. Cheap, so it runs on every wake.
   async refreshAvailability(): Promise<boolean> {
     const was = this.available;
     this.available = await this.api().cloudAvailable();
@@ -218,12 +184,6 @@ export class CloudService {
     return this.available;
   }
 
-  // ---- link / unlink -------------------------------------------------------
-
-  // Step 3 of the flow: derive, ask the node whether the vault exists. A new
-  // vault is created and uploaded here. An existing one is NOT touched: the UI
-  // must confirm the Import first (spec 5.2, DECISION 5), then call
-  // importExisting() with the same password.
   async linkWithPassword(password: string, mediaTier: boolean): Promise<LinkOutcome> {
     if (this.link) throw new CloudError(0, 'already linked');
     this.lastError = null;
@@ -267,8 +227,6 @@ export class CloudService {
 
   private pendingCreds: {lookupId: string; authSecret: string; kek: Uint8Array} | null = null;
 
-  // Step 5, after the user said yes to Import: pull the vault and replace local
-  // data, then this device is a normal linked device.
   async importExisting(mediaTier: boolean): Promise<void> {
     if (this.link) throw new CloudError(0, 'already linked');
     const creds = this.pendingCreds;
@@ -303,16 +261,9 @@ export class CloudService {
         const pulled = await this.pullAll(api, vc, manifest, true);
         this.link.manifestVersion = remote.version;
         this.link.known = {};
-        // Only what this device now holds is "known"; an entry skipped here
-        // (media tier off) stays unknown so that turning the tier on later
-        // pulls it instead of reading as a removal.
         for (const e of manifest.entries) {
           if (pulled[e.path] !== undefined) this.link.known[e.path] = {id: e.id, hash: pulled[e.path], remote: e.hash};
         }
-        // Spec 8.4: Import replaces local data with the vault. A data key this
-        // device holds that the vault does not is removed here, not kept and
-        // pushed up on the first check. (The roster, the system record and
-        // settings are never removed by the platform; every vault holds them.)
         const held = new Set(manifest.entries.map(e => e.path));
         const local = await this.p.snapshot();
         for (const k of Object.keys(local)) {
@@ -325,8 +276,6 @@ export class CloudService {
       }
       this.setPhase('idle', 0);
       this.emit();
-      // Anything this device held that the vault did not is pushed by the
-      // first sync; the cloud stays king for everything it already had.
       this.schedulePush(0);
     } catch (e) {
       this.link = null;
@@ -343,7 +292,6 @@ export class CloudService {
     this.pendingCreds = null;
   }
 
-  // Unlinking never wipes the vault (spec 5.3). Local data stays as it is.
   async unlink(): Promise<void> {
     if (!this.link) return;
     this.clearTimers();
@@ -353,8 +301,6 @@ export class CloudService {
       const sub = await this.p.deviceSubId();
       await this.api().unlinkDevice(this.creds(), sub);
     } catch (e) {
-      // The node may be unreachable; the vault's grace timer starts when the
-      // node next sees zero devices, and a relink cancels it.
       this.recordError(e);
     }
     this.link = null;
@@ -365,9 +311,6 @@ export class CloudService {
     this.setPhase('idle', 0);
   }
 
-  // The platform calls this from its store's remove path. Recorded durably in
-  // the link state so a removal made offline still reaches the vault, and so
-  // a key that merely reads back missing is repaired instead (spec 8.2).
   noteRemoved(key: string): void {
     if (!this.link || isMediaKey(key) || !key.startsWith('ps:')) return;
     this.link.removed = {...(this.link.removed || {}), [key]: this.p.now()};
@@ -388,10 +331,6 @@ export class CloudService {
     this.deviceCount = devices.length;
   }
 
-  // ---- scheduling ----------------------------------------------------------
-
-  // Every save calls this (through NetworkManager.notifyDataChanged). Debounced
-  // so a burst of writes becomes one sync.
   schedulePush(delayMs = PUSH_DEBOUNCE_MS): void {
     if (!this.link) return;
     if (this.pushTimer) clearTimeout(this.pushTimer);
@@ -401,7 +340,6 @@ export class CloudService {
     }, delayMs);
   }
 
-  // Foreground, link, reconnect: drain the outbox, compare, repair.
   wake(): void {
     if (!this.link) return;
     const now = this.p.now();
@@ -433,14 +371,8 @@ export class CloudService {
     this.emit();
   }
 
-  // ---- the sync ------------------------------------------------------------
-
   private runSync(phase: CloudPhase): Promise<void> {
     if (this.syncing) {
-      // A run is already in flight and its snapshot predates this request, so
-      // a save made meanwhile would sit in the outbox until the next trigger.
-      // Queue exactly one follow-up run behind it (spec 8.1: every save reaches
-      // the cloud); further requests share that follow-up.
       if (!this.queued) {
         const after = (): Promise<void> => {
           this.queued = null;
@@ -455,6 +387,7 @@ export class CloudService {
       this.setPhase(phase, 0);
       try {
         this.tooLarge = [];
+        this.unbackedMedia = [];
         await this.syncOnce();
         this.retryAttempt = 0;
         this.lastError = this.tooLarge.length
@@ -485,9 +418,6 @@ export class CloudService {
     return encryptBytes(this.key(), packData(JSON.stringify(m)));
   }
 
-  // The local identity of a value. Media is hashed on its bytes alone (the
-  // base64 payload) so a mime prefix written differently by the platform that
-  // saved the file does not read as a change.
   private keyHash(key: string, raw: string): string {
     return isMediaKey(key) ? this.p.localHash(raw.slice(raw.indexOf(',') + 1)) : this.p.localHash(raw);
   }
@@ -502,13 +432,11 @@ export class CloudService {
     if (!this.link) return;
     const api = this.api();
     const vc = this.creds();
-    // Removals this run answers for: those recorded before its snapshot.
-    // One recorded while the snapshot is being taken belongs to the follow-up
-    // run, which sees the key gone; clearing it here would undo the removal.
     const removedAtStart: Record<string, number> = {...(this.link.removed || {})};
     const local = await this.p.snapshot();
     const localHashes: Record<string, string> = {};
     const missing = new Set<string>();
+    let hashed = 0;
     for (const k in local) {
       if (!this.includeKey(k)) continue;
       if (local[k] === CLOUD_MEDIA_MISSING) {
@@ -516,6 +444,7 @@ export class CloudService {
         continue;
       }
       localHashes[k] = this.keyHash(k, local[k]);
+      if (++hashed % HASH_YIELD_KEYS === 0) await new Promise<void>(r => setTimeout(r, 0));
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -526,6 +455,7 @@ export class CloudService {
       const remoteVersion = remote ? remote.version : 0;
       const remoteObjects = new Set((remote?.objects || []).map(o => o.id));
       const R = new Map(remoteManifest.entries.map(e => [e.path, e]));
+      this.unbackedMedia = [...missing].filter(k => !R.has(k));
       const K = this.link.known;
 
       const toUpload: string[] = [];
@@ -534,7 +464,6 @@ export class CloudService {
       const merged = new Map<string, ManifestEntry>();
       for (const [path, e] of R) merged.set(path, e);
 
-      // Local side: changed or new keys.
       for (const k in localHashes) {
         const h = localHashes[k];
         const known = K[k];
@@ -542,17 +471,14 @@ export class CloudService {
         const r = R.get(k);
         if (known && known.hash === h) {
           if (!r) {
-            // Cloud deleted it and we never touched it: cloud wins.
             toRemoveLocal.push(k);
           } else if (r.hash !== knownRemote) {
             toPull.push(r);
           }
           continue;
         }
-        // Changed locally (or never known).
         const cloudUnchanged = (!r && !known) || (!!r && !!known && r.hash === knownRemote) || (!!r && r.hash === h);
         if (!r && known) {
-          // Cloud deleted it while we changed it: cloud wins.
           toRemoveLocal.push(k);
           continue;
         }
@@ -563,18 +489,10 @@ export class CloudService {
         if (cloudUnchanged) toUpload.push(k);
         else if (r) toPull.push(r);
       }
-      // Cloud side: keys we do not hold. Spec 8.2: compare entry by entry,
-      // download whatever differs. A key the vault holds and this device does
-      // not is such a difference, so it is pulled (a store that read back
-      // blank repairs itself from the vault). The only absence that removes a
-      // key from the vault is an explicit one: a data key the user removed
-      // here (store.remove, in the link state), or a media key whose owning
-      // record is present and no longer names it.
       for (const [path, e] of R) {
         if (path in localHashes) continue;
         if (!this.includeKey(path)) continue;
         if (missing.has(path)) {
-          // Referenced here but unreadable on disk: repair from the vault.
           toPull.push(e);
           continue;
         }
@@ -590,7 +508,6 @@ export class CloudService {
       this.pendingKeys = toUpload.length;
       this.emit();
 
-      // Upload our winners.
       let done = 0;
       const uploaded: ManifestEntry[] = [];
       const uploadedLocal: Record<string, string> = {};
@@ -626,17 +543,12 @@ export class CloudService {
         }
       }
 
-      // Pull what the cloud won, then apply.
       let pulled: Record<string, string> = {};
       if (toPull.length || toRemoveLocal.length) {
         pulled = await this.pullEntries(api, vc, toPull, false);
         for (const k of toRemoveLocal) await this.p.remove(k);
       }
 
-      // Agreement reached: remember it. `hash` is what this device holds,
-      // `remote` what the vault holds (they differ for re-encoded media). An
-      // entry this device does not hold (media tier off) is not recorded, so
-      // it is pulled, not "removed", once the tier is on.
       const known: Record<string, {id: string; hash: string; remote?: string}> = {};
       for (const e of merged.values()) {
         const localNow = uploadedLocal[e.path] ?? pulled[e.path] ?? localHashes[e.path];
@@ -671,7 +583,6 @@ export class CloudService {
       if (!parts) return null;
       plain = parts.bytes;
       mime = parts.mime;
-      // What a device that pulls this will hold and hash.
       canonical = this.keyHash(key, encoded);
     } else {
       plain = packData(raw);
@@ -679,15 +590,11 @@ export class CloudService {
     const kept = this.sealed.get(key);
     const ct = kept && kept.hash === hash ? kept.ct : encryptBytes(this.key(), plain);
     if (ct.length > OBJECT_MAX_BYTES) {
-      // Refused at upload with a clear message (spec 7.3); the key is left out
-      // of the manifest and reported, never silently dropped.
       if (!this.tooLarge.includes(key)) this.tooLarge.push(key);
       return null;
     }
     const id = objectIdOf(ct);
     this.keepSealed(key, hash, ct);
-    // putObject asks the node first (HEAD) and resumes or commits an existing
-    // copy rather than re-sending it, so this is safe to call unconditionally.
     await api.putObject(vc, id, tier, ct);
     this.dropSealed(key);
     remoteObjects.add(id);
@@ -698,7 +605,6 @@ export class CloudService {
     const had = this.sealed.get(key);
     if (had && had.ct === ct) return;
     if (had) this.sealedBytes -= had.ct.length;
-    // Bounded: a run that keeps failing must not hold every object in memory.
     while (this.sealedBytes + ct.length > SEALED_KEEP_MAX_BYTES && this.sealed.size) {
       const oldest = this.sealed.keys().next().value as string;
       this.sealedBytes -= this.sealed.get(oldest)!.ct.length;
@@ -720,7 +626,6 @@ export class CloudService {
     return this.pullEntries(api, vc, entries, importing);
   }
 
-  // Returns path -> local hash of what landed, the value `known` records.
   private async pullEntries(api: CloudApi, vc: VaultCreds, entries: ManifestEntry[], importing: boolean): Promise<Record<string, string>> {
     const landed: Record<string, string> = {};
     if (!entries.length) return landed;

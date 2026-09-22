@@ -51,7 +51,7 @@ import {TabBar, Tab, TAB_IDS} from './src/components/TabBar';
 import {useFrontNotifications} from './src/hooks/useFrontNotifications';
 import {useNoteboardNotifications} from './src/hooks/useNoteboardNotifications';
 import {useAppStore, DEFAULT_SETTINGS} from './src/store/appStore';
-import {saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkRemoveFromGroup, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
+import {saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, restoreDeletedMember, pruneFrontOfRemovedMembers, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkRemoveFromGroup, bulkSetFacet, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
 import {requestPermissions} from './src/utils/permissions';
 import {logError} from './src/utils/log';
 import {mergeHistoryEntries} from './src/import/convert';
@@ -307,6 +307,7 @@ function MainAppContent() {
       if (((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) && !storageSuspect) {
         await store.set(KEYS.front, migratedFront);
       }
+      if (!storageSuspect) await pruneFrontOfRemovedMembers();
       setHistory(dedupedHist);
       setJournal(jour || []);
       setJournalTemplates(jourTemplates || []);
@@ -420,7 +421,6 @@ function MainAppContent() {
       if (s === 'active') {
         NetworkManager.requestFriendFronts();
         NetworkManager.flushPendingFronts();
-        // Spec 8.2: every foreground is a wake check against the vault.
         CloudServices.wake();
       }
     });
@@ -436,7 +436,6 @@ function MainAppContent() {
   }, []);
   useEffect(() => {
     NetworkManager.notifyDataChanged();
-    // Spec 8.1: every save also saves to the cloud. Debounced inside.
     CloudServices.schedulePush();
   }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
   useEffect(() => NetworkManager.onSyncApplied(() => { loadAll(); }), [loadAll]);
@@ -489,8 +488,6 @@ function MainAppContent() {
   useEffect(() => { store.get<string>('ps:lastLocation').then(loc => { if (loc) setLastKnownLocation(loc); }); }, []);
 
   const handleDeleteAccount = async () => {
-    // Leave the vault first. Wiping a linked device must never empty the
-    // vault or the other devices; unlinking never does (spec 5.3).
     await CloudServices.unlink().catch(() => {});
     await clearFrontNotification(); await store.clearAll(); await clearAllMedia();
     setSystem({name: '', description: ''}); setMembers([]); setFront(null);
@@ -602,6 +599,7 @@ function MainAppContent() {
       onSaveGroups={saveGroups}
       onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
       onBulkDelete={bulkDeleteMembers}
+      onRestoreDeleted={restoreDeletedMember}
     />
   );
 
@@ -612,7 +610,7 @@ function MainAppContent() {
           return <StatusScreen theme={C} selfId={selfMember?.id}
             onSetStatus={async () => {await ensureSelfMember(); setShowSetFront(true);}} onEditDetails={handleEditDetails} />;
         }
-        return <FrontScreen theme={C} onSetFront={() => setShowSetFront(true)} onEditDetails={handleEditDetails} />;
+        return <FrontScreen theme={C} onSetFront={() => setShowSetFront(true)} onEditDetails={handleEditDetails} onOpenMember={openMemberById} />;
       case 'members':
         if (isSinglet) {
           return <ProfileScreen theme={C} member={selfMember}
@@ -632,6 +630,7 @@ function MainAppContent() {
           onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
           onBulkDelete={bulkDeleteMembers}
           onBulkAddGroups={bulkAddGroups}
+          onBulkSetFacet={bulkSetFacet}
         />;
       case 'hub':
         return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMailboxScreen={renderMailboxScreen} renderWhiteboardScreen={renderWhiteboardScreen} renderColorsScreen={renderColorsScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;

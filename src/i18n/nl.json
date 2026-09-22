@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "JJJJ",
+    "hour": "UU",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Kleuren",
     "rowDefault": "Standaard",
@@ -59,7 +66,8 @@
     "toolDivider": "Scheidingslijn",
     "imageUnavailable": "[afbeelding niet beschikbaar]",
     "brokenImage": "[kapotte afbeelding]",
-    "brokenImageUrl": "[kapotte afbeelding: {{url}}]"
+    "brokenImageUrl": "[kapotte afbeelding: {{url}}]",
+    "spoiler": "Spoiler, tik om te tonen"
   },
   "common": {
     "movedToTop": "Nu eerste",
@@ -263,7 +271,8 @@
     "bulkRestore": "Leden terugzetten",
     "bulkRestoreMsg": "{{count}} lid/leden terugzetten naar actief?",
     "bulkDelete": "Leden verwijderen",
-    "bulkDeleteMsg": "{{count}} lid/leden definitief verwijderen? Dit kan niet ongedaan worden gemaakt."
+    "bulkDeleteMsg": "{{count}} lid/leden definitief verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "recentlyDeleted": "Onlangs verwijderd"
   },
   "history": {
     "title": "Geschiedenis",
@@ -1003,7 +1012,7 @@
     "online": "Online",
     "offline": "Offline",
     "tabPrivacy": "Privacy",
-    "privacyDesc": "Privacybuckets bepalen wat vrienden erin kunnen zien — alles, een selectie of niets, per functie. Vrienden aan buckets toewijzen komt met de deel-uitbreiding.",
+    "privacyDesc": "Privacybuckets bepalen wat vrienden erin kunnen zien — alles, een selectie of niets, per functie.",
     "buckets": "Buckets",
     "noBuckets": "Nog geen buckets.",
     "newBucket": "Nieuwe bucket",
@@ -1088,7 +1097,11 @@
     "tierHint": "Hernoem de frontniveaus. Jouw woord vervangt overal het standaardwoord. Leeg gebruikt de standaard.",
     "tierPrimary": "Primaire front",
     "tierCoFront": "Co-front",
-    "tierCoConscious": "Co-bewust"
+    "tierCoConscious": "Co-bewust",
+    "journal": "Dagboek",
+    "hub": "Hub",
+    "history": "Geschiedenis",
+    "archive": "Archief"
   },
   "planner": {
     "title": "Dagplanner",
@@ -1145,6 +1158,7 @@
     "title": "Brievenbus",
     "compose": "Opstellen",
     "everyone": "Iedereen",
+    "allOthers": "Alle andere Leden",
     "from": "Van",
     "to": "Aan",
     "send": "Versturen",

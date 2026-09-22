@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "YYYY",
+    "hour": "HH",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Colors",
     "rowDefault": "Default",
@@ -59,7 +66,8 @@
     "toolDivider": "Divider",
     "imageUnavailable": "[image unavailable]",
     "brokenImage": "[broken image]",
-    "brokenImageUrl": "[broken image: {{url}}]"
+    "brokenImageUrl": "[broken image: {{url}}]",
+    "spoiler": "Spoiler, tap to reveal"
   },
   "common": {
     "movedToTop": "Now first",
@@ -263,7 +271,8 @@
     "bulkRestore": "Restore members",
     "bulkRestoreMsg": "Restore {{count}} member(s) to active?",
     "bulkDelete": "Delete members",
-    "bulkDeleteMsg": "Permanently delete {{count}} member(s)? This cannot be undone."
+    "bulkDeleteMsg": "Permanently delete {{count}} member(s)? This cannot be undone.",
+    "recentlyDeleted": "Recently Deleted"
   },
   "history": {
     "title": "History",
@@ -1003,7 +1012,7 @@
     "online": "Online",
     "offline": "Offline",
     "tabPrivacy": "Privacy",
-    "privacyDesc": "Privacy Buckets decide what friends in them can see — everything, a selection, or nothing, for each feature. Assigning friends to buckets arrives with the sharing expansion.",
+    "privacyDesc": "Privacy Buckets decide what friends in them can see — everything, a selection, or nothing, for each feature.",
     "buckets": "Buckets",
     "noBuckets": "No buckets yet.",
     "newBucket": "New bucket",
@@ -1088,7 +1097,11 @@
     "tierHint": "Rename the fronting levels. Your word replaces the default everywhere. Blank uses the default.",
     "tierPrimary": "Primary Front",
     "tierCoFront": "Co-Front",
-    "tierCoConscious": "Co-Conscious"
+    "tierCoConscious": "Co-Conscious",
+    "journal": "Journal",
+    "hub": "Hub",
+    "history": "History",
+    "archive": "Archive"
   },
   "planner": {
     "title": "Day Planner",
@@ -1145,6 +1158,7 @@
     "title": "Mailbox",
     "compose": "Compose",
     "everyone": "Everyone",
+    "allOthers": "All other Members",
     "from": "From",
     "to": "To",
     "send": "Send",

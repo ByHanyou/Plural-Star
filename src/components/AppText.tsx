@@ -34,14 +34,6 @@ const isMono =(style: any): boolean => {
 
 const isBoldWeight = (w: any): boolean => w === 'bold' || (w != null && Number(w) >= 600);
 
-// Android under-measures text width in two ways that clip the last glyph, and
-// both get worse as the text scale goes up. Synthetic bold overhangs the box it
-// was measured in, and letterSpacing is applied after the final character
-// without being counted in the width. The default-font path has compensated for
-// bold since the Oppo/OnePlus cut-off reports; the custom-font and dyslexic
-// paths never did, and nothing anywhere compensated for letterSpacing, which is
-// why uppercase letter-spaced labels (the tab bar, section headers) lost their
-// last letter at large text sizes.
 const androidTailPad = (out: any): any => {
   if (Platform.OS !== 'android' || !out) return out;
   let pad = 0;
@@ -68,8 +60,6 @@ const buildCustomStyle =(style: any, family: string): any => {
   const next: any = {...flat, fontFamily: face};
   if (hasBold) delete next.fontWeight;
   if (hasItalic || (Platform.OS === 'android' && wantItalic && !hasItalic)) delete next.fontStyle;
-  // After the deletes: a font with a real bold face is not synthesised, so it
-  // needs no bold padding, and androidTailPad sees that from the dropped weight.
   return androidTailPad(next);
 };
 

@@ -11,7 +11,7 @@ import {readFileBase64} from '../utils/fileBytes';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveChatChannels, saveChatCategories} from '../store/actions';
-import {Member, ChatChannel, ChatCategory, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMembersBySearch, memberMatchesSearch, frontersFirst, sortChatCategories, chatChannelsIn} from '../utils';
+import {Member, ChatChannel, ChatCategory, ChatMessage, DEFAULT_CHANNELS, uid, fmtTime, sortMembersBySearch, memberMatchesSearch, frontersFirst, sortChatCategories, chatChannelsIn, truncateRunes} from '../utils';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {store, chatMsgKey} from '../storage';
@@ -206,16 +206,12 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
   useEffect(() => {
     if (activeChannelId) loadMessages(activeChannelId);
-  }, [activeChannelId]);
+  }, [activeChannelId, loadMessages]);
 
-  // A sync (device lane or the vault) can land messages in the open channel.
-  // Reload so they show, and so a send does not save a stale list over them.
   useEffect(() => NetworkManager.onSyncApplied(() => {
     if (activeChannelId) loadMessages(activeChannelId);
   }), [activeChannelId, loadMessages]);
 
-  // Sends that await something (a picker, a file read) must append to the
-  // list as it is when the await ends, not as it was when they began.
   const messagesRef = useRef<ChatMessage[]>(messages);
   messagesRef.current = messages;
 
@@ -474,7 +470,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 38, marginBottom: 4, opacity: 0.7}}>
             <Text style={{fontSize: fs(10), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">↳</Text>
             <Text style={{fontSize: fs(11), color: replyAuthor?.color || T.dim, fontWeight: '500'}}>{replyAuthor?.name || '?'}</Text>
-            <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{replyMsg.content.length > 50 ? replyMsg.content.slice(0, 50) + '…' : replyMsg.content}</Text>
+            <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{truncateRunes(replyMsg.content, 50, '…')}</Text>
           </View>
         )}
         <View style={{flexDirection: 'row', gap: 10}}>
@@ -485,8 +481,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
               <Text style={{fontSize: fs(10), color: T.muted}}>{fmtTime(msg.timestamp)}</Text>
             </View>
             {msg.type === 'image' ? (
-              // 'cloud:media' is the vault's placeholder for bytes this device
-              // has not received (full-size images off, or not pulled yet).
               (typeof msg.content === 'string' && msg.content.trim().length > 0 && msg.content !== 'cloud:media') ? (
                 <Image source={{uri: msg.content.trim()}} accessibilityRole="image" accessibilityLabel={t('a11y.image')} style={{width: 200, height: 200, borderRadius: 8, marginTop: 4}} resizeMode="cover" />
               ) : (
@@ -793,7 +787,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
       {replyTo && !editingMessageId && (
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border}}>
-          <Text style={{fontSize: fs(11), color: T.dim, flex: 1}} numberOfLines={1}>↳ {getMember(replyTo.authorId)?.name}: {replyTo.content.slice(0, 40)}</Text>
+          <Text style={{fontSize: fs(11), color: T.dim, flex: 1}} numberOfLines={1}>↳ {getMember(replyTo.authorId)?.name}: {truncateRunes(replyTo.content, 40)}</Text>
           <TouchableOpacity onPress={() => setReplyTo(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
         </View>
       )}

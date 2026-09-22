@@ -43,11 +43,6 @@ export const GroupBrowser = ({
   const listable = members.filter(isRosterMember);
   const facetListable = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted);
   const cfListable = members.filter(m => m.isCustomFront && !m.deleted);
-  // The folder count now matches what opening the folder shows: members,
-  // facets and custom fronts together. Counting only the roster meant a group
-  // holding mostly facets reported a number nothing on screen agreed with,
-  // which is what kept being reported as an inaccurate count. The three lists
-  // are disjoint, so this cannot double-count.
   const countable = [...listable, ...facetListable, ...cfListable];
   const folders = childrenOf(groups, browseId);
   const inFolder = (list: Member[]) => (browseId === null

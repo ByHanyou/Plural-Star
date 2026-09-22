@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "TT",
+    "day": "NN",
+    "year": "NNNN",
+    "hour": "GG",
+    "minute": "PP"
+  },
   "colors": {
     "title": "Màu sắc",
     "rowDefault": "Mặc định",
@@ -59,7 +66,8 @@
     "toolDivider": "Đường phân cách",
     "imageUnavailable": "[ảnh không khả dụng]",
     "brokenImage": "[ảnh hỏng]",
-    "brokenImageUrl": "[ảnh hỏng: {{url}}]"
+    "brokenImageUrl": "[ảnh hỏng: {{url}}]",
+    "spoiler": "Spoiler, nhấn để hiện"
   },
   "common": {
     "movedToTop": "Bây giờ ở vị trí đầu tiên",
@@ -263,7 +271,8 @@
     "bulkRestore": "Khôi phục thành viên",
     "bulkRestoreMsg": "Khôi phục {{count}} thành viên về trạng thái hoạt động?",
     "bulkDelete": "Xóa thành viên",
-    "bulkDeleteMsg": "Xóa vĩnh viễn {{count}} thành viên? Không thể hoàn tác."
+    "bulkDeleteMsg": "Xóa vĩnh viễn {{count}} thành viên? Không thể hoàn tác.",
+    "recentlyDeleted": "Đã xóa gần đây"
   },
   "history": {
     "title": "Lịch sử",
@@ -1003,7 +1012,7 @@
     "online": "Trực tuyến",
     "offline": "Ngoại tuyến",
     "tabPrivacy": "Quyền riêng tư",
-    "privacyDesc": "Vòng riêng tư quyết định bạn bè trong đó thấy gì: tất cả, một phần hoặc không gì cả — theo từng tính năng. Gán bạn bè sẽ có trong bản mở rộng chia sẻ.",
+    "privacyDesc": "Vòng riêng tư quyết định bạn bè trong đó thấy gì: tất cả, một phần hoặc không gì cả — theo từng tính năng.",
     "buckets": "Vòng",
     "noBuckets": "Chưa có vòng nào.",
     "newBucket": "Vòng mới",
@@ -1088,7 +1097,11 @@
     "tierHint": "Đổi tên các cấp độ front. Từ của bạn sẽ thay thế từ mặc định ở mọi nơi. Để trống sẽ dùng mặc định.",
     "tierPrimary": "Front Chính",
     "tierCoFront": "Đồng Front",
-    "tierCoConscious": "Đồng Ý thức"
+    "tierCoConscious": "Đồng Ý thức",
+    "journal": "Nhật ký",
+    "hub": "Trung tâm",
+    "history": "Lịch sử",
+    "archive": "Lưu trữ"
   },
   "planner": {
     "title": "Sổ Kế hoạch Ngày",
@@ -1144,6 +1157,7 @@
     "title": "Hộp thư",
     "compose": "Soạn thư",
     "everyone": "Mọi người",
+    "allOthers": "Tất cả Thành viên khác",
     "from": "Từ",
     "to": "Đến",
     "send": "Gửi",

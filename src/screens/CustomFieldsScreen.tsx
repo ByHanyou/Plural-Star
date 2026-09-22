@@ -39,11 +39,6 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [newType, setNewType] = useState<CustomFieldType>('text');
   const [newMarkdown, setNewMarkdown] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
-  // The bottom bar is absolutely positioned, so the list has to reserve its
-  // real height rather than a guessed 100. Measured, not assumed, because the
-  // bar grows with the text scale and with the type picker open. Only accept a
-  // change bigger than a point so a rounding wobble cannot start a re-layout
-  // loop between the bar and the padding it drives.
   const [barH, setBarH] = useState(0);
   const onBarLayout = (e: LayoutChangeEvent) => {
     const h = Math.round(e.nativeEvent.layout.height);
@@ -69,8 +64,6 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   };
   const {drag, dragging, registerHeight, makeHandlePanHandlers} = useDragReorder({enabled: reorderOn, onDrop: onDropField});
 
-  // Loaded here, not in the app store, so a sync that changes it must reload
-  // it or the next save here would write the stale list over it.
   useEffect(() => {
     const load = () => { store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || [])); };
     load();
@@ -264,9 +257,6 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
         </View>
 
         {showTypePicker && (
-          // Thirteen types at full height turned this bar into the whole
-          // screen. Bounded to roughly six rows and scrolled; this ScrollView
-          // is not nested inside another scroller, so it scrolls normally.
           <ScrollView style={{maxHeight: 240, marginTop: 8}} keyboardShouldPersistTaps="handled"
             contentContainerStyle={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             {FIELD_TYPES.map(ft => (

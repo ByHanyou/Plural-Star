@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "KK",
+    "day": "PP",
+    "year": "VVVV",
+    "hour": "TT",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Värit",
     "rowDefault": "Oletus",
@@ -59,7 +66,8 @@
     "toolDivider": "Erotin",
     "imageUnavailable": "[kuva ei saatavilla]",
     "brokenImage": "[rikkinäinen kuva]",
-    "brokenImageUrl": "[rikkinäinen kuva: {{url}}]"
+    "brokenImageUrl": "[rikkinäinen kuva: {{url}}]",
+    "spoiler": "Spoileri, napauta paljastaaksesi"
   },
   "a11y": {
     "settings": "Asetukset",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} jäsentä",
     "countFronters": "{{count}} edessä oleva",
     "countFronters_other": "{{count}} edessä olevaa",
-    "countFiltered": "{{filtered}} / {{total}} jäsentä"
+    "countFiltered": "{{filtered}} / {{total}} jäsentä",
+    "recentlyDeleted": "Äskettäin poistetut"
   },
   "history": {
     "editEntry": "Muokkaa",
@@ -1003,7 +1012,7 @@
     "online": "Yhteydessä",
     "offline": "Ei yhteydessä",
     "tabPrivacy": "Yksityisyys",
-    "privacyDesc": "Yksityisyyspiirit määrittävät, mitä niihin lisätyt ystävät näkevät: kaiken, valinnan tai ei mitään — toiminnoittain. Ystävien lisääminen tulee jakolaajennuksen myötä.",
+    "privacyDesc": "Yksityisyyspiirit määrittävät, mitä niihin lisätyt ystävät näkevät: kaiken, valinnan tai ei mitään — toiminnoittain.",
     "buckets": "Piirit",
     "noBuckets": "Ei vielä piirejä.",
     "newBucket": "Uusi piiri",
@@ -1088,7 +1097,11 @@
     "tierHint": "Nimeä edustamisen tasot uudelleen. Sanasi korvaa oletussanan kaikkialla. Tyhjä käyttää oletusta.",
     "tierPrimary": "Ensisijainen",
     "tierCoFront": "Rinnakkais-Front",
-    "tierCoConscious": "Rinnakkais-Tietoinen"
+    "tierCoConscious": "Rinnakkais-Tietoinen",
+    "journal": "Päiväkirja",
+    "hub": "Keskus",
+    "history": "Historia",
+    "archive": "Arkisto"
   },
   "planner": {
     "title": "Päiväsuunnittelija",
@@ -1145,6 +1158,7 @@
     "title": "Postilaatikko",
     "compose": "Kirjoita",
     "everyone": "Kaikki",
+    "allOthers": "Kaikki muut Jäsenet",
     "from": "Lähettäjä",
     "to": "Vastaanottaja",
     "send": "Lähetä",

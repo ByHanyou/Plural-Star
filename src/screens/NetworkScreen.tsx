@@ -25,15 +25,17 @@ interface Props {
 
 type NetTab = 'friends' | 'settings' | 'privacy';
 type Kind = 'friend' | 'device';
-type BucketFeature = 'members' | 'groups' | 'journal' | 'history' | 'customFields' | 'medical' | 'connections' | 'systemProfile' | 'whiteboard' | 'planner' | 'facets' | 'customFronts';
-const BUCKET_ROWS: BucketFeature[] = ['members', 'facets', 'customFronts', 'groups', 'journal', 'history', 'customFields', 'connections', 'systemProfile', 'whiteboard', 'planner'];
+type BucketFeature = 'front' | 'members' | 'groups' | 'journal' | 'history' | 'customFields' | 'medical' | 'connections' | 'systemProfile' | 'whiteboard' | 'planner' | 'facets' | 'customFronts';
+const BUCKET_ROWS: BucketFeature[] = ['front', 'members', 'facets', 'customFronts', 'groups', 'journal', 'history', 'customFields', 'connections', 'systemProfile', 'whiteboard', 'planner'];
 
-type Bucket = PrivacyBucket & {systemProfile: PrivacyScope; whiteboard: PrivacyScope; planner: PrivacyScope; facets: PrivacyScope; customFronts: PrivacyScope};
+type Bucket = PrivacyBucket & {front: PrivacyScope; systemProfile: PrivacyScope; whiteboard: PrivacyScope; planner: PrivacyScope; facets: PrivacyScope; customFronts: PrivacyScope};
 
 const emptyScope = (): PrivacyScope => ({mode: 'none', ids: []});
+const allScope = (): PrivacyScope => ({mode: 'all', ids: []});
 const newBucket = (name: string): Bucket => ({
   id: uid(),
   name,
+  front: allScope(),
   members: emptyScope(),
   groups: emptyScope(),
   journal: emptyScope(),
@@ -52,6 +54,7 @@ const newBucket = (name: string): Bucket => ({
 
 const normalizeBucket = (b: PrivacyBucket): Bucket => ({
   ...b,
+  front: b.front || allScope(),
   members: b.members || emptyScope(),
   groups: b.groups || emptyScope(),
   journal: b.journal || emptyScope(),
@@ -111,8 +114,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
       store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []).then(rt => setRelTypes(rt || [])).catch(e => logError('network', e));
     };
     load();
-    // Buckets travel in the vault; a pulled change must land here or the
-    // next bucket save would write the stale list over it.
     return NetworkManager.onSyncApplied(load);
   }, []);
 
@@ -183,11 +184,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
 
   const onToggle = (v: boolean) => guard(() => NetworkManager.setEnabled(v));
 
-  // ---- Cloud Services (SPEC section 5) --------------------------------------
-  // The toggle refuses while device syncing is on and points at the warning;
-  // the two never run together. Submit derives the credentials and asks the
-  // node whether the vault exists: new = created and uploaded here, existing =
-  // an Import pop-up with a second confirmation that names what is lost.
   const cloudRuleText = (): string => {
     switch (cloudRule) {
       case 'length': return t('network.cloudRuleLength');
@@ -252,15 +248,11 @@ export const NetworkScreen = ({theme: T}: Props) => {
     ]);
   };
   const onSaveRelay = () => guard(() => NetworkManager.setRelayOverride(relayUrl.trim() || undefined, relayToken.trim() || undefined));
-  // Spec 5.1, both directions: the cloud toggle refuses while devices are
-  // paired, and device pairing refuses while the vault is linked.
   const cloudBlocksSync = (kind: Kind): boolean => {
     if (kind !== 'device' || !cloud.linked) return false;
     Alert.alert(t('network.cloudTitle'), t('network.cloudBlocksSync'));
     return true;
   };
-  // The engine records failures in English for the log. Map the ones a person
-  // can act on to translated text, and fall back to the raw line otherwise.
   const cloudErrorText = (raw: string): string => {
     const s = raw.toLowerCase();
     const m = raw.match(/^Left out, larger than \d+ MB: (.*)$/);
@@ -429,7 +421,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
   };
 
   const featureLabel = (f: BucketFeature): string =>
-    f === 'members' ? t('tabs.members') : f === 'facets' ? t('members.facets') : f === 'customFronts' ? t('members.customFronts') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : f === 'systemProfile' ? t('systemProfile.title') : f === 'whiteboard' ? t('whiteboard.title') : f === 'planner' ? t('planner.title') : t('systemMap.title');
+    f === 'front' ? t('tabs.front') : f === 'members' ? t('tabs.members') : f === 'facets' ? t('members.facets') : f === 'customFronts' ? t('members.customFronts') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : f === 'systemProfile' ? t('systemProfile.title') : f === 'whiteboard' ? t('whiteboard.title') : f === 'planner' ? t('planner.title') : t('systemMap.title');
   const scopeSummary = (s: PrivacyScope): string =>
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
   const effectiveShare = (peerId: string, f: BucketFeature): PrivacyScope => {
@@ -470,6 +462,10 @@ export const NetworkScreen = ({theme: T}: Props) => {
     setEditBucket({
       id: uid(),
       name: `${b.name} 2`,
+      front: {mode: b.front.mode, ids: []},
+      frontMood: b.frontMood,
+      frontLocation: b.frontLocation,
+      frontNote: b.frontNote,
       members: {mode: b.members.mode, ids: [...b.members.ids]},
       groups: {mode: b.groups.mode, ids: [...b.groups.ids]},
       journal: {mode: b.journal.mode, ids: [...b.journal.ids]},
@@ -699,7 +695,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
               </View>
             </View>
 
-            {/* SPEC 5.1: directly under "Sync your devices", warning first. */}
             <Text style={{fontSize: fs(12), color: T.danger, marginTop: -4, marginBottom: 10, paddingHorizontal: 2}} accessibilityRole="text">
               {t('network.cloudWarning')}
             </Text>
@@ -824,7 +819,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <View key={f} style={{paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: T.border}}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.text}}>{featureLabel(f)}</Text>
-                  {((f === 'history' || f === 'systemProfile' || f === 'whiteboard' || f === 'planner' ? ['all', 'none'] : ['all', 'select', 'none']) as PrivacyScopeMode[]).map(mode => {
+                  {((f === 'front' || f === 'history' || f === 'systemProfile' || f === 'whiteboard' || f === 'planner' ? ['all', 'none'] : ['all', 'select', 'none']) as PrivacyScopeMode[]).map(mode => {
                     const sel = editBucket[f].mode === mode;
                     const label = mode === 'all' ? t('network.scopeAll') : mode === 'select' ? t('network.scopeSelect') : t('network.scopeNone');
                     return (
@@ -843,6 +838,21 @@ export const NetworkScreen = ({theme: T}: Props) => {
                     style={{marginTop: 6, alignSelf: 'flex-start'}}>
                     <Text style={{fontSize: fs(11), color: T.accent}}>{`${editBucket[f].ids.length} ✎`}</Text>
                   </TouchableOpacity>
+                )}
+                {f === 'front' && editBucket.front.mode !== 'none' && (
+                  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8}}>
+                    {([['frontMood', t('modal.mood')], ['frontLocation', t('modal.location')], ['frontNote', t('modal.note')]] as const).map(([key, label]) => {
+                      const on = editBucket[key] !== false;
+                      return (
+                        <TouchableOpacity key={key} onPress={() => setEditBucket({...editBucket, [key]: !on})} activeOpacity={0.7}
+                          accessibilityRole="checkbox" accessibilityState={{checked: on}} accessibilityLabel={label}
+                          style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                            backgroundColor: on ? T.accentBg : 'transparent', borderColor: on ? T.accent : T.border}}>
+                          <Text style={{fontSize: fs(11), color: on ? T.accent : T.dim}} accessibilityElementsHidden importantForAccessibility="no">{on ? '✓ ' : ''}{label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 )}
               </View>
             ))}

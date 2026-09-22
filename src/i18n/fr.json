@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "JJ",
+    "year": "AAAA",
+    "hour": "HH",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Couleurs",
     "rowDefault": "Par défaut",
@@ -59,7 +66,8 @@
     "toolDivider": "Séparateur",
     "imageUnavailable": "[image indisponible]",
     "brokenImage": "[image corrompue]",
-    "brokenImageUrl": "[image corrompue : {{url}}]"
+    "brokenImageUrl": "[image corrompue : {{url}}]",
+    "spoiler": "Spoiler, touchez pour révéler"
   },
   "a11y": {
     "settings": "Réglages",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} membres",
     "countFronters": "{{count}} fronter",
     "countFronters_other": "{{count}} fronters",
-    "countFiltered": "{{filtered}} sur {{total}} membres"
+    "countFiltered": "{{filtered}} sur {{total}} membres",
+    "recentlyDeleted": "Supprimés récemment"
   },
   "history": {
     "editEntry": "Modifier",
@@ -1003,7 +1012,7 @@
     "online": "En ligne",
     "offline": "Hors ligne",
     "tabPrivacy": "Confidentialité",
-    "privacyDesc": "Les cercles de confidentialité déterminent ce que les amis placés dedans peuvent voir : tout, une sélection ou rien, par fonctionnalité. L'attribution des amis arrivera avec l'extension de partage.",
+    "privacyDesc": "Les cercles de confidentialité déterminent ce que les amis placés dedans peuvent voir : tout, une sélection ou rien, par fonctionnalité.",
     "buckets": "Cercles",
     "noBuckets": "Aucun cercle pour l'instant.",
     "newBucket": "Nouveau cercle",
@@ -1088,7 +1097,11 @@
     "tierHint": "Renomme les niveaux de front. Ton mot remplace le mot par défaut partout. Vide = mot par défaut.",
     "tierPrimary": "Front Principal",
     "tierCoFront": "Co-Front",
-    "tierCoConscious": "Co-Conscient"
+    "tierCoConscious": "Co-Conscient",
+    "journal": "Journal",
+    "hub": "Centre",
+    "history": "Historique",
+    "archive": "Archives"
   },
   "planner": {
     "title": "Agenda du Jour",
@@ -1145,6 +1158,7 @@
     "title": "Messagerie",
     "compose": "Rédiger",
     "everyone": "Tout le monde",
+    "allOthers": "Tous les autres Membres",
     "from": "De",
     "to": "À",
     "send": "Envoyer",

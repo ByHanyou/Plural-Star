@@ -105,9 +105,6 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       if (saved && Array.isArray(saved)) setStrokes(saved.filter(s => s && Array.isArray(s.pts) && s.pts.length >= 2));
     };
     load();
-    // A sync that brought strokes from another device must land here, or
-    // the next stroke saved from this screen's list would write over them.
-    // Not while something drawn here is still unsaved.
     return NetworkManager.onSyncApplied(() => { if (!dirtyRef.current) load(); });
   }, []);
 
@@ -189,7 +186,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
 
   useEffect(() => {
     if (tool !== 'poly' && polyPtsRef.current) cancelPoly();
-  }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tool]);
 
   const eraseAt = (wx: number, wy: number) => {
     const radius = widthRef.current;

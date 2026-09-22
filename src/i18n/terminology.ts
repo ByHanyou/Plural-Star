@@ -1,4 +1,4 @@
-export const TERMINOLOGY_TERMS = ['member', 'members', 'fronter', 'fronters', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system'] as const;
+export const TERMINOLOGY_TERMS = ['member', 'members', 'fronter', 'fronters', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system', 'journal', 'hub', 'history', 'archive'] as const;
 export type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
 export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
 
@@ -6,6 +6,7 @@ type TermFormsMap = Partial<Record<TerminologyTerm, string | string[]>>;
 
 export const TERM_FORMS: Record<string, TermFormsMap> = {
   en: {
+    journal: 'Journal', hub: 'Hub', history: 'History', archive: 'Archive',
     member: ['Member', 'Headmate'],
     members: ['Members', 'Headmates'],
     fronter: 'Fronter',
@@ -19,6 +20,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'System',
   },
   es: {
+    journal: 'Diario', hub: 'Centro', history: 'Historial', archive: 'Archivo',
     member: ['Miembro', 'Compañero'],
     members: 'Miembros',
     fronter: 'Fronter',
@@ -31,6 +33,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Sistema',
   },
   fr: {
+    journal: 'Journal', hub: 'Centre', history: 'Historique', archive: 'Archives',
     member: ['Membre', 'Compagnon'],
     members: 'Membres',
     fronter: 'Fronter',
@@ -43,6 +46,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Système',
   },
   de: {
+    journal: 'Tagebuch', hub: 'Zentrum', history: 'Verlauf', archive: 'Archiv',
     member: ['Mitglied', 'Kopfbewohner', 'Kopfbewohners'],
     members: 'Mitglieder',
     fronter: 'Fronter',
@@ -55,6 +59,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'System',
   },
   pt: {
+    journal: 'Diário', hub: 'Central', history: 'Histórico', archive: 'Arquivo',
     member: 'Membro',
     members: 'Membros',
     fronter: 'Fronter',
@@ -67,6 +72,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Sistema',
   },
   fi: {
+    journal: 'Päiväkirja', hub: 'Keskus', history: 'Historia', archive: 'Arkisto',
     member: 'Jäsen',
     members: 'Jäsenet',
     fronter: 'Edessä oleva',
@@ -79,6 +85,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Järjestelmä',
   },
   nb: {
+    journal: 'Dagbok', hub: 'Hub', history: 'Historikk', archive: 'Arkiv',
     member: 'Medlem',
     members: 'Medlemmer',
     fronter: 'Fronter',
@@ -91,6 +98,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'System',
   },
   sv: {
+    journal: 'Dagbok', hub: 'Hub', history: 'Historik', archive: 'Arkiv',
     member: 'Medlem',
     members: 'Medlemmar',
     fronter: 'Frontare',
@@ -102,6 +110,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'System',
   },
   nl: {
+    journal: 'Dagboek', hub: 'Hub', history: 'Geschiedenis', archive: 'Archief',
     member: ['Lid', 'Headmate'],
     members: 'Leden',
     fronter: 'Fronter',
@@ -114,6 +123,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Systeem',
   },
   is: {
+    journal: 'Dagbók', hub: 'Miðstöð', history: 'Saga', archive: 'Safn',
     member: ['Meðlimur', 'Headmate'],
     members: 'Meðlimir',
     fronter: 'Frontari',
@@ -126,6 +136,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Kerfi',
   },
   it: {
+    journal: 'Diario', hub: 'Hub', history: 'Cronologia', archive: 'Archivio',
     member: ['Membro', 'Headmate'],
     members: 'Membri',
     fronter: 'Fronter',
@@ -137,6 +148,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Sistema',
   },
   pl: {
+    journal: 'Dziennik', hub: 'Centrum', history: 'Historia', archive: 'Archiwum',
     member: ['Członek', 'Headmate'],
     members: 'Członkowie',
     fronter: 'Frontujący',
@@ -148,6 +160,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'System',
   },
   tr: {
+    journal: 'Günlük', hub: 'Merkez', history: 'Geçmiş', archive: 'Arşiv',
     member: ['Üye', 'Headmate'],
     members: 'Üyeler',
     fronter: 'Frontta Olan',
@@ -160,6 +173,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Sistem',
   },
   ms: {
+    journal: 'Jurnal', hub: 'Hab', history: 'Sejarah', archive: 'Arkib',
     member: ['Ahli', 'Headmate'],
     fronter: 'Fronter',
     group: 'Kumpulan',
@@ -168,6 +182,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Sistem',
   },
   vi: {
+    journal: 'Nhật ký', hub: 'Trung tâm', history: 'Lịch sử', archive: 'Lưu trữ',
     member: ['Thành viên', 'Headmate'],
     fronter: 'Người front',
     group: 'Nhóm',
@@ -176,6 +191,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Hệ thống',
   },
   th: {
+    journal: 'บันทึก', hub: 'ศูนย์กลาง', history: 'ประวัติ', archive: 'เก็บถาวร',
     member: ['สมาชิก', 'เฮดเมท'],
     fronter: 'ผู้ฟรอนต์',
     group: 'กลุ่ม',
@@ -184,6 +200,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'ระบบ',
   },
   hi: {
+    journal: 'जर्नल', hub: 'हब', history: 'इतिहास', archive: 'आर्काइव',
     member: ['सदस्य', 'हेडमेट'],
     fronter: 'फ्रंटर',
     fronters: 'फ्रंटर्स',
@@ -194,6 +211,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'सिस्टम',
   },
   af: {
+    journal: 'Joernaal', hub: 'Hub', history: 'Geskiedenis', archive: 'Argief',
     member: ['Lid', 'Headmate'],
     members: 'Lede',
     fronter: 'Fronter',
@@ -207,6 +225,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Sisteem',
   },
   ko: {
+    journal: '일지', hub: '허브', history: '기록', archive: '보관함',
     member: ['멤버', '헤드메이트'],
     fronter: '프런터',
     group: '그룹',
@@ -216,6 +235,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: '시스템',
   },
   ja: {
+    journal: 'ジャーナル', hub: 'ハブ', history: '履歴', archive: 'アーカイブ',
     member: 'メンバー',
     fronter: 'フロンター',
     group: 'グループ',
@@ -224,6 +244,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'システム',
   },
   zh: {
+    journal: '日记', hub: '中心', history: '历史', archive: '归档',
     member: ['成员', '伙伴'],
     fronter: '前台者',
     group: '组',
@@ -232,6 +253,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: '系统',
   },
   zhHant: {
+    journal: '日誌', hub: '中心', history: '歷史', archive: '封存',
     member: ['成員', '腦內夥伴', '夥伴'],
     fronter: '前台者',
     group: '群組',
@@ -240,6 +262,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: '系統',
   },
   ru: {
+    journal: 'Журнал', hub: 'Хаб', history: 'История', archive: 'Архив',
     member: 'Участник',
     members: 'Участники',
     fronter: 'Фронтер',
@@ -252,6 +275,7 @@ export const TERM_FORMS: Record<string, TermFormsMap> = {
     system: 'Система',
   },
   uk: {
+    journal: 'Щоденник', hub: 'Хаб', history: 'Історія', archive: 'Архів',
     member: 'Учасник',
     members: 'Учасники',
     fronter: 'Фронтер',
@@ -335,6 +359,16 @@ export const applyTierNames = (value: string, key: string, options: unknown): st
 
 const isWordChar = (ch: string | undefined): boolean => !!ch && /[\p{L}\p{N}]/u.test(ch);
 
+const caseFirst = (s: string, upper: boolean): string => {
+  const runes = Array.from(s);
+  const r0 = runes[0] ?? '';
+  const changed = upper ? r0.toUpperCase() : r0.toLowerCase();
+  const cp = changed.codePointAt(0) ?? 0;
+  const badBlock = upper ? (cp >= 0x1c90 && cp <= 0x1cbf) : (cp >= 0xab70 && cp <= 0xabbf);
+  const safe = Array.from(changed).length === 1 && !badBlock;
+  return (safe ? changed : r0) + runes.slice(1).join('');
+};
+
 export const replaceTerm = (text: string, form: string, replacement: string, fixArticles = false): string => {
   if (!form || !replacement) return text;
   const lower = text.toLowerCase();
@@ -351,10 +385,9 @@ export const replaceTerm = (text: string, form: string, replacement: string, fix
     const after = text[idx + form.length];
     if (!isWordChar(before) && !isWordChar(after)) {
       const matched = text.slice(idx, idx + form.length);
-      const upper = matched[0] !== matched[0].toLowerCase() && matched[0] === matched[0].toUpperCase();
-      const swapped = upper
-        ? replacement[0].toUpperCase() + replacement.slice(1)
-        : replacement[0].toLowerCase() + replacement.slice(1);
+      const first = matched[0];
+      const cased = first.toLowerCase() !== first.toUpperCase();
+      const swapped = !cased ? replacement : caseFirst(replacement, first === first.toUpperCase());
       let combined = out + text.slice(i, idx);
       if (fixArticles) {
         const m = combined.match(/(^|[^\p{L}\p{N}])([Aa])(n?) $/u);

@@ -224,9 +224,6 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     seen.add(g.id);
     const isEditing = editId === g.id;
     const isSub = groupKind(g) === 'subsystem';
-    // Counts everything the group actually holds and that browsing it shows:
-    // members, facets and custom fronts. Roster-only meant a group of facets
-    // read as 0.
     const memberCount = members.filter(m => !m.deleted && !m.archived && (m.groupIds || []).includes(g.id)).length;
     const moving = movingIds;
     const canDrop = !!moving && !moving.includes(g.id) && !moving.some(id => isDescendant(groups, g.id, id));
@@ -266,7 +263,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             </View>
           ) : (
             <>
-              <Text onPress={selectMode && !moving ? () => toggleSelected(g.id) : undefined} style={{flex: 1, fontSize: fs(14), color: T.text, fontWeight: '500'}} numberOfLines={1}>{isSub ? '⊟ ' : ''}{g.name}</Text>
+              <Text onPress={selectMode && !moving ? () => toggleSelected(g.id) : undefined}
+                accessibilityRole={selectMode && !moving ? 'button' : undefined}
+                accessibilityState={selectMode && !moving ? {selected: selectedIds.includes(g.id)} : undefined}
+                style={{flex: 1, fontSize: fs(14), color: T.text, fontWeight: '500'}} numberOfLines={1}>{isSub ? '⊟ ' : ''}{g.name}</Text>
               {canDrop ? (
                 <TouchableOpacity onPress={() => moveNodes(moving!, g.id)} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.moveHere')}: ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.successBg, borderColor: `${T.success}40`}}><Text style={{fontSize: fs(11), color: T.success}}>{t('memberGroups.moveHere')}</Text></TouchableOpacity>
               ) : moving && moving.includes(g.id) ? (
@@ -300,13 +300,6 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   };
 
   const browseEligible = members.filter(m => !m.archived && !m.isCustomFront && !m.isFacet);
-  // GroupBrowser splits what it is handed into its own Members, Facets and
-  // Custom Fronts sections. Handing it browseEligible, which has already
-  // stripped facets and custom fronts, left those two sections permanently
-  // empty: a group could hold facets and custom fronts (they are addable just
-  // below) and browsing it showed only alters. It gets the unsplit list and
-  // does its own categorising; its per-folder count stays roster-only, which
-  // is the deliberate "listing and counting are different questions" rule.
   const browseListable = members.filter(m => !m.archived && !m.deleted);
   if (browse) {
     const folderMembers = browseId === null

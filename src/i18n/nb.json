@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "ÅÅÅÅ",
+    "hour": "TT",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Farger",
     "rowDefault": "Standard",
@@ -59,7 +66,8 @@
     "toolDivider": "Skillelinje",
     "imageUnavailable": "[bilde utilgjengelig]",
     "brokenImage": "[ødelagt bilde]",
-    "brokenImageUrl": "[ødelagt bilde: {{url}}]"
+    "brokenImageUrl": "[ødelagt bilde: {{url}}]",
+    "spoiler": "Spoiler, trykk for å vise"
   },
   "a11y": {
     "settings": "Innstillinger",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} medlemmer",
     "countFronters": "{{count}} fronter",
     "countFronters_other": "{{count}} frontere",
-    "countFiltered": "{{filtered}} av {{total}} medlemmer"
+    "countFiltered": "{{filtered}} av {{total}} medlemmer",
+    "recentlyDeleted": "Nylig slettet"
   },
   "history": {
     "editEntry": "Rediger",
@@ -1003,7 +1012,7 @@
     "online": "Tilkoblet",
     "offline": "Frakoblet",
     "tabPrivacy": "Personvern",
-    "privacyDesc": "Personvernsirkler bestemmer hva venner i dem kan se: alt, et utvalg eller ingenting, per funksjon. Tildeling av venner kommer med delingsutvidelsen.",
+    "privacyDesc": "Personvernsirkler bestemmer hva venner i dem kan se: alt, et utvalg eller ingenting, per funksjon.",
     "buckets": "Sirkler",
     "noBuckets": "Ingen sirkler ennå.",
     "newBucket": "Ny sirkel",
@@ -1088,7 +1097,11 @@
     "tierHint": "Gi nytt navn til frontnivåene. Ordet ditt erstatter standardordet overalt. Tomt bruker standard.",
     "tierPrimary": "Primær Front",
     "tierCoFront": "Co-Front",
-    "tierCoConscious": "Co-Bevisst"
+    "tierCoConscious": "Co-Bevisst",
+    "journal": "Dagbok",
+    "hub": "Hub",
+    "history": "Historikk",
+    "archive": "Arkiv"
   },
   "planner": {
     "title": "Dagsplanlegger",
@@ -1145,6 +1158,7 @@
     "title": "Postkasse",
     "compose": "Skriv",
     "everyone": "Alle",
+    "allOthers": "Alle andre Medlemmer",
     "from": "Fra",
     "to": "Til",
     "send": "Send",

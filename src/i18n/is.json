@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "ÁÁÁÁ",
+    "hour": "KK",
+    "minute": "MÍN"
+  },
   "colors": {
     "title": "Litir",
     "rowDefault": "Sjálfgefið",
@@ -59,7 +66,8 @@
     "toolDivider": "Skil",
     "imageUnavailable": "[mynd ekki tiltæk]",
     "brokenImage": "[biluð mynd]",
-    "brokenImageUrl": "[biluð mynd: {{url}}]"
+    "brokenImageUrl": "[biluð mynd: {{url}}]",
+    "spoiler": "Spilliefni, smelltu til að sýna"
   },
   "common": {
     "movedToTop": "Nú fyrst",
@@ -263,7 +271,8 @@
     "bulkRestore": "Endurheimta meðlimi",
     "bulkRestoreMsg": "Endurheimta {{count}} meðlim(i) sem virka?",
     "bulkDelete": "Eyða meðlimum",
-    "bulkDeleteMsg": "Eyða {{count}} meðlim(um) varanlega? Þetta er ekki hægt að afturkalla."
+    "bulkDeleteMsg": "Eyða {{count}} meðlim(um) varanlega? Þetta er ekki hægt að afturkalla.",
+    "recentlyDeleted": "Nýlega eytt"
   },
   "history": {
     "title": "Saga",
@@ -1003,7 +1012,7 @@
     "online": "Nettengd(ur)",
     "offline": "Ónettengd(ur)",
     "tabPrivacy": "Persónuvernd",
-    "privacyDesc": "Persónuverndarfötur ákveða hvað vinir í þeim sjá — allt, úrval eða ekkert, fyrir hvern eiginleika. Að úthluta vinum í fötur kemur með deilistækkuninni.",
+    "privacyDesc": "Persónuverndarfötur ákveða hvað vinir í þeim sjá — allt, úrval eða ekkert, fyrir hvern eiginleika.",
     "buckets": "Fötur",
     "noBuckets": "Engar fötur enn.",
     "newBucket": "Ný fata",
@@ -1088,7 +1097,11 @@
     "tierHint": "Endurnefndu frontstigin. Orðið þitt kemur í stað sjálfgefna orðsins alls staðar. Tómt notar sjálfgefið.",
     "tierPrimary": "Aðalfront",
     "tierCoFront": "Sam-front",
-    "tierCoConscious": "Sam-meðvitund"
+    "tierCoConscious": "Sam-meðvitund",
+    "journal": "Dagbók",
+    "hub": "Miðstöð",
+    "history": "Saga",
+    "archive": "Safn"
   },
   "planner": {
     "title": "Dagsskipuleggjari",
@@ -1145,6 +1158,7 @@
     "title": "Pósthólf",
     "compose": "Semja",
     "everyone": "Öll",
+    "allOthers": "Allir aðrir Meðlimir",
     "from": "Frá",
     "to": "Til",
     "send": "Senda",

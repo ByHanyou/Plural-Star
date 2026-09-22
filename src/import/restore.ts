@@ -91,7 +91,14 @@ export const mergeBackupMembers = (existing: Member[], incoming: Member[]): Memb
       const nm = String(im.name || '').trim().toLowerCase();
       at = nm ? out.findIndex(m => !claimed.has(m.id) && !m.isCustomFront && !m.isFacet && String(m.name || '').trim().toLowerCase() === nm) : -1;
     }
-    if (at >= 0) { out[at] = {...out[at], ...im, id: out[at].id, deleted: im.deleted ?? false}; claimed.add(out[at].id); }
+    if (at >= 0) {
+      const local = out[at];
+      const incDeleted = !!im.deleted;
+      const deleted = incDeleted && !!local.deleted;
+      const archived = deleted ? true : (incDeleted ? !!local.archived : (im.archived ?? local.archived ?? false));
+      out[at] = {...local, ...im, id: local.id, deleted, archived};
+      claimed.add(local.id);
+    }
     else { out.push(im); claimed.add(im.id); }
   });
   return out;

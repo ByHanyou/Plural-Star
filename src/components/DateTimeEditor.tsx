@@ -204,21 +204,21 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
               <EditableCell
                 value={month + 1} pad={2} min={1} max={12}
                 onCommit={commitMonth} onStep={d => stepBy('month', d)}
-                width={44} label="MM" a11yLabel={i18n.t('a11y.month')} T={T}
+                width={44} label={i18n.t('dateFormat.month')} a11yLabel={i18n.t('a11y.month')} T={T}
               />
             )}
             {showDay && (
               <EditableCell
                 value={day} pad={2} min={1} max={lastDayOfMonth(year, month)}
                 onCommit={commitDay} onStep={d => stepBy('day', d)}
-                width={44} label="DD" a11yLabel={i18n.t('a11y.day')} T={T}
+                width={44} label={i18n.t('dateFormat.day')} a11yLabel={i18n.t('a11y.day')} T={T}
               />
             )}
             {showYear && (
               <EditableCell
                 value={year} pad={4} min={MIN_YEAR} max={MAX_YEAR}
                 onCommit={commitYear} onStep={d => stepBy('year', d)}
-                width={60} label="YYYY" a11yLabel={i18n.t('a11y.year')} T={T}
+                width={60} label={i18n.t('dateFormat.year')} a11yLabel={i18n.t('a11y.year')} T={T}
               />
             )}
             {showTime && (
@@ -227,13 +227,13 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                 <EditableCell
                   value={displayHour} pad={2} min={twelveHour ? 1 : 0} max={twelveHour ? 12 : 23}
                   onCommit={twelveHour ? commitHour12 : commitHour24} onStep={d => stepBy('hour', d)}
-                  width={44} label="HH" a11yLabel={i18n.t('a11y.hour')} T={T}
+                  width={44} label={i18n.t('dateFormat.hour')} a11yLabel={i18n.t('a11y.hour')} T={T}
                 />
                 <Text style={{fontSize: fs(18), color: T.dim, fontWeight: '700', marginHorizontal: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">:</Text>
                 <EditableCell
                   value={minutes} pad={2} min={0} max={59}
                   onCommit={commitMinute} onStep={d => stepBy('minute', d)}
-                  width={44} label="MIN" a11yLabel={i18n.t('a11y.minute')} T={T}
+                  width={44} label={i18n.t('dateFormat.minute')} a11yLabel={i18n.t('a11y.minute')} T={T}
                 />
                 {twelveHour && (
                   <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}

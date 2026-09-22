@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "JJJJ",
+    "hour": "UU",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Kleure",
     "rowDefault": "Verstek",
@@ -59,7 +66,8 @@
     "toolDivider": "Skeidingslyn",
     "imageUnavailable": "[prent nie beskikbaar nie]",
     "brokenImage": "[gebroke prent]",
-    "brokenImageUrl": "[gebroke prent: {{url}}]"
+    "brokenImageUrl": "[gebroke prent: {{url}}]",
+    "spoiler": "Bederwer, tik om te onthul"
   },
   "common": {
     "movedToTop": "Nou eerste",
@@ -263,7 +271,8 @@
     "bulkRestore": "Herstel lede",
     "bulkRestoreMsg": "Herstel {{count}} lid/lede na aktief?",
     "bulkDelete": "Skrap lede",
-    "bulkDeleteMsg": "Skrap {{count}} lid/lede permanent? Dit kan nie ontdoen word nie."
+    "bulkDeleteMsg": "Skrap {{count}} lid/lede permanent? Dit kan nie ontdoen word nie.",
+    "recentlyDeleted": "Onlangs geskrap"
   },
   "history": {
     "title": "Geskiedenis",
@@ -1003,7 +1012,7 @@
     "online": "Aanlyn",
     "offline": "Vanlyn",
     "tabPrivacy": "Privaatheid",
-    "privacyDesc": "Privaatheidsemmers bepaal wat vriende daarin kan sien — alles, 'n keuse, of niks, vir elke funksie. Om vriende aan emmers toe te wys, kom saam met die deel-uitbreiding.",
+    "privacyDesc": "Privaatheidsemmers bepaal wat vriende daarin kan sien — alles, 'n keuse, of niks, vir elke funksie.",
     "buckets": "Emmers",
     "noBuckets": "Nog geen emmers nie.",
     "newBucket": "Nuwe emmer",
@@ -1088,7 +1097,11 @@
     "tierHint": "Hernoem die frontvlakke. Jou woord vervang die verstek oral. Leeg gebruik die verstek.",
     "tierPrimary": "Primêre front",
     "tierCoFront": "Co-front",
-    "tierCoConscious": "Co-bewus"
+    "tierCoConscious": "Co-bewus",
+    "journal": "Joernaal",
+    "hub": "Hub",
+    "history": "Geskiedenis",
+    "archive": "Argief"
   },
   "planner": {
     "title": "Dagbeplanner",
@@ -1145,6 +1158,7 @@
     "title": "Posbus",
     "compose": "Skryf",
     "everyone": "Almal",
+    "allOthers": "Alle ander Lede",
     "from": "Van",
     "to": "Aan",
     "send": "Stuur",

@@ -3,14 +3,12 @@ import notifee, {
   AndroidVisibility,
   AndroidStyle,
   TriggerType,
-  TimeUnit,
   AlarmType,
-  IntervalTrigger,
   TimestampTrigger,
   RepeatFrequency,
 } from 'react-native-notify-kit';
 import {AppState, Platform} from 'react-native';
-import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime, frontSessionStart} from '../utils';
+import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime, frontSessionStart, truncateRunes} from '../utils';
 import {logError} from '../utils/log';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
@@ -102,10 +100,6 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
 
   const titleNames = primaryNames || coFrontNames || coConsciousNames ||
     i18n.t('common.unknown', {defaultValue: 'Unknown'});
-  // No duration in the title. The Android chronometer in frontAndroidConfig
-  // renders it live from front.startTime; a second copy here would be a
-  // snapshot frozen at post time. The expanded lines keep "Since HH:MM", which
-  // is absolute and cannot go stale.
   const title = `◈ ${titleNames}`;
 
   const primaryTimed = resolveNamesWithSince(primaryIds, members, front);
@@ -166,13 +160,6 @@ const frontAndroidConfig = (
     pressAction: {id: 'default'},
     color: '#DAA520',
     sortKey: '0',
-    // The OS draws a live counting timer from `timestamp` when both flags are
-    // set, and it is the ONLY duration here that stays true without the app
-    // re-posting. The chronometer is drawn INTO the timestamp slot, so
-    // showTimestamp has to be true as well or some OEMs quietly fall back to a
-    // static clock. Nothing in the title or body may print a snapshot duration
-    // alongside it: a snapshot is frozen the moment it is posted, which is the
-    // "still says 1d 5h" report that keeps coming back.
     ...(sinceTs && sinceTs > 0
       ? {timestamp: sinceTs, showTimestamp: true, showChronometer: true}
       : {}),
@@ -265,10 +252,6 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const lines = friendStatusLines(s);
-    // No snapshot duration in the body. Each friend row is its own
-    // notification, so it gets its own chronometer counting from their
-    // startTime; friendStatusLines already carries an absolute "Since HH:MM"
-    // in the expanded view.
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
       title: f.displayName,
@@ -439,10 +422,10 @@ export const scheduleFrontNotificationRefresh = async (
       return;
     }
     await setupNotificationChannel();
-    const trigger: IntervalTrigger = {
-      type: TriggerType.INTERVAL,
-      interval: intervalMinutes,
-      timeUnit: TimeUnit.MINUTES,
+    const trigger: TimestampTrigger = {
+      type: TriggerType.TIMESTAMP,
+      timestamp: Date.now() + intervalMinutes * 60 * 1000,
+      alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
     };
     await notifee.createTriggerNotification(
       {
@@ -455,6 +438,26 @@ export const scheduleFrontNotificationRefresh = async (
     );
   } catch (e) {
     console.error('[PluralSpace] Notification refresh schedule error:', e);
+  }
+};
+
+export const rearmFrontNotificationRefresh = async () => {
+  try {
+    if (Platform.OS !== 'android') return;
+    const {store, KEYS} = require('../storage');
+    const settings = await store.get(KEYS.settings, null);
+    if (settings && settings.notificationsEnabled === false) { await cancelFrontNotificationRefresh(); return; }
+    if (settings && settings.persistentFrontNotif === false) { await cancelFrontNotificationRefresh(); return; }
+    const mins = Number(settings?.notificationRefreshMinutes) || 30;
+    const front = await store.get(KEYS.front, null);
+    if (!front) { await cancelFrontNotificationRefresh(); return; }
+    const members = await store.get(KEYS.members, []);
+    const {setTerminologyOverrides, setTierNameOverrides} = require('../i18n/terminology');
+    setTerminologyOverrides(settings?.terminology);
+    setTierNameOverrides(settings?.tierNames);
+    await scheduleFrontNotificationRefresh(front, members || [], mins);
+  } catch (e) {
+    logError('notif', e);
   }
 };
 
@@ -480,12 +483,24 @@ export const reassertFrontNotification = async () => {
     const content = buildFrontContent(front, members || []);
     if (!content) return;
     await setupNotificationChannel();
-    await notifee.displayNotification({
-      id: NOTIF_ID,
-      title: content.title,
-      body: content.body,
-      android: frontAndroidConfig(content.bigText, [], content.body, frontSessionStart(front)),
-    });
+    const cfg = frontAndroidConfig(content.bigText, [], content.body, frontSessionStart(front));
+    const canBindFgs =
+      fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
+    let bound = canBindFgs;
+    try {
+      await notifee.displayNotification({
+        id: NOTIF_ID,
+        title: content.title,
+        body: content.body,
+        android: {...cfg, ...(canBindFgs ? {asForegroundService: true} : {})},
+      });
+    } catch (e) {
+      if (!canBindFgs) throw e;
+      logError('notif', e);
+      bound = false;
+      await notifee.displayNotification({id: NOTIF_ID, title: content.title, body: content.body, android: cfg});
+    }
+    fgsBound = bound;
   } catch (e) {
     logError('notif', e);
   }
@@ -537,10 +552,12 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
 
     if (Platform.OS === 'android') {
       await setupReminderChannel();
-      const trigger: IntervalTrigger = {
-        type: TriggerType.INTERVAL,
-        interval: intervalHours,
-        timeUnit: TimeUnit.HOURS,
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: Date.now() + intervalHours * 60 * 60 * 1000,
+        repeatFrequency: RepeatFrequency.HOURLY,
+        repeatInterval: Math.max(1, Math.round(intervalHours)),
+        alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
       };
       await notifee.createTriggerNotification(
         {id: FRONT_CHECK_NOTIF_ID, title, body, android: androidConfig},
@@ -596,9 +613,8 @@ export const showNoteboardNotification = async (
   entries: {memberName: string; unreadCount: number}[],
 ) => {
   try {
-    if (Platform.OS !== 'android') return;
     if (!entries || entries.length === 0) return;
-    await setupReminderChannel();
+    if (Platform.OS === 'android') await setupReminderChannel();
     const totalNotes = entries.reduce((sum, e) => sum + e.unreadCount, 0);
     const title = i18n.t('notification.noteboardUnreadTitle', {
       count: totalNotes,
@@ -618,7 +634,8 @@ export const showNoteboardNotification = async (
     await notifee.displayNotification({
       id: NOTEBOARD_NOTIF_ID,
       title,
-      body: summary,
+      body: Platform.OS === 'ios' ? bigLines : summary,
+      ios: {sound: 'default'},
       android: {
         channelId: REMINDER_CHANNEL_ID,
         smallIcon: 'ic_stat_notification',
@@ -749,9 +766,8 @@ export const showChatPingNotification = async (
   preview: string,
 ) => {
   try {
-    if (Platform.OS !== 'android') return;
-    await setupReminderChannel();
-    const safePreview = (preview || '').replace(/\s+/g, ' ').trim().slice(0, 140);
+    if (Platform.OS === 'android') await setupReminderChannel();
+    const safePreview = truncateRunes((preview || '').replace(/\s+/g, ' ').trim(), 140);
     const title = i18n.t('notification.chatPingTitle', {
       speaker: speakerName,
       channel: channelName,
@@ -764,6 +780,7 @@ export const showChatPingNotification = async (
       id: `ps-chat-ping-${Date.now()}`,
       title,
       body,
+      ios: {sound: 'default'},
       android: {
         channelId: REMINDER_CHANNEL_ID,
         smallIcon: 'ic_stat_notification',

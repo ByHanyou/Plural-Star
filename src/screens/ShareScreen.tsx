@@ -321,10 +321,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     }
   };
 
-  // A restore or an import in Overwrite mode removes what the file does not
-  // contain (spec 5.4: "Replace-mode import; restore from backup"). It asks
-  // first and names what is lost; the destructive button gives it the second
-  // step while a vault is linked. Update mode removes nothing and just runs.
   const confirmOverwrite = (title: string, run: () => void) => {
     if (importMode !== 'overwrite') { run(); return; }
     Alert.alert(title, t('share.importModeOverwriteHint'), [

@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "RRRR",
+    "hour": "GG",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Kolory",
     "rowDefault": "Domyślne",
@@ -59,7 +66,8 @@
     "toolDivider": "Separator",
     "imageUnavailable": "[obraz niedostępny]",
     "brokenImage": "[uszkodzony obraz]",
-    "brokenImageUrl": "[uszkodzony obraz: {{url}}]"
+    "brokenImageUrl": "[uszkodzony obraz: {{url}}]",
+    "spoiler": "Spoiler, dotknij, aby odsłonić"
   },
   "common": {
     "movedToTop": "Teraz pierwszy",
@@ -263,7 +271,8 @@
     "bulkRestore": "Przywróć członków",
     "bulkRestoreMsg": "Przywrócić członków ({{count}}) jako aktywnych?",
     "bulkDelete": "Usuń członków",
-    "bulkDeleteMsg": "Trwale usunąć członków ({{count}})? Tego nie da się cofnąć."
+    "bulkDeleteMsg": "Trwale usunąć członków ({{count}})? Tego nie da się cofnąć.",
+    "recentlyDeleted": "Ostatnio usunięte"
   },
   "history": {
     "title": "Historia",
@@ -1003,7 +1012,7 @@
     "online": "Online",
     "offline": "Offline",
     "tabPrivacy": "Prywatność",
-    "privacyDesc": "Kubełki prywatności decydują, co widzą znajomi w nich umieszczeni — wszystko, wybór albo nic, dla każdej funkcji. Przypisywanie znajomych do kubełków pojawi się wraz z rozszerzeniem udostępniania.",
+    "privacyDesc": "Kubełki prywatności decydują, co widzą znajomi w nich umieszczeni — wszystko, wybór albo nic, dla każdej funkcji.",
     "buckets": "Kubełki",
     "noBuckets": "Nie ma jeszcze kubełków.",
     "newBucket": "Nowy kubełek",
@@ -1088,7 +1097,11 @@
     "tierHint": "Zmień nazwy poziomów frontingu. Twoje słowo zastąpi domyślne wszędzie. Puste pole przywraca domyślne.",
     "tierPrimary": "Główny front",
     "tierCoFront": "Współfront",
-    "tierCoConscious": "Współświadomość"
+    "tierCoConscious": "Współświadomość",
+    "journal": "Dziennik",
+    "hub": "Centrum",
+    "history": "Historia",
+    "archive": "Archiwum"
   },
   "planner": {
     "title": "Planer Dnia",
@@ -1147,6 +1160,7 @@
     "title": "Skrzynka",
     "compose": "Napisz",
     "everyone": "Wszyscy",
+    "allOthers": "Wszyscy pozostali Członkowie",
     "from": "Od",
     "to": "Do",
     "send": "Wyślij",

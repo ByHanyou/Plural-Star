@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "월",
+    "day": "일",
+    "year": "년",
+    "hour": "시",
+    "minute": "분"
+  },
   "colors": {
     "title": "색상",
     "rowDefault": "기본",
@@ -59,7 +66,8 @@
     "toolDivider": "구분선",
     "imageUnavailable": "[이미지를 사용할 수 없음]",
     "brokenImage": "[깨진 이미지]",
-    "brokenImageUrl": "[깨진 이미지: {{url}}]"
+    "brokenImageUrl": "[깨진 이미지: {{url}}]",
+    "spoiler": "스포일러, 탭하여 표시"
   },
   "common": {
     "movedToTop": "이제 첫 번째예요",
@@ -263,7 +271,8 @@
     "bulkRestore": "멤버 복원",
     "bulkRestoreMsg": "멤버 {{count}}명을 활성으로 복원할까요?",
     "bulkDelete": "멤버 삭제",
-    "bulkDeleteMsg": "멤버 {{count}}명을 영구 삭제할까요? 되돌릴 수 없어요."
+    "bulkDeleteMsg": "멤버 {{count}}명을 영구 삭제할까요? 되돌릴 수 없어요.",
+    "recentlyDeleted": "최근 삭제된 항목"
   },
   "history": {
     "title": "기록",
@@ -1003,7 +1012,7 @@
     "online": "온라인",
     "offline": "오프라인",
     "tabPrivacy": "프라이버시",
-    "privacyDesc": "프라이버시 버킷은 그 안의 친구가 무엇을 볼 수 있는지 정해요 — 기능별로 전체, 선택, 또는 없음이에요. 친구를 버킷에 배정하는 기능은 공유 확장과 함께 제공돼요.",
+    "privacyDesc": "프라이버시 버킷은 그 안의 친구가 무엇을 볼 수 있는지 정해요 — 기능별로 전체, 선택, 또는 없음이에요.",
     "buckets": "버킷",
     "noBuckets": "아직 버킷이 없어요.",
     "newBucket": "새 버킷",
@@ -1088,7 +1097,11 @@
     "tierHint": "프런팅 단계의 이름을 바꿔 보세요. 입력한 단어가 기본 용어를 어디서나 대체해요. 비워 두면 기본값을 사용해요.",
     "tierPrimary": "메인 프런트",
     "tierCoFront": "코프런트",
-    "tierCoConscious": "코컨셔스"
+    "tierCoConscious": "코컨셔스",
+    "journal": "일지",
+    "hub": "허브",
+    "history": "기록",
+    "archive": "보관함"
   },
   "planner": {
     "title": "하루 플래너",
@@ -1144,6 +1157,7 @@
     "title": "우편함",
     "compose": "쓰기",
     "everyone": "모두",
+    "allOthers": "다른 모든 멤버",
     "from": "보낸 멤버",
     "to": "받는 멤버",
     "send": "보내기",

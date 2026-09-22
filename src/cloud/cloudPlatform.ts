@@ -1,7 +1,3 @@
-// Cloud Services: the mobile side of CloudPlatform. This file is the one part
-// of src/cloud that differs between the repos; everything it hands to the
-// shared engine is bytes, strings and store keys.
-
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
 import {Platform} from 'react-native';
@@ -14,17 +10,12 @@ import {CLOUD_LINK_KEY, CloudLinkState, CloudRequest, CloudResponse, CloudTransp
 import {splitDataUri, base64ToBytes} from './cloudCrypto';
 import {strFromU8} from 'fflate';
 
-// react-native-blob-util moves bytes as base64 in both directions without the
-// string-body limits of RN's fetch, and it reports every response header, which
-// the resumable upload needs for Upload-Offset.
 const transport: CloudTransport = {
   async request(req: CloudRequest): Promise<CloudResponse> {
     const headers: Record<string, string> = {...req.headers};
     const timeoutMs = req.timeoutMs || 30000;
     const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('request timed out')), timeoutMs + 1000));
     if (req.method === 'HEAD') {
-      // No body either way, and blob-util's typings do not admit HEAD. RN's
-      // own fetch handles it and exposes the headers, which is all HEAD is for.
       const r: any = await Promise.race([fetch(req.url, {method: 'HEAD', headers}), timeout]);
       const out: Record<string, string> = {};
       try {
@@ -34,9 +25,6 @@ const transport: CloudTransport = {
     }
     const hasBody = typeof req.bodyBase64 === 'string';
     if (hasBody && !headers['Content-Type']) headers['Content-Type'] = 'application/octet-stream';
-    // blob-util decodes a string body from base64 ONLY under
-    // application/octet-stream; any other content type is sent verbatim. So
-    // ciphertext goes as base64 and JSON goes as the text it is.
     let body: string | undefined;
     if (hasBody) {
       body = headers['Content-Type'] === 'application/octet-stream'
@@ -64,15 +52,10 @@ const transport: CloudTransport = {
   },
 };
 
-// Spec 7.3: JPEG quality 80, longest side unchanged, GIF passed through. PNG is
-// passed through as well: a member's transparent avatar is a feature the app
-// exposes (avatarTransparent), and a JPEG has no alpha channel to keep it.
 const reencodeImage = async (dataUri: string): Promise<string> => {
   const parts = splitDataUri(dataUri);
   if (!parts) return dataUri;
   const mime = parts.mime.toLowerCase();
-  // A JPEG is re-encoded like everything else (7.3 says quality 80, not "as
-  // is"); only GIF, and PNG per deviation 2, pass through.
   if (mime === 'image/gif' || mime === 'image/png') return dataUri;
   const tmp = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_cloud_${Date.now()}_${Math.floor(Math.random() * 1e6)}.img`;
   try {
@@ -112,20 +95,13 @@ const platform: CloudPlatform = {
 
 export const CloudServices = new CloudService(platform);
 
-// Called once from App.tsx after NetworkManager.init(). Feature detection and
-// the wake check ride the relay's own connection state, so nothing about the
-// cloud is polled while the app is offline.
 let booted = false;
 export const bootCloudServices = (): void => {
   if (booted) return;
   booted = true;
   CloudServices.init().catch(() => {});
-  // Every Save also saves to the cloud (spec 8.1). The engine's own state
-  // writes and the device-sync bookkeeping are not saves.
   onStoreWrite((key, removed) => {
     if (!key.startsWith('ps:') || key === CLOUD_LINK_KEY || key === SYNC_STATE_KEY || key.startsWith(MIRROR_CACHE_PREFIX)) return;
-    // A store.remove is the one deliberate removal; anything else that turns
-    // up missing is repaired from the vault on the next check (spec 8.2).
     if (removed) CloudServices.noteRemoved(key);
     CloudServices.schedulePush();
   });

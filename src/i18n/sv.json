@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "ÅÅÅÅ",
+    "hour": "TT",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Färger",
     "rowDefault": "Standard",
@@ -59,7 +66,8 @@
     "toolDivider": "Avdelare",
     "imageUnavailable": "[bild saknas]",
     "brokenImage": "[trasig bild]",
-    "brokenImageUrl": "[trasig bild: {{url}}]"
+    "brokenImageUrl": "[trasig bild: {{url}}]",
+    "spoiler": "Spoiler, tryck för att visa"
   },
   "common": {
     "movedToTop": "Nu först",
@@ -263,7 +271,8 @@
     "bulkRestore": "Återställ medlemmar",
     "bulkRestoreMsg": "Återställ {{count}} medlem(mar) till aktiva?",
     "bulkDelete": "Radera medlemmar",
-    "bulkDeleteMsg": "Radera {{count}} medlem(mar) permanent? Detta kan inte ångras."
+    "bulkDeleteMsg": "Radera {{count}} medlem(mar) permanent? Detta kan inte ångras.",
+    "recentlyDeleted": "Nyligen raderade"
   },
   "history": {
     "title": "Historik",
@@ -1003,7 +1012,7 @@
     "online": "Online",
     "offline": "Offline",
     "tabPrivacy": "Sekretess",
-    "privacyDesc": "Sekretesscirklar avgör vad vänner i dem kan se — allt, ett urval eller inget, per funktion. Att tilldela vänner till cirklar kommer med delningsutbyggnaden.",
+    "privacyDesc": "Sekretesscirklar avgör vad vänner i dem kan se — allt, ett urval eller inget, per funktion.",
     "buckets": "Cirklar",
     "noBuckets": "Inga cirklar ännu.",
     "newBucket": "Ny cirkel",
@@ -1088,7 +1097,11 @@
     "tierHint": "Byt namn på frontnivåerna. Ditt ord ersätter standardordet överallt. Tomt använder standard.",
     "tierPrimary": "Primär front",
     "tierCoFront": "Co-front",
-    "tierCoConscious": "Co-medveten"
+    "tierCoConscious": "Co-medveten",
+    "journal": "Dagbok",
+    "hub": "Hub",
+    "history": "Historik",
+    "archive": "Arkiv"
   },
   "planner": {
     "title": "Dagsplanerare",
@@ -1145,6 +1158,7 @@
     "title": "Brevlåda",
     "compose": "Skriv",
     "everyone": "Alla",
+    "allOthers": "Alla andra Medlemmar",
     "from": "Från",
     "to": "Till",
     "send": "Skicka",

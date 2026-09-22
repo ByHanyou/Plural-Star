@@ -41,8 +41,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
   const [toId, setToId] = useState('');
   const [text, setText] = useState('');
 
-  // Loaded here, not in the app store, so a sync that changes it must reload
-  // it or the next save here would write the stale list over it.
   useEffect(() => {
     const load = () => { store.get<NoteboardEntry[]>(KEYS.noteboards, []).then(n => setNotes(n || [])); };
     load();
@@ -152,16 +150,16 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
     return b.timestamp - a.timestamp;
   });
 
-  const MemberChips = ({selected, onSelect, allowAll = false}: {selected: string; onSelect: (id: string) => void; allowAll?: boolean}) => (
+  const MemberChips = ({selected, onSelect, allowAll = false, excludeId}: {selected: string; onSelect: (id: string) => void; allowAll?: boolean; excludeId?: string}) => (
     <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4}}>
       {allowAll && active.length > 0 && (
         <TouchableOpacity onPress={() => onSelect(ALL_RECIPIENTS)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityState={{selected: selected === ALL_RECIPIENTS}}
-          accessibilityLabel={`${t('mailbox.everyone')} (${active.length})`}
+          accessibilityLabel={`${t('mailbox.allOthers')} (${active.filter(m => m.id !== excludeId).length})`}
           style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
             backgroundColor: selected === ALL_RECIPIENTS ? `${T.accent}20` : T.bg,
             borderColor: selected === ALL_RECIPIENTS ? `${T.accent}50` : T.border}}>
-          <Text style={{fontSize: fs(11), fontWeight: '600', color: selected === ALL_RECIPIENTS ? T.accent : T.dim}}>{t('mailbox.everyone')} · {active.length}</Text>
+          <Text style={{fontSize: fs(11), fontWeight: '600', color: selected === ALL_RECIPIENTS ? T.accent : T.dim}}>{t('mailbox.allOthers')} · {active.filter(m => m.id !== excludeId).length}</Text>
         </TouchableOpacity>
       )}
       {active.length > 0 && (
@@ -299,7 +297,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('mailbox.from')}</Text>
             <MemberChips selected={fromId} onSelect={setFromId} />
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 10, marginBottom: 6}}>{t('mailbox.to')}</Text>
-            <MemberChips selected={toId} onSelect={setToId} allowAll />
+            <MemberChips selected={toId} onSelect={setToId} allowAll excludeId={fromId} />
             <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('mailbox.messagePlaceholder')} multiline
               style={{backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 56, textAlignVertical: 'top', marginTop: 10}} />
             <TouchableOpacity onPress={() => send(toId, fromId)} activeOpacity={0.7} disabled={!fromId || !toId || !text.trim()}

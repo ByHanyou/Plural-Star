@@ -901,21 +901,12 @@ export const withMemberSince = (next: FrontState | null, prev: FrontState | null
   const prevIds = new Set(prev ? allFrontMemberIds(prev) : []);
   const since: Record<string, number> = {};
   for (const id of allFrontMemberIds(next)) {
-    since[id] = prevSince[id] ?? (prevIds.has(id) ? (prev?.startTime ?? now) : now);
+    since[id] = prevIds.has(id) ? (prevSince[id] ?? prev?.startTime ?? now) : now;
   }
   return {...next, memberSince: since};
 };
 
-// When the current front actually began, for anything that shows a running
-// clock. front.startTime doubles as the history segment marker and is pushed
-// to now every time a mood, location or energy changes, so the header read
-// "Fronting for <1m" while the per-member timers beside it kept counting the
-// real elapsed time. The earliest memberSince is the honest answer, and taking
-// the minimum of the two means the header can never read shorter than any
-// timer drawn under it.
 export const frontSessionStart = (f: FrontState): number => {
-  // Legacy fronts reach this without the tier objects, so read them the same
-  // defensive way frontersFirst does rather than assuming the current shape.
   const any = f as any;
   const tier = (x: any): string[] => (x && Array.isArray(x.memberIds) ? x.memberIds : []);
   const since: Record<string, number> = any?.memberSince || {};
@@ -1087,8 +1078,44 @@ export const fmtDur = (start: number, end?: number | null): string => {
   return m > 0 ? `${m}m` : '<1m';
 };
 
+export const truncateRunes = (s: string, max: number, ellipsis = ''): string => {
+  const runes = Array.from(String(s ?? ''));
+  if (runes.length <= max) return runes.join('');
+  return runes.slice(0, Math.max(0, max)).join('') + ellipsis;
+};
+
+export const upperRune = (ch: string): string => {
+  const up = ch.toUpperCase();
+  const cp = up.codePointAt(0) ?? 0;
+  if (cp >= 0x1c90 && cp <= 0x1cbf) return ch;
+  return up;
+};
+
+export const upperText = (s: string): string => Array.from(String(s ?? '')).map(upperRune).join('');
+
+export const lowerRune = (ch: string): string => {
+  const low = ch.toLowerCase();
+  const cp = low.codePointAt(0) ?? 0;
+  if (cp >= 0xab70 && cp <= 0xabbf) return ch;
+  return low;
+};
+
+export const fileSlug = (name: string, fallback = 'plural-star'): string => {
+  const cleaned = String(name ?? '')
+    .normalize('NFC')
+    .replace(/[\\/:*?"<>| -]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const slug = Array.from(truncateRunes(cleaned, 60)).map(lowerRune).join('').replace(/^-+|-+$/g, '');
+  return slug || fallback;
+};
+
 export const getInitials = (name: string): string =>
-  name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  Array.from(String(name ?? '').split(' ').map(w => Array.from(w)[0] ?? '').join('')).slice(0, 2).map(ch => {
+    const up = upperRune(ch);
+    return Array.from(up).length === 1 ? up : ch;
+  }).join('');
 
 export const isValidHex = (hex: string): boolean =>
   /^#[0-9A-Fa-f]{6}$/.test(hex);
@@ -1098,10 +1125,13 @@ export const normalizeHex = (input: string): string =>
 
 const asStr = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
 
-export const memberMatchesSearch = (m: {name: string; nickname?: string}, search: string): boolean => {
+export const tagKey = (tag: string): string => asStr(tag).normalize('NFC').toLowerCase();
+
+export const memberMatchesSearch = (m: {name: string; nickname?: string; tags?: string[]}, search: string): boolean => {
   const q = asStr(search).trim().toLowerCase();
   if (!q) return true;
-  return asStr(m.name).toLowerCase().includes(q) || asStr(m.nickname || '').toLowerCase().includes(q);
+  return asStr(m.name).toLowerCase().includes(q) || asStr(m.nickname || '').toLowerCase().includes(q)
+    || (m.tags || []).some(tag => tagKey(tag).includes(q));
 };
 
 export const sortMembersBySearch = <T extends {name: string; nickname?: string}>(items: T[], search: string): T[] => {

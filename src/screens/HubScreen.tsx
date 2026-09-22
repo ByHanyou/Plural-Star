@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef} from 'react';
+import React, {useState, useEffect, useRef, useMemo} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, Linking, BackHandler, Platform, PanResponder, PixelRatio, AccessibilityInfo} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +12,8 @@ import {Member, HistoryEntry, FrontState, FrontTier, FrontTierKey, fmtTime, fmtD
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {PlannerScreen} from './PlannerScreen';
 import {EnergyRow} from '../modals/shared';
+import {KindToggles, ALL_PICKER_KINDS} from '../modals/SetFrontModal';
+import type {PickerKind, PickerKinds} from '../modals/SetFrontModal';
 import {TogglePill} from '../components/ToggleSwitch';
 import {Avatar} from '../components/Avatar';
 
@@ -49,16 +51,40 @@ interface Props {
   onClearEditHistory?: () => void;
 }
 
-const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members, allSelected, T, searchKind}: {
+type RetroPool = {kind?: PickerKind; label: string; members: Member[]};
+const RETRO_RESULTS_MAX = 8;
+
+const TierMemberPicker = ({tierKey, label, color, selected, setSelected, pools, allSelected, T, searchKind}: {
   tierKey: FrontTierKey; label: string; color: string; selected: string[]; setSelected: (ids: string[]) => void;
-  members: Member[]; allSelected: Record<FrontTierKey, string[]>; T: ThemeColors;
+  pools: RetroPool[]; allSelected: Record<FrontTierKey, string[]>; T: ThemeColors;
   searchKind?: string;
 }) => {
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [search, setSearch] = useState('');
+  const [kinds, setKinds] = useState<PickerKinds>(ALL_PICKER_KINDS);
+  const hasKinds = pools.some(p => !!p.kind);
   const otherTiers: Record<FrontTierKey, string> = {primary: t('tier.primaryShort'), coFront: t('tier.coFrontShort'), coConscious: t('tier.coConShort')};
-  const filtered = sortMembersBySearch(members.filter(m => memberMatchesSearch(m, search)), search);
+  const members = useMemo(() => pools.flatMap(p => p.members), [pools]);
+  const activePools = useMemo(() => pools.filter(p => !p.kind || kinds[p.kind]), [pools, kinds]);
+  const {grouped, total, shown} = useMemo(() => {
+    let budget = RETRO_RESULTS_MAX;
+    let count = 0;
+    const out: {label: string; rows: Member[]}[] = [];
+    for (const pool of activePools) {
+      const matches = sortMembersBySearch(pool.members.filter(m => memberMatchesSearch(m, search)), search);
+      count += matches.length;
+      if (budget <= 0 || matches.length === 0) continue;
+      const rows = matches.slice(0, budget);
+      budget -= rows.length;
+      out.push({label: pool.label, rows});
+    }
+    return {grouped: out, total: count, shown: RETRO_RESULTS_MAX - budget};
+  }, [activePools, search]);
+  const kindLabel = searchKind || (hasKinds ? t('terminology.fronters') : '');
+  const searchLabel = kindLabel
+    ? t('members.searchToAddKind', {kind: kindLabel, defaultValue: `Type to search ${kindLabel}…`})
+    : t('members.searchToAdd');
   const toggle = (id: string) => {
     setSelected(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
   };
@@ -88,31 +114,39 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, members
         </View>
       )}
       <TextInput value={search} onChangeText={setSearch}
-        accessibilityLabel={searchKind ? t('members.searchToAddKind', {kind: searchKind, defaultValue: `Type to search ${searchKind}…`}) : t('members.searchToAdd')}
-        placeholder={searchKind ? t('members.searchToAddKind', {kind: searchKind, defaultValue: `Type to search ${searchKind}…`}) : t('members.searchToAdd')}
+        accessibilityLabel={searchLabel}
+        placeholder={searchLabel}
         placeholderTextColor={T.muted}
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 4}} />
+      {hasKinds && <KindToggles kinds={kinds} setKinds={setKinds} T={T} t={t} />}
       {search.length > 0 && (
         <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
-          {filtered.slice(0, 6).map(m => {
-              const inThis = selected.includes(m.id);
-              const otherTier = Object.entries(allSelected).find(([tk, ids]) => tk !== tierKey && (ids as string[]).includes(m.id));
-              const otherLabel = otherTier ? otherTiers[otherTier[0] as FrontTierKey] : null;
-              return (
-                <TouchableOpacity key={m.id} onPress={() => {toggle(m.id); setSearch('');}} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityState={{selected: inThis}} accessibilityLabel={[m.name, m.pronouns, otherLabel && !inThis ? otherLabel : null].filter(Boolean).join(', ')}
-                  style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherLabel && !inThis ? 0.45 : 1}}>
-                  <Avatar member={m} size={24} T={T} />
-                  <Text style={{fontSize: fs(13), color: inThis ? m.color : T.text, fontWeight: inThis ? '600' : '400'}}>{m.name}</Text>
-                  {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
-                  {otherLabel && !inThis ? <Text style={{fontSize: fs(10), color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
-                  {inThis && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
-                </TouchableOpacity>
-              );
-            })}
-          {filtered.length > 6 && (
+          {grouped.map((group, gi) => (
+            <View key={`${gi}-${group.label}`}>
+              {grouped.length > 1 && (
+                <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 8, paddingBottom: 4, backgroundColor: T.surface}}>{group.label}</Text>
+              )}
+              {group.rows.map(m => {
+                const inThis = selected.includes(m.id);
+                const otherTier = Object.entries(allSelected).find(([tk, ids]) => tk !== tierKey && (ids as string[]).includes(m.id));
+                const otherLabel = otherTier ? otherTiers[otherTier[0] as FrontTierKey] : null;
+                return (
+                  <TouchableOpacity key={m.id} onPress={() => {toggle(m.id); setSearch('');}} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityState={{selected: inThis}} accessibilityLabel={[m.name, m.pronouns, otherLabel && !inThis ? otherLabel : null].filter(Boolean).join(', ')}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherLabel && !inThis ? 0.45 : 1}}>
+                    <Avatar member={m} size={24} T={T} />
+                    <Text style={{fontSize: fs(13), color: inThis ? m.color : T.text, fontWeight: inThis ? '600' : '400'}}>{m.name}</Text>
+                    {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
+                    {otherLabel && !inThis ? <Text style={{fontSize: fs(10), color: T.muted, fontStyle: 'italic'}}>{otherLabel}</Text> : null}
+                    {inThis && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+          {total > shown && (
             <View style={{padding: 8, alignItems: 'center'}}>
-              <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic'}}>{t('members.refineSearch', {count: filtered.length - 6})}</Text>
+              <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic'}}>{t('members.refineSearch', {count: total - shown})}</Text>
             </View>
           )}
         </View>
@@ -132,10 +166,15 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   const {t} = useTranslation();
   const fs = fontScale(T);
   const isEditing = editIndex !== undefined && editIndex >= 0 && !!editEntry;
-  const regularMembers = members.filter(isRosterMember);
-  const customFronts = members.filter(m => m.isCustomFront && !m.archived && !m.deleted);
-  const facetMembers = members.filter(m => m.isFacet && !m.isCustomFront && !m.archived && !m.deleted);
-  const statusPool = singletStatuses(members);
+  const regularMembers = useMemo(() => members.filter(isRosterMember), [members]);
+  const customFronts = useMemo(() => members.filter(m => m.isCustomFront && !m.archived && !m.deleted), [members]);
+  const facetMembers = useMemo(() => members.filter(m => m.isFacet && !m.isCustomFront && !m.archived && !m.deleted), [members]);
+  const statusPool = useMemo(() => singletStatuses(members), [members]);
+  const retroPools: RetroPool[] = useMemo(() => [
+    {kind: 'members' as PickerKind, label: t('members.title'), members: regularMembers},
+    {kind: 'facets' as PickerKind, label: t('members.facets'), members: facetMembers},
+    {kind: 'customFronts' as PickerKind, label: t('members.customFronts'), members: customFronts},
+  ], [t, regularMembers, facetMembers, customFronts]);
 
   const editingActiveFront = !!(
     isEditing && editEntry && front
@@ -171,13 +210,6 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
 
   const findOverlaps = (start: number, end: number | null): HistoryEntry[] => {
     const effectiveEnd = end ?? Date.now();
-    // A row with no endTime is only genuinely open if nothing started after
-    // it. Stale open rows do accumulate (any switch written without closing
-    // the previous one leaves two), and reading every one of them as running
-    // until now made them collide with everything, which is the phantom
-    // "Overlap Detected" against an entry from days ago that only went away
-    // by unticking Current and saving again. A later start closes an open row
-    // here, exactly as the history list and timeline already render it.
     const closedBy = (e: HistoryEntry): number => {
       let next = Infinity;
       for (const o of history) {
@@ -397,30 +429,12 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
       <View style={{height: 1, backgroundColor: T.border, marginVertical: 10}} />
 
       {singlet ? (
-        <TierMemberPicker tierKey="primary" label={t('status.statuses')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={statusPool} allSelected={allSelected} T={T} />
+        <TierMemberPicker tierKey="primary" label={t('status.statuses')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} pools={[{label: t('status.statuses'), members: statusPool}]} allSelected={allSelected} T={T} searchKind={t('status.statuses')} />
       ) : (
         <>
-          <TierMemberPicker tierKey="primary" label={t('tier.primaryFront')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={regularMembers} allSelected={allSelected} T={T} searchKind={t('members.title')} />
-          {facetMembers.length > 0 && (
-            <TierMemberPicker tierKey="primary" label={t('members.facets')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
-          )}
-          {customFronts.length > 0 && (
-            <TierMemberPicker tierKey="primary" label={t('members.customFronts')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
-          )}
-          <TierMemberPicker tierKey="coFront" label={t('tier.coFront')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={regularMembers} allSelected={allSelected} T={T} searchKind={t('members.title')} />
-          {facetMembers.length > 0 && (
-            <TierMemberPicker tierKey="coFront" label={t('members.facets')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
-          )}
-          {customFronts.length > 0 && (
-            <TierMemberPicker tierKey="coFront" label={t('members.customFronts')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
-          )}
-          <TierMemberPicker tierKey="coConscious" label={t('tier.coConscious')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={regularMembers} allSelected={allSelected} T={T} searchKind={t('members.title')} />
-          {facetMembers.length > 0 && (
-            <TierMemberPicker tierKey="coConscious" label={t('members.facets')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={facetMembers} allSelected={allSelected} T={T} searchKind={t('members.facets')} />
-          )}
-          {customFronts.length > 0 && (
-            <TierMemberPicker tierKey="coConscious" label={t('members.customFronts')} color={T.success} selected={coConIds} setSelected={setCoConIds} members={customFronts} allSelected={allSelected} T={T} searchKind={t('members.customFronts')} />
-          )}
+          <TierMemberPicker tierKey="primary" label={t('tier.primaryFront')} color={T.accent} selected={primaryIds} setSelected={setPrimaryIds} pools={retroPools} allSelected={allSelected} T={T} />
+          <TierMemberPicker tierKey="coFront" label={t('tier.coFront')} color={T.info} selected={coFrontIds} setSelected={setCoFrontIds} pools={retroPools} allSelected={allSelected} T={T} />
+          <TierMemberPicker tierKey="coConscious" label={t('tier.coConscious')} color={T.success} selected={coConIds} setSelected={setCoConIds} pools={retroPools} allSelected={allSelected} T={T} />
         </>
       )}
 

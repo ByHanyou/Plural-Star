@@ -6,18 +6,12 @@ import i18n from '../i18n/i18n';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 
-// No /g. A global module-level regex is stateful, and Desktop's copy of this
-// line has never had the flag. With /g, String.match returns every match and
-// no .index, so a line holding two bare image URLs silently dropped the second.
 const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\S*)?/i;
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/;
 const MENTION_RE = /@\[([^\]]+)\]\(member:([a-zA-Z0-9_-]+)\)/g;
 
 const fs = (s: number, T: ThemeColors): number => fontScale(T)(s);
 
-// Only web and mail links open. Descriptions can come from friends, and
-// Linking.openURL would otherwise hand any scheme (intent:, tel:, another
-// app's) straight to the OS. The promise is caught: an unopenable URL rejects.
 const openSafeLink = (href: string): void => {
   const h = (href || '').trim();
   if (!/^(https?:\/\/|mailto:)/i.test(h)) return;
@@ -40,17 +34,6 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: ThemeColors}) =>
   return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
-// No Image.getSize here any more. It fired a SECOND request just to measure,
-// and that probe was doing real damage: it fails on its own for URLs that
-// <Image> loads perfectly (hosts wanting headers, transient network), it
-// reports half-size on some Android builds, and repeated calls poison Fresco's
-// memory pool, which breaks the render that follows
-// (facebook/react-native#19604, #22145, react-native#10170). Its failure was
-// wired to `failed`, so a probe that lost meant <Image> was never mounted at
-// all: the pasted URL in a description rendered as nothing, intermittently,
-// exactly as reported. The ratio now starts as the author's hint or a neutral
-// guess and is corrected by onLoad, which reports the real dimensions from the
-// load that was going to happen anyway. onError is the only failure signal.
 const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hintRatio?: number; hintW?: number}) => {
   const [ratio, setRatio] = React.useState<number | null>(hintRatio || null);
   const [failed, setFailed] = React.useState(false);
@@ -62,10 +45,6 @@ const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hin
     return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
   const r = ratio || 1.5;
-  // A portrait image used to get a full-width 280-tall box, so a phone
-  // screenshot showed as a thin sliver in a wide empty field that reads as "the
-  // photo did not load". Portrait now sizes BY HEIGHT and takes its natural
-  // width, left-aligned, with the full width still available as the ceiling.
   const sizing = hintW && hintW > 0
     ? {width: hintW, maxWidth: '100%' as const, aspectRatio: r, alignSelf: 'flex-start' as const}
     : r >= 1
@@ -78,9 +57,6 @@ const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hin
       resizeMode="contain"
       accessibilityRole="image"
       accessibilityLabel={i18n.t('a11y.image')}
-      // The load that was going to happen anyway reports the real dimensions,
-      // so the placeholder ratio is corrected the moment the picture is on
-      // screen. An explicit author hint is left alone.
       onLoad={e => {
         if (hintRatio) return;
         const src: any = (e?.nativeEvent as any)?.source;
@@ -93,7 +69,51 @@ const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hin
   );
 };
 
+const SPOILER_RE = /\|\|(.+?)\|\|/;
+const Spoiler = ({T, raw, render}: {T: ThemeColors; raw: string; render: () => React.ReactNode}) => {
+  const [open, setOpen] = React.useState(false);
+  const cover = T?.dim || '#666';
+  return (
+    <Text
+      onPress={() => setOpen(v => !v)}
+      accessibilityRole="button"
+      accessibilityState={{expanded: open}}
+      accessibilityLabel={open ? undefined : i18n.t('markdown.spoiler')}
+      style={open
+        ? {backgroundColor: `${cover}30`, borderRadius: 3}
+        : {backgroundColor: cover, color: cover, borderRadius: 3}}>
+      {open ? render() : <Text style={{color: cover}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{raw}</Text>}
+    </Text>
+  );
+};
+const spoilerKey = (i: number, raw: string) => `sp-${i}-${raw.length}-${raw.slice(0, 24)}`;
+
 const renderTextWithMentions = (
+  text: string,
+  T: ThemeColors,
+  members?: Member[],
+  onMentionPress?: (memberId: string) => void,
+  baseStyle?: object,
+): React.ReactNode => {
+  if (!text) return text;
+  if (text.indexOf('||') !== -1) {
+    const sre = new RegExp(SPOILER_RE.source, 'g');
+    const out: React.ReactNode[] = [];
+    let last = 0;
+    let sm: RegExpExecArray | null;
+    let k = 0;
+    while ((sm = sre.exec(text)) !== null) {
+      if (sm.index > last) out.push(<React.Fragment key={`t-${k++}`}>{renderMentionsOnly(text.slice(last, sm.index), T, members, onMentionPress, baseStyle)}</React.Fragment>);
+      { const raw = sm[1]; out.push(<Spoiler key={spoilerKey(k++, raw)} T={T} raw={raw} render={() => renderMentionsOnly(raw, T, members, onMentionPress, baseStyle)} />); }
+      last = sm.index + sm[0].length;
+    }
+    if (last < text.length) out.push(<React.Fragment key={`t-${k++}`}>{renderMentionsOnly(text.slice(last), T, members, onMentionPress, baseStyle)}</React.Fragment>);
+    if (out.length > 0) return <>{out}</>;
+  }
+  return renderMentionsOnly(text, T, members, onMentionPress, baseStyle);
+};
+
+const renderMentionsOnly = (
   text: string,
   T: ThemeColors,
   members?: Member[],
@@ -118,6 +138,7 @@ const renderTextWithMentions = (
       <Text
         key={`men-${key++}`}
         onPress={onPress}
+        accessibilityRole={onPress ? 'link' : undefined}
         style={{...(baseStyle || {}), color, textDecorationLine: 'underline'}}>
         @{displayName}
       </Text>,
@@ -173,9 +194,6 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
         const w = widthMatch ? Number(widthMatch[1]) : undefined;
         const h = heightMatch ? Number(heightMatch[1]) : undefined;
         if (isValidUrl) {
-          // UriImage, not a bare Image: this one had no onError, so a URL that
-          // failed to load left a silent blank 200x200 box instead of the
-          // "image unavailable" line every other path shows.
           parts.push(<UriImage key={key++} uri={url} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} T={T} />);
         } else {
           parts.push(<Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImageUrl', {url})}</Text>);
@@ -202,7 +220,7 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
       case 'em': case 'i': parts.push(<Text key={key++} style={{fontStyle: 'italic'}}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break;
       case 's': case 'del': parts.push(<Text key={key++} style={{textDecorationLine: 'line-through'}}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break;
       case 'code': parts.push(<Text key={key++} style={{fontFamily: 'monospace', backgroundColor: T.surface, fontSize: fs(12, T)}}>{` ${decodeEntities(inner)} `}</Text>); break;
-      case 'a': { const href = (attrs.match(/href=["']([^"']+)["']/) || [])[1] || ''; parts.push(<Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => openSafeLink(href)}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break; }
+      case 'a': { const href = (attrs.match(/href=["']([^"']+)["']/) || [])[1] || ''; parts.push(<Text key={key++} accessibilityRole="link" style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => openSafeLink(href)}>{renderInlineHTML(inner, T, members, onMentionPress)}</Text>); break; }
       default: { const wrapped = wrapText(decodeEntities(inner)); if (wrapped) parts.push(wrapped); }
     }
     remaining = remaining.slice(inlineM.index + inlineM[0].length);
@@ -309,6 +327,7 @@ const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentio
   let remaining = text;
   let key = 0;
   const patterns: [RegExp, (m: RegExpMatchArray) => React.ReactNode][] = [
+    [SPOILER_RE, m => { const raw = m[1]; return <Spoiler key={spoilerKey(key++, raw)} T={T} raw={raw} render={() => renderInline(raw, T, members, onMentionPress)} />; }],
     [/@\[([^\]]+)\]\(member:([a-zA-Z0-9_-]+)\)/, m => {
       const member = members?.find(mb => mb.id === m[2]);
       const displayName = member?.name || m[1];
@@ -317,6 +336,7 @@ const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentio
         <Text
           key={key++}
           onPress={onMentionPress && member ? () => onMentionPress(m[2]) : undefined}
+          accessibilityRole={onMentionPress && member ? 'link' : undefined}
           style={{color, textDecorationLine: 'underline'}}>
           @{displayName}
         </Text>
@@ -332,7 +352,7 @@ const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentio
       if (!isValidImageUri(url)) return <Text key={key++} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>;
       return <UriImage key={key++} uri={url} style={{width: 200, height: 200, borderRadius: 8}} T={T} />;
     }],
-    [/\[(.+?)\]\((.+?)\)/, m => <Text key={key++} style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => openSafeLink(m[2])}>{m[1]}</Text>],
+    [/\[(.+?)\]\((.+?)\)/, m => <Text key={key++} accessibilityRole="link" style={{color: T.info, textDecorationLine: 'underline'}} onPress={() => openSafeLink(m[2])}>{m[1]}</Text>],
   ];
   while (remaining.length > 0) {
     let earliest: {idx: number; len: number; node: React.ReactNode} | null = null;

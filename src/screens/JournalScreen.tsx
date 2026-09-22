@@ -6,7 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveJournalTemplates} from '../store/actions';
-import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch, memberMatchesSearch} from '../utils';
+import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch, memberMatchesSearch, tagKey} from '../utils';
 import {exportEntryTxt, exportEntryMd, exportEntryJSON} from '../export/exportUtils';
 import {RichText} from '../components/MarkdownRenderer';
 import {JournalTemplateModal} from '../modals';
@@ -70,7 +70,12 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
 
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
   const getMember = (id: string) => memberById.get(id);
-  const allTags = useMemo(() => [...new Set(journal.flatMap(e => e.hashtags || []))].sort(), [journal]);
+  const allTags = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const tag of journal.flatMap(e => e.hashtags || [])) { const k = tagKey(tag); if (!seen.has(k)) seen.set(k, tag); }
+    return [...seen.values()].sort((a, b) => { const ka = tagKey(a), kb = tagKey(b); return ka < kb ? -1 : ka > kb ? 1 : 0; });
+  }, [journal]);
+  const activeTagKey = activeTag ? tagKey(activeTag) : null;
 
   const authorIdsInJournal = useMemo(() => {
     const ids = new Set<string>();
@@ -78,22 +83,22 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
     return ids;
   }, [journal]);
   const activeAuthors = useMemo(
-    () => members.filter(m => !m.isCustomFront && !m.isFacet && authorIdsInJournal.has(m.id)),
+    () => members.filter(m => !m.deleted && !m.archived && !m.isCustomFront && !m.isFacet && authorIdsInJournal.has(m.id)),
     [members, authorIdsInJournal],
   );
   const facetAuthors = useMemo(
-    () => members.filter(m => !m.isCustomFront && m.isFacet && authorIdsInJournal.has(m.id)),
+    () => members.filter(m => !m.deleted && !m.archived && !m.isCustomFront && m.isFacet && authorIdsInJournal.has(m.id)),
     [members, authorIdsInJournal],
   );
 
   const filteredJournal = useMemo(() => journal.filter(e => {
-    const tagMatch = !activeTag || (e.hashtags || []).includes(activeTag);
+    const tagMatch = !activeTagKey || (e.hashtags || []).some(tag => tagKey(tag) === activeTagKey);
     const authorMatch = !activeAuthor || (e.authorIds || []).includes(activeAuthor);
     return tagMatch && authorMatch;
-  }).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)), [journal, activeTag, activeAuthor]);
+  }).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)), [journal, activeTagKey, activeAuthor]);
 
   const filteredTags = useMemo(
-    () => allTags.filter(tag => !tagSearch || tag.toLowerCase().includes(tagSearch.toLowerCase())),
+    () => { const q = tagKey(tagSearch); return allTags.filter(tag => !q || tagKey(tag).includes(q)); },
     [allTags, tagSearch],
   );
   const filteredAuthors = useMemo(
@@ -272,13 +277,13 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
           {showTagResults && filteredTags.length > 0 && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
               <ScrollView nestedScrollEnabled>
-                {filteredTags.map(tag => (
-                  <TouchableOpacity key={tag} onPress={() => {setActiveTag(activeTag === tag ? null : tag); setTagSearch(''); setShowTagResults(false);}} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityState={{selected: activeTag === tag}} accessibilityLabel={tag}
-                    style={{paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeTag === tag ? `${T.info}12` : 'transparent'}}>
-                    <Text style={{fontSize: fs(12), color: activeTag === tag ? T.info : T.text}}>{tag}</Text>
+                {filteredTags.map(tag => { const sel = activeTagKey === tagKey(tag); return (
+                  <TouchableOpacity key={tag} onPress={() => {setActiveTag(sel ? null : tag); setTagSearch(''); setShowTagResults(false);}} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={tag}
+                    style={{paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: sel ? `${T.info}12` : 'transparent'}}>
+                    <Text style={{fontSize: fs(12), color: sel ? T.info : T.text}}>{tag}</Text>
                   </TouchableOpacity>
-                ))}
+                ); })}
               </ScrollView>
             </View>
           )}
@@ -394,13 +399,13 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
                     ) : null}
                     {(e.hashtags || []).length > 0 && (
                       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8}}>
-                        {(e.hashtags || []).map(tag => (
-                          <TouchableOpacity key={tag} onPress={() => {setActiveTag(activeTag === tag ? null : tag); setTagSearch('');}} activeOpacity={0.7}
-                            accessibilityRole="button" accessibilityState={{selected: activeTag === tag}} accessibilityLabel={tag}
-                            style={[s.tagChip, {backgroundColor: activeTag === tag ? `${T.info}25` : `${T.info}12`, borderColor: activeTag === tag ? `${T.info}60` : `${T.info}30`}]}>
+                        {(e.hashtags || []).map((tag, ti) => { const sel = activeTagKey === tagKey(tag); return (
+                          <TouchableOpacity key={`${ti}-${tag}`} onPress={() => {setActiveTag(sel ? null : tag); setTagSearch('');}} activeOpacity={0.7}
+                            accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={tag}
+                            style={[s.tagChip, {backgroundColor: sel ? `${T.info}25` : `${T.info}12`, borderColor: sel ? `${T.info}60` : `${T.info}30`}]}>
                             <Text style={{fontSize: fs(11), color: T.info}}>{tag}</Text>
                           </TouchableOpacity>
-                        ))}
+                        ); })}
                       </View>
                     )}
                   </>

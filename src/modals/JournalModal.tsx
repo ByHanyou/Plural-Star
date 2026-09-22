@@ -4,14 +4,12 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {Fonts, fontScale} from '../theme';
-import {Member, JournalEntry, JournalTemplate, uid, fmtTime, sortMembersBySearch, memberMatchesSearch} from '../utils';
+import {Member, JournalEntry, JournalTemplate, uid, fmtTime, sortMembersBySearch, memberMatchesSearch, tagKey} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-// The author search results are rendered inline, so they are capped rather
-// than made scrollable. See the comment at the results box below.
 const AUTHOR_RESULTS_MAX = 20;
 
 export const JournalModal = ({visible, theme: T, entry, members, templates, onSave, onClose, onMentionPress, lockView = false}: any) => {
@@ -34,7 +32,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
     setF(x => ({...x, [k]: v}));
   };
   const togAuthor = (id: string) => set('authorIds', (f.authorIds || []).includes(id) ? (f.authorIds || []).filter((i: string) => i !== id) : [...(f.authorIds || []), id]);
-  const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.hashtags || []; if (!cur.includes(`#${raw}`)) set('hashtags', [...cur, `#${raw}`]); setTagInput(''); };
+  const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').normalize('NFC'); if (!raw) return; const cur = f.hashtags || []; const next = `#${raw}`; if (!cur.some(v => tagKey(v) === tagKey(next))) set('hashtags', [...cur, next]); setTagInput(''); };
   const applyTemplate = (tpl: JournalTemplate) => {
     setF(x => ({...x, title: tpl.title || x.title, body: tpl.body || x.body, hashtags: [...(tpl.hashtags || [])]}));
     setShowTemplatePicker(false);
@@ -136,12 +134,6 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
           autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
           style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 4}} />
         {authorSearch.length > 0 && (
-          // No ScrollView here. One nested inside the sheet's own scroller
-          // cannot be scrolled on Android: the sheet's BottomSheetBehavior
-          // takes the drag and React Native's ScrollView does not join the
-          // nested-scrolling protocol, so every match past the first few rows
-          // of the 160px box was unreachable. The list is capped and drawn
-          // inline instead, and the sheet scrolls it like everything else.
           <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 8}}>
             {(() => {
                 const q = authorSearch.toLowerCase();

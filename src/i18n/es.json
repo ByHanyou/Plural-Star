@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "DD",
+    "year": "AAAA",
+    "hour": "HH",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Colores",
     "rowDefault": "Predeterminado",
@@ -59,7 +66,8 @@
     "toolDivider": "Separador",
     "imageUnavailable": "[imagen no disponible]",
     "brokenImage": "[imagen dañada]",
-    "brokenImageUrl": "[imagen dañada: {{url}}]"
+    "brokenImageUrl": "[imagen dañada: {{url}}]",
+    "spoiler": "Spoiler, toca para revelar"
   },
   "a11y": {
     "settings": "Ajustes",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} miembros",
     "countFronters": "{{count}} fronter",
     "countFronters_other": "{{count}} fronters",
-    "countFiltered": "{{filtered}} de {{total}} miembros"
+    "countFiltered": "{{filtered}} de {{total}} miembros",
+    "recentlyDeleted": "Eliminados recientemente"
   },
   "history": {
     "editEntry": "Editar",
@@ -1003,7 +1012,7 @@
     "online": "En línea",
     "offline": "Sin conexión",
     "tabPrivacy": "Privacidad",
-    "privacyDesc": "Los círculos de privacidad deciden qué pueden ver los amigos dentro de ellos: todo, una selección o nada, por función. Asignar amigos llegará con la expansión de compartir.",
+    "privacyDesc": "Los círculos de privacidad deciden qué pueden ver los amigos dentro de ellos: todo, una selección o nada, por función.",
     "buckets": "Círculos",
     "noBuckets": "Aún no hay círculos.",
     "newBucket": "Nuevo círculo",
@@ -1088,7 +1097,11 @@
     "tierHint": "Cambia el nombre de los niveles de fronteo. Tu palabra sustituye a la predeterminada en toda la app. En blanco se usa la predeterminada.",
     "tierPrimary": "Frente Principal",
     "tierCoFront": "Co-Frente",
-    "tierCoConscious": "Co-Consciente"
+    "tierCoConscious": "Co-Consciente",
+    "journal": "Diario",
+    "hub": "Centro",
+    "history": "Historial",
+    "archive": "Archivo"
   },
   "planner": {
     "title": "Planificador Diario",
@@ -1145,6 +1158,7 @@
     "title": "Buzón",
     "compose": "Redactar",
     "everyone": "Todo el mundo",
+    "allOthers": "Todos los demás Miembros",
     "from": "De",
     "to": "Para",
     "send": "Enviar",

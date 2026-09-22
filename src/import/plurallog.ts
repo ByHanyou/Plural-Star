@@ -1,6 +1,6 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
-import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, ChatChannel, ChatMessage, NoteboardEntry, uid} from '../utils';
+import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, ChatChannel, ChatMessage, NoteboardEntry, uid, truncateRunes} from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
@@ -185,7 +185,7 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
             const body = String(j?.text || '').trim();
             if (!body || !j.timestamp) return;
             const author = idMap[String(j.authorId)];
-            const firstLine = body.split('\n')[0].slice(0, 60);
+            const firstLine = truncateRunes(body.split('\n')[0], 60);
             const tags = csv(j.tags).map(x => (x.startsWith('#') ? x : `#${x}`));
             if (j.emotion) tags.push(`#${String(j.emotion)}`);
             const entry: JournalEntry = {

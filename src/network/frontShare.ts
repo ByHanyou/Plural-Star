@@ -16,8 +16,13 @@ const getTierField = (front: any, tier: string, field: string): string | undefin
 const resolveNames = (ids: string[], members: Member[]): string =>
   ids.map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ');
 
-export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<string> | null, facetAllowedIds?: Set<string> | null, customFrontAllowedIds?: Set<string> | null): FrontShare | null => {
+export interface FrontShareDetails { mood?: boolean; location?: boolean; note?: boolean }
+
+export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<string> | null, facetAllowedIds?: Set<string> | null, customFrontAllowedIds?: Set<string> | null, details?: FrontShareDetails): FrontShare | null => {
   if (!front) return null;
+  const shareMood = details?.mood !== false;
+  const shareLocation = details?.location !== false;
+  const shareNote = details?.note !== false;
   const facetIds = facetAllowedIds === undefined ? null : new Set(members.filter(m => m.isFacet && !m.isCustomFront).map(m => m.id));
   const customFrontIds = customFrontAllowedIds === undefined ? null : new Set(members.filter(m => m.isCustomFront).map(m => m.id));
   const permit = (ids: string[]) => ids.filter(id => {
@@ -40,12 +45,9 @@ export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<
     primary: primary || undefined,
     coFront: coFront || undefined,
     coConscious: coConscious || undefined,
-    mood: primary ? getTierField(front, 'primary', 'mood') : undefined,
-    location: primary ? getTierField(front, 'primary', 'location') : undefined,
-    note: primary ? getTierField(front, 'primary', 'note') : undefined,
-    // The session start, not the history segment marker, so a friend's
-    // "fronting since" reads the same as ours instead of resetting to now
-    // every time a mood or location changes.
+    mood: primary && shareMood ? getTierField(front, 'primary', 'mood') : undefined,
+    location: primary && shareLocation ? getTierField(front, 'primary', 'location') : undefined,
+    note: primary && shareNote ? getTierField(front, 'primary', 'note') : undefined,
     startTime: typeof front.startTime === 'number' ? frontSessionStart(front) : undefined,
   };
 };

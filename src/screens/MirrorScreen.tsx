@@ -8,7 +8,7 @@ import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup, MirrorSystem
 import {SystemProfileCard} from '../components/SystemProfileCard';
 import Svg, {Path} from 'react-native-svg';
 import {ThemeColors, fontScale} from '../theme';
-import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime} from '../utils';
+import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime, getInitials} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
 import {useAppStore} from '../store/appStore';
 import {saveGroupSortMode} from '../store/actions';
@@ -198,7 +198,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           <Image source={{uri: avatar}} style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12}} accessibilityElementsHidden importantForAccessibility="no" />
         ) : (
           <View style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: item.color || T.border}} accessibilityElementsHidden importantForAccessibility="no">
-            <Text style={{fontSize: fs(16), fontWeight: '700', color: '#fff'}}>{(item.name || '?').slice(0, 1).toUpperCase()}</Text>
+            <Text style={{fontSize: fs(16), fontWeight: '700', color: '#fff'}}>{Array.from(getInitials(item.name || '?'))[0] || '?'}</Text>
           </View>
         )}
         <View style={{flex: 1, minWidth: 0}}>
@@ -332,8 +332,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           {sortedAppts.length > 0 ? (
             <>
               <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '700', color: T.dim, marginBottom: 8}}>{t('planner.appt')}</Text>
-              {sortedAppts.map((a: any) => (
-                <View key={String(a?.id || a?.time)} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8}}>
+              {sortedAppts.map((a: any, ai: number) => (
+                <View key={`${String(a?.id || a?.time)}-${ai}`} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8}}>
                   <Text style={{fontSize: fs(13), fontWeight: '600', color: a?.color || T.text}} numberOfLines={2}>{String(a?.title || '')}</Text>
                   <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{fmtTime(Number(a?.time) || 0)}</Text>
                   {a?.location ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}} numberOfLines={2}>{String(a.location)}</Text> : null}
@@ -345,8 +345,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           {rems.length > 0 ? (
             <>
               <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '700', color: T.dim, marginTop: sortedAppts.length > 0 ? 12 : 0, marginBottom: 8}}>{t('planner.reminders')}</Text>
-              {rems.map((r: any) => (
-                <View key={String(r?.id || r?.title)} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8, opacity: r?.enabled === false ? 0.5 : 1}}>
+              {rems.map((r: any, ri: number) => (
+                <View key={`${String(r?.id || r?.title)}-${ri}`} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8, opacity: r?.enabled === false ? 0.5 : 1}}>
                   <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}} numberOfLines={2}>{String(r?.title || '')}</Text>
                   {Array.isArray(r?.times) && r.times.length > 0 ? (
                     <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{r.times.join('  ·  ')}</Text>

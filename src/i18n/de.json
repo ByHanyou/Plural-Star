@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "TT",
+    "year": "JJJJ",
+    "hour": "HH",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Farben",
     "rowDefault": "Standard",
@@ -59,7 +66,8 @@
     "toolDivider": "Trennlinie",
     "imageUnavailable": "[Bild nicht verfügbar]",
     "brokenImage": "[defektes Bild]",
-    "brokenImageUrl": "[defektes Bild: {{url}}]"
+    "brokenImageUrl": "[defektes Bild: {{url}}]",
+    "spoiler": "Spoiler, zum Anzeigen tippen"
   },
   "a11y": {
     "settings": "Einstellungen",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} Mitglieder",
     "countFronters": "{{count}} Fronter",
     "countFronters_other": "{{count}} Fronter",
-    "countFiltered": "{{filtered}} von {{total}} Mitgliedern"
+    "countFiltered": "{{filtered}} von {{total}} Mitgliedern",
+    "recentlyDeleted": "Kürzlich gelöscht"
   },
   "history": {
     "editEntry": "Bearbeiten",
@@ -1003,7 +1012,7 @@
     "online": "Online",
     "offline": "Offline",
     "tabPrivacy": "Privatsphäre",
-    "privacyDesc": "Privatsphäre-Kreise legen fest, was Freunde darin sehen können: alles, eine Auswahl oder nichts — je Funktion. Freunde zuweisen kommt mit der Freigabe-Erweiterung.",
+    "privacyDesc": "Privatsphäre-Kreise legen fest, was Freunde darin sehen können: alles, eine Auswahl oder nichts — je Funktion.",
     "buckets": "Kreise",
     "noBuckets": "Noch keine Kreise.",
     "newBucket": "Neuer Kreis",
@@ -1088,7 +1097,11 @@
     "tierHint": "Benenne die Front-Ebenen um. Dein Wort ersetzt überall das Standardwort. Leer = Standard.",
     "tierPrimary": "Primärer Front",
     "tierCoFront": "Co-Front",
-    "tierCoConscious": "Co-Bewusst"
+    "tierCoConscious": "Co-Bewusst",
+    "journal": "Tagebuch",
+    "hub": "Zentrum",
+    "history": "Verlauf",
+    "archive": "Archiv"
   },
   "planner": {
     "title": "Tagesplaner",
@@ -1145,6 +1158,7 @@
     "title": "Postfach",
     "compose": "Verfassen",
     "everyone": "Alle",
+    "allOthers": "Alle anderen Mitglieder",
     "from": "Von",
     "to": "An",
     "send": "Senden",

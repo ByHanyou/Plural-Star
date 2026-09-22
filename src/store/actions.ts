@@ -36,6 +36,25 @@ export const saveSystem = async (d: SystemInfo) => {
   setSystem(d); await store.set(KEYS.system, d);
 };
 
+const pruneFrontOfGone = (d: Member[], front: FrontState | null): FrontState | null | undefined => {
+  if (!front) return undefined;
+  const gone = new Set(d.filter(m => m.archived || m.deleted).map(m => m.id));
+  if (gone.size === 0) return undefined;
+  const pruneTier = (tier: any) => tier ? {...tier, memberIds: (tier.memberIds || []).filter((id: string) => !gone.has(id))} : tier;
+  const next: any = {...front, primary: pruneTier(front.primary), coFront: pruneTier(front.coFront), coConscious: pruneTier(front.coConscious)};
+  const count = (f: any) => (f?.primary?.memberIds?.length || 0) + (f?.coFront?.memberIds?.length || 0) + (f?.coConscious?.memberIds?.length || 0);
+  if (count(next) === count(front)) return undefined;
+  return isFrontEmpty(next) ? null : next;
+};
+
+export const pruneFrontOfRemovedMembers = async () => {
+  const {members, front, setFront} = useAppStore.getState();
+  const cleaned = pruneFrontOfGone(members, front);
+  if (cleaned === undefined) return;
+  setFront(cleaned);
+  await store.set(KEYS.front, cleaned);
+};
+
 export const saveMembers = async (d: Member[]) => {
   const {loaded, front, setMembers, setFront} = useAppStore.getState();
   if (!loaded && d.length === 0) {
@@ -44,16 +63,10 @@ export const saveMembers = async (d: Member[]) => {
   }
   setMembers(d);
   await store.set(KEYS.members, d);
-  const archivedIds = new Set(d.filter(m => m.archived).map(m => m.id));
-  if (archivedIds.size > 0 && front) {
-    const pruneTier = (tier: any) => tier ? {...tier, memberIds: (tier.memberIds || []).filter((id: string) => !archivedIds.has(id))} : tier;
-    const next: any = {...front, primary: pruneTier(front.primary), coFront: pruneTier(front.coFront), coConscious: pruneTier(front.coConscious)};
-    const count = (f: any) => (f?.primary?.memberIds?.length || 0) + (f?.coFront?.memberIds?.length || 0) + (f?.coConscious?.memberIds?.length || 0);
-    if (count(next) !== count(front)) {
-      const cleaned = isFrontEmpty(next) ? null : next;
-      setFront(cleaned);
-      await store.set(KEYS.front, cleaned);
-    }
+  const cleaned = pruneFrontOfGone(d, front);
+  if (cleaned !== undefined) {
+    setFront(cleaned);
+    await store.set(KEYS.front, cleaned);
   }
 };
 
@@ -247,8 +260,9 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
   if (nf && appSettings.gpsEnabled && !cleanPrimary.location?.trim()) {
     try {
       const gpsLocation = await getGPSLocation();
-      if (gpsLocation && gpsLocation !== explicitLocation) {
-        const patched: FrontState = {...nf, primary: {...nf.primary, location: gpsLocation}};
+      const live = useAppStore.getState().front;
+      if (gpsLocation && gpsLocation !== explicitLocation && live && finalFront && live.startTime === finalFront.startTime && !live.primary.location?.trim()) {
+        const patched: FrontState = {...live, primary: {...live.primary, location: gpsLocation}};
         useAppStore.getState().setFront(patched);
         await store.set(KEYS.front, patched);
         await updateLastLocation(gpsLocation);
@@ -262,11 +276,11 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
 };
 
 export const updateFrontDetails = async (tier: FrontTierKey, mood?: string, location?: string, note?: string, energyLevel?: number) => {
+  const resolvedLocation = tier === 'primary' ? await maybeGPS(location) : location;
   const {front, history, setFront} = useAppStore.getState();
   if (!front) return;
   const now = Date.now();
   const tierData = front[tier];
-  const resolvedLocation = tier === 'primary' ? await maybeGPS(location) : location;
   const updatedTier = {...tierData, mood, location: resolvedLocation, note: note ?? tierData.note, energyLevel};
   const moodChanged = (mood || undefined) !== (tierData.mood || undefined);
   const locChanged = (resolvedLocation || undefined) !== (tierData.location || undefined);
@@ -321,9 +335,37 @@ export const saveMember = async (m: Member) => {
   await saveMembers(u);
 };
 
+const forgetMemberLinks = async (id: string): Promise<void> => {
+  try {
+    const rels = (await store.get<any[]>(KEYS.relationships, [])) || [];
+    const keep = rels.filter(r => r && r.fromId !== id && r.toId !== id);
+    if (keep.length !== rels.length) await store.set(KEYS.relationships, keep);
+  } catch (e) { logError('deleteMember: relationships', e); }
+  try {
+    const ids = (await store.get<string[]>(KEYS.systemMapMembers, [])) || [];
+    if (ids.includes(id)) await store.set(KEYS.systemMapMembers, ids.filter(x => x !== id));
+  } catch (e) { logError('deleteMember: map members', e); }
+  try {
+    const pos = (await store.get<Record<string, unknown>>(KEYS.systemMapPositions, {})) || {};
+    if (id in pos) { const {[id]: _drop, ...rest} = pos; await store.set(KEYS.systemMapPositions, rest); }
+  } catch (e) { logError('deleteMember: map positions', e); }
+};
+
 export const deleteMember = async (id: string) => {
+  await forgetMemberLinks(id);
   const {members} = useAppStore.getState();
   return saveMembers(members.map(m => m.id === id ? {...m, archived: true, deleted: true} : m));
+};
+
+export const restoreDeletedMember = async (id: string) => {
+  const {members} = useAppStore.getState();
+  return saveMembers(members.map(m => m.id === id ? {...m, deleted: false, archived: false} : m));
+};
+
+export const bulkSetFacet = async (ids: string[], toFacet: boolean) => {
+  const {members} = useAppStore.getState();
+  const idSet = new Set(ids);
+  await saveMembers(members.map(m => idSet.has(m.id) && !m.isCustomFront ? {...m, isFacet: toFacet} : m));
 };
 
 export const bulkSetArchived = async (ids: string[], archived: boolean) => {
@@ -333,6 +375,7 @@ export const bulkSetArchived = async (ids: string[], archived: boolean) => {
 };
 
 export const bulkDeleteMembers = async (ids: string[]) => {
+  for (const id of ids) await forgetMemberLinks(id);
   const {members} = useAppStore.getState();
   const idSet = new Set(ids);
   await saveMembers(members.map(m => idSet.has(m.id) ? {...m, archived: true, deleted: true} : m));

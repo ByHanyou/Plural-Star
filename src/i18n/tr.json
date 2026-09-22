@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "AA",
+    "day": "GG",
+    "year": "YYYY",
+    "hour": "SS",
+    "minute": "DK"
+  },
   "colors": {
     "title": "Renkler",
     "rowDefault": "Varsayılan",
@@ -59,7 +66,8 @@
     "toolDivider": "Ayırıcı",
     "imageUnavailable": "[görsel kullanılamıyor]",
     "brokenImage": "[bozuk görsel]",
-    "brokenImageUrl": "[bozuk görsel: {{url}}]"
+    "brokenImageUrl": "[bozuk görsel: {{url}}]",
+    "spoiler": "Spoiler, göstermek için dokun"
   },
   "common": {
     "movedToTop": "Artık ilk sırada",
@@ -263,7 +271,8 @@
     "bulkRestore": "Üyeleri geri yükle",
     "bulkRestoreMsg": "{{count}} üye aktif olarak geri yüklensin mi?",
     "bulkDelete": "Üyeleri sil",
-    "bulkDeleteMsg": "{{count}} üye kalıcı olarak silinsin mi? Bu geri alınamaz."
+    "bulkDeleteMsg": "{{count}} üye kalıcı olarak silinsin mi? Bu geri alınamaz.",
+    "recentlyDeleted": "Son silinenler"
   },
   "history": {
     "title": "Geçmiş",
@@ -1003,7 +1012,7 @@
     "online": "Çevrimiçi",
     "offline": "Çevrimdışı",
     "tabPrivacy": "Gizlilik",
-    "privacyDesc": "Gizlilik çemberleri, içindeki arkadaşların neyi görebileceğini belirler: her şey, bir seçim veya hiçbir şey — özellik başına. Arkadaş atama, paylaşım genişletmesiyle gelecek.",
+    "privacyDesc": "Gizlilik çemberleri, içindeki arkadaşların neyi görebileceğini belirler: her şey, bir seçim veya hiçbir şey — özellik başına.",
     "buckets": "Çemberler",
     "noBuckets": "Henüz çember yok.",
     "newBucket": "Yeni çember",
@@ -1088,7 +1097,11 @@
     "tierHint": "Front seviyelerinin adlarını değiştir. Senin sözcüğün varsayılanın yerine her yerde geçer. Boş bırakılırsa varsayılan kullanılır.",
     "tierPrimary": "Birincil Front",
     "tierCoFront": "Eş-Front",
-    "tierCoConscious": "Eş-Bilinç"
+    "tierCoConscious": "Eş-Bilinç",
+    "journal": "Günlük",
+    "hub": "Merkez",
+    "history": "Geçmiş",
+    "archive": "Arşiv"
   },
   "planner": {
     "title": "Gün Planlayıcı",
@@ -1145,6 +1158,7 @@
     "title": "Posta Kutusu",
     "compose": "Yeni ileti",
     "everyone": "Herkes",
+    "allOthers": "Diğer tüm Üyeler",
     "from": "Kimden",
     "to": "Kime",
     "send": "Gönder",

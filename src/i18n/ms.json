@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "BB",
+    "day": "HH",
+    "year": "TTTT",
+    "hour": "JJ",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Warna",
     "rowDefault": "Lalai",
@@ -59,7 +66,8 @@
     "toolDivider": "Pemisah",
     "imageUnavailable": "[imej tidak tersedia]",
     "brokenImage": "[imej rosak]",
-    "brokenImageUrl": "[imej rosak: {{url}}]"
+    "brokenImageUrl": "[imej rosak: {{url}}]",
+    "spoiler": "Spoiler, ketik untuk dedahkan"
   },
   "common": {
     "movedToTop": "Kini pertama",
@@ -263,7 +271,8 @@
     "bulkRestore": "Pulihkan ahli",
     "bulkRestoreMsg": "Pulihkan {{count}} ahli kepada aktif?",
     "bulkDelete": "Padam ahli",
-    "bulkDeleteMsg": "Padam {{count}} ahli secara kekal? Ini tidak boleh dibuat asal."
+    "bulkDeleteMsg": "Padam {{count}} ahli secara kekal? Ini tidak boleh dibuat asal.",
+    "recentlyDeleted": "Dipadam baru-baru ini"
   },
   "history": {
     "title": "Sejarah",
@@ -1003,7 +1012,7 @@
     "online": "Dalam talian",
     "offline": "Luar talian",
     "tabPrivacy": "Privasi",
-    "privacyDesc": "Bulatan privasi menentukan apa yang rakan di dalamnya boleh lihat: semua, pilihan, atau tiada — mengikut ciri. Penetapan rakan tiba dengan peluasan perkongsian.",
+    "privacyDesc": "Bulatan privasi menentukan apa yang rakan di dalamnya boleh lihat: semua, pilihan, atau tiada — mengikut ciri.",
     "buckets": "Bulatan",
     "noBuckets": "Tiada bulatan lagi.",
     "newBucket": "Bulatan baharu",
@@ -1088,7 +1097,11 @@
     "tierHint": "Namakan semula tahap fronting. Perkataan anda menggantikan yang lalai di mana-mana sahaja. Kosong menggunakan lalai.",
     "tierPrimary": "Front Utama",
     "tierCoFront": "Ko-Front",
-    "tierCoConscious": "Ko-Sedar"
+    "tierCoConscious": "Ko-Sedar",
+    "journal": "Jurnal",
+    "hub": "Hab",
+    "history": "Sejarah",
+    "archive": "Arkib"
   },
   "planner": {
     "title": "Perancang Hari",
@@ -1144,6 +1157,7 @@
     "title": "Peti mel",
     "compose": "Karang",
     "everyone": "Semua",
+    "allOthers": "Semua Ahli lain",
     "from": "Daripada",
     "to": "Kepada",
     "send": "Hantar",

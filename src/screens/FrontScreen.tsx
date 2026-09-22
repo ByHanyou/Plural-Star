@@ -21,12 +21,15 @@ import {
   fmtDur,
   frontSessionStart,
   isFrontEmpty,
+  translateMood,
+  upperText,
 } from '../utils';
 
 interface Props {
   theme: ThemeColors;
   onSetFront: () => void;
   onEditDetails: (tier: FrontTierKey) => void;
+  onOpenMember?: (id: string) => void;
 }
 
 const stripMember = (tier: FrontTier, id: string): FrontTier => ({
@@ -48,6 +51,7 @@ const TierCard = ({
   front,
   onEditDetails,
   onQuickRemove,
+  onOpenMember,
 }: {
   tier: FrontTier;
   tierKey: FrontTierKey;
@@ -56,6 +60,7 @@ const TierCard = ({
   front: FrontState;
   onEditDetails: (tier: FrontTierKey) => void;
   onQuickRemove: (memberId: string) => void;
+  onOpenMember?: (id: string) => void;
 }) => {
   const {t} = useTranslation();
 
@@ -110,22 +115,26 @@ const TierCard = ({
           {fronters.length > 0 ? (
             fronters.map(m => (
               <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-                <Avatar member={m} size={isPrimary ? 48 : 40} T={T} />
-                <View style={{flex: 1}}>
-                  <Text style={{fontSize: isPrimary ? fs(16) : fs(14), fontWeight: '500', color: T.text}}>
-                    {m.name}
-                  </Text>
-                  {m.pronouns ? (
-                    <Text style={{fontSize: fs(12), color: T.dim}}>
-                      {m.pronouns}
+                <TouchableOpacity onPress={onOpenMember ? () => onOpenMember(m.id) : undefined} activeOpacity={onOpenMember ? 0.7 : 1} disabled={!onOpenMember} accessible={!!onOpenMember}
+                  accessibilityRole={onOpenMember ? 'button' : undefined} accessibilityLabel={onOpenMember ? `${m.name}, ${t('systemMap.viewProfile')}` : undefined}
+                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                  <Avatar member={m} size={isPrimary ? 48 : 40} T={T} />
+                  <View style={{flex: 1}}>
+                    <Text style={{fontSize: isPrimary ? fs(16) : fs(14), fontWeight: '500', color: T.text}}>
+                      {m.name}
                     </Text>
-                  ) : null}
-                  {m.role ? (
-                    <Text style={{fontSize: fs(10), fontWeight: '600', letterSpacing: 1, marginTop: 1, color: m.color}}>
-                      {m.role.toUpperCase()}
-                    </Text>
-                  ) : null}
-                </View>
+                    {m.pronouns ? (
+                      <Text style={{fontSize: fs(12), color: T.dim}}>
+                        {m.pronouns}
+                      </Text>
+                    ) : null}
+                    {m.role ? (
+                      <Text style={{fontSize: fs(10), fontWeight: '600', letterSpacing: 1, marginTop: 1, color: m.color}}>
+                        {upperText(m.role)}
+                      </Text>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
                 <Text style={{fontSize: fs(11), color: T.muted}} accessibilityLabel={`${m.name}, ${t('front.frontingFor')} ${fmtDur(front.memberSince?.[m.id] ?? front.startTime)}`}>
                   {fmtDur(front.memberSince?.[m.id] ?? front.startTime)}
                 </Text>
@@ -153,6 +162,29 @@ const TierCard = ({
           </View>
         )}
 
+        {(tier.mood || tier.location || tier.energyLevel) ? (
+          <View style={{flexDirection: 'row', gap: 16, borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8, marginBottom: 8}}>
+            {tier.mood ? (
+              <View style={{flex: 1}}>
+                <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t('modal.mood')}</Text>
+                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={2}>{translateMood(tier.mood, t)}</Text>
+              </View>
+            ) : null}
+            {tier.location ? (
+              <View style={{flex: 1}}>
+                <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t('modal.location')}</Text>
+                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={2}>{tier.location}</Text>
+              </View>
+            ) : null}
+            {tier.energyLevel ? (
+              <View>
+                <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t('energy.label')}</Text>
+                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}}>{tier.energyLevel}/10</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('tier.editTier', {tier: label})} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
           <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
             <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim}}>
@@ -175,6 +207,7 @@ export const FrontScreen = ({
   theme: T,
   onSetFront,
   onEditDetails,
+  onOpenMember,
 }: Props) => {
   const front = useAppStore(s => s.front);
   const members = useAppStore(s => s.members);
@@ -244,6 +277,7 @@ export const FrontScreen = ({
               front={front!}
               onEditDetails={onEditDetails}
               onQuickRemove={quickRemove}
+              onOpenMember={onOpenMember}
             />
 
             <TierCard
@@ -254,6 +288,7 @@ export const FrontScreen = ({
               front={front!}
               onEditDetails={onEditDetails}
               onQuickRemove={quickRemove}
+              onOpenMember={onOpenMember}
             />
 
             <TierCard
@@ -264,6 +299,7 @@ export const FrontScreen = ({
               front={front!}
               onEditDetails={onEditDetails}
               onQuickRemove={quickRemove}
+              onOpenMember={onOpenMember}
             />
           </>
         )}

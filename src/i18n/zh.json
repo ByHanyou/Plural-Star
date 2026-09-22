@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "月",
+    "day": "日",
+    "year": "年",
+    "hour": "时",
+    "minute": "分"
+  },
   "colors": {
     "title": "颜色",
     "rowDefault": "默认",
@@ -59,7 +66,8 @@
     "toolDivider": "分隔线",
     "imageUnavailable": "[图片不可用]",
     "brokenImage": "[图片损坏]",
-    "brokenImageUrl": "[图片损坏: {{url}}]"
+    "brokenImageUrl": "[图片损坏: {{url}}]",
+    "spoiler": "隐藏内容，点击显示"
   },
   "a11y": {
     "settings": "设置",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} 位成员",
     "countFronters": "{{count}} 位前台者",
     "countFronters_other": "{{count}} 位前台者",
-    "countFiltered": "{{total}} 位成员中的 {{filtered}} 位"
+    "countFiltered": "{{total}} 位成员中的 {{filtered}} 位",
+    "recentlyDeleted": "最近删除"
   },
   "history": {
     "editEntry": "编辑",
@@ -1003,7 +1012,7 @@
     "online": "在线",
     "offline": "离线",
     "tabPrivacy": "隐私",
-    "privacyDesc": "隐私圈决定圈内好友能看到的内容：全部、部分或无——按功能设置。好友分配将随共享扩展推出。",
+    "privacyDesc": "隐私圈决定圈内好友能看到的内容：全部、部分或无——按功能设置。",
     "buckets": "隐私圈",
     "noBuckets": "还没有隐私圈。",
     "newBucket": "新建圈子",
@@ -1088,7 +1097,11 @@
     "tierHint": "自定义前台层级的叫法。你的用词将在所有位置替换默认用词。留空则使用默认。",
     "tierPrimary": "主前台",
     "tierCoFront": "共同前台",
-    "tierCoConscious": "共同意识"
+    "tierCoConscious": "共同意识",
+    "journal": "日记",
+    "hub": "中心",
+    "history": "历史",
+    "archive": "归档"
   },
   "planner": {
     "title": "日程规划",
@@ -1144,6 +1157,7 @@
     "title": "信箱",
     "compose": "写信",
     "everyone": "所有人",
+    "allOthers": "所有其他成员",
     "from": "发件人",
     "to": "收件人",
     "send": "发送",

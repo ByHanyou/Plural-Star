@@ -322,8 +322,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     [rosterEligible, facetEligible, mapIdSet],
   );
   const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id) && (showFacets || !m.isFacet)), [eligibleMembers, mapIdSet, showFacets]);
-  // Exactly the picker's own predicate minus the search box, so the button
-  // disables precisely when opening it would show an empty list.
   const addableCount = useMemo(
     () => rosterEligible.filter(m => !mapIdSet.has(m.id)).length +
       facetEligible.filter(m => !mapIdSet.has(m.id)).length,
@@ -373,7 +371,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       setLockPositions(!!savedLock);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
-      const ids = new Set(members.map(m => m.id));
+      const ids = new Set(useAppStore.getState().members.map(m => m.id));
       const valid = all.filter(r => ids.has(r.fromId) && ids.has(r.toId));
       setRelationships(valid);
       if (savedPositions) {
@@ -393,8 +391,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       }
     };
     load().catch(e => logError('systemMap', e));
-    // Relationships, types, map membership and positions live here, not in
-    // the app store: a sync that changes them must reload them.
     return NetworkManager.onSyncApplied(() => { load().catch(e => logError('systemMap', e)); });
   }, []);
 

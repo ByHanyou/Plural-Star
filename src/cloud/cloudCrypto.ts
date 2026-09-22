@@ -1,27 +1,3 @@
-// Cloud Services: credentials and envelope cryptography.
-//
-// This file is shared byte-for-byte between the mobile and Desktop repos. It
-// imports nothing platform-specific so both apps derive the same vault from
-// the same password and read each other's objects.
-//
-// Spec: PluralStarCloudNode/SPEC.md section 6. The password never leaves the
-// device. One Argon2id pass (RFC 9106, memory 64 MiB, 3 iterations, one lane,
-// fixed application salt) gives 32 bytes of material; HKDF-SHA256 with three
-// distinct labels splits that into the lookup ID (sent, identifies the vault),
-// the auth secret (sent once on create, then required on every call; the node
-// stores only its hash) and the key-encryption key, which never leaves the
-// device. The vault's random master key is wrapped with the KEK and stored on
-// the node, so a password change is a rewrap and nothing is re-uploaded.
-//
-// Objects and the manifest use nacl secretbox (XSalsa20-Poly1305), the
-// primitive both apps already carry. The object ID is BLAKE2b-256 of the
-// ciphertext; the node recomputes it and refuses a mismatch.
-//
-// Argon2id in pure JS is slow (no 64-bit integers in JS, and Hermes has no
-// JIT): tens of seconds on a phone at these parameters. It runs ONCE per
-// device, at link time, and the derived credentials are kept locally after
-// that, so the cost is paid once and never on a wake check.
-
 import nacl from 'tweetnacl';
 import {argon2idAsync} from '@noble/hashes/argon2.js';
 import {blake2b} from '@noble/hashes/blake2.js';
@@ -63,8 +39,6 @@ export const deriveVaultCredentials = async (
 
 export type PasswordRule = 'length' | 'upper' | 'lower' | 'digit' | 'symbol';
 
-// The first unmet rule, or null when the password passes. The field names the
-// rule while typing and Submit stays disabled until this returns null.
 export const passwordRuleFailing = (password: string): PasswordRule | null => {
   if (password.length < 10) return 'length';
   if (!/[A-Z]/.test(password)) return 'upper';
@@ -112,20 +86,13 @@ export const decryptBytes = (masterKey: Uint8Array, sealed: Uint8Array): Uint8Ar
 
 export const objectIdOf = (ciphertext: Uint8Array): string => bytesToHex(blake2b(ciphertext, {dkLen: 32}));
 
-// Data entries are one JSON string per storage key, gzipped before encryption
-// (spec 7.2). Media entries are the raw image bytes and are not gzipped.
 export const packData = (raw: string): Uint8Array => gzipSync(strToU8(raw), {level: 6});
 
 export const unpackData = (bytes: Uint8Array): string => strFromU8(gunzipSync(bytes));
 
-// A content hash for local change detection. Not a security boundary: it only
-// decides whether a key needs re-uploading, and it lives inside the encrypted
-// manifest so the node never sees it.
 export const contentHashHex = (raw: string): string => bytesToHex(blake2b(strToU8(raw), {dkLen: 16}));
 
-// Base64 over Uint8Array in both directions, chunked so a multi-megabyte media
-// object does not build its string one character at a time on Hermes.
-const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64 ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const B64_REV = (() => {
   const r = new Int16Array(256).fill(-1);
   for (let i = 0; i < B64.length; i++) r[B64.charCodeAt(i)] = i;

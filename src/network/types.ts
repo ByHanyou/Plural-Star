@@ -139,8 +139,6 @@ export const SYNC_EXCLUDE_KEYS = [
   'ps:networkSyncState',
   'ps:deviceCodes',
   'ps:medical',
-  // Cloud Services link state holds the vault's master key. It never leaves
-  // the device by any lane, including the vault it unlocks.
   'ps:cloudVault',
 ];
 
@@ -176,9 +174,34 @@ export interface PrivacyBucket {
   planner?: PrivacyScope;
   facets?: PrivacyScope;
   customFronts?: PrivacyScope;
+  front?: PrivacyScope;
+  frontMood?: boolean;
+  frontLocation?: boolean;
+  frontNote?: boolean;
   friendPeerIds: string[];
   createdAt: number;
 }
+
+export interface FrontVisibility {
+  show: boolean;
+  mood: boolean;
+  location: boolean;
+  note: boolean;
+}
+
+export const frontVisibilityFor = (buckets: PrivacyBucket[], peerId: string): FrontVisibility => {
+  const mine = buckets.filter(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId));
+  if (mine.length === 0) return {show: true, mood: true, location: true, note: true};
+  const v: FrontVisibility = {show: false, mood: false, location: false, note: false};
+  for (const b of mine) {
+    if (b.front && b.front.mode === 'none') continue;
+    v.show = true;
+    if (b.frontMood !== false) v.mood = true;
+    if (b.frontLocation !== false) v.location = true;
+    if (b.frontNote !== false) v.note = true;
+  }
+  return v;
+};
 
 export const PRIVACY_BUCKETS_KEY = 'ps:privacyBuckets';
 

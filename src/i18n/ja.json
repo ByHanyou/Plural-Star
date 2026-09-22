@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "月",
+    "day": "日",
+    "year": "年",
+    "hour": "時",
+    "minute": "分"
+  },
   "colors": {
     "title": "カラー",
     "rowDefault": "デフォルト",
@@ -59,7 +66,8 @@
     "toolDivider": "区切り線",
     "imageUnavailable": "[画像を表示できません]",
     "brokenImage": "[画像が壊れています]",
-    "brokenImageUrl": "[画像が壊れています: {{url}}]"
+    "brokenImageUrl": "[画像が壊れています: {{url}}]",
+    "spoiler": "ネタバレ、タップして表示"
   },
   "a11y": {
     "settings": "設定",
@@ -286,7 +294,8 @@
     "count_other": "{{count}} 人のメンバー",
     "countFronters": "フロンター {{count}} 人",
     "countFronters_other": "フロンター {{count}} 人",
-    "countFiltered": "{{total}} 人中 {{filtered}} 人"
+    "countFiltered": "{{total}} 人中 {{filtered}} 人",
+    "recentlyDeleted": "最近削除した項目"
   },
   "history": {
     "editEntry": "編集",
@@ -1003,7 +1012,7 @@
     "online": "オンライン",
     "offline": "オフライン",
     "tabPrivacy": "プライバシー",
-    "privacyDesc": "プライバシーサークルは、その中の友達に見せる範囲を機能ごとに決めます（すべて・選択・なし）。友達の割り当ては共有拡張で追加されます。",
+    "privacyDesc": "プライバシーサークルは、その中の友達に見せる範囲を機能ごとに決めます（すべて・選択・なし）。",
     "buckets": "サークル",
     "noBuckets": "サークルはまだありません。",
     "newBucket": "新しいサークル",
@@ -1088,7 +1097,11 @@
     "tierHint": "フロントの段階の呼び方を変更できます。入力した語がデフォルトの語をどこでも置き換えます。空欄ならデフォルトを使用します。",
     "tierPrimary": "プライマリフロント",
     "tierCoFront": "コフロント",
-    "tierCoConscious": "コーコンシャス"
+    "tierCoConscious": "コーコンシャス",
+    "journal": "ジャーナル",
+    "hub": "ハブ",
+    "history": "履歴",
+    "archive": "アーカイブ"
   },
   "planner": {
     "title": "デイプランナー",
@@ -1144,6 +1157,7 @@
     "title": "メールボックス",
     "compose": "作成",
     "everyone": "全員",
+    "allOthers": "他のすべてのメンバー",
     "from": "差出人",
     "to": "宛先",
     "send": "送信",

@@ -4,7 +4,7 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 import { saveAvatar, saveBannerFromBase64, saveBioImage, saveChatMedia, mirrorThumbDataUri, rebaseDocumentUri } from '../utils/mediaUtils';
 import { CLOUD_MEDIA_MISSING } from '../cloud/cloudVault';
 import { logError } from '../utils/log';
-import { store, KEYS, chatMsgKey } from '../storage';
+import { store, KEYS, chatMsgKey, onStoreWrite } from '../storage';
 import {
   Identity,
   FriendIdentity,
@@ -60,6 +60,7 @@ import {
   PrivacyBucket,
   PrivacyScope,
   PRIVACY_BUCKETS_KEY,
+  frontVisibilityFor,
 } from './types';
 
 const SYNC_DEBOUNCE_MS = 8000;
@@ -71,13 +72,6 @@ const SYNC_PACE_MS = 300;
 const SYNC_MAX_PARTS = 4096;
 const MIRROR_MEDIA_MAX = 600 * 1024;
 
-// statusAuthoredAt is stamped by the SENDER's clock and rides both the socket
-// lane and the gateway lane. A friend whose device clock runs fast stamps a
-// time in the future; once that is stored, every later update from them
-// compares as older and is dropped forever, so their row freezes at whatever
-// it last held while they still show Online, and only refriending clears it.
-// A stamp from the future is therefore neither trusted for ordering nor
-// stored, which also self-heals rows already poisoned by an earlier build.
 const FRONT_CLOCK_SKEW_MS = 5 * 60 * 1000;
 const withinSkew = (at: unknown): boolean =>
   typeof at === 'number' && at > 0 && at <= Date.now() + FRONT_CLOCK_SKEW_MS;
@@ -85,28 +79,27 @@ const trustedAuthoredAt = (at: unknown): number => (withinSkew(at) ? (at as numb
 
 const SYNC_EXCLUDE = new Set(SYNC_EXCLUDE_KEYS);
 
-// Medical stays OUT of the vault for now (Zach, 2026-09-12: it is not even in
-// mobile). Same exclusions as the device lane.
 const CLOUD_EXCLUDE = new Set(SYNC_EXCLUDE_KEYS);
 
-// What a chat attachment's content is replaced with inside the vault's copy of
-// a message list. The bytes travel as their own ps:media:chat:* entry.
 const CLOUD_CHAT_MEDIA_MARK = 'cloud:media';
 
 const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
 
-// ---- inbound hygiene -------------------------------------------------------
-// A packet is signed by its sender, so it is authentic; it is not therefore
-// well-formed. Whatever a peer puts in a field that the app stores and later
-// renders (a friend's name, a front line, a mirrored profile) must be the
-// type the app expects, or the crash comes back on every launch from the
-// persisted copy. Strings are capped, unknown shapes dropped.
 
 const MIRROR_FEATURE_SET = new Set<string>(['members', 'groups', 'medical', 'journal', 'history', 'systemProfile', 'whiteboard', 'planner']);
 const isMirrorFeature = (x: unknown): x is MirrorFeature => typeof x === 'string' && MIRROR_FEATURE_SET.has(x);
 
 const inboundStr = (v: unknown, max: number): string | undefined =>
   typeof v === 'string' ? (v.length > max ? Array.from(v).slice(0, max).join('') : v) : undefined;
+
+const readRaw = async (key: string): Promise<string | null> => {
+  try {
+    return await AsyncStorage.getItem(key);
+  } catch {
+    const v = await store.get<unknown>(key, null);
+    return v == null ? null : JSON.stringify(v);
+  }
+};
 
 const sanitizeFrontShare = (s: unknown): FrontShare | null => {
   if (!s || typeof s !== 'object') return null;
@@ -124,8 +117,35 @@ const sanitizeFrontShare = (s: unknown): FrontShare | null => {
   return out;
 };
 
-// Keys the app shows as text. A non-string under one of these is dropped
-// (numbers and booleans become their text) so a render never meets an object.
+const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+const sanitizeInboundFriend = (v: unknown): Friend | null => {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const peerId = inboundStr(o.peerId, 128);
+  const edPublicKey = inboundStr(o.edPublicKey, 128);
+  const boxPublicKey = inboundStr(o.boxPublicKey, 128);
+  const displayName = inboundStr(o.displayName, 64);
+  if (!peerId || !edPublicKey || !boxPublicKey || displayName === undefined) return null;
+  const kind: Friend['kind'] = o.kind === 'device' ? 'device' : 'friend';
+  const status = o.status === 'entered_theirs' || o.status === 'entered_mine' || o.status === 'accepted' ? o.status : null;
+  if (!status) return null;
+  const out: Friend = {peerId, edPublicKey, boxPublicKey, displayName, addedAt: num(o.addedAt) ?? Date.now(), kind, status};
+  if (o.initRole === 'source' || o.initRole === 'target') out.initRole = o.initRole;
+  if (o.peerRole === 'source' || o.peerRole === 'target') out.peerRole = o.peerRole;
+  if (typeof o.initPending === 'boolean') out.initPending = o.initPending;
+  const initStartedAt = num(o.initStartedAt); if (initStartedAt !== undefined) out.initStartedAt = initStartedAt;
+  if (o.lastStatus === null) out.lastStatus = null;
+  else if (o.lastStatus !== undefined) out.lastStatus = sanitizeFrontShare(o.lastStatus);
+  const statusUpdatedAt = num(o.statusUpdatedAt); if (statusUpdatedAt !== undefined) out.statusUpdatedAt = statusUpdatedAt;
+  const statusAuthoredAt = num(o.statusAuthoredAt); if (statusAuthoredAt !== undefined) out.statusAuthoredAt = statusAuthoredAt;
+  if (typeof o.showInNotification === 'boolean') out.showInNotification = o.showInNotification;
+  if (o.notifyLevel === 'full' || o.notifyLevel === 'alerts' || o.notifyLevel === 'off') out.notifyLevel = o.notifyLevel;
+  const peerV = num(o.peerV); if (peerV !== undefined) out.peerV = peerV;
+  if (typeof o.needsRefriend === 'boolean') out.needsRefriend = o.needsRefriend;
+  const sortOrder = num(o.sortOrder); if (sortOrder !== undefined) out.sortOrder = sortOrder;
+  return out;
+};
+
 const INBOUND_TEXT_KEYS = new Set(['name', 'pronouns', 'role', 'color', 'description', 'title', 'text', 'note', 'mood', 'location', 'otherName', 'label', 'labelKey', 'nickname', 'kind', 'type', 'question', 'displayName', 'fieldId', 'id', 'otherId', 'parentId']);
 const INBOUND_MAX_DEPTH = 12;
 const INBOUND_MAX_ITEMS = 20000;
@@ -268,6 +288,7 @@ type DMListener = (dm: IncomingDM) => void;
 class NetworkManagerImpl {
   private identity: Identity | null = null;
   private client: NodeClient | null = null;
+  private cloneExpiryTimer: ReturnType<typeof setInterval> | null = null;
   private settings: NetworkSettings = { enabled: false };
   private friends: Friend[] = [];
   private online: Set<string> = new Set();
@@ -347,6 +368,7 @@ class NetworkManagerImpl {
   private async persistFriends(): Promise<void> {
     await store.set(FRIENDS_STORAGE_KEY, this.friends);
     if (!this.applyingSiblingFriends) this.pushFriendsToSiblings();
+    this.announceFrontToGateway().catch(() => {});
   }
 
   private pruneTombstones(): void {
@@ -416,8 +438,9 @@ class NetworkManagerImpl {
       }
       this.persistTombstones().catch(() => {});
     }
-    for (const inc of incoming) {
-      if (!inc || typeof inc.peerId !== 'string' || !inc.peerId) continue;
+    for (const raw of incoming) {
+      const inc = sanitizeInboundFriend(raw);
+      if (!inc) continue;
       if (inc.kind === 'device') continue;
       if (this.identity && inc.peerId === this.identity.peerId) continue;
       const mine = byId.get(inc.peerId);
@@ -461,6 +484,11 @@ class NetworkManagerImpl {
   async init(): Promise<void> {
     if (this.loaded) return;
     this.loaded = true;
+    onStoreWrite(key => {
+      if (!key.startsWith('ps:')) return;
+      if (SYNC_EXCLUDE.has(key) || key.startsWith(MIRROR_CACHE_PREFIX)) return;
+      this.notifyDataChanged();
+    });
     this.settings = (await store.get<NetworkSettings>(NETWORK_SETTINGS_KEY, null)) || {
       enabled: false,
     };
@@ -491,7 +519,8 @@ class NetworkManagerImpl {
         if (this.settings.enabled && this.client) this.client.ensureConnected();
       }
     });
-    setInterval(() => this.expireStaleClones(), 60 * 1000);
+    if (this.cloneExpiryTimer) clearInterval(this.cloneExpiryTimer);
+    this.cloneExpiryTimer = setInterval(() => this.expireStaleClones(), 60 * 1000);
     if (this.settings.enabled) await this.connect();
     else this.notify();
   }
@@ -525,6 +554,8 @@ class NetworkManagerImpl {
         this.flushPendingFronts();
         this.requestFriendFronts();
         this.registerWithGateway().catch(() => {});
+        this.gwAnnouncedSig = null;
+        this.announceFrontToGateway().catch(() => {});
       }
     });
     client.on('packet_received', (p: PacketReceived) => this.handlePacket(p));
@@ -732,7 +763,6 @@ class NetworkManagerImpl {
 
   private routeMessage(sender: FriendIdentity, msg: NetMessage): void {
     if (!msg || typeof msg !== 'object' || typeof (msg as any).t !== 'string') return;
-    // Shape the fields the app stores and renders before anything reads them.
     const raw = msg as any;
     if (raw.t === 'connect') {
       raw.name = inboundStr(raw.name, 64) || '';
@@ -807,14 +837,6 @@ class NetworkManagerImpl {
         const gone = this.friends.find(f => f.peerId === sender.peerId);
         if (!gone) break;
         this.friends = this.friends.filter(f => f.peerId !== sender.peerId);
-        // A removal has to leave a tombstone on BOTH sides. removeFriend writes
-        // one; this side did not, so the row was deleted here while every linked
-        // device still held theirs, their next friends_push re-added it (the
-        // merge only adds, it never deletes by absence), and the friendship came
-        // back as a one-way ghost that had to be refriended. The tombstone is
-        // what makes siblings converge on removed instead of on whoever spoke
-        // last. Deliberate re-adds still win: enterCode and an inbound connect
-        // both clear it.
         if (gone.kind !== 'device') {
           this.setTombstone(sender.peerId, Date.now());
           this.persistTombstones().catch(() => {});
@@ -1042,15 +1064,10 @@ class NetworkManagerImpl {
     ]);
   }
 
-  private async gatewayVisibleFront(): Promise<FrontShare | null> {
-    // The gateway only ever holds what every accepted friend is permitted to
-    // see. With no accepted friends that set is empty, so nothing is named:
-    // a system that turned networking on only to sync its own devices must
-    // not announce its fronters to anyone.
-    const watchers = this.friends.filter(f => f.kind !== 'device' && f.status === 'accepted');
+  private async gatewayVisibleFront(buckets: PrivacyBucket[]): Promise<FrontShare | null> {
+    const watchers = this.friends.filter(f => f.kind !== 'device' && f.status === 'accepted' && frontVisibilityFor(buckets, f.peerId).show);
     if (watchers.length === 0) return null;
     if (!this.myFrontRaw) return this.myFront;
-    const buckets = await this.loadPrivacyBuckets();
     const roster = this.myFrontRaw.members;
     const facetIdsAll = roster.filter(m => m.isFacet && !m.isCustomFront).map(m => m.id);
     const customFrontIdsAll = roster.filter(m => m.isCustomFront).map(m => m.id);
@@ -1081,7 +1098,8 @@ class NetworkManagerImpl {
   private async announceFrontToGateway(): Promise<void> {
     const self = this.identity;
     if (!self || !this.settings.enabled) return;
-    const gwShare = await this.gatewayVisibleFront();
+    const buckets = await this.loadPrivacyBuckets();
+    const gwShare = await this.gatewayVisibleFront(buckets);
     const cap = (s: string | undefined) => Array.from(s || '').slice(0, 120).join('');
     const fronters = cap(gwShare?.fronters);
     const primary = cap(gwShare?.primary);
@@ -1089,10 +1107,12 @@ class NetworkManagerImpl {
     const coConscious = cap(gwShare?.coConscious);
     const startTime = gwShare?.startTime || this.myFront?.startTime || 0;
     const name = Array.from(this.systemName || '').slice(0, 64).join('');
-    const readers = this.friends
-      .filter(f => f.kind !== 'device' && f.status === 'accepted')
+    const accepted = this.friends.filter(f => f.kind !== 'device' && f.status === 'accepted');
+    const readers = accepted
+      .filter(f => frontVisibilityFor(buckets, f.peerId).show)
       .map(f => f.peerId)
       .slice(0, 500);
+    const anyHidden = readers.length < accepted.length;
     const contentSig = `${fronters}|${startTime}|${name}|${primary}|${coFront}|${coConscious}|${readers.join(',')}`;
     if (contentSig === this.gwAnnouncedSig) return;
     const ts = this.myFrontAt || Date.now();
@@ -1112,7 +1132,7 @@ class NetworkManagerImpl {
         co_conscious: coConscious,
         readers,
       });
-      if (res && res.ok === false) {
+      if (res && res.ok === false && !anyHidden) {
         const legacy = `psgw-front|${self.peerId}|${ts}|${fronters}|${startTime}|${name}`;
         await this.gatewayFetch('/gw/front', {
           peer_id: self.peerId,
@@ -1274,7 +1294,7 @@ class NetworkManagerImpl {
 
   private async loadPrivacyBuckets(): Promise<PrivacyBucket[]> {
     try {
-      const raw = await AsyncStorage.getItem(PRIVACY_BUCKETS_KEY);
+      const raw = await readRaw(PRIVACY_BUCKETS_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       return Array.isArray(parsed) ? parsed : [];
     } catch { return []; }
@@ -1312,8 +1332,10 @@ class NetworkManagerImpl {
   }
 
   private scopedFrontFor(buckets: PrivacyBucket[], peerId: string): FrontShare | null {
+    const vis = frontVisibilityFor(buckets, peerId);
+    if (!vis.show) return null;
     if (!this.myFrontRaw) return this.myFront;
-    return buildFrontShare(this.myFrontRaw.front, this.myFrontRaw.members, this.allowedMemberIdsFor(buckets, peerId), this.allowedFacetIdsFor(buckets, peerId), this.allowedCustomFrontIdsFor(buckets, peerId));
+    return buildFrontShare(this.myFrontRaw.front, this.myFrontRaw.members, this.allowedMemberIdsFor(buckets, peerId), this.allowedFacetIdsFor(buckets, peerId), this.allowedCustomFrontIdsFor(buckets, peerId), {mood: vis.mood, location: vis.location, note: vis.note});
   }
 
   async updateMyFront(front: any, members: Member[]): Promise<void> {
@@ -1412,7 +1434,9 @@ class NetworkManagerImpl {
     this.identity = adopted;
 
     const ownDeviceLinks = this.friends.filter(f => f.kind === 'device');
-    const incoming = (Array.isArray(friends) ? friends : []).filter(f => f && f.kind !== 'device');
+    const incoming = (Array.isArray(friends) ? friends : [])
+      .map(sanitizeInboundFriend)
+      .filter((f): f is Friend => !!f && f.kind !== 'device');
     const merged = [...incoming];
     for (const d of ownDeviceLinks) {
       if (!merged.some(f => f.peerId === d.peerId)) merged.push(d);
@@ -1455,7 +1479,7 @@ class NetworkManagerImpl {
 
   private async loadMirrorServed(): Promise<void> {
     try {
-      const raw = await AsyncStorage.getItem(MIRROR_SERVED_KEY);
+      const raw = await readRaw(MIRROR_SERVED_KEY);
       const parsed = raw ? JSON.parse(raw) : null;
       if (parsed && typeof parsed === 'object') {
         this.mirrorServed = new Map(
@@ -1544,7 +1568,7 @@ class NetworkManagerImpl {
   async loadMirror(peerId: string, feature: MirrorFeature): Promise<MirrorCacheEntry | null> {
     let entry: MirrorCacheEntry | null = null;
     try {
-      const raw = await AsyncStorage.getItem(this.mirrorCacheKey(peerId, feature));
+      const raw = await readRaw(this.mirrorCacheKey(peerId, feature));
       entry = raw ? JSON.parse(raw) : null;
     } catch (e) {
       logError('network', e);
@@ -1622,8 +1646,6 @@ class NetworkManagerImpl {
     const cached = this.mediaCache.get(val);
     if (cached) return cached;
     try {
-      // iOS moves the app container on update; a path saved before that still
-      // names the file under the current one.
       const path = (rebaseDocumentUri(val) || val).replace(/^file:\/\//, '').split('?')[0];
       const b64 = await ReactNativeBlobUtil.fs.readFile(path, 'base64');
       const ext = (path.split('.').pop() || 'jpg').toLowerCase();
@@ -1652,7 +1674,7 @@ class NetworkManagerImpl {
     const gateKey = `${peerId}|${feature}`;
     let buckets: PrivacyBucket[] = [];
     try {
-      const raw = await AsyncStorage.getItem(PRIVACY_BUCKETS_KEY);
+      const raw = await readRaw(PRIVACY_BUCKETS_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       if (Array.isArray(parsed)) buckets = parsed;
     } catch {}
@@ -1675,7 +1697,7 @@ class NetworkManagerImpl {
     let profileImages: {id: string; src: string; maxDim: number}[] = [];
     try {
       if (feature === 'whiteboard') {
-        const rawWb = await AsyncStorage.getItem(KEYS.whiteboard);
+        const rawWb = await readRaw(KEYS.whiteboard);
         let strokes: any[] = [];
         try {
           const parsed = rawWb ? JSON.parse(rawWb) : [];
@@ -1683,7 +1705,7 @@ class NetworkManagerImpl {
         } catch {}
         payload = JSON.stringify(strokes);
       } else if (feature === 'planner') {
-        const rawPl = await AsyncStorage.getItem(KEYS.planner);
+        const rawPl = await readRaw(KEYS.planner);
         let appointments: any[] = [];
         let reminders: any[] = [];
         try {
@@ -1713,7 +1735,7 @@ class NetworkManagerImpl {
           })),
         });
       } else if (feature === 'systemProfile') {
-        const rawSys = await AsyncStorage.getItem(KEYS.system);
+        const rawSys = await readRaw(KEYS.system);
         let sys: any = {};
         try {
           sys = rawSys ? JSON.parse(rawSys) : {};
@@ -1733,7 +1755,7 @@ class NetworkManagerImpl {
           profileImages.push({id: MIRROR_SYSTEM_BANNER_ID, src: sys.banner, maxDim: 512});
         }
       } else if (feature === 'members') {
-        const raw = await AsyncStorage.getItem(KEYS.members);
+        const raw = await readRaw(KEYS.members);
         const list: any[] = raw ? JSON.parse(raw) : [];
         const shared = (Array.isArray(list) ? list : [])
           .filter(m => m && !m.deleted && !m.isCustomFront && !m.isFacet && (scope.mode === 'all' || scope.ids.has(m.id)))
@@ -1741,7 +1763,7 @@ class NetworkManagerImpl {
         const cfScope = this.effectiveScope(buckets, peerId, 'customFields');
         let grantedDefs: any[] = [];
         if (cfScope.mode !== 'none') {
-          const rawDefs = await AsyncStorage.getItem(KEYS.customFieldDefs);
+          const rawDefs = await readRaw(KEYS.customFieldDefs);
           let defs: any[] = [];
           try {
             defs = rawDefs ? JSON.parse(rawDefs) : [];
@@ -1759,11 +1781,11 @@ class NetworkManagerImpl {
           let rels: any[] = [];
           let types: any[] = [];
           try {
-            const rawRel = await AsyncStorage.getItem(KEYS.relationships);
+            const rawRel = await readRaw(KEYS.relationships);
             rels = rawRel ? JSON.parse(rawRel) : [];
           } catch {}
           try {
-            const rawTypes = await AsyncStorage.getItem(KEYS.relationshipTypes);
+            const rawTypes = await readRaw(KEYS.relationshipTypes);
             types = rawTypes ? JSON.parse(rawTypes) : [];
           } catch {}
           for (const td of allRelationshipTypes(Array.isArray(types) ? types : [])) {
@@ -1833,8 +1855,8 @@ class NetworkManagerImpl {
           .filter(m => typeof m.banner === 'string' && m.banner)
           .map(m => ({id: `${m.id}#banner`, src: m.banner, maxDim: 720}));
       } else if (feature === 'groups') {
-        const rawG = await AsyncStorage.getItem(KEYS.groups);
-        const rawM = await AsyncStorage.getItem(KEYS.members);
+        const rawG = await readRaw(KEYS.groups);
+        const rawM = await readRaw(KEYS.members);
         let allGroups: any[] = [];
         let allMembers: any[] = [];
         try {
@@ -1872,8 +1894,8 @@ class NetworkManagerImpl {
         }));
         payload = JSON.stringify({groups: slimGroups, membership});
       } else if (feature === 'history') {
-        const rawH = await AsyncStorage.getItem(KEYS.history);
-        const rawM = await AsyncStorage.getItem(KEYS.members);
+        const rawH = await readRaw(KEYS.history);
+        const rawM = await readRaw(KEYS.members);
         let list: any[] = [];
         let allMembers: any[] = [];
         try {
@@ -1889,6 +1911,7 @@ class NetworkManagerImpl {
             .map(m => m.id),
         );
         const keep = (ids?: string[]) => (ids || []).filter(id => visibleIds.has(id));
+        const vis = frontVisibilityFor(buckets, peerId);
         const events = (Array.isArray(list) ? list : [])
           .map(ev => {
             if (!ev) return null;
@@ -1896,10 +1919,6 @@ class NetworkManagerImpl {
             const coFrontIds = keep(ev.coFrontIds);
             const coConsciousIds = keep(ev.coConsciousIds);
             if (memberIds.length === 0 && coFrontIds.length === 0 && coConsciousIds.length === 0) return null;
-            // A tier whose fronters are all hidden from this friend takes its
-            // note, mood, location and energy with it, as the live front
-            // share does; otherwise a hidden member's note would travel
-            // without the name.
             const out: any = {
               ...ev,
               memberIds,
@@ -1909,12 +1928,15 @@ class NetworkManagerImpl {
             if (memberIds.length === 0) { out.note = ''; delete out.mood; delete out.location; delete out.energyLevel; }
             if (coFrontIds.length === 0) { delete out.coFrontMood; delete out.coFrontNote; delete out.coFrontEnergy; delete out.coFrontLocation; }
             if (coConsciousIds.length === 0) { delete out.coConsciousMood; delete out.coConsciousNote; delete out.coConsciousEnergy; delete out.coConsciousLocation; }
+            if (!vis.mood) { delete out.mood; delete out.energyLevel; delete out.coFrontMood; delete out.coFrontEnergy; delete out.coConsciousMood; delete out.coConsciousEnergy; }
+            if (!vis.location) { delete out.location; delete out.coFrontLocation; delete out.coConsciousLocation; }
+            if (!vis.note) { out.note = ''; delete out.coFrontNote; delete out.coConsciousNote; }
             return out;
           })
           .filter(Boolean);
         payload = JSON.stringify(events);
       } else {
-        const raw = await AsyncStorage.getItem(KEYS.journal);
+        const raw = await readRaw(KEYS.journal);
         const list: any[] = raw ? JSON.parse(raw) : [];
         const shared = (Array.isArray(list) ? list : []).filter(
           e => e && (scope.mode === 'all' || scope.ids.has(e.id)),
@@ -2028,7 +2050,7 @@ class NetworkManagerImpl {
   }
 
   private handleMirrorMedia(sender: FriendIdentity, m: {feature: MirrorFeature; memberId: string; data: string}): void {
-    if (!m?.memberId || typeof m.memberId !== 'string' || m.memberId.length > 128 || typeof m.data !== 'string' || !m.data.startsWith('data:image/')) return;
+    if (!m?.memberId || typeof m.memberId !== 'string' || m.memberId.length > 128 || typeof m.data !== 'string' || !m.data.startsWith('data:image/') || m.data.length > MIRROR_MEDIA_MAX) return;
     const id = `${sender.peerId}|${m.feature}`;
     const pend = this.mirrorMediaPending.get(id) || {};
     pend[m.memberId] = m.data;
@@ -2191,13 +2213,10 @@ class NetworkManagerImpl {
     try {
       got = await AsyncStorage.getMany(keys);
     } catch {
-      // One row past Android's ~2 MB read limit fails the whole batch. Read
-      // the rest one by one; the big one comes from its file backup, which
-      // store.get falls back to.
       got = {};
       for (const k of keys) {
         try {
-          got[k] = await AsyncStorage.getItem(k);
+          got[k] = await readRaw(k);
         } catch {
           const v = await store.get<unknown>(k, null);
           got[k] = v == null ? null : JSON.stringify(v);
@@ -2223,7 +2242,7 @@ class NetworkManagerImpl {
       } catch {}
       if (Array.isArray(list)) {
         for (const m of list) {
-          if (!m || m.deleted) continue;
+          if (!m) continue;
           for (const [field, kind] of [['avatar', 'av'], ['banner', 'bn']] as const) {
             const val = m[field];
             if (typeof val !== 'string' || !val) continue;
@@ -2294,14 +2313,14 @@ class NetworkManagerImpl {
       } catch {
         return false;
       }
-      const rawSys = await AsyncStorage.getItem(KEYS.system);
+      const rawSys = await readRaw(KEYS.system);
       if (!rawSys) return false;
       try {
         const sys = JSON.parse(rawSys);
         if (!sys || typeof sys !== 'object' || Array.isArray(sys)) return false;
         sys[isAv ? 'avatar' : 'banner'] = uri;
         const v = JSON.stringify(sys);
-        await AsyncStorage.setItem(KEYS.system, v);
+        await store.setRaw(KEYS.system, v);
         this.lastHashes[KEYS.system] = syncHash(v);
         return true;
       } catch {
@@ -2312,7 +2331,7 @@ class NetworkManagerImpl {
     if (cf) {
       const memberId = cf[1];
       const fieldId = cf[2];
-      const raw = await AsyncStorage.getItem(KEYS.members);
+      const raw = await readRaw(KEYS.members);
       if (!raw) return false;
       try {
         const list = JSON.parse(raw);
@@ -2328,7 +2347,7 @@ class NetworkManagerImpl {
         fields[fi] = {...fields[fi], value: uri};
         list[idx].customFields = fields;
         const v = JSON.stringify(list);
-        await AsyncStorage.setItem(KEYS.members, v);
+        await store.setRaw(KEYS.members, v);
         this.lastHashes[KEYS.members] = syncHash(v);
         return true;
       } catch {
@@ -2339,7 +2358,7 @@ class NetworkManagerImpl {
     if (!m) return false;
     const kind = m[1];
     const memberId = m[2];
-    const raw = await AsyncStorage.getItem(KEYS.members);
+    const raw = await readRaw(KEYS.members);
     if (!raw) return false;
     let list: any;
     try {
@@ -2359,7 +2378,7 @@ class NetworkManagerImpl {
     try {
       list[idx][kind === 'av' ? 'avatar' : 'banner'] = uri;
       const v = JSON.stringify(list);
-      await AsyncStorage.setItem(KEYS.members, v);
+      await store.setRaw(KEYS.members, v);
       this.lastHashes[KEYS.members] = syncHash(v);
       return true;
     } catch {
@@ -2369,7 +2388,7 @@ class NetworkManagerImpl {
 
   private async frontClearedAt(): Promise<number | null> {
     try {
-      const raw = await AsyncStorage.getItem(FRONT_CLEARED_KEY);
+      const raw = await readRaw(FRONT_CLEARED_KEY);
       const n = raw ? Number(raw) : NaN;
       return Number.isFinite(n) ? n : null;
     } catch {
@@ -2771,6 +2790,7 @@ class NetworkManagerImpl {
       if (!k.startsWith('ps:')) continue;
       if (SYNC_EXCLUDE.has(k)) continue;
       const incoming = keys[k];
+      if (!incoming || typeof incoming.v !== 'string' || typeof incoming.h !== 'string') continue;
       if (k.startsWith('ps:media:')) {
         if (this.lastHashes[k] !== incoming.h) {
           const ok = await this.applyMedia(k, incoming.v);
@@ -2783,7 +2803,7 @@ class NetworkManagerImpl {
         }
         continue;
       }
-      const localRaw = await AsyncStorage.getItem(k);
+      const localRaw = await readRaw(k);
       if (k === KEYS.front && !cloning && !resolved) {
         const incT = this.frontStartTime(incoming.v);
         const locT = this.frontStartTime(localRaw);
@@ -2807,7 +2827,7 @@ class NetworkManagerImpl {
       if (k === KEYS.customFieldDefs && !cloning && localRaw != null) {
         const res = this.mergeCustomFieldDefs(localRaw, incoming.v);
         if (res) {
-          await AsyncStorage.setItem(k, res.merged);
+          await store.setRaw(k, res.merged);
           this.lastHashes[k] = syncHash(res.merged);
           applied.push(k);
           await this.remapMemberFieldIds(res.remap);
@@ -2817,14 +2837,14 @@ class NetworkManagerImpl {
       const writeValue = async () => {
         if (k === KEYS.members) {
           const v = this.preserveLocalMedia(incoming.v, localRaw);
-          await AsyncStorage.setItem(k, v);
+          await store.setRaw(k, v);
           this.lastHashes[k] = syncHash(v);
         } else if (k === KEYS.system) {
           const v = this.preserveLocalSystemMedia(incoming.v, localRaw);
-          await AsyncStorage.setItem(k, v);
+          await store.setRaw(k, v);
           this.lastHashes[k] = syncHash(v);
         } else {
-          await AsyncStorage.setItem(k, incoming.v);
+          await store.setRaw(k, incoming.v);
           this.lastHashes[k] = incoming.h;
         }
         applied.push(k);
@@ -2948,7 +2968,7 @@ class NetworkManagerImpl {
   private async remapMemberFieldIds(remap: Record<string, string>): Promise<void> {
     if (Object.keys(remap).length === 0) return;
     try {
-      const raw = await AsyncStorage.getItem(KEYS.members);
+      const raw = await readRaw(KEYS.members);
       if (!raw) return;
       const list: any[] = JSON.parse(raw);
       if (!Array.isArray(list)) return;
@@ -2974,7 +2994,7 @@ class NetworkManagerImpl {
       }
       if (changed) {
         const out = JSON.stringify(list);
-        await AsyncStorage.setItem(KEYS.members, out);
+        await store.setRaw(KEYS.members, out);
         this.lastHashes[KEYS.members] = syncHash(out);
       }
     } catch (e) {
@@ -2988,17 +3008,17 @@ class NetworkManagerImpl {
     if (keep === 'theirs') {
       for (const c of conflicts) {
         if (c.key === KEYS.members) {
-          const localRaw = await AsyncStorage.getItem(c.key);
+          const localRaw = await readRaw(c.key);
           const v = this.preserveLocalMedia(c.remoteValue, localRaw);
-          await AsyncStorage.setItem(c.key, v);
+          await store.setRaw(c.key, v);
           this.lastHashes[c.key] = syncHash(v);
         } else if (c.key === KEYS.system) {
-          const localRaw = await AsyncStorage.getItem(c.key);
+          const localRaw = await readRaw(c.key);
           const v = this.preserveLocalSystemMedia(c.remoteValue, localRaw);
-          await AsyncStorage.setItem(c.key, v);
+          await store.setRaw(c.key, v);
           this.lastHashes[c.key] = syncHash(v);
         } else {
-          await AsyncStorage.setItem(c.key, c.remoteValue);
+          await store.setRaw(c.key, c.remoteValue);
           this.lastHashes[c.key] = c.remoteHash;
         }
       }
@@ -3006,7 +3026,7 @@ class NetworkManagerImpl {
     } else {
       const push: {k: string; v: string; h: string}[] = [];
       for (const c of conflicts) {
-        const localRaw = await AsyncStorage.getItem(c.key);
+        const localRaw = await readRaw(c.key);
         if (localRaw != null) {
           const h = syncHash(localRaw);
           this.lastHashes[c.key] = h;
@@ -3061,17 +3081,6 @@ class NetworkManagerImpl {
     return peerId === this.identity?.peerId || this.online.has(peerId);
   }
 
-  // ---- Cloud Services (src/cloud) -------------------------------------------
-  // The vault engine is platform-neutral and reaches storage through these.
-  // They reuse the device-sync snapshot and apply code on purpose: the cloud
-  // is a third sibling that always wins, not a second data model.
-  //
-  // The vault carries EVERYTHING the Export carries, and then some: every
-  // `ps:*` key except the ones that are per device by nature (network settings
-  // override, device codes, device-sync bookkeeping, the vault link itself),
-  // plus the identity and friends (DECISION 2), plus every image: member and
-  // system avatars and banners, custom-field images, and chat attachments.
-  // Medical stays out for now, the same as the device lane.
 
   cloudRelay(): {relayUrl: string; token: string} {
     const net = resolveNetwork(this.settings);
@@ -3082,13 +3091,10 @@ class NetworkManagerImpl {
     return syncHash(raw);
   }
 
-  // The device-sync snapshot plus what the vault adds on top of it.
   async cloudSnapshot(): Promise<Record<string, string>> {
     const snap = await this.buildSnapshot();
-    const identityRaw = await AsyncStorage.getItem(IDENTITY_STORAGE_KEY);
+    const identityRaw = await readRaw(IDENTITY_STORAGE_KEY);
     if (identityRaw) snap[IDENTITY_STORAGE_KEY] = identityRaw;
-    // Device links stay out (they are per device); see cloudFriendRecord for
-    // what each friend carries. Sorted so every device writes the same bytes.
     const byPeer = (a: {peerId: string}, b: {peerId: string}) => (a.peerId < b.peerId ? -1 : a.peerId > b.peerId ? 1 : 0);
     const friends = this.friends
       .filter(f => f.kind !== 'device')
@@ -3102,10 +3108,6 @@ class NetworkManagerImpl {
     return snap;
   }
 
-  // A media key the data still references but whose file could not be read
-  // (missing on disk) must not look like a cleared image, or the vault and
-  // every other device would drop it. The marker asks the engine to pull the
-  // vault's copy back instead (spec 8.2).
   private markUnreadableMedia(snap: Record<string, string>): void {
     const isFile = (v: unknown): v is string => typeof v === 'string' && v.startsWith('file://');
     const expect = (key: string) => {
@@ -3115,7 +3117,7 @@ class NetworkManagerImpl {
       const list = JSON.parse(snap[KEYS.members] || '[]');
       if (Array.isArray(list)) {
         for (const m of list) {
-          if (!m || m.deleted || !m.id) continue;
+          if (!m || !m.id) continue;
           if (isFile(m.avatar)) expect(`ps:media:av:${m.id}`);
           if (isFile(m.banner)) expect(`ps:media:bn:${m.id}`);
           if (Array.isArray(m.customFields)) {
@@ -3131,15 +3133,8 @@ class NetworkManagerImpl {
         if (isFile(sys.banner)) expect('ps:media:sysbn');
       }
     } catch {}
-    // Chat attachments are handled inside addChatMediaToSnapshot.
   }
 
-  // Chat attachments. A message of type image or file holds its bytes as a
-  // device-local file path here and as an inline data URI on Desktop, neither
-  // of which means anything on another device. The vault gets the bytes as
-  // their own `ps:media:chat:<channel>:<message>` entries and the message
-  // list itself with those contents replaced by one neutral marker, so the
-  // list hashes the same on every platform and the two never ping-pong.
   private async addChatMediaToSnapshot(snap: Record<string, string>): Promise<void> {
     for (const k of Object.keys(snap)) {
       if (!k.startsWith('ps:chat:')) continue;
@@ -3157,8 +3152,6 @@ class NetworkManagerImpl {
         const c = m && (m.type === 'image' || m.type === 'file') && typeof m.content === 'string' ? m.content : '';
         if (c && (c.startsWith('file://') || c.startsWith('data:')) && m.id) {
           const uri = await this.readFileDataUri(c);
-          // Unreadable on disk: ask the engine for the vault's copy (8.2)
-          // rather than letting the absence read as a deletion.
           snap[`ps:media:chat:${channelId}:${m.id}`] = uri || CLOUD_MEDIA_MISSING;
           neutral.push({...m, content: CLOUD_CHAT_MEDIA_MARK});
           changed = true;
@@ -3187,9 +3180,6 @@ class NetworkManagerImpl {
     }
   }
 
-  // Incoming chat list carries the neutral marker where an attachment lives.
-  // Keep this device's own content for any message it already has bytes for;
-  // the media entries that follow fill in the rest.
   private preserveLocalChatMedia(incomingRaw: string, localRaw: string | null): string {
     try {
       const inc = JSON.parse(incomingRaw);
@@ -3217,7 +3207,7 @@ class NetworkManagerImpl {
     if (!m) return false;
     const channelId = m[1];
     const msgId = m[2];
-    const raw = await AsyncStorage.getItem(chatMsgKey(channelId));
+    const raw = await readRaw(chatMsgKey(channelId));
     if (!raw) return false;
     let list: any;
     try {
@@ -3242,14 +3232,11 @@ class NetworkManagerImpl {
     }
     list[idx] = {...list[idx], content: uri};
     const v = JSON.stringify(list);
-    await AsyncStorage.setItem(chatMsgKey(channelId), v);
+    await store.setRaw(chatMsgKey(channelId), v);
     this.lastHashes[chatMsgKey(channelId)] = syncHash(v);
     return true;
   }
 
-  // The write half of applySync with `resolved` semantics and no device
-  // gating: every key lands, local media paths are preserved, media entries
-  // are applied after the data they belong to.
   async applyCloudSnapshot(keys: Record<string, string>): Promise<void> {
     this.snapMemo = null;
     const applied: string[] = [];
@@ -3261,21 +3248,21 @@ class NetworkManagerImpl {
         continue;
       }
       const incoming = keys[k];
-      const localRaw = await AsyncStorage.getItem(k);
+      const localRaw = await readRaw(k);
       if (k === KEYS.members) {
         const v = this.preserveLocalMedia(incoming, localRaw);
-        await AsyncStorage.setItem(k, v);
+        await store.setRaw(k, v);
         this.lastHashes[k] = syncHash(v);
       } else if (k === KEYS.system) {
         const v = this.preserveLocalSystemMedia(incoming, localRaw);
-        await AsyncStorage.setItem(k, v);
+        await store.setRaw(k, v);
         this.lastHashes[k] = syncHash(v);
       } else if (k.startsWith('ps:chat:')) {
         const v = this.preserveLocalChatMedia(incoming, localRaw);
-        await AsyncStorage.setItem(k, v);
+        await store.setRaw(k, v);
         this.lastHashes[k] = syncHash(v);
       } else {
-        await AsyncStorage.setItem(k, incoming);
+        await store.setRaw(k, incoming);
         this.lastHashes[k] = syncHash(incoming);
       }
       applied.push(k);
@@ -3292,15 +3279,9 @@ class NetworkManagerImpl {
     }
   }
 
-  // The cloud dropped a key this device still holds and never changed. Data
-  // keys are removed; a media key means that image was cleared, so the field
-  // it belonged to is cleared here too. The roster, the system and settings
-  // are never removed this way, only overwritten.
   async removeCloudKey(key: string): Promise<void> {
     if (!key.startsWith('ps:') || CLOUD_EXCLUDE.has(key)) return;
     if (key.startsWith('ps:media:chat:')) {
-      // The message list itself decides whether the message survives; only
-      // the bytes are let go.
       const m = key.match(/^ps:media:chat:[^:]+:(.+)$/);
       if (m) {
         try {
@@ -3324,20 +3305,20 @@ class NetworkManagerImpl {
 
   private async clearMediaField(key: string): Promise<void> {
     if (key === 'ps:media:sysav' || key === 'ps:media:sysbn') {
-      const raw = await AsyncStorage.getItem(KEYS.system);
+      const raw = await readRaw(KEYS.system);
       if (!raw) return;
       try {
         const sys = JSON.parse(raw);
         if (!sys || typeof sys !== 'object' || Array.isArray(sys)) return;
         delete sys[key === 'ps:media:sysav' ? 'avatar' : 'banner'];
         const v = JSON.stringify(sys);
-        await AsyncStorage.setItem(KEYS.system, v);
+        await store.setRaw(KEYS.system, v);
         this.lastHashes[KEYS.system] = syncHash(v);
         this.emitSyncApplied();
       } catch {}
       return;
     }
-    const raw = await AsyncStorage.getItem(KEYS.members);
+    const raw = await readRaw(KEYS.members);
     if (!raw) return;
     let list: any;
     try {
@@ -3366,13 +3347,11 @@ class NetworkManagerImpl {
     }
     if (!changed) return;
     const v = JSON.stringify(list);
-    await AsyncStorage.setItem(KEYS.members, v);
+    await store.setRaw(KEYS.members, v);
     this.lastHashes[KEYS.members] = syncHash(v);
     this.emitSyncApplied();
   }
 
-  // Import from the cloud: the vault's identity becomes this device's, exactly
-  // as device_adopt does between paired devices.
   async adoptCloudIdentity(identityRaw: string, friendsRaw: string | null): Promise<void> {
     let identity: any;
     try {
@@ -3388,12 +3367,6 @@ class NetworkManagerImpl {
     await this.adoptSystemIdentity(identity, friends);
   }
 
-  // One friend as the vault carries it. The live front fields stay out (they
-  // change every switch and would re-upload the list for nothing) and so does
-  // this device's own notification choice (per device, as on the device
-  // lane). Keys are written in a fixed order so two devices holding the same
-  // friend produce the same bytes; anything else would make the list
-  // ping-pong between them on every sync.
   private cloudFriendRecord(f: Friend): {peerId: string} & Record<string, unknown> {
     const {lastStatus: _s, statusUpdatedAt: _u, statusAuthoredAt: _a, showInNotification: _n, notifyLevel: _l, ...rest} = f;
     const out: Record<string, unknown> = {};
@@ -3401,10 +3374,6 @@ class NetworkManagerImpl {
     return out as {peerId: string} & Record<string, unknown>;
   }
 
-  // The vault's friend list landed (spec 8.3: the cloud copy wins). Additions
-  // and tombstones follow the sibling-device rules; a friend both sides hold
-  // takes the vault's record whole, keeping only this device's live front
-  // fields and its own notification choice.
   async mergeCloudFriends(friendsRaw: string | null, tombstonesRaw: string | null): Promise<void> {
     let friends: Friend[] = [];
     let removed: FriendTombstone[] | undefined;

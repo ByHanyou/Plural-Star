@@ -6,7 +6,7 @@ import {FlashList, FlashListRef} from '@shopify/flash-list';
 import {useTranslation} from 'react-i18next';
 import {Fonts, PALETTE, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay, tagKey, upperRune} from '../utils';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {PlusMinusIcon} from '../components/Glyphs';
@@ -165,13 +165,15 @@ interface Props {
   onBulkRestore?: (ids: string[]) => void | Promise<void>;
   onBulkDelete?: (ids: string[]) => void | Promise<void>;
   onBulkAddGroups?: (ids: string[], groupIds: string[]) => void | Promise<void>;
+  onBulkSetFacet?: (ids: string[], toFacet: boolean) => void | Promise<void>;
+  onRestoreDeleted?: (id: string) => void | Promise<void>;
   memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'};
   onSaveListFields?: (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'}) => void;
   onQuickAddToFront?: (id: string, tier: FrontTierKey) => void | Promise<void>;
   onRemoveFromFront?: (id: string) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
+export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, onBulkSetFacet, onRestoreDeleted, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
   const members = useAppStore(s => s.members);
   const front = useAppStore(s => s.front);
   const groups = useAppStore(s => s.groups);
@@ -260,6 +262,20 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       ],
     );
   };
+  const confirmBulkFacet = () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0 || !onBulkSetFacet) return;
+    if (ids.some(id => allFrontIds.has(id))) { Alert.alert(t('members.frontingLockTitle'), t('members.frontingLockMsg')); return; }
+    const toFacet = memberTab === 'active';
+    Alert.alert(
+      toFacet ? t('members.makeFacet') : t('members.makeMember'),
+      t('members.selectedCount', {count: ids.length}),
+      [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: toFacet ? t('members.makeFacet') : t('members.makeMember'), onPress: async () => { await onBulkSetFacet(ids, toFacet); exitSelection(); }},
+      ],
+    );
+  };
   const toggleGroupAssign = (gid: string) => setGroupAssignSel(prev => { const n = new Set(prev); if (n.has(gid)) n.delete(gid); else n.add(gid); return n; });
   const applyGroupAssign = async () => {
     const ids = [...selectedIds];
@@ -282,8 +298,26 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     if (memberTab === 'facets') return false;
     return true;
   }), [members, memberTab, archiveOnly]);
+  const deletedMembers = useMemo(() => !archiveOnly ? [] : members.filter(m => {
+    if (!m.deleted) return false;
+    if (m.isCustomFront) return memberTab === 'customFronts';
+    if (memberTab === 'customFronts') return false;
+    if (m.isFacet) return memberTab === 'facets';
+    if (memberTab === 'facets') return false;
+    return true;
+  }), [members, memberTab, archiveOnly]);
   const allFrontIds = useMemo(() => new Set(allFrontMemberIds(front)), [front]);
-  const allTags = useMemo(() => [...new Set(tabMembers.flatMap(m => m.tags || []))].sort(), [tabMembers]);
+  const allTags = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const tag of tabMembers.flatMap(m => m.tags || [])) {
+      const k = tagKey(tag);
+      if (!seen.has(k)) seen.set(k, tag);
+    }
+    return [...seen.values()].sort((a, b) => {
+      const ka = tagKey(a), kb = tagKey(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+  }, [tabMembers]);
   const groupChoices = useMemo(() => sortGroupsForDisplay(groups, groups), [groups]);
   const activeGroupName = activeGroup ? (groups.find(g => g.id === activeGroup)?.name || '') : t('memberGroups.allGroups');
   const stepGroup = (dir: 1 | -1) => {
@@ -313,13 +347,15 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
   const activeGroupIds = useMemo(() => activeGroup ? new Set([activeGroup, ...descendantsOf(groups, activeGroup).map(g => g.id)]) : null, [activeGroup, groups]);
 
+  const activeTagKey = activeTag ? tagKey(activeTag) : null;
   const filtered = useMemo(() => sortMembers(tabMembers.filter(m => {
     const q = deferredQuery.toLowerCase();
-    const nameMatch = !deferredQuery || String(m.name ?? '').toLowerCase().includes(q) || String(m.nickname ?? '').toLowerCase().includes(q) || String(m.role ?? '').toLowerCase().includes(q);
+    const nameMatch = !deferredQuery || String(m.name ?? '').toLowerCase().includes(q) || String(m.nickname ?? '').toLowerCase().includes(q) || String(m.role ?? '').toLowerCase().includes(q)
+      || (m.tags || []).some(tag => tagKey(tag).includes(q));
     const groupMatch = !activeGroupIds || (m.groupIds || []).some(id => activeGroupIds.has(id));
-    const tagMatch = !activeTag || (m.tags || []).includes(activeTag);
+    const tagMatch = !activeTagKey || (m.tags || []).some(tag => tagKey(tag) === activeTagKey);
     return nameMatch && groupMatch && tagMatch;
-  }), sortMode), [tabMembers, deferredQuery, activeGroupIds, activeTag, sortMode]);
+  }), sortMode), [tabMembers, deferredQuery, activeGroupIds, activeTagKey, sortMode]);
 
   const showReorder = !archiveOnly && sortMode === 'manual' && !query && !activeGroup && !activeTag;
 
@@ -330,7 +366,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
   const jumpToLetter = (letter: string) => {
     const firstChar = (m: Member): string =>
-      ((m.name || '').trim()[0] || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+      upperRune((Array.from((m.name || '').trim())[0] || '').normalize('NFD').replace(/[̀-ͯ]/g, ''));
     let idx = filtered.findIndex(m => firstChar(m) === letter);
     if (idx < 0) {
       idx = filtered.findIndex(m => sortMode === 'reverse-alphabetical'
@@ -530,6 +566,12 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.restore')}</Text>
             </TouchableOpacity>
           )}
+          {onBulkSetFacet && !archiveOnly && memberTab !== 'customFronts' && (
+            <TouchableOpacity onPress={confirmBulkFacet} activeOpacity={0.7} accessibilityRole="button"
+              style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{memberTab === 'active' ? t('members.makeFacet') : t('members.makeMember')}</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={confirmBulkDelete} activeOpacity={0.7} accessibilityRole="button"
             style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: `${T.danger}15`, borderColor: `${T.danger}50`}}>
             <Text style={{fontSize: fs(13), fontWeight: '600', color: T.danger}} numberOfLines={1}>{t('common.delete')}</Text>
@@ -644,6 +686,22 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       onScroll={e => setShowTop((e.nativeEvent.contentOffset?.y || 0) > 500)}
       scrollEventThrottle={32}
       ListHeaderComponent={ListHeader}
+      ListFooterComponent={archiveOnly && onRestoreDeleted && deletedMembers.length > 0 ? (
+        <View style={{marginTop: 20}}>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('members.recentlyDeleted')}</Text>
+          {deletedMembers.map(m => (
+            <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, marginBottom: 6, borderRadius: 10, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, opacity: 0.85}}>
+              <Avatar member={m} size={32} T={T} />
+              <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
+              <TouchableOpacity onPress={() => onRestoreDeleted(m.id)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={`${t('members.restore')} ${m.name}`}
+                style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                <Text style={{fontSize: fs(12), fontWeight: '600', color: T.accent}}>{t('members.restore')}</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      ) : null}
       ListEmptyComponent={tabMembers.length === 0 ? (
         <View style={s.empty}>
           <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◇</Text>

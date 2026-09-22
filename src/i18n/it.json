@@ -1,4 +1,11 @@
 {
+  "dateFormat": {
+    "month": "MM",
+    "day": "GG",
+    "year": "AAAA",
+    "hour": "HH",
+    "minute": "MIN"
+  },
   "colors": {
     "title": "Colori",
     "rowDefault": "Predefinito",
@@ -59,7 +66,8 @@
     "toolDivider": "Separatore",
     "imageUnavailable": "[immagine non disponibile]",
     "brokenImage": "[immagine danneggiata]",
-    "brokenImageUrl": "[immagine danneggiata: {{url}}]"
+    "brokenImageUrl": "[immagine danneggiata: {{url}}]",
+    "spoiler": "Spoiler, tocca per rivelare"
   },
   "common": {
     "movedToTop": "Ora in prima posizione",
@@ -263,7 +271,8 @@
     "bulkRestore": "Ripristina membri",
     "bulkRestoreMsg": "Ripristinare {{count}} membro/i tra gli attivi?",
     "bulkDelete": "Elimina membri",
-    "bulkDeleteMsg": "Eliminare definitivamente {{count}} membro/i? Questa azione non può essere annullata."
+    "bulkDeleteMsg": "Eliminare definitivamente {{count}} membro/i? Questa azione non può essere annullata.",
+    "recentlyDeleted": "Eliminati di recente"
   },
   "history": {
     "title": "Cronologia",
@@ -1003,7 +1012,7 @@
     "online": "Online",
     "offline": "Offline",
     "tabPrivacy": "Privacy",
-    "privacyDesc": "Le cerchie di privacy decidono cosa possono vedere gli amici al loro interno: tutto, una selezione o niente, per funzione. L'assegnazione degli amici arriverà con l'espansione della condivisione.",
+    "privacyDesc": "Le cerchie di privacy decidono cosa possono vedere gli amici al loro interno: tutto, una selezione o niente, per funzione.",
     "buckets": "Cerchie",
     "noBuckets": "Nessuna cerchia.",
     "newBucket": "Nuova cerchia",
@@ -1088,7 +1097,11 @@
     "tierHint": "Rinomina i livelli di fronting. La tua parola sostituisce quella predefinita ovunque. Vuoto usa la predefinita.",
     "tierPrimary": "Front Primario",
     "tierCoFront": "Co-Front",
-    "tierCoConscious": "Co-Cosciente"
+    "tierCoConscious": "Co-Cosciente",
+    "journal": "Diario",
+    "hub": "Hub",
+    "history": "Cronologia",
+    "archive": "Archivio"
   },
   "planner": {
     "title": "Agenda Giornaliera",
@@ -1145,6 +1158,7 @@
     "title": "Posta",
     "compose": "Scrivi",
     "everyone": "Tutti",
+    "allOthers": "Tutti gli altri Membri",
     "from": "Da",
     "to": "A",
     "send": "Invia",
