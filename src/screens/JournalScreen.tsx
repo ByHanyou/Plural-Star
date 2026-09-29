@@ -152,7 +152,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
         if (fmt === 'txt') await exportEntryTxt(entry, members);
         else if (fmt === 'md') await exportEntryMd(entry, members);
         else await exportEntryJSON(entry);
-      } catch (e) {Alert.alert(t('share.exportFailed'), String(e));}
+      } catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}
     };
     run();
   };
@@ -428,7 +428,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
 
       <Modal visible={!!exportMenuEntry} transparent animationType="fade" onRequestClose={() => setExportMenuEntry(null)}>
         <View style={s.overlay}>
-          <View style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setExportMenuEntry(null)} style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
             <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text}]}>{t('journal.exportEntry')}</Text>
             <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 16}} numberOfLines={1}>{exportMenuEntry?.title || t('common.untitled')}</Text>
             <View style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
@@ -451,7 +451,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
 
       <Modal visible={!!viewEntry} transparent animationType="fade" onRequestClose={() => setViewEntry(null)}>
         <View style={s.overlay}>
-          <View style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border, maxWidth: 480, maxHeight: '85%'}]}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setViewEntry(null)} style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border, maxWidth: 480, maxHeight: '85%'}]}>
             <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text}]} numberOfLines={2}>{viewEntry?.pinned ? '📌 ' : ''}{viewEntry?.title || t('common.untitled')}</Text>
             <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 8}}>{viewEntry ? fmtTime(viewEntry.timestamp) : ''}</Text>
             {viewEntry && (viewEntry.authorIds || []).length > 0 && (
@@ -492,7 +492,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
 
       <Modal visible={!!entryPwModal} transparent animationType="fade" onRequestClose={() => setEntryPwModal(null)}>
         <View style={[s.overlay, {paddingBottom: 24 + kbHeight}]}>
-          <View style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setEntryPwModal(null)} style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
             <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text}]}>{t('journal.entryLocked')}</Text>
             <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 16}}>
               {entryPwModal?.mode === 'delete' ? t('journal.deletePasswordPrompt') : t('journal.unlockPasswordPrompt')}

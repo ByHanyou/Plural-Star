@@ -72,6 +72,10 @@
     "spoiler": "Spoiler, tap to reveal"
   },
   "common": {
+    "durDaysHours": "{{d}}d {{h}}h",
+    "durHoursMinutes": "{{h}}h {{m}}m",
+    "durMinutes": "{{m}}m",
+    "durUnderMinute": "<1m",
     "movedToTop": "Now first",
     "dragReorder": "Drag to reorder",
     "reorderLock": "Drag reordering",

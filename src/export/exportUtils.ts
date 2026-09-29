@@ -341,8 +341,8 @@ const deliverFile = async (tempPath: string, filename: string): Promise<void> =>
       );
     } catch (e: any) {
       Alert.alert(
-        i18n.t('share.exportReady', {defaultValue: 'Export failed'}),
-        String(e?.message || e || 'Unknown error'),
+        i18n.t('share.exportFailed'),
+        String(e?.message || e || ''),
         [{text: i18n.t('common.ok')}],
       );
     } finally {
@@ -743,7 +743,7 @@ const collectBundledMemberMedia = (
 export const importZipBundle = async (zipPath: string): Promise<ImportedZipBundle> => {
   const {files, data, manifest} = await readZipBundle(zipPath);
   if (!data || !isPluralStarBundleData(data, manifest)) {
-    throw new Error('This .zip is not a Plural Star backup bundle.');
+    throw new Error(i18n.t('share.bundleNotRecognized'));
   }
   const rawMembers = Array.isArray(data.members) ? data.members : [];
   const members = rawMembers.map((member: any) => {

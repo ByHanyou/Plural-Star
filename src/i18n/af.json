@@ -72,6 +72,10 @@
     "spoiler": "Bederwer, tik om te onthul"
   },
   "common": {
+    "durDaysHours": "{{d}} d {{h}} u",
+    "durHoursMinutes": "{{h}} u {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Nou eerste",
     "dragReorder": "Sleep om te herrangskik",
     "reorderLock": "Sleep-herrangskikking",

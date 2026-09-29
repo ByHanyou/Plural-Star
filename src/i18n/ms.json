@@ -72,6 +72,10 @@
     "spoiler": "Spoiler, ketik untuk dedahkan"
   },
   "common": {
+    "durDaysHours": "{{d}} hari {{h}} jam",
+    "durHoursMinutes": "{{h}} jam {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Kini pertama",
     "dragReorder": "Seret untuk menyusun semula",
     "reorderLock": "Susun semula dengan seretan",

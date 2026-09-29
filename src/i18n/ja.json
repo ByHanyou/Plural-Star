@@ -119,6 +119,10 @@
     "title": "システムマネージャー"
   },
   "common": {
+    "durDaysHours": "{{d}}日{{h}}時間",
+    "durHoursMinutes": "{{h}}時間{{m}}分",
+    "durMinutes": "{{m}}分",
+    "durUnderMinute": "1分未満",
     "movedToTop": "先頭になりました",
     "dragReorder": "ドラッグして並べ替え",
     "reorderLock": "ドラッグ並べ替え",

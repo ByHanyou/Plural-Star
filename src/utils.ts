@@ -1128,10 +1128,14 @@ export const fmtDur = (start: number, end?: number | null): string => {
   const ms = (end ?? Date.now()) - start;
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
-  if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return m > 0 ? `${m}m` : '<1m';
+  if (h >= 24) return i18n.t('common.durDaysHours', {d: Math.floor(h / 24), h: h % 24});
+  if (h > 0) return i18n.t('common.durHoursMinutes', {h, m});
+  return m > 0 ? i18n.t('common.durMinutes', {m}) : i18n.t('common.durUnderMinute');
 };
+
+const SUNDAY_FIRST_LANGS = new Set(['en', 'pt', 'ja', 'ko', 'hi', 'th', 'zhHant', 'af']);
+
+export const firstDayOfWeek = (): number => (SUNDAY_FIRST_LANGS.has(i18n.language || 'en') ? 0 : 1);
 
 export const truncateRunes = (s: string, max: number, ellipsis = ''): string => {
   const runes = Array.from(String(s ?? ''));

@@ -119,6 +119,10 @@
     "title": "Gestor del sistema"
   },
   "common": {
+    "durDaysHours": "{{d}} d {{h}} h",
+    "durHoursMinutes": "{{h}} h {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Ahora en primer lugar",
     "dragReorder": "Arrastra para reordenar",
     "reorderLock": "Reordenar arrastrando",

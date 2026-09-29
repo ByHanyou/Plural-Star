@@ -119,6 +119,10 @@
     "title": "Systemverwaltung"
   },
   "common": {
+    "durDaysHours": "{{d}} T. {{h}} Std.",
+    "durHoursMinutes": "{{h}} Std. {{m}} Min.",
+    "durMinutes": "{{m}} Min.",
+    "durUnderMinute": "<1 Min.",
     "movedToTop": "Jetzt an erster Stelle",
     "dragReorder": "Zum Umsortieren ziehen",
     "reorderLock": "Ziehen zum Umsortieren",

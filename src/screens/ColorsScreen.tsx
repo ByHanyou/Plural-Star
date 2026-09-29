@@ -117,7 +117,7 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
 
       <Modal visible={editing} transparent animationType="fade" onRequestClose={() => setEditSlot(null)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20, paddingBottom: 20 + kb}}>
-          <View style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setEditSlot(null)} style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <Text accessibilityRole="header" style={{fontSize: fs(14), fontWeight: '600', color: T.text, marginBottom: 12}}>{t('colors.customSlot', {n: (editSlot ?? 0) + 1})}</Text>
             <ColorPicker value={editValue} onChange={setEditValue} T={T} />
             <View style={{flexDirection: 'row', gap: 8, marginTop: 14}}>

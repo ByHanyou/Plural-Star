@@ -72,6 +72,10 @@
     "spoiler": "Spoiler, dotknij, aby odsłonić"
   },
   "common": {
+    "durDaysHours": "{{d}} d. {{h}} godz.",
+    "durHoursMinutes": "{{h}} godz. {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Teraz pierwszy",
     "dragReorder": "Przeciągnij, aby zmienić kolejność",
     "reorderLock": "Zmiana kolejności przeciąganiem",

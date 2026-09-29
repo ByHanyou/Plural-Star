@@ -6,7 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {loadChatMessages} from '../store/actions';
-import {Member, HistoryEntry, ChatMessage, fmtDur, fmtNum, fmtPercent, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
+import {Member, HistoryEntry, ChatMessage, fmtDur, fmtNum, fmtPercent, fmtClock, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
 import {getTierNameOverride} from '../i18n/terminology';
@@ -393,7 +393,9 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       {stats.peakHours.some((v: number) => v > 0) && (
         <View style={{marginBottom: 16}}>
           <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.peakHours')}</Text>
-          <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
+          <View accessible accessibilityRole="image"
+            accessibilityLabel={`${t('stats.peakHours')}: ${(stats.peakHours as number[]).map((c, h) => c > 0 ? `${fmtClock(h, 0)} (${fmtNum(c)})` : '').filter(Boolean).join(', ')}`}
+            style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
             {stats.peakHours.map((count: number, h: number) => {
               const max = Math.max(...stats.peakHours as number[], 1);
               return (
@@ -403,7 +405,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
               );
             })}
           </View>
-          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}}>
+          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {stats.peakHours.map((_: number, h: number) => (
               <View key={h} style={{flex: 1, alignItems: 'center'}}>
                 <Text style={{fontSize: fs(7), color: T.muted}}>{h % 6 === 0 ? h : ''}</Text>
@@ -419,14 +421,16 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
             <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('stats.energyByHour')}</Text>
             <Text style={{fontSize: fs(9), color: T.muted}}>{t('energy.outOf10')}</Text>
           </View>
-          <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
+          <View accessible accessibilityRole="image"
+            accessibilityLabel={`${t('stats.energyByHour')}, ${t('energy.outOf10')}: ${(stats.energyByHour as number[]).map((avg, h) => avg > 0 ? `${fmtClock(h, 0)} (${fmtNum(avg, 1)})` : '').filter(Boolean).join(', ')}`}
+            style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
             {stats.energyByHour.map((avg: number, h: number) => (
               <View key={h} style={{flex: 1, justifyContent: 'flex-end', height: '100%'}}>
                 <View style={{width: '100%', height: avg > 0 ? Math.max((avg / 10) * 45, 2) : 1, backgroundColor: avg > 0 ? T.accent : `${T.dim}40`, borderRadius: 1}} />
               </View>
             ))}
           </View>
-          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}}>
+          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {stats.energyByHour.map((_: number, h: number) => (
               <View key={h} style={{flex: 1, alignItems: 'center'}}>
                 <Text style={{fontSize: fs(7), color: T.muted}}>{h % 6 === 0 ? h : ''}</Text>

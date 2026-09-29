@@ -933,7 +933,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
       {visible && <ImageCropHost theme={T} />}
       <Modal visible={viewPfp && !!f.avatar} transparent animationType="fade" onRequestClose={() => setViewPfp(false)}>
         <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: 16}} activeOpacity={1}
-          onPress={() => setViewPfp(false)} accessibilityRole="button" accessibilityLabel={t('common.close')}>
+          onPress={() => setViewPfp(false)} accessibilityRole="button" accessibilityLabel={t('common.close')}
+          accessibilityViewIsModal onAccessibilityEscape={() => setViewPfp(false)}>
           <Image source={{uri: pfpFull || f.avatar}} style={{width: '100%', height: '80%', borderRadius: 12}} resizeMode="contain"
             accessibilityRole="image" accessibilityLabel={t('modal.viewPfpOf', {name: f.name || '?'})} />
           <Text style={{fontSize: fs(13), color: T.dim, marginTop: 16}}>{t('common.close')}</Text>
@@ -960,7 +961,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
 
       <Modal visible={showClone} transparent animationType="fade" onRequestClose={() => setShowClone(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
-          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setShowClone(false)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 4}}>{t('members.clone')}</Text>
             <Text style={{fontSize: fs(12), color: T.dim, paddingHorizontal: 16, paddingBottom: 8}}>{t('members.cloneFields')}</Text>
             {([['name', t('modal.name')], ['pronouns', t('modal.pronouns')], ['role', t('modal.role')], ['color', t('memberProfile.color')], ['description', t('modal.descriptionLabel')]] as ['name' | 'pronouns' | 'role' | 'color' | 'description', string][]).map(([k, label]) => {

@@ -72,6 +72,10 @@
     "spoiler": "स्पॉइलर, दिखाने के लिए टैप करें"
   },
   "common": {
+    "durDaysHours": "{{d}} दिन {{h}} घं",
+    "durHoursMinutes": "{{h}} घं {{m}} मि",
+    "durMinutes": "{{m}} मि",
+    "durUnderMinute": "<1 मि",
     "movedToTop": "अब सबसे पहले",
     "dragReorder": "क्रम बदलने के लिए खींचें",
     "reorderLock": "खींचकर क्रम बदलना",

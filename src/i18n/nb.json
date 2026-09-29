@@ -119,6 +119,10 @@
     "title": "Systembehandler"
   },
   "common": {
+    "durDaysHours": "{{d}} d {{h}} t",
+    "durHoursMinutes": "{{h}} t {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Nå først",
     "dragReorder": "Dra for å endre rekkefølge",
     "reorderLock": "Dra-omorganisering",

@@ -488,7 +488,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           if (!mm) {
             return (
               <Modal visible transparent animationType="fade" onRequestClose={() => setViewMemberId(null)}>
-                <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'}}>
+                <View accessibilityViewIsModal onAccessibilityEscape={() => setViewMemberId(null)} style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'}}>
                   <ActivityIndicator color={T.accent} />
                 </View>
               </Modal>
@@ -515,7 +515,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
 
         <Modal visible={!!unlockFor} transparent animationType="fade" onRequestClose={() => setUnlockFor(null)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24, paddingBottom: 24 + kbHeight}}>
-            <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+            <View accessibilityViewIsModal onAccessibilityEscape={() => setUnlockFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}}>🔒 {unlockFor?.title || t('common.untitled')}</Text>
               <TextInput
                 value={pwInput}

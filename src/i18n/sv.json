@@ -72,6 +72,10 @@
     "spoiler": "Spoiler, tryck för att visa"
   },
   "common": {
+    "durDaysHours": "{{d}} d {{h}} h",
+    "durHoursMinutes": "{{h}} h {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Nu först",
     "dragReorder": "Dra för att sortera om",
     "reorderLock": "Dragsortering",
@@ -744,7 +748,7 @@
     "coFront": "Co-front: {{names}}",
     "coConscious": "Co-medvetna: {{names}}",
     "cfShort": "CF: {{names}}",
-    "ccShort": "CC: {{names}}",
+    "ccShort": "CM: {{names}}",
     "frontCheck": "Frontkoll",
     "frontCheckDesc": "Påminn mig att kolla vem som frontar.",
     "statusCheck": "Statuskoll",
@@ -1377,8 +1381,8 @@
   },
   "memberSort": {
     "label": "Sortera medlemmar",
-    "alphabetical": "A → Z",
-    "reverse-alphabetical": "Z → A",
+    "alphabetical": "A → Ö",
+    "reverse-alphabetical": "Ö → A",
     "age": "Äldst först",
     "color": "Efter färg",
     "role": "Efter roll",

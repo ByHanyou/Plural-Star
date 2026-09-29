@@ -440,7 +440,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
 
         <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
-            <View style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 360, backgroundColor: T.card, borderColor: T.border}}>
+            <View accessibilityViewIsModal onAccessibilityEscape={() => setQuickFrontFor(null)} style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 360, backgroundColor: T.card, borderColor: T.border}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 12}} numberOfLines={1}>{t('members.addToFront')} — {quickFrontFor?.name}</Text>
               {(['primary', 'coFront', 'coConscious'] as FrontTierKey[]).map(tier => (
                 <TouchableOpacity key={tier}
@@ -462,7 +462,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
 
         <Modal visible={addPickOpen} transparent animationType="fade" onRequestClose={() => setAddPickOpen(false)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
-            <View style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 400, maxHeight: '80%', backgroundColor: T.card, borderColor: T.border}}>
+            <View accessibilityViewIsModal onAccessibilityEscape={() => setAddPickOpen(false)} style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 400, maxHeight: '80%', backgroundColor: T.card, borderColor: T.border}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}} numberOfLines={1}>{t('memberGroups.addMembers')} — {current?.name}</Text>
               <TextInput value={addSearch} onChangeText={setAddSearch} placeholder={t('common.search')} placeholderTextColor={T.muted}
                 accessibilityLabel={t('common.search')}

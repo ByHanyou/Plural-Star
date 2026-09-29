@@ -72,6 +72,10 @@
     "spoiler": "Spoiler, tik om te tonen"
   },
   "common": {
+    "durDaysHours": "{{d}} d {{h}} u",
+    "durHoursMinutes": "{{h}} u {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Nu eerste",
     "dragReorder": "Sleep om te herschikken",
     "reorderLock": "Herschikken door slepen",

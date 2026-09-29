@@ -602,7 +602,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       </View>
       <Modal visible={voHelpOpen} transparent animationType="fade" onRequestClose={() => setVoHelpOpen(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24}}>
-          <View style={{backgroundColor: T.card, borderRadius: 12, padding: 16, maxHeight: '80%'}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setVoHelpOpen(false)} style={{backgroundColor: T.card, borderRadius: 12, padding: 16, maxHeight: '80%'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(17), fontWeight: '700', color: T.text, marginBottom: 8}}>{t('whiteboard.voCommands')}</Text>
             <ScrollView>
               <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 12}}>{t('whiteboard.voHint')}</Text>

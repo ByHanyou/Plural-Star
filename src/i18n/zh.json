@@ -119,6 +119,10 @@
     "title": "系统管理器"
   },
   "common": {
+    "durDaysHours": "{{d}}天{{h}}小时",
+    "durHoursMinutes": "{{h}}小时{{m}}分钟",
+    "durMinutes": "{{m}}分钟",
+    "durUnderMinute": "不到1分钟",
     "movedToTop": "已移到首位",
     "dragReorder": "拖动以重新排序",
     "reorderLock": "拖动排序",

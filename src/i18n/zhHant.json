@@ -72,6 +72,10 @@
     "spoiler": "隱藏內容，點一下顯示"
   },
   "common": {
+    "durDaysHours": "{{d}}天{{h}}小時",
+    "durHoursMinutes": "{{h}}小時{{m}}分鐘",
+    "durMinutes": "{{m}}分鐘",
+    "durUnderMinute": "不到1分鐘",
     "movedToTop": "已移到首位",
     "dragReorder": "拖曳以重新排序",
     "reorderLock": "拖曳排序",

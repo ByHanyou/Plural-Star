@@ -119,6 +119,10 @@
     "title": "Järjestelmänhallinta"
   },
   "common": {
+    "durDaysHours": "{{d}} pv {{h}} t",
+    "durHoursMinutes": "{{h}} t {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Nyt ensimmäisenä",
     "dragReorder": "Järjestä vetämällä",
     "reorderLock": "Vetojärjestely",

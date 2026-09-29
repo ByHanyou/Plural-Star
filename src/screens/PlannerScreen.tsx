@@ -4,7 +4,7 @@ import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtTime, isValidTimeHHMM, getLocale} from '../utils';
+import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtTime, isValidTimeHHMM, getLocale, firstDayOfWeek} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {savePlanner} from '../store/actions';
@@ -71,6 +71,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
   const [remStart, setRemStart] = useState<Date>(today);
 
   const locale = getLocale();
+  const weekStart = firstDayOfWeek();
   const markColor = planner.markColor || T.accent;
   const [markPickerOpen, setMarkPickerOpen] = useState(false);
 
@@ -89,10 +90,10 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
     const base = new Date(2026, 7, 2);
     return Array.from({length: 7}, (_, i) => {
       const d = new Date(base);
-      d.setDate(base.getDate() + i);
+      d.setDate(base.getDate() + i + weekStart);
       return d.toLocaleDateString(locale, {weekday: 'narrow'});
     });
-  }, [locale]);
+  }, [locale, weekStart]);
 
   const minutesOfDay = (ts: number) => { const d = new Date(ts); return d.getHours() * 60 + d.getMinutes(); };
   const apptsOn = (day: Date): PlannerAppointment[] =>
@@ -105,13 +106,13 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
   const grid = useMemo(() => {
     const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
     const start = new Date(first);
-    start.setDate(1 - first.getDay());
+    start.setDate(1 - ((first.getDay() - weekStart + 7) % 7));
     return Array.from({length: 42}, (_, i) => {
       const d = new Date(start);
       d.setDate(start.getDate() + i);
       return d;
     });
-  }, [viewMonth]);
+  }, [viewMonth, weekStart]);
 
   const shiftMonth = (delta: number) =>
     setViewMonth(m => new Date(m.getFullYear(), m.getMonth() + delta, 1));

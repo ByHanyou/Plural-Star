@@ -119,6 +119,10 @@
     "title": "Gestionnaire du système"
   },
   "common": {
+    "durDaysHours": "{{d}} j {{h}} h",
+    "durHoursMinutes": "{{h}} h {{m}} min",
+    "durMinutes": "{{m}} min",
+    "durUnderMinute": "<1 min",
     "movedToTop": "Maintenant en premier",
     "dragReorder": "Glisser pour réorganiser",
     "reorderLock": "Réorganisation par glissement",

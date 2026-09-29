@@ -137,16 +137,16 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   });
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
 
-  const handleJSON = async () => {try {await exportZipBundle(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
-  const handleJSONFile = async () => {try {await exportJSON(system, members, history, journal, exportSel);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
-  const handlePluralKitExport = async () => {try {await exportPluralKit(system, members, exportSel.frontHistory ? history : []);} catch (e) {Alert.alert(t('share.exportFailed'), String(e));}};
+  const handleJSON = async () => {try {await exportZipBundle(system, members, history, journal, exportSel);} catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}};
+  const handleJSONFile = async () => {try {await exportJSON(system, members, history, journal, exportSel);} catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}};
+  const handlePluralKitExport = async () => {try {await exportPluralKit(system, members, exportSel.frontHistory ? history : []);} catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}};
   const handleEmail = () => {
     if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
     exportEmail(system, members, history, journal, emailAddr);
   };
   const handleJournalExport = async (fmt: 'json' | 'txt' | 'md') => {
     try { if (fmt === 'json') await exportAllJournalJSON(journal, system.name); else if (fmt === 'txt') await exportAllJournalTxt(journal, members, system.name); else await exportAllJournalMd(journal, members, system.name);
-    } catch (e) {Alert.alert(t('share.exportFailed'), String(e));}
+    } catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}
   };
 
   const handleImportJournalFile = async () => {
@@ -277,8 +277,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
       const sel: Record<string, boolean> = {};
       entries.forEach(e => { sel[e.key] = true; });
       setRecoverSel(sel);
-    } catch (e) {
-      Alert.alert(t('share.recoverScanFailed'), String(e));
+    } catch (e: any) {
+      Alert.alert(t('share.recoverScanFailed'), String(e?.message || e));
       setRecoverEntries([]);
     } finally {
       setRecoverScanning(false);

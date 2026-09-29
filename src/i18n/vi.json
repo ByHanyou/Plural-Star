@@ -72,6 +72,10 @@
     "spoiler": "Spoiler, nhấn để hiện"
   },
   "common": {
+    "durDaysHours": "{{d}} ngày {{h}} giờ",
+    "durHoursMinutes": "{{h}} giờ {{m}} phút",
+    "durMinutes": "{{m}} phút",
+    "durUnderMinute": "<1 phút",
     "movedToTop": "Bây giờ ở vị trí đầu tiên",
     "dragReorder": "Kéo để sắp xếp lại",
     "reorderLock": "Sắp xếp bằng cách kéo",

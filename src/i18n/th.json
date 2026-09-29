@@ -72,6 +72,10 @@
     "spoiler": "สปอยเลอร์ แตะเพื่อแสดง"
   },
   "common": {
+    "durDaysHours": "{{d}} วัน {{h}} ชม.",
+    "durHoursMinutes": "{{h}} ชม. {{m}} นาที",
+    "durMinutes": "{{m}} นาที",
+    "durUnderMinute": "<1 นาที",
     "movedToTop": "ตอนนี้อยู่ลำดับแรก",
     "dragReorder": "ลากเพื่อจัดลำดับใหม่",
     "reorderLock": "ลากเพื่อจัดลำดับ",

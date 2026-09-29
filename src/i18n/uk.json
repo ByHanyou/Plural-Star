@@ -119,6 +119,10 @@
     "title": "Менеджер системи"
   },
   "common": {
+    "durDaysHours": "{{d}} д {{h}} год",
+    "durHoursMinutes": "{{h}} год {{m}} хв",
+    "durMinutes": "{{m}} хв",
+    "durUnderMinute": "<1 хв",
     "movedToTop": "Тепер на першому місці",
     "dragReorder": "Перетягніть, щоб змінити порядок",
     "reorderLock": "Перетягування для сортування",

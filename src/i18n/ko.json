@@ -72,6 +72,10 @@
     "spoiler": "스포일러, 탭하여 표시"
   },
   "common": {
+    "durDaysHours": "{{d}}일 {{h}}시간",
+    "durHoursMinutes": "{{h}}시간 {{m}}분",
+    "durMinutes": "{{m}}분",
+    "durUnderMinute": "1분 미만",
     "movedToTop": "이제 첫 번째예요",
     "dragReorder": "드래그해서 순서 변경",
     "reorderLock": "드래그 순서 변경",

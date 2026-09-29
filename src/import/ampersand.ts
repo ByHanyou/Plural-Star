@@ -301,7 +301,7 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
         return;
       }
       throw new Error(t('share.ampersandNeedsJson', {
-        defaultValue: "That isn't an Ampersand JSON export. In Ampersand, use Export your data and pick the JSON file.",
+        defaultValue: "That isn't an Ampersand export. In Ampersand, use Export your data and pick the .ampar archive or the JSON file.",
       }));
     } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || t('share.couldNotReadAmpar')); }
   };

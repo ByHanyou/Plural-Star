@@ -892,7 +892,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     )}
     <Modal visible={showGroupAssign} transparent animationType="fade" onRequestClose={() => setShowGroupAssign(false)}>
       <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
-        <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
+        <View accessibilityViewIsModal onAccessibilityEscape={() => setShowGroupAssign(false)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
           <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>{t('members.addToGroups')}</Text>
           <ScrollView style={{maxHeight: 320}}>
             {sortGroupsForDisplay(groups, groups).map(g => { const on = groupAssignSel.has(g.id); return (
@@ -956,7 +956,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     </Modal>
     <Modal visible={showDisplayOptions} transparent animationType="fade" onRequestClose={() => setShowDisplayOptions(false)}>
       <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
-        <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+        <View accessibilityViewIsModal onAccessibilityEscape={() => setShowDisplayOptions(false)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
           <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>{t('members.displayFields')}</Text>
           {([['groups', t('members.fieldGroups')], ['descriptions', t('members.fieldDescriptions')], ['pronouns', t('members.fieldPronouns')], ['roles', t('members.fieldRoles')], ['count', t('members.fieldCount')]] as ['groups' | 'descriptions' | 'pronouns' | 'roles' | 'count', string][]).map(([k, label]) => {
             const on = listFields[k] !== false;

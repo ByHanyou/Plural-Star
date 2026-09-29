@@ -256,7 +256,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
         </KeyboardAwareScrollView>
         <Modal visible={lockManage} transparent animationType="fade" onRequestClose={() => setLockManage(false)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32, paddingBottom: 32 + kbHeight}}>
-            <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+            <View accessibilityViewIsModal onAccessibilityEscape={() => setLockManage(false)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 6}}>{t('mailbox.lockTitle')}</Text>
               <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 10}}>{t('mailbox.lockHint')}</Text>
               <TextInput value={lockInput} onChangeText={setLockInput} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
@@ -342,7 +342,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
       </KeyboardAwareScrollView>
       <Modal visible={!!pwFor} transparent animationType="fade" onRequestClose={() => setPwFor(null)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 32, paddingBottom: 32 + kbHeight}}>
-          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setPwFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 6}}>
               {`🔒 ${byId(pwFor || '')?.name || '?'}`}
             </Text>

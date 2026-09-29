@@ -119,6 +119,10 @@
     "title": "Менеджер системы"
   },
   "common": {
+    "durDaysHours": "{{d}} д {{h}} ч",
+    "durHoursMinutes": "{{h}} ч {{m}} мин",
+    "durMinutes": "{{m}} мин",
+    "durUnderMinute": "<1 мин",
     "movedToTop": "Теперь на первом месте",
     "dragReorder": "Перетащите, чтобы изменить порядок",
     "reorderLock": "Перетаскивание для сортировки",

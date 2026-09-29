@@ -72,6 +72,10 @@
     "spoiler": "Spilliefni, smelltu til að sýna"
   },
   "common": {
+    "durDaysHours": "{{d}} d. {{h}} klst.",
+    "durHoursMinutes": "{{h}} klst. {{m}} mín.",
+    "durMinutes": "{{m}} mín.",
+    "durUnderMinute": "<1 mín.",
     "movedToTop": "Nú fyrst",
     "dragReorder": "Dragðu til að endurraða",
     "reorderLock": "Endurröðun með dragi",

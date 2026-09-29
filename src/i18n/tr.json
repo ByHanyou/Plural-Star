@@ -72,6 +72,10 @@
     "spoiler": "Spoiler, göstermek için dokun"
   },
   "common": {
+    "durDaysHours": "{{d}} g {{h}} sa",
+    "durHoursMinutes": "{{h}} sa {{m}} dk",
+    "durMinutes": "{{m}} dk",
+    "durUnderMinute": "<1 dk",
     "movedToTop": "Artık ilk sırada",
     "dragReorder": "Yeniden sıralamak için sürükle",
     "reorderLock": "Sürükleyerek sıralama",
