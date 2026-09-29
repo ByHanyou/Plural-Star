@@ -76,6 +76,7 @@ export const updateFrontLiveActivity = async (
     return;
   }
 
+  const since = frontSessionStart(front);
   await nativeModule.startOrUpdate({
     systemName: systemName || 'Plural Star',
     primaryText,
@@ -84,8 +85,8 @@ export const updateFrontLiveActivity = async (
     mood: front.primary.mood,
     location: front.primary.location,
     note: front.primary.note || undefined,
-    startTime: frontSessionStart(front),
-    statusLine: fmtDur(frontSessionStart(front)),
+    startTime: since,
+    statusLine: fmtDur(since),
     friendsText: friendsText || undefined,
   });
 };

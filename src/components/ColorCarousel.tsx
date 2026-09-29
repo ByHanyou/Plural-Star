@@ -109,7 +109,6 @@ const ColorCarouselInner = ({value, onChange, T, size = 30}: {value: string; onC
         windowSize={5}
         initialNumToRender={12}
         maxToRenderPerBatch={12}
-        removeClippedSubviews
         renderItem={renderItem}
       />
       {selectedLabel ? (

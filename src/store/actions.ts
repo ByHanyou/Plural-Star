@@ -1,6 +1,6 @@
 import {Alert} from 'react-native';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, ChatMessage, MedicalData, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid} from '../utils';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, ChatMessage, MedicalData, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid, mergeTags} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
@@ -387,6 +387,17 @@ export const bulkAddGroups = async (ids: string[], groupIds: string[]) => {
   await saveMembers(members.map(m => idSet.has(m.id) ? {...m, groupIds: [...new Set([...(m.groupIds || []), ...groupIds])]} : m));
 };
 
+export const bulkAddTags = async (ids: string[], tags: string[]) => {
+  if (ids.length === 0 || tags.length === 0) return;
+  const {members} = useAppStore.getState();
+  const idSet = new Set(ids);
+  await saveMembers(members.map(m => {
+    if (!idSet.has(m.id)) return m;
+    const next = mergeTags(m.tags, tags);
+    return next.length === (m.tags || []).length ? m : {...m, tags: next};
+  }));
+};
+
 export const bulkRemoveFromGroup = async (ids: string[], groupId: string) => {
   const {members} = useAppStore.getState();
   const idSet = new Set(ids);
@@ -434,9 +445,10 @@ export const ensureSelfMember = async (): Promise<Member> => {
   return nm;
 };
 
-export const applyFrontState = async (f: FrontState | null) => {
+export const applyFrontState = async (f: FrontState | null, since?: number) => {
   const {front, setFront} = useAppStore.getState();
-  const next = withMemberSince(f, front, Date.now());
+  const now = Date.now();
+  const next = withMemberSince(f, front, typeof since === 'number' && Number.isFinite(since) && since > 0 ? Math.min(since, now) : now);
   setFront(next);
   await store.set(KEYS.front, next);
 };
@@ -454,6 +466,16 @@ export const saveMemberSortMode = async (mode: MemberSortMode) => {
 export const saveGroupSortMode = async (mode: MemberSortMode) => {
   const {appSettings, setAppSettings} = useAppStore.getState();
   const next = {...appSettings, groupSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
+};
+
+export const saveFrontSortMode = async (mode: FrontSortMode) => {
+  const {appSettings, setAppSettings} = useAppStore.getState();
+  const next = {...appSettings, frontSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
+};
+
+export const saveFrontCustomOrder = async (order: string[]) => {
+  const {appSettings, setAppSettings} = useAppStore.getState();
+  const next = {...appSettings, frontCustomOrder: order}; setAppSettings(next); await store.set(KEYS.settings, next);
 };
 
 export const reorderMember = async (id: string, direction: 'up' | 'down') => {

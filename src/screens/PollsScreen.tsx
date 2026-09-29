@@ -27,6 +27,7 @@ export const PollsScreen = ({theme: T}: Props) => {
   const [question, setQuestion] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [hideVoters, setHideVoters] = useState(false);
+  const [multiChoice, setMultiChoice] = useState(false);
   const [voterId, setVoterId] = useState(() => {
     const votable = new Set([...activeMembers, ...facetMembers].map(m => m.id));
     const fronting = [
@@ -56,15 +57,19 @@ export const PollsScreen = ({theme: T}: Props) => {
       id: uid(), targetMemberId: voterId, question: question.trim(),
       options: options.filter(o => o.trim()).map(o => ({id: uid(), label: o.trim(), votes: []})),
       createdBy: voterId, createdAt: Date.now(), hideVoterNames: hideVoters || undefined,
+      multipleChoice: multiChoice || undefined,
     };
     savePolls([...polls, poll]);
-    setShowCreate(false); setQuestion(''); setOptions(['', '']); setHideVoters(false);
+    setShowCreate(false); setQuestion(''); setOptions(['', '']); setHideVoters(false); setMultiChoice(false);
   };
 
   const vote = (pollId: string, optionId: string) => {
     if (!voterId) return;
     savePolls(polls.map(p => {
       if (p.id !== pollId) return p;
+      if (p.multipleChoice) {
+        return {...p, options: p.options.map(o => o.id !== optionId ? o : {...o, votes: o.votes.includes(voterId) ? o.votes.filter(v => v !== voterId) : [...o.votes, voterId]})};
+      }
       const alreadyVoted = p.options.some(o => o.id === optionId && o.votes.includes(voterId));
       const opts = p.options.map(o => {
         const without = o.votes.filter(v => v !== voterId);
@@ -169,6 +174,10 @@ export const PollsScreen = ({theme: T}: Props) => {
           <TouchableOpacity onPress={() => setOptions([...options, ''])} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('polls.addOption')} style={{paddingVertical: 6}}>
             <Text style={{fontSize: fs(12), color: T.accent}}>{t('polls.addOption')}</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={() => setMultiChoice(!multiChoice)} activeOpacity={0.7} accessibilityRole="checkbox" accessibilityState={{checked: multiChoice}} accessibilityLabel={t('polls.multipleChoice')} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6}}>
+            <Text style={{fontSize: fs(16), color: multiChoice ? T.accent : T.muted}}>{multiChoice ? '☑' : '☐'}</Text>
+            <Text style={{fontSize: fs(12), color: T.dim}}>{t('polls.multipleChoice')}</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setHideVoters(!hideVoters)} activeOpacity={0.7} accessibilityRole="checkbox" accessibilityState={{checked: hideVoters}} accessibilityLabel={t('polls.hideVoters')} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, marginBottom: 10}}>
             <Text style={{fontSize: fs(16), color: hideVoters ? T.accent : T.muted}}>{hideVoters ? '☑' : '☐'}</Text>
             <Text style={{fontSize: fs(12), color: T.dim}}>{t('polls.hideVoters')}</Text>
@@ -186,7 +195,7 @@ export const PollsScreen = ({theme: T}: Props) => {
             <Text style={{fontSize: fs(13), color: T.dim}}>{t('polls.noPolls')}</Text>
           </View>
         ) : polls.map(poll => {
-          const totalVotes = poll.options.reduce((s, o) => s + o.votes.length, 0);
+          const voterCount = new Set(poll.options.flatMap(o => o.votes)).size;
           const isClosed = !!poll.closedAt;
           return (
             <View key={poll.id} style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 10}}>
@@ -195,15 +204,16 @@ export const PollsScreen = ({theme: T}: Props) => {
                 {isClosed && <Text style={{fontSize: fs(10), color: T.danger, fontWeight: '600', textTransform: 'uppercase'}}>{t('polls.closed')}</Text>}
               </View>
               <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 10}}>
-                {poll.hideVoterNames ? '' : `${getName(poll.createdBy)} · `}{fmtTime(poll.createdAt)} · {t('polls.votes', {count: totalVotes})}
+                {poll.hideVoterNames ? '' : `${getName(poll.createdBy)} · `}{fmtTime(poll.createdAt)} · {t('polls.votes', {count: voterCount})}{poll.multipleChoice ? ` · ${t('polls.multipleChoice')}` : ''}
               </Text>
 
               {poll.options.map(opt => {
-                const pct = totalVotes > 0 ? Math.round((opt.votes.length / totalVotes) * 100) : 0;
+                const pct = voterCount > 0 ? Math.round((opt.votes.length / voterCount) * 100) : 0;
                 const voted = opt.votes.includes(voterId);
                 return (
                   <TouchableOpacity key={opt.id} onPress={() => !isClosed && vote(poll.id, opt.id)} activeOpacity={isClosed ? 1 : 0.7}
-                    accessibilityRole="button" accessibilityLabel={`${opt.label}, ${pct}%`} accessibilityState={{selected: voted, disabled: isClosed}}
+                    accessibilityRole={poll.multipleChoice ? 'checkbox' : 'button'} accessibilityLabel={`${opt.label}, ${pct}%`}
+                    accessibilityState={poll.multipleChoice ? {checked: voted, disabled: isClosed} : {selected: voted, disabled: isClosed}}
                     style={{borderRadius: 8, borderWidth: 1, borderColor: voted ? T.accent : T.border, backgroundColor: T.surface, marginBottom: 6, overflow: 'hidden'}}>
                     <View style={{position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, backgroundColor: voted ? `${T.accent}55` : `${T.muted}45`}} />
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10}}>

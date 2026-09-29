@@ -1,5 +1,6 @@
 import {Alert} from 'react-native';
 import type {TFunction} from 'i18next';
+import {withTimeout} from '../utils/concurrency';
 
 export type PluralKitFetchCtx = {
   extToken: string;
@@ -11,20 +12,21 @@ export type PluralKitFetchCtx = {
 const PK_PAGE = 100;
 const PK_MAX_PAGES = 200;
 const PK_BASE = 'https://api.pluralkit.me/v2';
+const PK_TIMEOUT_MS = 30000;
 
 const pkRequest = async (url: string, headers: Record<string, string>): Promise<Response> => {
   for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(url, {headers});
+    const res = await withTimeout(fetch(url, {headers}), PK_TIMEOUT_MS, 'PluralKit request');
     if (res.status !== 429) return res;
     let waitMs = 1000;
     try {
-      const body = await res.clone().json();
+      const body = await withTimeout(res.clone().json(), PK_TIMEOUT_MS, 'PluralKit request');
       const ra = Number(body?.retry_after);
       if (isFinite(ra) && ra > 0) waitMs = ra;
     } catch {}
     await new Promise<void>(r => setTimeout(() => r(), Math.min(Math.max(waitMs, 250), 10000)));
   }
-  return fetch(url, {headers});
+  return withTimeout(fetch(url, {headers}), PK_TIMEOUT_MS, 'PluralKit request');
 };
 
 const fetchAllPkSwitches = async (headers: Record<string, string>): Promise<any[]> => {
@@ -39,7 +41,7 @@ const fetchAllPkSwitches = async (headers: Record<string, string>): Promise<any[
       throw new Error(String(res.status));
     }
     let batch: any;
-    try { batch = await res.json(); } catch { break; }
+    try { batch = await withTimeout(res.json(), PK_TIMEOUT_MS, 'PluralKit request'); } catch { break; }
     if (!Array.isArray(batch) || batch.length === 0) break;
     let added = 0;
     for (const sw of batch) {
@@ -74,9 +76,9 @@ export const handlePluralKitFetch = async (ctx: PluralKitFetchCtx) => {
       };
       check(sRes); check(mRes); check(gRes);
       let sData: any = {}; let mData: any = []; let gData: any = [];
-      try { sData = await sRes.json(); } catch { sData = {}; }
-      try { mData = await mRes.json(); } catch { mData = []; }
-      try { gData = await gRes.json(); } catch { gData = []; }
+      try { sData = await withTimeout(sRes.json(), PK_TIMEOUT_MS, 'PluralKit request'); } catch { sData = {}; }
+      try { mData = await withTimeout(mRes.json(), PK_TIMEOUT_MS, 'PluralKit request'); } catch { mData = []; }
+      try { gData = await withTimeout(gRes.json(), PK_TIMEOUT_MS, 'PluralKit request'); } catch { gData = []; }
       let swData: any[] = [];
       try {
         swData = await fetchAllPkSwitches(headers);

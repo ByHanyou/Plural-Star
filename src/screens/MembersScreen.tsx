@@ -1,15 +1,17 @@
 import React, {useState, useMemo, useCallback, useDeferredValue, useRef, useEffect} from 'react';
-import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, AccessibilityInfo, Image} from 'react-native';
+import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, AccessibilityInfo, Image, findNodeHandle} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {FlashList, FlashListRef} from '@shopify/flash-list';
 import {useTranslation} from 'react-i18next';
 import {Fonts, PALETTE, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay, tagKey, upperRune} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, MemberSortMode, allFrontMemberIds, uid, isValidHex, normalizeHex, sortMembers, childrenOf, descendantsOf, isDescendant, groupKind, sortGroupsForDisplay, tagKey, tagFromInput, upperRune} from '../utils';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {PlusMinusIcon} from '../components/Glyphs';
+import {SystemManagerScreen} from './SystemManagerScreen';
+import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
@@ -165,15 +167,95 @@ interface Props {
   onBulkRestore?: (ids: string[]) => void | Promise<void>;
   onBulkDelete?: (ids: string[]) => void | Promise<void>;
   onBulkAddGroups?: (ids: string[], groupIds: string[]) => void | Promise<void>;
+  onBulkAddTags?: (ids: string[], tags: string[]) => void | Promise<void>;
   onBulkSetFacet?: (ids: string[], toFacet: boolean) => void | Promise<void>;
   onRestoreDeleted?: (id: string) => void | Promise<void>;
-  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'};
-  onSaveListFields?: (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'}) => void;
+  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'; browse?: boolean};
+  onSaveListFields?: (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'; browse?: boolean}) => void;
   onQuickAddToFront?: (id: string, tier: FrontTierKey) => void | Promise<void>;
   onRemoveFromFront?: (id: string) => void | Promise<void>;
 }
 
-export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, onBulkSetFacet, onRestoreDeleted, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
+const TagAssignCard = ({T, known, onApply, onClose}: {T: ThemeColors; known: string[]; onApply: (tags: string[]) => void; onClose: () => void}) => {
+  const {t} = useTranslation();
+  const fs = fontScale(T);
+  const kb = useKeyboardHeight();
+  const [sel, setSel] = useState<string[]>([]);
+  const [added, setAdded] = useState<string[]>([]);
+  const [input, setInput] = useState('');
+  const choices = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const tag of [...known, ...added]) {
+      const k = tagKey(tag);
+      if (!seen.has(k)) seen.set(k, tag);
+    }
+    return [...seen.values()].sort((a, b) => {
+      const ka = tagKey(a), kz = tagKey(b);
+      return ka < kz ? -1 : ka > kz ? 1 : 0;
+    });
+  }, [known, added]);
+  const isOn = (tag: string) => sel.some(x => tagKey(x) === tagKey(tag));
+  const toggle = (tag: string) => setSel(prev => (prev.some(x => tagKey(x) === tagKey(tag)) ? prev.filter(x => tagKey(x) !== tagKey(tag)) : [...prev, tag]));
+  const resolve = (raw: string): string | null => {
+    const next = tagFromInput(raw);
+    if (!next) return null;
+    return choices.find(x => tagKey(x) === tagKey(next)) || next;
+  };
+  const addTyped = () => {
+    const tag = resolve(input);
+    setInput('');
+    if (!tag) return;
+    if (!choices.some(x => tagKey(x) === tagKey(tag))) setAdded(prev => [...prev, tag]);
+    setSel(prev => (prev.some(x => tagKey(x) === tagKey(tag)) ? prev : [...prev, tag]));
+    AccessibilityInfo.announceForAccessibility(tag);
+  };
+  const pending = resolve(input);
+  const final = pending && !isOn(pending) ? [...sel, pending] : sel;
+  return (
+    <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24, paddingBottom: 24 + kb}}>
+      <View accessibilityViewIsModal onAccessibilityEscape={onClose}
+        style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '80%', overflow: 'hidden'}}>
+        <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>{t('members.addTags')}</Text>
+        <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', paddingHorizontal: 16, paddingBottom: 10}}>
+          <TextInput value={input} onChangeText={setInput} accessibilityLabel={t('modal.memberTagPlaceholder')} placeholder={t('modal.memberTagPlaceholder')} placeholderTextColor={T.muted}
+            autoCapitalize="none" autoCorrect={false} onSubmitEditing={addTyped} returnKeyType="done" blurOnSubmit={false}
+            style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} />
+          <TouchableOpacity onPress={addTyped} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.add')}
+            style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+            <Text style={{fontSize: fs(13), color: T.text}}>{t('common.add')}</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={{maxHeight: 320}} keyboardShouldPersistTaps="handled">
+          {choices.map(tag => {
+            const on = isOn(tag);
+            return (
+              <TouchableOpacity key={tagKey(tag)} onPress={() => toggle(tag)} activeOpacity={0.7}
+                accessibilityRole="checkbox" accessibilityState={{checked: on}} accessibilityLabel={tag}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: T.border}}>
+                <View style={{width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: on ? T.info : T.border, backgroundColor: on ? T.info : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
+                  {on ? <Text style={{fontSize: fs(11), color: T.bg, fontWeight: '700'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text> : null}
+                </View>
+                <Text style={{flex: 1, fontSize: fs(14), color: T.text}} numberOfLines={1}>{tag}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        <View style={{flexDirection: 'row', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: T.border}}>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+            style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+            <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => onApply(final)} disabled={final.length === 0} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{disabled: final.length === 0}} accessibilityLabel={t('common.add')}
+            style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: final.length === 0 ? 0.4 : 1}}>
+            <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.add')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, onAdd, onAddCustomFront, onAddFacet, onEdit, onView, onSaveGroups, onSaveSortMode, onReorderMember, onBulkArchive, onBulkRestore, onBulkDelete, onBulkAddGroups, onBulkAddTags, onBulkSetFacet, onRestoreDeleted, memberListFields, onSaveListFields, onQuickAddToFront, onRemoveFromFront}: Props) => {
   const members = useAppStore(s => s.members);
   const front = useAppStore(s => s.front);
   const groups = useAppStore(s => s.groups);
@@ -188,14 +270,33 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showGroupAssign, setShowGroupAssign] = useState(false);
   const [groupAssignSel, setGroupAssignSel] = useState<Set<string>>(new Set());
+  const [showTagAssign, setShowTagAssign] = useState(false);
   const [showDisplayOptions, setShowDisplayOptions] = useState(false);
   const [quickFrontFor, setQuickFrontFor] = useState<Member | null>(null);
-  const [listFields, setListFields] = useState<{groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'}>({groups: true, descriptions: true, pronouns: true, roles: true, count: true, ...(memberListFields || {})});
+  const [listFields, setListFields] = useState<{groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'; browse?: boolean}>({groups: true, descriptions: true, pronouns: true, roles: true, count: true, ...(memberListFields || {})});
   const toggleListField = (k: 'groups' | 'descriptions' | 'pronouns' | 'roles' | 'count') => {
     const next = {...listFields, [k]: !listFields[k]};
     setListFields(next);
     onSaveListFields && onSaveListFields(next);
   };
+  const browseGroups = !archiveOnly && listFields.browse === true;
+  const groupsToggleRef = useRef<React.ComponentRef<typeof TouchableOpacity>>(null);
+  const focusGroupsToggle = useRef(false);
+  const toggleBrowseGroups = () => {
+    const next = {...listFields, browse: !browseGroups};
+    focusGroupsToggle.current = true;
+    setListFields(next);
+    onSaveListFields && onSaveListFields(next);
+  };
+  useEffect(() => {
+    if (!focusGroupsToggle.current) return;
+    focusGroupsToggle.current = false;
+    const timer = setTimeout(() => {
+      const tag = groupsToggleRef.current ? findNodeHandle(groupsToggleRef.current) : null;
+      if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [browseGroups]);
   const searchRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const listRef = useRef<FlashListRef<Member>>(null);
   const [showTop, setShowTop] = useState(false);
@@ -284,6 +385,24 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     await onBulkAddGroups(ids, gids);
     setShowGroupAssign(false);
     setGroupAssignSel(new Set());
+    exitSelection();
+  };
+  const knownTags = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const m of members) {
+      if (m.deleted) continue;
+      for (const tag of m.tags || []) {
+        const k = tagKey(tag);
+        if (!seen.has(k)) seen.set(k, tag);
+      }
+    }
+    return [...seen.values()];
+  }, [members]);
+  const applyTagAssign = async (tags: string[]) => {
+    const ids = [...selectedIds];
+    setShowTagAssign(false);
+    if (ids.length === 0 || tags.length === 0 || !onBulkAddTags) return;
+    await onBulkAddTags(ids, tags);
     exitSelection();
   };
 
@@ -475,6 +594,30 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     }
   };
 
+  const groupsToggle = (
+    <TouchableOpacity ref={groupsToggleRef} onPress={toggleBrowseGroups} activeOpacity={0.7} hitSlop={{top: 8, bottom: 8, left: 4, right: 4}}
+      accessibilityRole="switch" accessibilityState={{checked: browseGroups}} accessibilityLabel={t('memberGroups.title')}
+      style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, paddingLeft: 10}}>
+      <Text style={{fontSize: fs(12), fontWeight: '500', color: browseGroups ? T.accent : T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('memberGroups.title')}</Text>
+      <View style={{width: 44, height: 26, borderRadius: 13, backgroundColor: browseGroups ? T.accent : T.toggleOff, justifyContent: 'center'}}>
+        <View style={{width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff', position: 'absolute', left: browseGroups ? 21 : 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+      </View>
+    </TouchableOpacity>
+  );
+
+  const frontersHeading = (
+    <View style={{flexDirection: 'row', alignItems: 'center'}}>
+      <Text
+        accessibilityRole="header"
+        style={[s.heading, {color: T.text, flex: 1}]}
+        numberOfLines={1}
+        maxFontSizeMultiplier={1.2}>
+        {t('tabs.fronters')}
+      </Text>
+      {groupsToggle}
+    </View>
+  );
+
   const ListHeader = (
     <View>
       {selectionMode ? (
@@ -499,15 +642,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         </View>
       ) : (
         <View style={{marginBottom: 14}}>
-          {!archiveOnly && (
-            <Text
-              accessibilityRole="header"
-              style={[s.heading, {color: T.text}]}
-              numberOfLines={1}
-              maxFontSizeMultiplier={1.2}>
-              {t('tabs.fronters')}
-            </Text>
-          )}
+          {!archiveOnly && frontersHeading}
           {listFields.count !== false && (
           <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2, marginBottom: 10}} numberOfLines={1} maxFontSizeMultiplier={1.2}>
             {(query || activeGroup || activeTag)
@@ -547,33 +682,39 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       )}
 
       {selectionMode && selectedIds.size > 0 && (
-        <View style={{flexDirection: 'row', gap: 8, marginBottom: 14}}>
+        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14}}>
           {onBulkAddGroups && groups.length > 0 && (
             <TouchableOpacity onPress={() => {setGroupAssignSel(new Set()); setShowGroupAssign(true);}} activeOpacity={0.7} accessibilityRole="button"
-              style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              style={{flex: 1, minWidth: '22%', alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.assignGroup')}</Text>
+            </TouchableOpacity>
+          )}
+          {onBulkAddTags && (
+            <TouchableOpacity onPress={() => setShowTagAssign(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('members.addTags')}
+              style={{flex: 1, minWidth: '22%', alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.assignTag')}</Text>
             </TouchableOpacity>
           )}
           {!archiveOnly && (
             <TouchableOpacity onPress={confirmBulkArchive} activeOpacity={0.7} accessibilityRole="button"
-              style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              style={{flex: 1, minWidth: '22%', alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.archive')}</Text>
             </TouchableOpacity>
           )}
           {archiveOnly && (
             <TouchableOpacity onPress={confirmBulkRestore} activeOpacity={0.7} accessibilityRole="button"
-              style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              style={{flex: 1, minWidth: '22%', alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{t('members.restore')}</Text>
             </TouchableOpacity>
           )}
           {onBulkSetFacet && !archiveOnly && memberTab !== 'customFronts' && (
             <TouchableOpacity onPress={confirmBulkFacet} activeOpacity={0.7} accessibilityRole="button"
-              style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              style={{flex: 1, minWidth: '22%', alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={1}>{memberTab === 'active' ? t('members.makeFacet') : t('members.makeMember')}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={confirmBulkDelete} activeOpacity={0.7} accessibilityRole="button"
-            style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: `${T.danger}15`, borderColor: `${T.danger}50`}}>
+            style={{flex: 1, minWidth: '22%', alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: `${T.danger}15`, borderColor: `${T.danger}50`}}>
             <Text style={{fontSize: fs(13), fontWeight: '600', color: T.danger}} numberOfLines={1}>{t('common.delete')}</Text>
           </TouchableOpacity>
         </View>
@@ -670,6 +811,14 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       )}
     </View>
   );
+
+  if (browseGroups) {
+    return (
+      <SystemManagerScreen theme={T} startBrowsing hideRootTitle
+        onViewMember={id => { const mm = members.find(x => x.id === id); if (mm) handleActivate(mm); }}
+        header={<View style={{marginBottom: 14}}>{frontersHeading}</View>} />
+    );
+  }
 
   return (
     <>
@@ -770,6 +919,9 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
           </View>
         </View>
       </View>
+    </Modal>
+    <Modal visible={showTagAssign} transparent animationType="fade" onRequestClose={() => setShowTagAssign(false)}>
+      {showTagAssign && <TagAssignCard T={T} known={knownTags} onApply={applyTagAssign} onClose={() => setShowTagAssign(false)} />}
     </Modal>
     <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
       <TouchableOpacity activeOpacity={1} onPress={() => setQuickFrontFor(null)} accessible={false} importantForAccessibility="no"

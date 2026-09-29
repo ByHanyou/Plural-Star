@@ -10,6 +10,23 @@ const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/;
 const MENTION_RE = /@\[([^\]]+)\]\(member:([a-zA-Z0-9_-]+)\)/g;
 
+type Side = 'left' | 'right';
+const SIDE_ALT = 'ps-side:';
+const imgTagSide = (tag: string): Side | null => {
+  const m = tag.match(/\salign\s*=\s*["']?\s*(left|right)\b/i);
+  if (!m) return null;
+  return m[1].toLowerCase() === 'right' ? 'right' : 'left';
+};
+const altSide = (alt: string): Side | null => (alt === `${SIDE_ALT}left` ? 'left' : alt === `${SIDE_ALT}right` ? 'right' : null);
+const lineHasImage = (line: string): boolean => MD_IMAGE_RE.test(line) || IMAGE_URL_RE.test(line);
+const parseImageRef = (raw: string): {url: string; w?: number; h?: number} => {
+  const s = raw.trim();
+  const hint = s.match(/#(\d+)x(\d+)$/);
+  const w = hint ? Number(hint[1]) : 0;
+  const h = hint ? Number(hint[2]) : 0;
+  return {url: s.replace(/[)]+$/, '').replace(/#\d+x\d+$/, '').trim(), w: w > 0 ? w : undefined, h: h > 0 ? h : undefined};
+};
+
 const fs = (s: number, T: ThemeColors): number => fontScale(T)(s);
 
 const openSafeLink = (href: string): void => {
@@ -34,7 +51,7 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: ThemeColors}) =>
   return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
-const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hintRatio?: number; hintW?: number}) => {
+const AutoImage = ({uri, T, hintRatio, hintW, side}: {uri: string; T: ThemeColors; hintRatio?: number; hintW?: number; side?: Side}) => {
   const [ratio, setRatio] = React.useState<number | null>(hintRatio || null);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
@@ -42,14 +59,15 @@ const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hin
     setRatio(hintRatio || null);
   }, [uri, hintRatio]);
   if (failed) {
-    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
+    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic', alignSelf: side === 'right' ? 'flex-end' : 'auto'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
   const r = ratio || 1.5;
+  const self = side === 'right' ? 'flex-end' as const : 'flex-start' as const;
   const sizing = hintW && hintW > 0
-    ? {width: hintW, maxWidth: '100%' as const, aspectRatio: r, alignSelf: 'flex-start' as const}
+    ? {width: hintW, maxWidth: '100%' as const, aspectRatio: r, alignSelf: self}
     : r >= 1
     ? {width: '100%' as const, aspectRatio: r}
-    : {height: 280, aspectRatio: r, maxWidth: '100%' as const, alignSelf: 'flex-start' as const};
+    : {height: 280, aspectRatio: r, maxWidth: '100%' as const, alignSelf: self};
   return (
     <Image
       source={{uri}}
@@ -68,6 +86,43 @@ const AutoImage = ({uri, T, hintRatio, hintW}: {uri: string; T: ThemeColors; hin
     />
   );
 };
+
+const SideImage = ({uri, T, w, ratio}: {uri: string; T: ThemeColors; w?: number; ratio?: number}) => {
+  const [measured, setMeasured] = React.useState<number | null>(null);
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => {
+    setFailed(false);
+    setMeasured(null);
+  }, [uri]);
+  if (failed) {
+    return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic', maxWidth: '45%'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
+  }
+  return (
+    <Image
+      source={{uri}}
+      style={{width: w || 110, maxWidth: '45%', aspectRatio: ratio || measured || 1, borderRadius: 8}}
+      resizeMode="contain"
+      accessibilityRole="image"
+      accessibilityLabel={i18n.t('a11y.image')}
+      onLoad={e => {
+        if (ratio) return;
+        const src: any = (e?.nativeEvent as any)?.source;
+        if (!src || !(src.width > 0) || !(src.height > 0)) return;
+        const real = src.width / src.height;
+        setMeasured(prev => (prev && Math.abs(prev - real) < 0.01 ? prev : real));
+      }}
+      onError={() => setFailed(true)}
+    />
+  );
+};
+
+const SideRow = ({side, image, children}: {side: Side; image: React.ReactNode; children: React.ReactNode}) => (
+  <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 2}}>
+    {side === 'left' ? image : null}
+    <View style={{flex: 1, gap: 2}}>{children}</View>
+    {side === 'right' ? image : null}
+  </View>
+);
 
 const SPOILER_RE = /\|\|(.+?)\|\|/;
 const Spoiler = ({T, raw, render}: {T: ThemeColors; raw: string; render: () => React.ReactNode}) => {
@@ -297,15 +352,22 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
                 const srcMatch = imgM[0].match(/src=["']([^"']+)["']/);
                 const url = srcMatch ? srcMatch[1] : '';
                 const validUrl = /^https?:\/\//i.test(url) || /^file:\/\//i.test(url) || url.startsWith('data:');
+                const wAttr = imgM[0].match(/width=["']?(\d+)["']?/);
+                const hAttr = imgM[0].match(/height=["']?(\d+)["']?/);
+                const w = wAttr ? Number(wAttr[1]) : 0;
+                const h = hAttr ? Number(hAttr[1]) : 0;
+                const side = imgTagSide(imgM[0]);
                 if (validUrl && restPlain.length > 0) {
-                  const wAttr = imgM[0].match(/width=["']?(\d+)["']?/);
-                  const hAttr = imgM[0].match(/height=["']?(\d+)["']?/);
-                  const sideW = Math.min(wAttr ? Number(wAttr[1]) : 110, 130);
-                  const sideH = (wAttr && hAttr) ? Math.round(sideW * (Number(hAttr[1]) / Number(wAttr[1]))) : Math.round(sideW * 1.4);
                   return (
-                    <View key={i} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
-                      <UriImage uri={url} style={{width: sideW, height: sideH, borderRadius: 8}} T={T} />
-                      <Text style={{flex: 1, fontSize: fs(13, T), color: T.dim, lineHeight: 20}}>{renderInlineHTML(restHtml, T, members, onMentionPress)}</Text>
+                    <SideRow key={i} side={side || 'left'} image={<SideImage uri={url} T={T} w={w > 0 ? w : undefined} ratio={w > 0 && h > 0 ? w / h : undefined} />}>
+                      <Text style={{fontSize: fs(13, T), color: T.dim, lineHeight: 20}}>{renderInlineHTML(restHtml, T, members, onMentionPress)}</Text>
+                    </SideRow>
+                  );
+                }
+                if (validUrl && side) {
+                  return (
+                    <View key={i} style={{marginVertical: 2, alignItems: side === 'right' ? 'flex-end' : 'flex-start'}}>
+                      <UriImage uri={url} style={{width: w || 200, height: h || w || 200, borderRadius: 8, marginVertical: 4}} T={T} />
                     </View>
                   );
                 }
@@ -371,7 +433,7 @@ const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentio
   return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : <>{parts}</>;
 };
 
-const renderMarkdownLine = (line: string, T: ThemeColors, i: number, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderMarkdownLine = (line: string, T: ThemeColors, i: React.Key, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
   if (line.startsWith('### ')) return <Text key={i} style={{fontSize: fs(14, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(4), T, members, onMentionPress)}</Text>;
   if (line.startsWith('## ')) return <Text key={i} style={{fontSize: fs(16, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(3), T, members, onMentionPress)}</Text>;
   if (line.startsWith('# ')) return <Text key={i} style={{fontSize: fs(18, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text>;
@@ -398,56 +460,54 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
       if (!src) return '';
       const w = (tag.match(/width=["']?(\d+)/) || [])[1];
       const h = (tag.match(/height=["']?(\d+)/) || [])[1];
-      return `![](${src}${w && h ? `#${w}x${h}` : ''})`;
+      const side = imgTagSide(tag);
+      return `![${side ? SIDE_ALT + side : ''}](${src}${w ? `#${w}x${h || 0}` : ''})`;
     })
     .replace(/<br\s*\/?>/gi, '\n');
   const lineSeparators = new RegExp('\\r\\n?|' + String.fromCharCode(0x2028) + '|' + String.fromCharCode(0x2029), 'g');
   const lines = mdText.replace(lineSeparators, '\n').split('\n');
   const displayLines = numberOfLines ? lines.slice(0, numberOfLines) : lines;
   const elements: React.ReactNode[] = [];
-  displayLines.forEach((line, i) => {
+  for (let i = 0; i < displayLines.length; i++) {
+    const line = displayLines[i];
     const mdImgMatch = line.match(MD_IMAGE_RE);
     if (mdImgMatch && mdImgMatch.index !== undefined) {
       const before = line.slice(0, mdImgMatch.index).trim();
       const after = line.slice(mdImgMatch.index + mdImgMatch[0].length).trim();
-      const rawUrl = mdImgMatch[2].trim();
-      const sizeHint = rawUrl.match(/#(\d+)x(\d+)$/);
-      const url = rawUrl.replace(/[)]+$/, '').replace(/#\d+x\d+$/, '').trim();
-      if (isValidImageUri(url) && (before || after)) {
-        const sideW = sizeHint ? Math.min(Number(sizeHint[1]), 130) : 110;
-        const sideH = sizeHint ? Math.round(sideW * (Number(sizeHint[2]) / Number(sizeHint[1]))) : Math.round(sideW * 1.4);
-        elements.push(
-          <View key={i * 3} style={{flexDirection: 'row', gap: 10, marginVertical: 2, alignItems: 'flex-start'}}>
-            <UriImage uri={url} style={{width: sideW, height: sideH, borderRadius: 8}} T={T} />
-            <View style={{flex: 1, gap: 2}}>
-              {before ? renderMarkdownLine(before, T, i * 3 + 1, members, onMentionPress) : null}
-              {after ? renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress) : null}
-            </View>
-          </View>,
-        );
-        return;
-      }
-      if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
+      const side = altSide(mdImgMatch[1]);
+      const {url, w, h} = parseImageRef(mdImgMatch[2]);
+      const start = i;
       if (isValidImageUri(url)) {
-        const hintRatio = sizeHint ? Number(sizeHint[1]) / Number(sizeHint[2]) : undefined;
-        const hintW = sizeHint ? Number(sizeHint[1]) : undefined;
-        elements.push(<AutoImage key={i * 3 + 1} uri={url} T={T} hintRatio={hintRatio && hintRatio > 0 ? hintRatio : undefined} hintW={hintW && hintW > 0 ? hintW : undefined} />);
-      } else {
-        elements.push(<Text key={i * 3 + 1} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>);
+        const beside = [before, after].filter(Boolean);
+        if (side) {
+          while (i + 1 < displayLines.length && displayLines[i + 1].trim() && !lineHasImage(displayLines[i + 1])) beside.push(displayLines[++i]);
+        }
+        if (beside.length > 0) {
+          elements.push(
+            <SideRow key={`s${start}`} side={side || 'left'} image={<SideImage uri={url} T={T} w={w} ratio={w && h ? w / h : undefined} />}>
+              {beside.map((b, j) => renderMarkdownLine(b, T, `s${start}-${j}`, members, onMentionPress))}
+            </SideRow>,
+          );
+          continue;
+        }
+        elements.push(<AutoImage key={`m${i}`} uri={url} T={T} hintRatio={w && h ? w / h : undefined} hintW={w && h ? w : undefined} side={side || undefined} />);
+        continue;
       }
-      if (after) elements.push(renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress));
-      return;
+      if (before) elements.push(renderMarkdownLine(before, T, `b${i}`, members, onMentionPress));
+      elements.push(<Text key={`m${i}`} style={{fontSize: fs(11, T), color: T.muted, fontStyle: 'italic'}}>{i18n.t('markdown.brokenImage')}</Text>);
+      if (after) elements.push(renderMarkdownLine(after, T, `a${i}`, members, onMentionPress));
+      continue;
     }
     const imgMatch = line.match(IMAGE_URL_RE);
     if (imgMatch && isValidImageUri(imgMatch[0])) {
       const before = line.slice(0, line.indexOf(imgMatch[0])).trim();
       const after = line.slice(line.indexOf(imgMatch[0]) + imgMatch[0].length).trim();
-      if (before) elements.push(renderMarkdownLine(before, T, i * 3, members, onMentionPress));
-      elements.push(<AutoImage key={i * 3 + 1} uri={imgMatch[0]} T={T} />);
-      if (after) elements.push(renderMarkdownLine(after, T, i * 3 + 2, members, onMentionPress));
+      if (before) elements.push(renderMarkdownLine(before, T, `b${i}`, members, onMentionPress));
+      elements.push(<AutoImage key={`m${i}`} uri={imgMatch[0]} T={T} />);
+      if (after) elements.push(renderMarkdownLine(after, T, `a${i}`, members, onMentionPress));
     } else {
-      elements.push(renderMarkdownLine(line, T, i, members, onMentionPress));
+      elements.push(renderMarkdownLine(line, T, `l${i}`, members, onMentionPress));
     }
-  });
+  }
   return <View style={{gap: 2}}>{elements}</View>;
 };

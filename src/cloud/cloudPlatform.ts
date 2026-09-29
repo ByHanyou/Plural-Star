@@ -105,8 +105,12 @@ export const bootCloudServices = (): void => {
     if (removed) CloudServices.noteRemoved(key);
     CloudServices.schedulePush();
   });
+  let wasOnline = false;
   NetworkManager.subscribe(s => {
-    if (s.status !== 'online') return;
+    const online = s.status === 'online';
+    const rising = online && !wasOnline;
+    wasOnline = online;
+    if (!rising) return;
     CloudServices.refreshAvailability()
       .then(ok => {
         if (ok) CloudServices.wake();

@@ -502,6 +502,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
     };
   };
   const memberName = (id: string) => members.find(m => m.id === id)?.name || '?';
+  const isPrivateId = (id: string) => !!members.find(m => m.id === id)?.private;
   const relLabel = (r: Relationship): string => {
     const rt = relTypes.find(x => x.id === r.typeId) || PRESET_RELATIONSHIP_TYPES.find(x => x.id === r.typeId);
     const arrow = rt?.directional ? '→' : '↔';
@@ -521,18 +522,19 @@ export const NetworkScreen = ({theme: T}: Props) => {
         .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
     : pickerFeature === 'connections'
     ? relationships
+        .filter(r => !isPrivateId(r.fromId) && !isPrivateId(r.toId))
         .map(r => ({id: r.id, name: relLabel(r)}))
         .filter(x => !pickerSearch.trim() || (x.name || '').toLowerCase().includes(pickerSearch.trim().toLowerCase()))
     : pickerFeature === 'facets'
     ? pickableFacets
-        .filter(m => memberMatchesSearch(m, pickerSearch))
+        .filter(m => !m.private && memberMatchesSearch(m, pickerSearch))
         .map(m => ({id: m.id, name: m.name}))
     : pickerFeature === 'customFronts'
     ? pickableCustomFronts
-        .filter(m => memberMatchesSearch(m, pickerSearch))
+        .filter(m => !m.private && memberMatchesSearch(m, pickerSearch))
         .map(m => ({id: m.id, name: m.name}))
     : pickableMembers
-        .filter(m => memberMatchesSearch(m, pickerSearch))
+        .filter(m => !m.private && memberMatchesSearch(m, pickerSearch))
         .map(m => ({id: m.id, name: m.name})));
   const allPickedChecked = !!editBucket && !!pickerFeature && pickerItems.length > 0 && pickerItems.every(i => editBucket[pickerFeature].ids.includes(i.id));
   const toggleSelectAllPicked = () => {

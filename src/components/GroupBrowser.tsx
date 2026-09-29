@@ -16,6 +16,7 @@ interface GroupBrowserProps {
   rootTitle: string;
   headerRight?: ReactNode;
   banner?: ReactNode;
+  linkedMember?: Member | null;
   memberRow?: (m: Member) => ReactNode;
   memberAction?: (m: Member) => ReactNode;
   sortMode?: MemberSortMode;
@@ -32,6 +33,7 @@ export const GroupBrowser = ({
   rootTitle,
   headerRight,
   banner,
+  linkedMember,
   memberRow,
   memberAction,
   sortMode,
@@ -62,9 +64,25 @@ export const GroupBrowser = ({
             <Text style={{fontSize: fs(18), color: T.dim}} allowFontScaling={false}>←</Text>
           </TouchableOpacity>
         )}
-        <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: current?.color || T.text}} numberOfLines={1}>{current ? current.name : rootTitle}</Text>
+        {current || rootTitle ? (
+          <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: current?.color || T.text}} numberOfLines={1}>{current ? current.name : rootTitle}</Text>
+        ) : (
+          <View style={{flex: 1}} />
+        )}
         {headerRight}
       </View>
+      {linkedMember && (
+        <TouchableOpacity onPress={() => onViewMember && onViewMember(linkedMember.id)} activeOpacity={onViewMember ? 0.7 : 1} disabled={!onViewMember}
+          accessibilityRole="button" accessibilityState={{disabled: !onViewMember}} accessibilityLabel={`${t('memberGroups.linkedFronter')}: ${linkedMember.name}`}
+          style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 12}}>
+          <Avatar member={linkedMember} size={30} T={T} />
+          <View style={{flex: 1}}>
+            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('memberGroups.linkedFronter')}</Text>
+            <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{linkedMember.name}</Text>
+          </View>
+          {onViewMember ? <Text style={{fontSize: fs(16), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text> : null}
+        </TouchableOpacity>
+      )}
       {banner}
       {folders.map(g => {
         const cnt = countable.filter(m => (m.groupIds || []).includes(g.id)).length;

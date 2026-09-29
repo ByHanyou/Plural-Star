@@ -3,6 +3,7 @@ import {AppState} from 'react-native';
 import {FrontState, Member, AppSettings} from '../utils';
 import {showFrontNotification, clearFrontNotification, showFriendUpdateAlert, scheduleFrontCheckReminder, cancelFrontCheckReminder, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh, clearFrontDismissGuard} from '../services/NotificationService';
 import {NetworkManager} from '../network/NetworkManager';
+import {endFriendsActivity} from '../services/LiveActivityService';
 import {friendNotifyLevel} from '../network/types';
 import {logError} from '../utils/log';
 
@@ -60,6 +61,8 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
 
   useEffect(() => {
     clearFrontDismissGuard();
+    if (!appSettings.notificationsEnabled || !persistent) endFriendsActivity().catch(e => logError('notif', e));
+    NetworkManager.refreshGatewayRegistration();
   }, [appSettings.notificationsEnabled, persistent]);
 
   const frontNotifRef = useRef({front, members, systemName, enabled: appSettings.notificationsEnabled && persistent, refreshMins: appSettings.notificationRefreshMinutes || 30});

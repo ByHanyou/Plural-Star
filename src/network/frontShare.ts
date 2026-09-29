@@ -39,6 +39,7 @@ export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<
   const coFront = resolveNames(coFrontIds, members);
   const coConscious = resolveNames(coConsciousIds, members);
   if (!primary && !coFront && !coConscious) return null;
+  const shown = new Set([...primaryIds, ...coFrontIds, ...coConsciousIds].filter(id => !!members.find(m => m.id === id)?.name));
 
   return {
     fronters: [primary, coFront, coConscious].filter(Boolean).join(', '),
@@ -48,7 +49,7 @@ export const buildFrontShare = (front: any, members: Member[], allowedIds?: Set<
     mood: primary && shareMood ? getTierField(front, 'primary', 'mood') : undefined,
     location: primary && shareLocation ? getTierField(front, 'primary', 'location') : undefined,
     note: primary && shareNote ? getTierField(front, 'primary', 'note') : undefined,
-    startTime: typeof front.startTime === 'number' ? frontSessionStart(front) : undefined,
+    startTime: typeof front.startTime === 'number' ? frontSessionStart(front, id => shown.has(id)) : undefined,
   };
 };
 

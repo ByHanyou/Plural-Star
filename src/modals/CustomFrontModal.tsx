@@ -13,6 +13,7 @@ import {RichTextEditor} from '../components/RichTextEditor';
 import {deleteAvatar, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
+import {ToggleSwitch} from '../components/ToggleSwitch';
 
 export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave, onDelete, onClose, isFronting = false, statusMode = false}: any) => {
   const {t} = useTranslation();
@@ -137,6 +138,13 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
           style={{width: 30, height: 30, borderRadius: 8, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
           <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
         </TouchableOpacity>
+      </View>
+      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 6}}>
+        <View style={{flex: 1}}>
+          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.private')}</Text>
+          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.privateDesc')}</Text>
+        </View>
+        <ToggleSwitch value={!!f.private} onToggle={() => set('private', !f.private)} label={t('modal.private')} T={T} style={{marginLeft: 12}} />
       </View>
       {isFronting && <Text style={{fontSize: fs(11), color: T.danger, lineHeight: 15, marginTop: 4}}>{t('members.frontingLockMsg')}</Text>}
       {visible && <ImageCropHost theme={T} />}

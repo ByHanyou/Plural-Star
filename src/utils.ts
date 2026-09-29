@@ -21,10 +21,32 @@ export interface MemberGroup {
   sortOrder?: number;
   sourceId?: string;
   description?: string;
+  linkedMemberId?: string;
 }
 
 export const groupKind = (g: MemberGroup): GroupNodeKind => g.kind || 'group';
 export const groupParent = (g: MemberGroup): string | null => g.parentId ?? null;
+
+export const linkedSubsystemsOf = (groups: MemberGroup[], memberId: string): MemberGroup[] =>
+  memberId ? groups.filter(g => groupKind(g) === 'subsystem' && g.linkedMemberId === memberId) : [];
+
+export const setSubsystemLinks = (groups: MemberGroup[], memberId: string, subsystemIds: string[]): MemberGroup[] => {
+  if (!memberId) return groups;
+  const want = new Set(subsystemIds);
+  let changed = false;
+  const next = groups.map(g => {
+    if (groupKind(g) !== 'subsystem') return g;
+    if (want.has(g.id)) {
+      if (g.linkedMemberId === memberId) return g;
+      changed = true;
+      return {...g, linkedMemberId: memberId};
+    }
+    if (g.linkedMemberId !== memberId) return g;
+    changed = true;
+    return {...g, linkedMemberId: undefined};
+  });
+  return changed ? next : groups;
+};
 
 export const childrenOf = (nodes: MemberGroup[], parentId: string | null): MemberGroup[] =>
   nodes
@@ -131,9 +153,11 @@ export interface MemberPoll {
   createdAt: number;
   closedAt?: number;
   hideVoterNames?: boolean;
+  multipleChoice?: boolean;
 }
 
 export type MemberSortMode = 'alphabetical' | 'reverse-alphabetical' | 'age' | 'color' | 'role' | 'manual';
+export type FrontSortMode = 'added' | 'az' | 'za' | 'custom';
 
 export interface Member {
   id: string;
@@ -148,6 +172,8 @@ export interface Member {
   deleted?: boolean;
   avatar?: string;
   avatarTransparent?: boolean;
+  profileBg?: boolean;
+  private?: boolean;
   banner?: string;
   customFields?: CustomFieldValue[];
   sortOrder?: number;
@@ -674,13 +700,15 @@ export interface AppSettings {
   textScale: TextScale;
   memberSortMode?: MemberSortMode;
   groupSortMode?: MemberSortMode;
+  frontSortMode?: FrontSortMode;
+  frontCustomOrder?: string[];
   frontCheckInterval?: number;
   noteboardNotifications?: boolean;
   appLockPassword?: string;
   useDyslexicFont?: boolean;
   fontChoice?: import('./theme').FontChoice;
   customFrontsSeeded?: boolean;
-  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'};
+  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'; browse?: boolean};
 }
 
 export interface ExportPayload {
@@ -906,17 +934,22 @@ export const withMemberSince = (next: FrontState | null, prev: FrontState | null
   return {...next, memberSince: since};
 };
 
-export const frontSessionStart = (f: FrontState): number => {
+export const frontSessionStart = (f: FrontState, include?: (id: string) => boolean): number => {
   const any = f as any;
-  const tier = (x: any): string[] => (x && Array.isArray(x.memberIds) ? x.memberIds : []);
   const since: Record<string, number> = any?.memberSince || {};
-  let earliest = 0;
-  for (const id of [...tier(any?.primary), ...tier(any?.coFront), ...tier(any?.coConscious)]) {
-    const at = since[id];
-    if (typeof at === 'number' && at > 0 && (earliest === 0 || at < earliest)) earliest = at;
+  const segment = typeof any?.startTime === 'number' && any.startTime > 0 ? any.startTime : 0;
+  for (const key of ['primary', 'coFront', 'coConscious']) {
+    const tier = any?.[key];
+    const ids: string[] = tier && Array.isArray(tier.memberIds) ? tier.memberIds.filter((id: string) => !include || include(id)) : [];
+    if (ids.length === 0) continue;
+    let earliest = segment;
+    for (const id of ids) {
+      const at = since[id];
+      if (typeof at === 'number' && Number.isFinite(at) && at > 0 && (earliest === 0 || at < earliest)) earliest = at;
+    }
+    return earliest || f.startTime;
   }
-  if (!earliest) return f.startTime;
-  return Math.min(earliest, f.startTime);
+  return f.startTime;
 };
 
 export const frontToHistoryEntry = (f: FrontState, endTime: number | null, changeType: HistoryChangeType = 'front', changeTier?: FrontTierKey): HistoryEntry => ({
@@ -983,6 +1016,28 @@ const localeComparer = (): ((a: string, b: string) => number) => {
 
 export const nameCompare = (a: unknown, b: unknown): number =>
   localeComparer()(String(a ?? ''), String(b ?? ''));
+
+export const orderFronters = (ids: string[], mode: FrontSortMode | undefined, nameOf: (id: string) => string, custom?: string[]): string[] => {
+  if (mode === 'az') return [...ids].sort((a, b) => nameCompare(nameOf(a), nameOf(b)));
+  if (mode === 'za') return [...ids].sort((a, b) => nameCompare(nameOf(b), nameOf(a)));
+  if (mode === 'custom' && custom && custom.length > 0) {
+    const rank = new Map(custom.map((id, i) => [id, i]));
+    return ids
+      .map((id, i) => ({id, key: rank.get(id) ?? custom.length + i}))
+      .sort((a, b) => a.key - b.key)
+      .map(x => x.id);
+  }
+  return ids;
+};
+
+export const placeInCustomOrder = (custom: string[] | undefined, ordered: string[], keep: (id: string) => boolean): string[] => {
+  const tier = [...new Set(ordered)];
+  const inTier = new Set(tier);
+  const base = [...new Set((custom || []).filter(id => inTier.has(id) || keep(id)))];
+  for (const id of tier) if (!base.includes(id)) base.push(id);
+  let k = 0;
+  return base.map(id => (inTier.has(id) ? tier[k++] : id));
+};
 
 let clockCache: {tag: string; hour12: boolean; am: string; pm: string} | null = null;
 
@@ -1126,6 +1181,23 @@ export const normalizeHex = (input: string): string =>
 const asStr = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
 
 export const tagKey = (tag: string): string => asStr(tag).normalize('NFC').toLowerCase();
+
+export const tagFromInput = (input: string): string | null => {
+  const raw = asStr(input).trim().replace(/^#/, '').normalize('NFC');
+  return raw ? `#${raw}` : null;
+};
+
+export const mergeTags = (cur: string[] | undefined, add: string[]): string[] => {
+  const out = [...(cur || [])];
+  const have = new Set(out.map(tagKey));
+  for (const tag of add) {
+    const k = tagKey(tag);
+    if (!k || have.has(k)) continue;
+    have.add(k);
+    out.push(tag);
+  }
+  return out;
+};
 
 export const memberMatchesSearch = (m: {name: string; nickname?: string; tags?: string[]}, search: string): boolean => {
   const q = asStr(search).trim().toLowerCase();

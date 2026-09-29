@@ -168,6 +168,36 @@ export const deriveTheme = (bg: string, accent: string, text: string, mid: strin
   };
 };
 
+export const inkOn = (bg: string): string =>
+  contrastRatio('#000000', bg) >= contrastRatio('#FFFFFF', bg) ? '#000000' : '#FFFFFF';
+
+export const profileTheme = (base: ThemeColors, color: string): ThemeColors => {
+  const ink = inkOn(color);
+  const surface = mix(color, ink === '#000000' ? '#FFFFFF' : '#000000', 0.18);
+  const readable = (c: string, min: number) => ensureReadable(ensureReadable(c, surface, min), color, min);
+  return {
+    ...base,
+    bg: color,
+    surface,
+    card: color,
+    border: mix(color, ink, 0.3),
+    borderLt: mix(color, ink, 0.4),
+    accent: readable(base.accent, 4.5),
+    accentBg: surface,
+    text: ink,
+    dim: readable(mix(ink, color, 0.2), 4.5),
+    muted: readable(mix(ink, color, 0.35), 3),
+    toggleOff: mix(color, ink, 0.35),
+    danger: readable(base.danger, 4.5),
+    dangerBg: surface,
+    success: readable(base.success, 4.5),
+    successBg: surface,
+    info: readable(base.info, 4.5),
+    infoBg: surface,
+    isLight: ink === '#000000',
+  };
+};
+
 export const DARK_PALETTE: CustomPalette = {
   id: '__dark__',
   name: 'Obsidian',
@@ -189,6 +219,8 @@ export const LIGHT_PALETTE: CustomPalette = {
 export const T: ThemeColors = deriveTheme(DARK_PALETTE.bg, DARK_PALETTE.accent, DARK_PALETTE.text, DARK_PALETTE.mid);
 
 export const BUILTIN_PALETTES: CustomPalette[] = [DARK_PALETTE, LIGHT_PALETTE];
+
+export const MAX_CUSTOM_PALETTES = 20;
 
 export const PALETTE = [
   '#DAA520', '#7B9FE8', '#E87BA8', '#7BE8C4',

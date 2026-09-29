@@ -3,24 +3,35 @@ import {View, TouchableOpacity, Alert, Text as RawText} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {BUILTIN_PALETTES, FONT_OPTIONS, fontScale, ensureReadable, textFloor} from '../theme';
+import {BUILTIN_PALETTES, MAX_CUSTOM_PALETTES, FONT_OPTIONS, fontScale, ensureReadable, textFloor} from '../theme';
 import type {CustomPalette, FontChoice, ThemeColors} from '../theme';
 import {uid, isValidHex, normalizeHex, TextScale, TEXT_SCALE_OPTIONS} from '../utils';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
+import {ColorPickerModal} from '../components/ColorPickerModal';
 
-const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => (
-  <View style={{flex: 1}}>
-    <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
-    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-      <View style={{width: 20, height: 20, borderRadius: 4, backgroundColor: isValidHex(normalizeHex(value)) ? normalizeHex(value) : '#333', borderWidth: 1, borderColor: T.border}} />
-      <TextInput value={value} onChangeText={onChange} accessibilityLabel={label} placeholder="#000000" placeholderTextColor={T.muted} maxLength={7} autoCapitalize="characters"
-        style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: isValidHex(normalizeHex(value)) || value.length < 2 ? T.border : T.danger, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, fontSize: 12, fontFamily: 'monospace'}} />
+const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => {
+  const [open, setOpen] = useState(false);
+  const valid = isValidHex(normalizeHex(value));
+  return (
+    <View style={{flex: 1}}>
+      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
+      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.7}
+        accessibilityRole="button" accessibilityLabel={label} accessibilityValue={{text: value}}
+        style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+        <View style={{width: 20, height: 20, borderRadius: 4, backgroundColor: valid ? normalizeHex(value) : '#333', borderWidth: 1, borderColor: T.border}} />
+        <View style={{flex: 1, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5}}>
+          <Text style={{fontSize: 12, fontFamily: 'monospace', color: T.text}} numberOfLines={1}>{value}</Text>
+        </View>
+      </TouchableOpacity>
+      <ColorPickerModal visible={open} title={label} value={value} T={T}
+        onSave={hex => { onChange(hex); setOpen(false); }}
+        onClose={() => setOpen(false)} />
     </View>
-  </View>
-);
+  );
+};
 
 export const SystemModal = ({visible, theme: T, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onOpenProfile, onClose}: any) => {
   const fs = fontScale(T);
@@ -58,7 +69,10 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
 
   const allPalettes: CustomPalette[] = [...BUILTIN_PALETTES, ...(palettes || [])];
   const userPalettes: CustomPalette[] = palettes || [];
-  const canAdd = userPalettes.length < 10;
+  const canAdd = userPalettes.length < MAX_CUSTOM_PALETTES;
+  const [themesOpen, setThemesOpen] = useState(false);
+  React.useEffect(() => { if (visible) setThemesOpen(false); }, [visible]);
+  const activePalette = allPalettes.find(p => p.id === activePaletteId) || BUILTIN_PALETTES[0];
 
   const startNewPalette = () => {
     const p: CustomPalette = {id: uid(), name: '', bg: '#0A1F2E', accent: '#DAA520', text: '#C0C0C0', mid: '#7A8A99'};
@@ -107,6 +121,16 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.palette')}</Text>
         <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 10}}>{t('modal.paletteDesc')}</Text>
+        <TouchableOpacity onPress={() => setThemesOpen(o => !o)} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityState={{expanded: themesOpen}} accessibilityLabel={t('modal.palette')} accessibilityValue={{text: activePalette.name}}
+          style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: themesOpen ? `${T.accent}60` : T.border, marginBottom: themesOpen ? 8 : 0}}>
+          <View style={{flexDirection: 'row', gap: 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {[activePalette.bg, activePalette.accent, activePalette.text, activePalette.mid].map((c, i) => (<View key={i} style={{width: 14, height: 14, borderRadius: 4, backgroundColor: c, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'}} />))}
+          </View>
+          <Text style={{flex: 1, fontSize: fs(14), color: T.text}} numberOfLines={1}>{activePalette.name}</Text>
+          <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{themesOpen ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+        {themesOpen && (<>
         <View style={{gap: 6, marginBottom: 10}}>
           {allPalettes.map(p => {
             const isActive = activePaletteId === p.id;
@@ -174,7 +198,8 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             </View>
           </View>
         )}
-        <Text style={{fontSize: fs(10), color: T.muted, marginTop: 6}}>{t('modal.paletteSlots', {used: userPalettes.length, max: 10})}</Text>
+        <Text style={{fontSize: fs(10), color: T.muted, marginTop: 6}}>{t('modal.paletteSlots', {used: userPalettes.length, max: MAX_CUSTOM_PALETTES})}</Text>
+        </>)}
       </View>
 
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>

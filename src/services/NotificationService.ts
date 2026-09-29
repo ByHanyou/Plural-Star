@@ -87,7 +87,7 @@ const getTierField = (front: any, tier: string, field: string): string | undefin
   return undefined;
 };
 
-const buildFrontContent = (front: FrontState, members: Member[]): {title: string; body: string; bigText: string} | null => {
+const buildFrontContent = (front: FrontState, members: Member[]): {title: string; body: string; bigText: string; since: number} | null => {
   const primaryIds = getTierIds(front, 'primary');
   const coFrontIds = getTierIds(front, 'coFront');
   const coConsciousIds = getTierIds(front, 'coConscious');
@@ -124,7 +124,8 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
     lines.push(i18n.t('notification.at', {location: primaryLocation, defaultValue: `At: ${primaryLocation}`}));
   if (primaryNote)
     lines.push(i18n.t('notification.note', {note: primaryNote, defaultValue: `Note: ${primaryNote}`}));
-  const sinceTime = fmtTime(frontSessionStart(front));
+  const since = frontSessionStart(front, id => !!members.find(m => m.id === id)?.name);
+  const sinceTime = fmtTime(since);
   const sinceLabel = i18n.t('notification.since', {time: sinceTime, defaultValue: `Since ${sinceTime}`});
   lines.push(sinceLabel);
 
@@ -140,7 +141,7 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
     summaryParts.push(i18n.t('notification.mood', {mood: primaryMood, defaultValue: `Mood: ${primaryMood}`}));
   if (summaryParts.length === 0) summaryParts.push(sinceLabel);
 
-  return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n')};
+  return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n'), since};
 };
 
 const frontAndroidConfig = (
@@ -381,7 +382,7 @@ export const showFrontNotification = async (
 
     const canBindFgs =
       fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
-    const cfg = frontAndroidConfig(ownBig, [], onlineLabel, front?.startTime);
+    const cfg = frontAndroidConfig(ownBig, [], onlineLabel, content?.since);
     let bound = canBindFgs;
     try {
       await notifee.displayNotification({
@@ -432,7 +433,7 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
-        android: frontAndroidConfig(content.bigText, [], content.body, frontSessionStart(front)),
+        android: frontAndroidConfig(content.bigText, [], content.body, content.since),
       },
       trigger,
     );
@@ -483,7 +484,7 @@ export const reassertFrontNotification = async () => {
     const content = buildFrontContent(front, members || []);
     if (!content) return;
     await setupNotificationChannel();
-    const cfg = frontAndroidConfig(content.bigText, [], content.body, frontSessionStart(front));
+    const cfg = frontAndroidConfig(content.bigText, [], content.body, content.since);
     const canBindFgs =
       fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
     let bound = canBindFgs;

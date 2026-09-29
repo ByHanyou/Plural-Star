@@ -157,7 +157,7 @@ const TierMemberPicker = ({tierKey, label, color, selected, setSelected, pools, 
 
 const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFront, onBack, editIndex, editEntry, singlet = false, selfId}: {
   T: ThemeColors; members: Member[]; history: HistoryEntry[]; front: FrontState | null;
-  onSaveHistory: (h: HistoryEntry[]) => void; onSetFront: (f: FrontState | null) => void; onBack: () => void;
+  onSaveHistory: (h: HistoryEntry[]) => void; onSetFront: (f: FrontState | null, since?: number) => void; onBack: () => void;
   editIndex?: number;
   editEntry?: HistoryEntry;
   singlet?: boolean;
@@ -291,7 +291,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
           coConscious: coConTier(),
           startTime: startDate.getTime(),
         };
-        onSetFront(newFront);
+        onSetFront(newFront, startDate.getTime());
       } else {
         onSetFront(null);
       }
@@ -318,7 +318,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
               coConscious: coConTier(),
               startTime: startDate.getTime(),
             };
-            onSetFront(newFront);
+            onSetFront(newFront, startDate.getTime());
             if (isEditing) {
               const updated = closed.map((e, i) => i === editIndex ? newEntry : e);
               onSaveHistory(updated.sort((a, b) => b.startTime - a.startTime));
@@ -334,7 +334,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
               coConscious: {memberIds: [...(front?.coConscious.memberIds || []), ...coConIds.filter(id => !front?.coConscious.memberIds.includes(id))], mood: coConMood || front?.coConscious.mood, note: coConNote || front?.coConscious.note || '', location: coConLocation || front?.coConscious.location, energyLevel: coConEnergy ?? front?.coConscious.energyLevel},
               startTime: front?.startTime || startDate.getTime(),
             };
-            onSetFront(newFront);
+            onSetFront(newFront, startDate.getTime());
             onSaveHistory(replaceEntries());
             onBack();
           }},
@@ -466,8 +466,8 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   const {t} = useTranslation();
   const onSaveHistory = (h: HistoryEntry[]) =>
     saveHistory(h).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
-  const onSetFront = (f: FrontState | null) =>
-    applyFrontState(f).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
+  const onSetFront = (f: FrontState | null, since?: number) =>
+    applyFrontState(f, since).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
   const fs = fontScale(T);
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
   useEffect(() => {

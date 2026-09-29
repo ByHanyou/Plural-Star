@@ -51,7 +51,7 @@ import {TabBar, Tab, TAB_IDS} from './src/components/TabBar';
 import {useFrontNotifications} from './src/hooks/useFrontNotifications';
 import {useNoteboardNotifications} from './src/hooks/useNoteboardNotifications';
 import {useAppStore, DEFAULT_SETTINGS} from './src/store/appStore';
-import {saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, restoreDeletedMember, pruneFrontOfRemovedMembers, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkRemoveFromGroup, bulkSetFacet, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
+import {saveSystem, saveMembers, saveHistory, saveJournal, saveJournalTemplates, saveShareSettings, saveGroups, savePalettes, saveChatChannels, saveMedical, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, restoreDeletedMember, pruneFrontOfRemovedMembers, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkAddTags, bulkRemoveFromGroup, bulkSetFacet, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
 import {requestPermissions} from './src/utils/permissions';
 import {logError} from './src/utils/log';
 import {mergeHistoryEntries} from './src/import/convert';
@@ -419,6 +419,7 @@ function MainAppContent() {
         loadAll();
       }
       if (s === 'active') {
+        NetworkManager.retryInitIfLocked();
         NetworkManager.requestFriendFronts();
         NetworkManager.flushPendingFronts();
         CloudServices.wake();
@@ -630,6 +631,7 @@ function MainAppContent() {
           onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
           onBulkDelete={bulkDeleteMembers}
           onBulkAddGroups={bulkAddGroups}
+          onBulkAddTags={bulkAddTags}
           onBulkSetFacet={bulkSetFacet}
         />;
       case 'hub':
