@@ -210,7 +210,6 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
     ]);
 
   const dayAppts = apptsOn(selected);
-  // A recurring appointment's `time` is its first date; on any other day only the clock matters.
   const apptClock = (ts: number) => { const d = new Date(ts); return fmtClock(d.getHours(), d.getMinutes()); };
   const selectedLabel = selected.toLocaleDateString(locale, {weekday: 'long', month: 'long', day: 'numeric'});
   const sortedRems = [...planner.reminders].sort((a, b) => (a.times[0] || '').localeCompare(b.times[0] || ''));

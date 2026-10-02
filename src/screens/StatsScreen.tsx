@@ -545,9 +545,6 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
   );
 };
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function RangeBtn({id, label, selected, onSelect, T}: {id: TimeRange; label: string; selected: TimeRange; onSelect: (id: TimeRange) => void; T: ThemeColors}) {
   const fs = fontScale(T);
   return (
@@ -560,9 +557,6 @@ function RangeBtn({id, label, selected, onSelect, T}: {id: TimeRange; label: str
   );
 }
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function StatCard({label, value, accent, T}: {label: string; value: string; accent?: boolean; T: ThemeColors}) {
   const fs = fontScale(T);
   return (

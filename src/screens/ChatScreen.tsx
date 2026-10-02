@@ -21,7 +21,6 @@ import {readClipboardImage} from '../utils/clipboardImage';
 import {showChatPingNotification} from '../services/NotificationService';
 import {NetworkManager} from '../network/NetworkManager';
 
-// Attachments are read fully into memory as base64 before they are saved; cap them.
 const MAX_CHAT_FILE_BYTES = 25 * 1024 * 1024;
 
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😢', '😮', '🎉', '✨', '🔥'];
@@ -88,7 +87,6 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const activeMember = members.find(m => m.id === activeMemberId);
   const activeChannels = channels.filter(c => !c.archived);
   const archivedChannels = channels.filter(c => c.archived);
-  // Image and file messages keep their payload on disk; previews must not print the URI.
   const previewOf = (m: ChatMessage) => m.type === 'image' ? t('a11y.image') : m.type === 'file' ? getChatMediaFileName(m.content) : truncateRunes(m.content, 40);
   const unarchiveChannel = (id: string) => onSaveChannels(channels.map(c => c.id === id ? {...c, archived: false, archivedAt: undefined} : c));
   const sortedCategories = sortChatCategories(categories);

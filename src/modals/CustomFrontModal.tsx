@@ -61,7 +61,6 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
     Alert.alert(t('modal.removePfp'), t('modal.removeImageMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.remove'), style: 'destructive', onPress: () => {
-        // The file stays until Save, so Cancel/Discard still has the picture.
         set('avatar', undefined);
       }},
     ]);

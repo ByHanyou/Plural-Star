@@ -83,7 +83,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const [tab, setTab] = useState<NetTab>('friends');
   const [theirFriend, setTheirFriend] = useState('');
   const [theirDevice, setTheirDevice] = useState('');
-  // Prefilled so that saving the form does not silently wipe a configured relay.
   const [relayUrl, setRelayUrl] = useState(NetworkManager.relaySettings().relayUrl || '');
   const [relayToken, setRelayToken] = useState(NetworkManager.relaySettings().token || '');
   const [busy, setBusy] = useState(false);
@@ -427,7 +426,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
   const effectiveShare = (peerId: string, f: BucketFeature): PrivacyScope => {
     const mine = buckets.filter(b => (b.friendPeerIds || []).includes(peerId));
-    // No bucket means no restriction: the sharing code treats such a friend as "share everything".
     if (mine.length === 0) return {mode: 'all', ids: []};
     const ids = new Set<string>();
     let all = false;
@@ -1001,9 +999,6 @@ export const NetworkScreen = ({theme: T}: Props) => {
   );
 };
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function TabBtn({id, label, selected, onSelect, T}: {id: NetTab; label: string; selected: NetTab; onSelect: (id: NetTab) => void; T: ThemeColors}) {
   const fs = fontScale(T);
   return (

@@ -302,9 +302,6 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
     const [full, openTag, attrs, closeTag] = match;
     const tag = (openTag || closeTag || '').toLowerCase();
 
-    // Every branch falls through to the capture below: an early `continue` here
-    // skipped the text that follows the tag, which emptied list items and lost
-    // blockquote and pre content.
     if (openTag) {
       if (tag === 'hr') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; segments.push({tag: 'hr', content: ''}); }
       else if (tag === 'ul' || tag === 'ol') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; inList = tag; listItems = []; }

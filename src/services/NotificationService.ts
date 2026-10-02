@@ -689,9 +689,6 @@ const nativeRepeatFor = (repeat: string | undefined): RepeatFrequency | undefine
   return undefined;
 };
 
-// Repeats the OS cannot express (every other day/week, monthly, annually) get this
-// many upcoming occurrences armed one by one, so they keep firing while the app
-// is closed instead of stopping after the next one.
 const ARMED_OCCURRENCES = 6;
 
 export const rescheduleMedicationReminders = async (medications: Medication[]) => {

@@ -325,8 +325,6 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           const fieldIdMap: Record<string, string> = {};
           let ageFieldId = '';
           if (extSel.customFields) {
-            // Merge by name with the definitions already on the device; replacing the list
-            // wiped every existing field and orphaned the values members held for them.
             const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
             const newDefs: CustomFieldDef[] = [];
             const findDef = (name: string) => [...existingDefs, ...newDefs].find(d => d.name.toLowerCase() === name.toLowerCase());

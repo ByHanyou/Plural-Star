@@ -908,9 +908,6 @@ const s = StyleSheet.create({
   hint: {fontSize: 11, marginBottom: 4, lineHeight: 16},
 });
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function SectionBtn({id, label, selected, onSelect, T}: {id: Section; label: string; selected: Section; onSelect: (id: Section) => void; T: ThemeColors}) {
   const fs = fontScale(T);
   return (
@@ -923,9 +920,6 @@ function SectionBtn({id, label, selected, onSelect, T}: {id: Section; label: str
   );
 }
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function SourceBtn({id, label, selected, onSelect, T}: {id: ImportSource; label: string; selected: ImportSource; onSelect: (id: ImportSource) => void; T: ThemeColors}) {
   const fs = fontScale(T);
   return (
@@ -938,9 +932,6 @@ function SourceBtn({id, label, selected, onSelect, T}: {id: ImportSource; label:
   );
 }
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function Divider({label, T}: {label: string; T: ThemeColors}) {
   const fs = fontScale(T);
   return (
@@ -952,9 +943,6 @@ function Divider({label, T}: {label: string; T: ThemeColors}) {
   );
 }
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function SectionRow({label, sublabel, value, onToggle, disabled = false, T}: any) {
   const fs = fontScale(T);
   return (
@@ -965,9 +953,6 @@ function SectionRow({label, sublabel, value, onToggle, disabled = false, T}: any
   );
 }
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function PreviewTier({label, fronters, color, T}: {label: string; fronters: Member[]; color: string; T: ThemeColors}) {
   const fs = fontScale(T);
   if (fronters.length === 0) return null;

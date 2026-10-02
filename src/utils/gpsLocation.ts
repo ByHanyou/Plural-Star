@@ -3,7 +3,6 @@ import Geolocation from '@react-native-community/geolocation';
 import i18n from '../i18n/i18n';
 
 const GPS_LOOKUP_MAX_MS = 15000;
-// Nominatim's usage policy requires a User-Agent that identifies the application.
 const NOMINATIM_USER_AGENT = 'PluralStar (https://github.com/ByHanyou/Plural-Star)';
 
 export const getGPSLocation = (): Promise<string | null> =>
@@ -29,7 +28,6 @@ export const getGPSLocation = (): Promise<string | null> =>
         async pos => {
           try {
             const {latitude, longitude} = pos.coords;
-            // zoom=14 resolves down to neighbourhood/suburb; coarser zooms never return those fields.
             const res = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&zoom=14`,
               {headers: {'User-Agent': NOMINATIM_USER_AGENT}},

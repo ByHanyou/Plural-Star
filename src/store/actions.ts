@@ -97,8 +97,6 @@ export const saveGroups = async (d: MemberGroup[]) => {
   const {loaded, setGroups, groups: previous, members, setMembers} = useAppStore.getState();
   if (!loaded && d.length === 0) return;
   setGroups(d); await store.set(KEYS.groups, d);
-  // Strip deleted groups from members; a member left pointing at a gone group is
-  // neither "ungrouped" nor in any group and vanishes from Browse.
   const kept = new Set(d.map(g => g.id));
   const gone = new Set((previous || []).filter(g => !kept.has(g.id)).map(g => g.id));
   if (gone.size === 0) return;
@@ -346,8 +344,6 @@ export const saveMember = async (m: Member) => {
   const prev = members.find(x => x.id === m.id);
   const u = prev ? members.map(x => (x.id === m.id ? m : x)) : [...members, m];
   await saveMembers(u);
-  // The editor only clears the field on "Remove photo"; the file is dropped here, once the
-  // change is actually saved.
   if (prev?.avatar && !m.avatar) deleteAvatar(m.id).catch(e => logError('saveMember: avatar', e));
 };
 

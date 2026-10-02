@@ -301,9 +301,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
   );
 };
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function MemberChips({selected, onSelect, allowAll = false, excludeId, active, activeFacets, T}: {selected: string; onSelect: (id: string) => void; allowAll?: boolean; excludeId?: string; active: Member[]; activeFacets: Member[]; T: ThemeColors}) {
   const {t} = useTranslation();
   const fs = fontScale(T);
@@ -349,9 +346,6 @@ function MemberChips({selected, onSelect, allowAll = false, excludeId, active, a
   );
 }
 
-// Hoisted out of the screen body: a component created inside render is a new
-// component type every render, so React unmounted and remounted its subtree
-// (and any input inside it lost focus) on every keystroke in the parent.
 function MessageCard({note, author, onTogglePin, onDelete, T}: {note: NoteboardEntry; author: Member | undefined; onTogglePin: (id: string) => void; onDelete: (id: string) => void; T: ThemeColors}) {
   const {t} = useTranslation();
   const fs = fontScale(T);

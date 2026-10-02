@@ -13,8 +13,6 @@ import {store, KEYS} from '../storage';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 
-// StyleSheet.absoluteFill is a registered style id on older React Native typings and
-// absoluteFillObject is gone on newer ones; a plain object spreads on both.
 const ABS_FILL = {position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0};
 
 interface Props {
@@ -376,9 +374,6 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       setLockPositions(!!savedLock);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
-      // Prune against the persisted member list: onSyncApplied fires before App has reloaded the
-      // in-memory store, so members that arrived in the same sync would otherwise be missing here
-      // and every relationship to them would be deleted, saved, and synced back out.
       const memberList = storedMembers && storedMembers.length ? storedMembers : useAppStore.getState().members;
       const ids = new Set(memberList.map(m => m.id));
       const known = (id: string) => ids.size === 0 || ids.has(id);

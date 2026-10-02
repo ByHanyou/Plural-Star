@@ -167,7 +167,6 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
     Alert.alert(t('modal.removePfp'), t('modal.removeImageMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.remove'), style: 'destructive', onPress: () => {
-        // The file stays until Save, so Cancel/Discard still has the picture.
         set('avatar', undefined);
       }},
     ]);
@@ -875,8 +874,6 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                         const cleaned = raw.replace(/[^0-9.\-]/g, '');
                         if (cleaned === '') { setFieldVal(fd.id, null); return; }
                         const n = Number(cleaned);
-                        // Keep partial input ("-", "1.", ".5") as typed; converting on every
-                        // keystroke made decimals and negative numbers impossible to enter.
                         if (Number.isFinite(n) && !/[.\-]$/.test(cleaned) && cleaned !== '.') setFieldVal(fd.id, n);
                         else setFieldVal(fd.id, cleaned);
                       }}

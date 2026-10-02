@@ -90,7 +90,6 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.delete'), style: 'destructive', onPress: () => {
         save(fields.filter(f => f.id !== id));
-        // Drop the orphaned values so members do not keep data for a field that no longer exists.
         const members = useAppStore.getState().members;
         const cleaned = members.map(m => (m.customFields || []).some(v => v.fieldId === id) ? {...m, customFields: (m.customFields || []).filter(v => v.fieldId !== id)} : m);
         if (cleaned.some((m, i) => m !== members[i])) saveMembers(cleaned).catch(() => {});

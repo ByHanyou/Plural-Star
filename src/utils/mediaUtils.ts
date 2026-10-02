@@ -72,7 +72,6 @@ export const saveAvatar = async (memberId: string, base64: string): Promise<stri
   else if (raw.startsWith('UklGR')) ext = 'webp';
   const path = `${AVATAR_DIR}/${memberId}.${ext}`;
   await ReactNativeBlobUtil.fs.writeFile(path, raw, 'base64');
-  // A previous avatar with another extension would otherwise stay behind.
   for (const other of ['jpg', 'png', 'gif', 'webp']) {
     if (other === ext) continue;
     try {
@@ -251,7 +250,6 @@ export const saveChatMedia = async (messageId: string, base64: string, ext: stri
   return `file://${path}?t=${Date.now()}`;
 };
 
-// Removes the on-disk payload of an image or file message once the message is gone.
 export const deleteChatMediaFile = async (uri: string): Promise<void> => {
   if (!uri || !uri.startsWith('file://')) return;
   const path = uri.replace(/^file:\/\//, '').split('?')[0];

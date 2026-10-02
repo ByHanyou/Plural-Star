@@ -75,8 +75,6 @@ export const updateFrontLiveActivity = async (
   const coFrontIds = tierIds(front.coFront);
   const coConsciousIds = tierIds(front.coConscious);
   const primaryText = resolveNames(primaryIds, members);
-  // Only an entirely empty front ends the activity; a co-front or co-conscious
-  // tier on its own is still a front worth showing.
   if (!primaryText && coFrontIds.length === 0 && coConsciousIds.length === 0) {
     await nativeModule.endActivity();
     return;

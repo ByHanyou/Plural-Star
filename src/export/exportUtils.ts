@@ -188,9 +188,7 @@ export const buildHtmlExport = (
   journal: JournalEntry[],
 ): string => {
   const docMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
-  // Everything the user typed is escaped so a stray "<" cannot swallow the rest of the document.
   const esc = (v: unknown): string => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  // Long-form fields may carry simple formatting tags on purpose; those are let back through.
   const RICH_TAGS = /&lt;(\/?)(b|i|u|s|em|strong|br|p|img|a|ul|ol|li|h[1-6]|blockquote|pre|code|hr|span|div)((?:\s[^&<>]*?)?)\s*(\/?)&gt;/gi;
   const escRich = (v: unknown): string => esc(v).replace(RICH_TAGS, (_m, slash, tag, attrs, self) => `<${slash}${tag}${String(attrs).replace(/&quot;/g, '"')}${self}>`);
   const memberRows = docMembers
