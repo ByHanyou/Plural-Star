@@ -63,7 +63,7 @@ export const handlePluralKitFetch = async (ctx: PluralKitFetchCtx) => {
     if (!extToken.trim()) {Alert.alert(t('share.tokenRequired'), t('share.pkTokenRequiredMsg')); return;}
     setExtLoading(true); setExtPreview(null);
     try {
-      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar/1.9.2'};
+      const headers = {Authorization: extToken.trim(), 'Content-Type': 'application/json', 'User-Agent': 'PluralStar (https://github.com/ByHanyou/Plural-Star)'};
       const [sRes, mRes, gRes] = await Promise.all([
         pkRequest(`${PK_BASE}/systems/@me`, headers),
         pkRequest(`${PK_BASE}/systems/@me/members`, headers),
@@ -89,8 +89,8 @@ export const handlePluralKitFetch = async (ctx: PluralKitFetchCtx) => {
       }
       const memberList = Array.isArray(mData) ? mData : [];
       const sanitized = memberList.map((m: any) => {
-        if (m?.display_name) m.display_name = String(m.display_name).replace(/[-\u001F\u007F]/g, '').trim();
-        if (m?.name) m.name = String(m.name).replace(/[-\u001F\u007F]/g, '').trim();
+        if (m?.display_name) m.display_name = String(m.display_name).replace(/[\u0000-\u001F\u007F]/g, '').trim();
+        if (m?.name) m.name = String(m.name).replace(/[\u0000-\u001F\u007F]/g, '').trim();
         return m;
       });
       setExtPreview({system: sData, members: sanitized, switches: Array.isArray(swData) ? swData : [], groups: Array.isArray(gData) ? gData : []});

@@ -56,7 +56,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const [restorePath, setRestorePath] = useState<string | null>(null);
   const [restoreIsBundle, setRestoreIsBundle] = useState<boolean>(false);
   const [restorePreview, setRestorePreview] = useState<boolean>(false);
-  const [restoreSel, setRestoreSel] = useState({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true, medical: true});
+  const [restoreSel, setRestoreSel] = useState({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true, medical: true, planner: true, whiteboard: true});
   const [restoreError, setRestoreError] = useState('');
   const [restoreDone, setRestoreDone] = useState(false);
   const [recoverEntries, setRecoverEntries] = useState<RecoverableEntry[] | null>(null);
@@ -118,7 +118,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const coFronters = (front?.coFront?.memberIds || []).map(getMember).filter(Boolean) as Member[];
   const coConsciousFronters = (front?.coConscious?.memberIds || []).map(getMember).filter(Boolean) as Member[];
 
-  const previewMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
+  const previewMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted && !m.archived);
 
   const singlet = appSettings.accountMode === 'singlet';
   const catSystemLabel = singlet ? t('share.nameGoals') : t('share.systemNameDesc');
@@ -142,7 +142,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const handlePluralKitExport = async () => {try {await exportPluralKit(system, members, exportSel.frontHistory ? history : []);} catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}};
   const handleEmail = () => {
     if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
-    exportEmail(system, members, history, journal, emailAddr);
+    try { exportEmail(system, members, history, journal, emailAddr); } catch (e: any) { Alert.alert(t('share.exportFailed'), String(e?.message || e)); }
   };
   const handleJournalExport = async (fmt: 'json' | 'txt' | 'md') => {
     try { if (fmt === 'json') await exportAllJournalJSON(journal, system.name); else if (fmt === 'txt') await exportAllJournalTxt(journal, members, system.name); else await exportAllJournalMd(journal, members, system.name);
@@ -264,7 +264,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   };
 
   const handlePickZipBackup = () => {
-    setRestoreSel({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true, medical: true});
+    setRestoreSel({system: true, members: true, avatars: true, banners: true, journal: true, frontHistory: true, groups: true, chat: true, moods: true, palettes: true, settings: true, customFields: true, noteboards: true, polls: true, journalTemplates: true, relationships: true, medical: true, planner: true, whiteboard: true});
     handlePickBackup();
   };
 
@@ -300,6 +300,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
             const ok = await restoreFromBackup(entry.key);
             if (ok) okCount++;
           }
+          if (okCount < toRestore.length) Alert.alert(t('share.importFailed'), t('share.recoverPartial', {ok: okCount, total: toRestore.length}));
+          if (okCount === 0) return;
           setRecoverDone(true);
           setTimeout(() => onDataImported(), 600);
         }},
@@ -341,58 +343,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     ]);
   };
 
-  const SectionBtn = ({id, label}: {id: Section; label: string}) => (
-    <TouchableOpacity onPress={() => setSection(id)} activeOpacity={0.7}
-      accessibilityRole="tab" accessibilityState={{selected: section === id}} accessibilityLabel={label}
-      style={{flex: 1, paddingVertical: 8, borderRadius: 7, borderWidth: 1, alignItems: 'center',
-        backgroundColor: section === id ? T.accentBg : 'transparent', borderColor: section === id ? `${T.accent}40` : T.border}}>
-      <Text style={{fontSize: fs(12), color: section === id ? T.accent : T.dim, fontWeight: section === id ? '600' : '400'}}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  const SourceBtn = ({id, label}: {id: ImportSource; label: string}) => (
-    <TouchableOpacity onPress={() => {setImportSource(id); setExtPreview(null); setExtToken('');}} activeOpacity={0.7}
-      accessibilityRole="tab" accessibilityState={{selected: importSource === id}} accessibilityLabel={label}
-      style={{paddingVertical: 7, paddingHorizontal: 12, borderRadius: 7, borderWidth: 1,
-        backgroundColor: importSource === id ? T.accentBg : 'transparent', borderColor: importSource === id ? `${T.accent}40` : T.border}}>
-      <Text style={{fontSize: fs(12), color: importSource === id ? T.accent : T.dim, fontWeight: importSource === id ? '600' : '400'}}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  const Divider = ({label}: {label: string}) => (
-    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 18}}>
-      <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, fontWeight: '600'}}>{label}</Text>
-      <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
-    </View>
-  );
-
-  const Toggle = ({value, onToggle, label}: {value: boolean; onToggle: () => void; label?: string}) => (
-    <ToggleSwitch value={value} onToggle={onToggle} label={label} T={T} />
-  );
-
-  const SectionRow = ({label, sublabel, value, onToggle, disabled = false}: any) => (
-    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: T.border, paddingHorizontal: 14, opacity: disabled ? 0.4 : 1}}>
-      <View style={{flex: 1}}><Text style={{fontSize: fs(14), color: T.text, fontWeight: '500'}}>{label}</Text>{sublabel && <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{sublabel}</Text>}</View>
-      <Toggle value={value && !disabled} onToggle={disabled ? () => {} : onToggle} label={label} />
-    </View>
-  );
-
-  const PreviewTier = ({label, fronters, color}: {label: string; fronters: Member[]; color: string}) => {
-    if (fronters.length === 0) return null;
-    return (
-      <View style={{marginTop: 8}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '600', marginBottom: 5}}>{label}</Text>
-        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
-          {fronters.map(m => (
-            <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: `${m.color}18`, borderColor: `${m.color}30`}}>
-              <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} /><Text style={{fontSize: fs(13), color: T.text}}>{m.name}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-    );
-  };
+  const selectSource = (id: ImportSource) => {setImportSource(id); setExtPreview(null); setExtToken(''); setImportStatus('idle'); setImportMsg('');};
 
   return (
     <>
@@ -404,14 +355,14 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
     />
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', gap: 6, marginBottom: 4}}>
-        <SectionBtn id="export" label={t('share.export')} />
-        <SectionBtn id="import" label={t('share.import')} />
-        <SectionBtn id="shareview" label={t('share.shareView')} />
+        <SectionBtn selected={section} onSelect={setSection} T={T} id="export" label={t('share.export')} />
+        <SectionBtn selected={section} onSelect={setSection} T={T} id="import" label={t('share.import')} />
+        <SectionBtn selected={section} onSelect={setSection} T={T} id="shareview" label={t('share.shareView')} />
       </View>
 
       {section === 'export' && (
         <View>
-          <Divider label={t('share.fullSystemExport')} />
+          <Divider T={T} label={t('share.fullSystemExport')} />
           <Text style={[s.para, {color: T.dim}]}>{t('share.downloadsDirectly')}</Text>
 
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8, marginTop: 4}}>{t('share.exportCategories')}</Text>
@@ -436,7 +387,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
               ['whiteboard', t('whiteboard.title')],
               ['planner', t('planner.title')],
             ] as [keyof ExportCategories, string][]).map(([k, label]) => (
-              <SectionRow key={k} label={label} value={!!exportSel[k]} onToggle={() => togExp(k)} />
+              <SectionRow T={T} key={k} label={label} value={!!exportSel[k]} onToggle={() => togExp(k)} />
             ))}
           </View>
 
@@ -452,7 +403,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
             <Text style={{fontSize: fs(14), fontWeight: '500', color: T.info}}>{t('share.exportPluralKit')}</Text>
           </TouchableOpacity>
           <Text style={[s.hint, {color: T.muted}]}>{t('share.pkExportHint')}</Text>
-          <Divider label={t('share.journalExport')} />
+          <Divider T={T} label={t('share.journalExport')} />
           <Text style={[s.para, {color: T.dim}]}>{t('share.exportJournalOnly')}</Text>
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ .txt', 'txt', T.accentBg, T.accent, `${T.accent}40`], ['↓ .md', 'md', T.infoBg, T.info, `${T.info}40`], ['↓ .json', 'json', 'transparent', T.dim, T.border]].map(([label, fmt, bg, color, border]: any) => (
@@ -462,7 +413,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
             ))}
           </View>
           <Text style={[s.hint, {color: T.muted}]}>{t('share.perEntryHint')}</Text>
-          <Divider label={t('share.sendEmail')} />
+          <Divider T={T} label={t('share.sendEmail')} />
           <TextInput value={emailAddr} onChangeText={setEmailAddr} accessibilityLabel={t('share.sendEmail')} placeholder={t('share.emailPlaceholder')} placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10}} />
           <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.openInMail')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
@@ -481,15 +432,15 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           ) : (
           <>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12, marginBottom: 4}}>
-            <SourceBtn id="journal" label={t('share.journalFile')} />
-            <SourceBtn id="backup" label={t('share.backup')} />
-            <SourceBtn id="pluralkit" label={t('share.pluralKit')} />
-            <SourceBtn id="spfile" label={t('share.spFile')} />
-            <SourceBtn id="ampersand" label={t('share.ampersand')} />
-            <SourceBtn id="tupperbox" label={t('share.tupperbox')} />
-            <SourceBtn id="pluralspace" label={t('share.pluralSpace')} />
-            <SourceBtn id="plurallog" label={t('share.pluralLog')} />
-            <SourceBtn id="parallax" label={t('share.parallax')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="journal" label={t('share.journalFile')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="backup" label={t('share.backup')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="pluralkit" label={t('share.pluralKit')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="spfile" label={t('share.spFile')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="ampersand" label={t('share.ampersand')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="tupperbox" label={t('share.tupperbox')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="pluralspace" label={t('share.pluralSpace')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="plurallog" label={t('share.pluralLog')} />
+            <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="parallax" label={t('share.parallax')} />
           </View>
           <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 10, marginBottom: 10}}>
             <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.importMode')}</Text>
@@ -505,7 +456,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           </View>
           {importSource === 'journal' && (
             <View>
-              <Divider label={t('share.importJournalEntry')} />
+              <Divider T={T} label={t('share.importJournalEntry')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.importJournalDesc')}</Text>
               <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickFile')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickFile')}</Text>
@@ -516,7 +467,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'backup' && (
             <View>
-              <Divider label={t('share.restoreBackup')} />
+              <Divider T={T} label={t('share.restoreBackup')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.restoreBackupDesc')}</Text>
               <Text style={[s.para, {color: T.muted, fontSize: fs(11)}]}>{t('share.importFormatsNote')}</Text>
               <View style={{flexDirection: 'row', gap: 10, marginBottom: 8}}>
@@ -558,8 +509,11 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       ['polls', t('polls.title')],
                       ['journalTemplates', t('journal.templatesTab')],
                       ['relationships', t('systemMap.title')],
+                      ['medical', t('medical.title')],
+                      ['planner', t('planner.title')],
+                      ['whiteboard', t('whiteboard.title')],
                     ] as any[]).map(([k, label]) => (
-                      <SectionRow key={k} label={label} value={restoreSel[k as keyof typeof restoreSel]} onToggle={() => togR(k)} />
+                      <SectionRow T={T} key={k} label={label} value={restoreSel[k as keyof typeof restoreSel]} onToggle={() => togR(k)} />
                     ))}
                   </View>
                   {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
@@ -579,7 +533,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     })} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
                 </>
               )}
-              <Divider label={t('share.recoverData')} />
+              <Divider T={T} label={t('share.recoverData')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.recoverDataDesc')}</Text>
               {!recoverEntries ? (
                 <TouchableOpacity onPress={handleScanRecovery} disabled={recoverScanning} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.scanForBackups')} accessibilityState={{disabled: recoverScanning}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 14, opacity: recoverScanning ? 0.5 : 1}}>
@@ -630,7 +584,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   )}
                 </>
               )}
-              <Divider label={t('share.deleteAccount')} />
+              <Divider T={T} label={t('share.deleteAccount')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.deleteAccountDesc')}</Text>
               <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.deleteAllData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.deleteAllData')}</Text>
@@ -639,7 +593,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'pluralkit' && (
             <View>
-              <Divider label={t('share.pkImport')} />
+              <Divider T={T} label={t('share.pkImport')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.pkTokenHint')}</Text>
               <TextInput value={extToken} onChangeText={setExtToken} accessibilityLabel={t('share.pkTokenPlaceholder')} placeholder={t('share.pkTokenPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10, fontFamily: 'monospace'}} />
@@ -657,21 +611,21 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
-                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
                     {importSource === 'pluralkit' && (
-                      <SectionRow label={t('share.usePkDisplayNames')} sublabel={t('share.usePkDisplayNamesHint')} value={extSel.displayNames} onToggle={() => togE('displayNames')} />
+                      <SectionRow T={T} label={t('share.usePkDisplayNames')} sublabel={t('share.usePkDisplayNamesHint')} value={extSel.displayNames} onToggle={() => togE('displayNames')} />
                     )}
                     {importSource === 'pluralkit' && (
-                      <SectionRow label={t('share.importPronouns')} sublabel={t('share.importPronounsHint')} value={extSel.pronouns} onToggle={() => togE('pronouns')} />
+                      <SectionRow T={T} label={t('share.importPronouns')} sublabel={t('share.importPronounsHint')} value={extSel.pronouns} onToggle={() => togE('pronouns')} />
                     )}
-                    <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
+                    <SectionRow T={T} label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
                     {importSource === 'pluralkit' && (
-                      <SectionRow label={t('share.banners')} value={extSel.banners} onToggle={() => togE('banners')} />
+                      <SectionRow T={T} label={t('share.banners')} value={extSel.banners} onToggle={() => togE('banners')} />
                     )}
-                    <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                     {extPreview.groups && extPreview.groups.length > 0 && (
-                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
+                      <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
                   <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleExtImport({extPreview, importSource, extSel, importMode, system, members, history, t, setRestoreProgress, setExtPreview, setExtToken, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -683,7 +637,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'spfile' && (
             <View>
-              <Divider label={t('share.spFileImport')} />
+              <Divider T={T} label={t('share.spFileImport')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.spFileHint')}</Text>
               <TouchableOpacity onPress={() => handleSPFileImport({extPreview, extSel, importMode, system, members, history, t, setExtPreview, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickSPFile')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -697,12 +651,12 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
-                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
-                    <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
-                    <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow T={T} label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
+                    <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                     {extPreview.groups && extPreview.groups.length > 0 && (
-                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: extPreview.groups.length})} value={extSel.groups} onToggle={() => togE('groups')} />
+                      <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: extPreview.groups.length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
                   <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleSPFileConfirmImport({extPreview, extSel, importMode, system, members, history, t, setExtPreview, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -714,7 +668,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'ampersand' && (
             <View>
-              <Divider label={t('share.ampersandImport')} />
+              <Divider T={T} label={t('share.ampersandImport')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.ampersandHint')}</Text>
               <TouchableOpacity onPress={() => handleAmpersandPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickAmparFile')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -730,10 +684,10 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
-                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
-                    <SectionRow label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
-                    <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow T={T} label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
+                    <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
                   <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleAmpersandConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
@@ -744,7 +698,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'tupperbox' && (
             <View>
-              <Divider label={t('share.tupperboxImport')} />
+              <Divider T={T} label={t('share.tupperboxImport')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.tupperboxHint')}</Text>
               <TouchableOpacity onPress={() => handleTupperboxPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickTbFile')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -760,9 +714,9 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.tuppers || []).length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.tuppers || []).length})} value={extSel.members} onToggle={() => togE('members')} />
                     {(extPreview.groups || []).length > 0 && (
-                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
+                      <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
                   <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleTupperboxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -774,7 +728,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'pluralspace' && (
             <View>
-              <Divider label={t('share.psImport')} />
+              <Divider T={T} label={t('share.psImport')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.psHint')}</Text>
               <TouchableOpacity onPress={() => handlePluralSpacePick({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickPsFile')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -800,22 +754,22 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
-                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
-                    <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
-                    <SectionRow label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
-                    <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow T={T} label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
+                    <SectionRow T={T} label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
+                    <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                     {(extPreview.groups || []).length > 0 && (
-                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
+                      <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                     {(extPreview.journal || []).length > 0 && (
-                      <SectionRow label={t('share.journalEntries')} value={extSel.journal} onToggle={() => togE('journal')} />
+                      <SectionRow T={T} label={t('share.journalEntries')} value={extSel.journal} onToggle={() => togE('journal')} />
                     )}
                     {(extPreview.chat || []).length > 0 && (
-                      <SectionRow label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
+                      <SectionRow T={T} label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
                     )}
                     {(extPreview.polls || []).length > 0 && (
-                      <SectionRow label={t('polls.title')} value={extSel.polls} onToggle={() => togE('polls')} />
+                      <SectionRow T={T} label={t('polls.title')} value={extSel.polls} onToggle={() => togE('polls')} />
                     )}
                   </View>
                   <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralSpaceConfirm({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -827,7 +781,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'plurallog' && (
             <View>
-              <Divider label={t('share.pluralLog')} />
+              <Divider T={T} label={t('share.pluralLog')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.plurallogHint')}</Text>
               <TouchableOpacity onPress={() => handlePluralLogPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.plurallogPick')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -844,21 +798,21 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
-                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.db?.members || []).length})} value={extSel.members} onToggle={() => togE('members')} />
-                    <SectionRow label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
-                    <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: (extPreview.db?.switchEvents || []).length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
+                    <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.db?.members || []).length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow T={T} label={t('share.profilePictures')} value={extSel.avatars} onToggle={() => togE('avatars')} />
+                    <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: (extPreview.db?.switchEvents || []).length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                     {(extPreview.db?.folders || []).length > 0 && (
-                      <SectionRow label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.db?.folders || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
+                      <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.db?.folders || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                     {(extPreview.db?.journal || []).length > 0 && (
-                      <SectionRow label={t('share.journalEntries')} value={extSel.journal} onToggle={() => togE('journal')} />
+                      <SectionRow T={T} label={t('share.journalEntries')} value={extSel.journal} onToggle={() => togE('journal')} />
                     )}
                     {(extPreview.db?.messages || []).length > 0 && (
-                      <SectionRow label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
+                      <SectionRow T={T} label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
                     )}
                     {(extPreview.db?.frontMessages || []).length > 0 && (
-                      <SectionRow label={t('mailbox.title')} value={extSel.mailbox} onToggle={() => togE('mailbox')} />
+                      <SectionRow T={T} label={t('mailbox.title')} value={extSel.mailbox} onToggle={() => togE('mailbox')} />
                     )}
                   </View>
                   <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralLogConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -870,7 +824,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           )}
           {importSource === 'parallax' && (
             <View>
-              <Divider label={t('share.parallax')} />
+              <Divider T={T} label={t('share.parallax')} />
               <Text style={[s.para, {color: T.dim}]}>{t('share.parallaxHint')}</Text>
               <TouchableOpacity onPress={() => handleParallaxPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.parallaxPick')}
                 style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -887,10 +841,10 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   </View>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
-                    <SectionRow label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.db?.members || []).length})} value={extSel.members} onToggle={() => togE('members')} />
-                    <SectionRow label={catFrontLabel} sublabel={t('share.frontEntries', {count: (extPreview.db?.fronting_log || []).length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
+                    <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.db?.members || []).length})} value={extSel.members} onToggle={() => togE('members')} />
+                    <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: (extPreview.db?.fronting_log || []).length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                     {(extPreview.db?.messages || []).length > 0 && (
-                      <SectionRow label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
+                      <SectionRow T={T} label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
                     )}
                   </View>
                   <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleParallaxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
@@ -909,11 +863,11 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
         <View>
           <Text style={[s.para, {color: T.dim, marginTop: 8}]}>{t('share.controlVisibility')}</Text>
           <View style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 4}}>
-            <SectionRow label={singlet ? t('share.showCurrentStatus') : t('share.showCurrentFront')} value={shareSettings.showFront} onToggle={() => tog('showFront')} />
-            {!singlet && <SectionRow label={t('share.showMemberList')} value={shareSettings.showMembers} onToggle={() => tog('showMembers')} />}
-            <SectionRow label={t('share.showMemberDescriptions')} value={shareSettings.showDescriptions} onToggle={() => tog('showDescriptions')} />
+            <SectionRow T={T} label={singlet ? t('share.showCurrentStatus') : t('share.showCurrentFront')} value={shareSettings.showFront} onToggle={() => tog('showFront')} />
+            {!singlet && <SectionRow T={T} label={t('share.showMemberList')} value={shareSettings.showMembers} onToggle={() => tog('showMembers')} />}
+            <SectionRow T={T} label={t('share.showMemberDescriptions')} value={shareSettings.showDescriptions} onToggle={() => tog('showDescriptions')} />
           </View>
-          <Divider label={t('share.preview')} />
+          <Divider T={T} label={t('share.preview')} />
           <View style={{backgroundColor: T.surface, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <Text style={{fontFamily: 'OpenDyslexic', fontSize: fs(20), color: T.accent, marginBottom: 4, fontStyle: 'italic'}}>{system.name}</Text>
             {system.description ? <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18, marginBottom: 12}}>{system.description}</Text> : null}
@@ -922,8 +876,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                 {primaryFronters.length === 0 && coFronters.length === 0 && coConsciousFronters.length === 0
                   ? <Text style={{fontSize: fs(12), color: T.muted, marginTop: 8}}>{t('share.nobodySet')}</Text>
                   : singlet
-                  ? (<PreviewTier label={t('tabs.status')} fronters={primaryFronters} color={T.accent} />)
-                  : (<><PreviewTier label={t('tier.primaryFront')} fronters={primaryFronters} color={T.accent} /><PreviewTier label={t('tier.coFront')} fronters={coFronters} color={T.info} /><PreviewTier label={t('tier.coConscious')} fronters={coConsciousFronters} color={T.success} /></>)}
+                  ? (<PreviewTier T={T} label={t('tabs.status')} fronters={primaryFronters} color={T.accent} />)
+                  : (<><PreviewTier T={T} label={t('tier.primaryFront')} fronters={primaryFronters} color={T.accent} /><PreviewTier T={T} label={t('tier.coFront')} fronters={coFronters} color={T.info} /><PreviewTier T={T} label={t('tier.coConscious')} fronters={coConsciousFronters} color={T.success} /></>)}
               </View>
             )}
             {!singlet && shareSettings.showMembers && previewMembers.length > 0 && (
@@ -953,3 +907,80 @@ const s = StyleSheet.create({
   para: {fontSize: 13, lineHeight: 19, marginBottom: 14},
   hint: {fontSize: 11, marginBottom: 4, lineHeight: 16},
 });
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function SectionBtn({id, label, selected, onSelect, T}: {id: Section; label: string; selected: Section; onSelect: (id: Section) => void; T: ThemeColors}) {
+  const fs = fontScale(T);
+  return (
+  <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.7}
+    accessibilityRole="tab" accessibilityState={{selected: selected === id}} accessibilityLabel={label}
+    style={{flex: 1, paddingVertical: 8, borderRadius: 7, borderWidth: 1, alignItems: 'center',
+      backgroundColor: selected === id ? T.accentBg : 'transparent', borderColor: selected === id ? `${T.accent}40` : T.border}}>
+    <Text style={{fontSize: fs(12), color: selected === id ? T.accent : T.dim, fontWeight: selected === id ? '600' : '400'}}>{label}</Text>
+  </TouchableOpacity>
+  );
+}
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function SourceBtn({id, label, selected, onSelect, T}: {id: ImportSource; label: string; selected: ImportSource; onSelect: (id: ImportSource) => void; T: ThemeColors}) {
+  const fs = fontScale(T);
+  return (
+  <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.7}
+    accessibilityRole="tab" accessibilityState={{selected: selected === id}} accessibilityLabel={label}
+    style={{paddingVertical: 7, paddingHorizontal: 12, borderRadius: 7, borderWidth: 1,
+      backgroundColor: selected === id ? T.accentBg : 'transparent', borderColor: selected === id ? `${T.accent}40` : T.border}}>
+    <Text style={{fontSize: fs(12), color: selected === id ? T.accent : T.dim, fontWeight: selected === id ? '600' : '400'}}>{label}</Text>
+  </TouchableOpacity>
+  );
+}
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function Divider({label, T}: {label: string; T: ThemeColors}) {
+  const fs = fontScale(T);
+  return (
+  <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 18}}>
+    <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
+    <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, fontWeight: '600'}}>{label}</Text>
+    <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
+  </View>
+  );
+}
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function SectionRow({label, sublabel, value, onToggle, disabled = false, T}: any) {
+  const fs = fontScale(T);
+  return (
+  <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: T.border, paddingHorizontal: 14, opacity: disabled ? 0.4 : 1}}>
+    <View style={{flex: 1}}><Text style={{fontSize: fs(14), color: T.text, fontWeight: '500'}}>{label}</Text>{sublabel && <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{sublabel}</Text>}</View>
+    <ToggleSwitch value={value && !disabled} onToggle={disabled ? () => {} : onToggle} label={label} T={T} />
+  </View>
+  );
+}
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function PreviewTier({label, fronters, color, T}: {label: string; fronters: Member[]; color: string; T: ThemeColors}) {
+  const fs = fontScale(T);
+  if (fronters.length === 0) return null;
+  return (
+    <View style={{marginTop: 8}}>
+      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '600', marginBottom: 5}}>{label}</Text>
+      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
+        {fronters.map(m => (
+          <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: `${m.color}18`, borderColor: `${m.color}30`}}>
+            <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} /><Text style={{fontSize: fs(13), color: T.text}}>{m.name}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}

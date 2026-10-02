@@ -5,7 +5,7 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {fmtDur, fmtTime, uid, Member, MemberGroup, JournalEntry, CustomFieldDef, Relationship, RelationshipTypeDef, PRESET_RELATIONSHIP_TYPES, memberMatchesSearch} from '../utils';
-import {fontScale, ThemeColors} from '../theme';
+import {fontScale, ThemeColors, initialOn} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
 import {logError} from '../utils/log';
@@ -83,8 +83,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const [tab, setTab] = useState<NetTab>('friends');
   const [theirFriend, setTheirFriend] = useState('');
   const [theirDevice, setTheirDevice] = useState('');
-  const [relayUrl, setRelayUrl] = useState('');
-  const [relayToken, setRelayToken] = useState('');
+  // Prefilled so that saving the form does not silently wipe a configured relay.
+  const [relayUrl, setRelayUrl] = useState(NetworkManager.relaySettings().relayUrl || '');
+  const [relayToken, setRelayToken] = useState(NetworkManager.relaySettings().token || '');
   const [busy, setBusy] = useState(false);
   const [copiedKind, setCopiedKind] = useState<Kind | null>(null);
   const [, setNowTick] = useState(0);
@@ -376,7 +377,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
         </TouchableOpacity>
       ) : (
         <TouchableOpacity onPress={() => onGenerate(kind)} disabled={busy} activeOpacity={0.8} style={primaryBtn} accessibilityRole="button" accessibilityState={{disabled: busy}}>
-          <Text style={{color: '#fff', fontWeight: '600', fontSize: fs(14)}}>{t('network.generateCode')}</Text>
+          <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(14)}}>{t('network.generateCode')}</Text>
         </TouchableOpacity>
       )}
     </>
@@ -426,6 +427,8 @@ export const NetworkScreen = ({theme: T}: Props) => {
     s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
   const effectiveShare = (peerId: string, f: BucketFeature): PrivacyScope => {
     const mine = buckets.filter(b => (b.friendPeerIds || []).includes(peerId));
+    // No bucket means no restriction: the sharing code treats such a friend as "share everything".
+    if (mine.length === 0) return {mode: 'all', ids: []};
     const ids = new Set<string>();
     let all = false;
     for (const b of mine) {
@@ -602,19 +605,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
     );
   };
 
-  const TabBtn = ({id, label}: {id: NetTab; label: string}) => (
-    <TouchableOpacity onPress={() => setTab(id)} activeOpacity={0.8} accessibilityRole="tab" accessibilityState={{selected: tab === id}}
-      style={{flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: tab === id ? T.accent : 'transparent'}}>
-      <Text style={{fontSize: fs(13), fontWeight: '600', color: tab === id ? T.accent : T.dim}}>{label}</Text>
-    </TouchableOpacity>
-  );
-
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border}} accessibilityRole="tablist">
-        <TabBtn id="friends" label={t('network.tabFriends')} />
-        <TabBtn id="privacy" label={t('network.tabPrivacy')} />
-        <TabBtn id="settings" label={t('network.tabSettings')} />
+        <TabBtn selected={tab} onSelect={setTab} T={T} id="friends" label={t('network.tabFriends')} />
+        <TabBtn selected={tab} onSelect={setTab} T={T} id="privacy" label={t('network.tabPrivacy')} />
+        <TabBtn selected={tab} onSelect={setTab} T={T} id="settings" label={t('network.tabSettings')} />
       </View>
 
       <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
@@ -641,7 +637,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <Text accessibilityRole="header" style={labelStyle}>{t('network.tabPrivacy')}</Text>
               <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 12}}>{t('network.privacyDesc')}</Text>
               <TouchableOpacity onPress={() => setEditBucket(newBucket(''))} activeOpacity={0.8} style={primaryBtn} accessibilityRole="button" accessibilityLabel={t('network.newBucket')}>
-                <Text style={{color: '#fff', fontWeight: '600', fontSize: fs(13)}}>{t('network.newBucket')}</Text>
+                <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.newBucket')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -772,7 +768,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                       <TouchableOpacity onPress={onCloudSubmit} disabled={!!cloudRule || cloudBusy} activeOpacity={0.8}
                         style={[primaryBtn, {marginTop: 12, opacity: !!cloudRule || cloudBusy ? 0.45 : 1}]}
                         accessibilityRole="button" accessibilityLabel={t('network.cloudSubmit')} accessibilityState={{disabled: !!cloudRule || cloudBusy}}>
-                        <Text style={{color: '#fff', fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudSubmit')}</Text>
+                        <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudSubmit')}</Text>
                       </TouchableOpacity>
                       {cloudBusy && (
                         <Text style={{fontSize: fs(11), color: T.accent, marginTop: 8}} accessibilityLiveRegion="polite">
@@ -797,7 +793,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <TextInput value={relayToken} onChangeText={setRelayToken} placeholder="—" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={inputStyle} accessibilityLabel={t('network.relayToken')} accessibilityLabelledBy="lblRelayToken" />
               <Text style={{fontSize: fs(11), color: T.dim, marginTop: 8, marginBottom: 12}}>{t('network.relayHint')}</Text>
               <TouchableOpacity onPress={onSaveRelay} disabled={busy} activeOpacity={0.8} style={primaryBtn} accessibilityRole="button" accessibilityState={{disabled: busy}}>
-                <Text style={{color: '#fff', fontWeight: '600', fontSize: fs(13)}}>{t('network.saveRelay')}</Text>
+                <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.saveRelay')}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -1004,3 +1000,16 @@ export const NetworkScreen = ({theme: T}: Props) => {
     </View>
   );
 };
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function TabBtn({id, label, selected, onSelect, T}: {id: NetTab; label: string; selected: NetTab; onSelect: (id: NetTab) => void; T: ThemeColors}) {
+  const fs = fontScale(T);
+  return (
+  <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.8} accessibilityRole="tab" accessibilityState={{selected: selected === id}}
+    style={{flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: selected === id ? T.accent : 'transparent'}}>
+    <Text style={{fontSize: fs(13), fontWeight: '600', color: selected === id ? T.accent : T.dim}}>{label}</Text>
+  </TouchableOpacity>
+  );
+}

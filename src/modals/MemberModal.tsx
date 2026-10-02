@@ -166,8 +166,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
   const removeAvatar = async () => {
     Alert.alert(t('modal.removePfp'), t('modal.removeImageMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('common.remove'), style: 'destructive', onPress: async () => {
-        await deleteAvatar(f.id);
+      {text: t('common.remove'), style: 'destructive', onPress: () => {
+        // The file stays until Save, so Cancel/Discard still has the picture.
         set('avatar', undefined);
       }},
     ]);
@@ -259,7 +259,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
     ) : (<>
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
       {!isNew && !confirmDel && <Btn instant variant="ghost" T={T} onPress={() => setShowClone(true)}>{t('members.clone')}</Btn>}
-      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
+      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {clearDraft('member', draftId); onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('member', draftId); onClose();}}>{t('common.cancel')}</Btn>}
       {!confirmDel && <Btn instant T={T} onPress={async () => {Keyboard.dismiss(); const cur = fRef.current; const nm = (cur.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...cur, name: nm}); await applyLinks(cur.id); clearDraft('member', draftId); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
 
@@ -873,9 +873,12 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                       value={val === null || val === '' ? '' : String(val)}
                       onChangeText={(raw: string) => {
                         const cleaned = raw.replace(/[^0-9.\-]/g, '');
-                        if (cleaned === '' || cleaned === '-' || cleaned === '.') { setFieldVal(fd.id, null); return; }
+                        if (cleaned === '') { setFieldVal(fd.id, null); return; }
                         const n = Number(cleaned);
-                        if (Number.isFinite(n)) setFieldVal(fd.id, n);
+                        // Keep partial input ("-", "1.", ".5") as typed; converting on every
+                        // keystroke made decimals and negative numbers impossible to enter.
+                        if (Number.isFinite(n) && !/[.\-]$/.test(cleaned) && cleaned !== '.') setFieldVal(fd.id, n);
+                        else setFieldVal(fd.id, cleaned);
                       }}
                       accessibilityLabel={fd.name} placeholder={fd.name}
                       placeholderTextColor={T.muted}

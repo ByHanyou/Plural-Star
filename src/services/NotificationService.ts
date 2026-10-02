@@ -30,7 +30,7 @@ export const FRIEND_ALERT_PREFIX = 'ps-friend-alert-';
 export const setupNotificationChannel = async () => {
   await notifee.createChannel({
     id: NOTIF_CHANNEL_ID,
-    name: 'Front Status',
+    name: i18n.t('notification.channelFront'),
     importance: AndroidImportance.LOW,
     visibility: AndroidVisibility.PUBLIC,
     sound: '',
@@ -40,7 +40,7 @@ export const setupNotificationChannel = async () => {
 export const setupReminderChannel = async () => {
   await notifee.createChannel({
     id: REMINDER_CHANNEL_ID,
-    name: 'Reminders',
+    name: i18n.t('notification.reminders'),
     importance: AndroidImportance.DEFAULT,
     visibility: AndroidVisibility.PUBLIC,
   });
@@ -49,7 +49,7 @@ export const setupReminderChannel = async () => {
 export const setupFriendAlertChannel = async () => {
   await notifee.createChannel({
     id: FRIEND_ALERT_CHANNEL_ID,
-    name: 'Friend Updates',
+    name: i18n.t('notification.channelFriends'),
     importance: AndroidImportance.HIGH,
     visibility: AndroidVisibility.PUBLIC,
   });
@@ -674,14 +674,6 @@ const cancelTriggersWithPrefix = async (prefix: string) => {
   }
 };
 
-export const rescheduleMedicationReminders = async (_medications: Medication[]) => {
-  await cancelTriggersWithPrefix(MED_ID_PREFIX);
-};
-
-export const rescheduleAppointmentReminders = async (_appointments: MedicalAppointment[]) => {
-  await cancelTriggersWithPrefix(APPT_ID_PREFIX);
-};
-
 const plannerAndroidConfig = () => ({
   channelId: REMINDER_CHANNEL_ID,
   smallIcon: 'ic_stat_notification',
@@ -697,6 +689,75 @@ const nativeRepeatFor = (repeat: string | undefined): RepeatFrequency | undefine
   return undefined;
 };
 
+// Repeats the OS cannot express (every other day/week, monthly, annually) get this
+// many upcoming occurrences armed one by one, so they keep firing while the app
+// is closed instead of stopping after the next one.
+const ARMED_OCCURRENCES = 6;
+
+export const rescheduleMedicationReminders = async (medications: Medication[]) => {
+  await cancelTriggersWithPrefix(MED_ID_PREFIX);
+  const active = (medications || []).filter(m => m && m.enabled && Array.isArray(m.times) && m.times.length > 0);
+  if (active.length === 0) return;
+  try {
+    await setupReminderChannel();
+    const now = Date.now();
+    for (const med of active) {
+      for (let i = 0; i < med.times.length; i++) {
+        const [hh, mm] = String(med.times[i]).split(':').map(Number);
+        if (!Number.isFinite(hh) || !Number.isFinite(mm)) continue;
+        const next = new Date();
+        next.setHours(hh, mm, 0, 0);
+        if (next.getTime() <= now) next.setDate(next.getDate() + 1);
+        const trigger: TimestampTrigger = {
+          type: TriggerType.TIMESTAMP,
+          timestamp: next.getTime(),
+          repeatFrequency: RepeatFrequency.DAILY,
+          alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
+        };
+        await notifee.createTriggerNotification(
+          {
+            id: `${MED_ID_PREFIX}${med.id}-${i}`,
+            title: i18n.t('medical.medReminderTitle'),
+            body: med.dosage ? `${med.name} · ${med.dosage}` : med.name,
+            android: plannerAndroidConfig(),
+          },
+          trigger,
+        );
+      }
+    }
+  } catch (e) {
+    console.error('[PluralSpace] Medication reschedule error:', e);
+  }
+};
+
+export const rescheduleAppointmentReminders = async (appointments: MedicalAppointment[]) => {
+  await cancelTriggersWithPrefix(APPT_ID_PREFIX);
+  const now = Date.now();
+  const upcoming = (appointments || []).filter(a => a && Number.isFinite(a.time) && a.time - (a.reminderMinutesBefore || 0) * 60000 > now);
+  if (upcoming.length === 0) return;
+  try {
+    await setupReminderChannel();
+    for (const appt of upcoming) {
+      const trigger: TimestampTrigger = {
+        type: TriggerType.TIMESTAMP,
+        timestamp: appt.time - (appt.reminderMinutesBefore || 0) * 60000,
+        alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
+      };
+      await notifee.createTriggerNotification(
+        {
+          id: `${APPT_ID_PREFIX}${appt.id}`,
+          title: i18n.t('medical.apptReminderTitle'),
+          body: appt.location ? `${appt.title} · ${appt.location}` : appt.title,
+          android: plannerAndroidConfig(),
+        },
+        trigger,
+      );
+    }
+  } catch (e) {
+    console.error('[PluralSpace] Appointment reschedule error:', e);
+  }
+};
+
 export const reschedulePlannerNotifications = async (planner: PlannerData | null) => {
   await cancelTriggersWithPrefix(PLAN_APPT_ID_PREFIX);
   await cancelTriggersWithPrefix(PLAN_REM_ID_PREFIX);
@@ -708,17 +769,22 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
     for (const appt of planner.appointments || []) {
       if (appt.reminderMinutesBefore == null) continue;
       const offsetMs = appt.reminderMinutesBefore * 60 * 1000;
-      const occurrence = plannerNextOccurrence(appt.time, appt.repeat, now + offsetMs);
-      if (occurrence == null) continue;
+      const native = nativeRepeatFor(appt.repeat);
+      const armed = appt.repeat && !native ? ARMED_OCCURRENCES : 1;
+      let after = now + offsetMs;
+      for (let k = 0; k < armed; k++) {
+      const occurrence = plannerNextOccurrence(appt.time, appt.repeat, after);
+      if (occurrence == null) break;
+      after = occurrence;
       const trigger: TimestampTrigger = {
         type: TriggerType.TIMESTAMP,
         timestamp: occurrence - offsetMs,
-        repeatFrequency: nativeRepeatFor(appt.repeat),
+        repeatFrequency: native,
         alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
       };
       await notifee.createTriggerNotification(
         {
-          id: `${PLAN_APPT_ID_PREFIX}${appt.id}`,
+          id: `${PLAN_APPT_ID_PREFIX}${appt.id}${k > 0 ? `-${k}` : ''}`,
           title: `🗓 ${appt.title}`,
           body: appt.location
             ? i18n.t('planner.notifApptAt', {time: fmtTime(occurrence), location: appt.location, defaultValue: `${fmtTime(occurrence)} · ${appt.location}`})
@@ -727,6 +793,7 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
         },
         trigger,
       );
+      }
     }
 
     for (const rem of planner.reminders || []) {
@@ -737,23 +804,29 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
         if (!Number.isFinite(hh) || !Number.isFinite(mm)) continue;
         const anchor = new Date(rem.startDate ?? rem.createdAt);
         anchor.setHours(hh, mm, 0, 0);
-        const occurrence = plannerNextOccurrence(anchor.getTime(), repeat, now);
-        if (occurrence == null) continue;
-        const trigger: TimestampTrigger = {
-          type: TriggerType.TIMESTAMP,
-          timestamp: occurrence,
-          repeatFrequency: nativeRepeatFor(repeat),
-          alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
-        };
-        await notifee.createTriggerNotification(
-          {
-            id: `${PLAN_REM_ID_PREFIX}${rem.id}-${i}`,
-            title: `⏰ ${rem.title}`,
-            body: rem.notes || i18n.t('planner.notifReminder', {defaultValue: 'Planner reminder'}),
-            android: plannerAndroidConfig(),
-          },
-          trigger,
-        );
+        const native = nativeRepeatFor(repeat);
+        const armed = native || repeat === 'once' ? 1 : ARMED_OCCURRENCES;
+        let after = now;
+        for (let k = 0; k < armed; k++) {
+          const occurrence = plannerNextOccurrence(anchor.getTime(), repeat, after);
+          if (occurrence == null) break;
+          after = occurrence;
+          const trigger: TimestampTrigger = {
+            type: TriggerType.TIMESTAMP,
+            timestamp: occurrence,
+            repeatFrequency: native,
+            alarmManager: {type: AlarmType.SET_AND_ALLOW_WHILE_IDLE},
+          };
+          await notifee.createTriggerNotification(
+            {
+              id: `${PLAN_REM_ID_PREFIX}${rem.id}-${i}${k > 0 ? `-${k}` : ''}`,
+              title: `⏰ ${rem.title}`,
+              body: rem.notes || i18n.t('planner.notifReminder', {defaultValue: 'Planner reminder'}),
+              android: plannerAndroidConfig(),
+            },
+            trigger,
+          );
+        }
       }
     }
   } catch (e) {

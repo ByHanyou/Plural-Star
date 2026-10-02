@@ -485,7 +485,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
   const jumpToLetter = (letter: string) => {
     const firstChar = (m: Member): string =>
-      upperRune((Array.from((m.name || '').trim())[0] || '').normalize('NFD').replace(/[̀-ͯ]/g, ''));
+      upperRune((Array.from((m.name || '').trim())[0] || '').normalize('NFD').replace(/[\u0300-\u036F]/g, ''));
     let idx = filtered.findIndex(m => firstChar(m) === letter);
     if (idx < 0) {
       idx = filtered.findIndex(m => sortMode === 'reverse-alphabetical'

@@ -692,7 +692,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 }, 4, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total})));
                 if (Object.keys(downloaded).length > 0) {
                   const withAvatars = newMembers.map(m => downloaded[m.id] ? {...m, avatar: downloaded[m.id]} : m);
-                  await store.set(KEYS.members, withAvatars);
+                  await store.set(KEYS.members, [...withAvatars, ...spKeptLocals]);
                 }
               }
             }
@@ -750,7 +750,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 if (importedOpenFront) await store.set(KEYS.front, importedOpenFront);
               }
             }
-            setRestoreDone(true); setRestoring(false);
+            setRestoreDone(true); setRestoring(false); setTimeout(() => onDataImported(), 800);
             return;
           }
 
@@ -887,7 +887,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 }
               }
             }
-            setRestoreDone(true); setRestoring(false);
+            setRestoreDone(true); setRestoring(false); setTimeout(() => onDataImported(), 800);
             return;
           }
           const data: ExportPayload = rawData;

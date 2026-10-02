@@ -542,6 +542,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'retroHistory') {
     return <RetroHistoryScreen
+      key={editingEntry ? `edit-${editHistoryIndex}` : 'new'}
       T={T} members={members} history={history} front={front}
       singlet={singlet} selfId={selfId}
       onSaveHistory={onSaveHistory} onSetFront={onSetFront}

@@ -53,6 +53,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [appLockPw, setAppLockPw] = useState<string>(settings?.appLockPassword || '');
   const [showAppLockPw, setShowAppLockPw] = useState<boolean>(!!settings?.appLockPassword);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
+  const [gpsEnabled, setGpsEnabled] = useState<boolean>(!!settings?.gpsEnabled);
   const [singletMode, setSingletMode] = useState<boolean>(settings?.accountMode === 'singlet');
   const [textScale, setTextScale] = useState<TextScale>(settings?.textScale ?? 1.0);
   const [fontChoice, setFontChoice] = useState<FontChoice>(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default'));
@@ -106,7 +107,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn instant T={T} onPress={() => {
       onSave({...system, ...(singletMode ? {name: sysName, description: sysDesc} : {}), journalPassword: showJournalPw && journalPw ? journalPw : undefined});
-      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, tierNames: tierMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
+      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, gpsEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, tierNames: tierMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
       {singletMode ? (
@@ -221,7 +222,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.gpsDesc')}</Text></View>
-          <ToggleSwitch value={!!settings?.gpsEnabled} onToggle={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, noteboardNotifications: noteboardNotifs});}} label={t('modal.gpsLocation')} T={T} style={{marginLeft: 12}} /></View>
+          <ToggleSwitch value={gpsEnabled} onToggle={() => setGpsEnabled(!gpsEnabled)} label={t('modal.gpsLocation')} T={T} style={{marginLeft: 12}} /></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.fileAccess')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.fileAccessDesc')}</Text></View>
@@ -239,20 +240,20 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{singletMode ? t('notification.statusCheck') : t('notification.frontCheck')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 8}}>{singletMode ? t('notification.statusCheckDesc') : t('notification.frontCheckDesc')}</Text>
           <TouchableOpacity onPress={() => setShowFrontCheckPicker(!showFrontCheckPicker)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{expanded: showFrontCheckPicker}} accessibilityLabel={singletMode ? t('notification.statusCheck') : t('notification.frontCheck')} accessibilityValue={{text: frontCheckInterval === 0 ? t('common.close') : t('notification.everyNHours', {count: frontCheckInterval})}}
+            accessibilityRole="button" accessibilityState={{expanded: showFrontCheckPicker}} accessibilityLabel={singletMode ? t('notification.statusCheck') : t('notification.frontCheck')} accessibilityValue={{text: frontCheckInterval === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: frontCheckInterval})}}
             style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showFrontCheckPicker ? `${T.accent}60` : T.border}}>
-            <Text style={{fontSize: fs(14), color: T.text}}>{frontCheckInterval === 0 ? t('common.close') : t('notification.everyNHours', {count: frontCheckInterval})}</Text>
+            <Text style={{fontSize: fs(14), color: T.text}}>{frontCheckInterval === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: frontCheckInterval})}</Text>
             <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{showFrontCheckPicker ? '▲' : '▼'}</Text>
           </TouchableOpacity>
           {showFrontCheckPicker && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
               {[0, 1, 2, 3, 4, 6, 8, 12].map(hours => (
                 <TouchableOpacity key={hours} onPress={() => {setFrontCheckInterval(hours); setShowFrontCheckPicker(false);}} activeOpacity={0.7}
-                  accessibilityRole="menuitem" accessibilityState={{selected: frontCheckInterval === hours}} accessibilityLabel={hours === 0 ? t('common.close') : t('notification.everyNHours', {count: hours})}
+                  accessibilityRole="menuitem" accessibilityState={{selected: frontCheckInterval === hours}} accessibilityLabel={hours === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: hours})}
                   style={{paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border,
                     backgroundColor: frontCheckInterval === hours ? `${T.accent}15` : 'transparent'}}>
                   <Text style={{fontSize: fs(14), color: frontCheckInterval === hours ? T.accent : T.text, fontWeight: frontCheckInterval === hours ? '600' : '400'}}>
-                    {hours === 0 ? t('common.close') : t('notification.everyNHours', {count: hours})}
+                    {hours === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: hours})}
                   </Text>
                 </TouchableOpacity>
               ))}

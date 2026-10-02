@@ -34,7 +34,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
   const togAuthor = (id: string) => set('authorIds', (f.authorIds || []).includes(id) ? (f.authorIds || []).filter((i: string) => i !== id) : [...(f.authorIds || []), id]);
   const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').normalize('NFC'); if (!raw) return; const cur = f.hashtags || []; const next = `#${raw}`; if (!cur.some(v => tagKey(v) === tagKey(next))) set('hashtags', [...cur, next]); setTagInput(''); };
   const applyTemplate = (tpl: JournalTemplate) => {
-    setF(x => ({...x, title: tpl.title || x.title, body: tpl.body || x.body, hashtags: [...(tpl.hashtags || [])]}));
+    setF(x => ({...x, title: tpl.title || x.title, body: tpl.body || x.body, hashtags: [...(x.hashtags || []), ...(tpl.hashtags || []).filter(h => !(x.hashtags || []).some(v => tagKey(v) === tagKey(h)))]}));
     setShowTemplatePicker(false);
   };
   const templateList: JournalTemplate[] = Array.isArray(templates) ? templates : [];

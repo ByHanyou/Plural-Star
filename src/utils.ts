@@ -1162,7 +1162,7 @@ export const lowerRune = (ch: string): string => {
 export const fileSlug = (name: string, fallback = 'plural-star'): string => {
   const cleaned = String(name ?? '')
     .normalize('NFC')
-    .replace(/[\\/:*?"<>| -]+/g, '-')
+    .replace(/[\\/:*?"<>|\u0000-\u001F\u007F]+/g, '-')
     .replace(/\s+/g, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '');

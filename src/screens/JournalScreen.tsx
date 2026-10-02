@@ -1,9 +1,9 @@
-import React, {useState, useMemo} from 'react';
+import React, {useState, useMemo, useEffect} from 'react';
 import {View, ScrollView, TouchableOpacity, Modal, Alert, Image, StyleSheet} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveJournalTemplates} from '../store/actions';
 import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch, memberMatchesSearch, tagKey} from '../utils';
@@ -36,7 +36,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
   const [globalPwInput, setGlobalPwInput] = useState('');
   const [globalPwError, setGlobalPwError] = useState(false);
   const [unlockedEntries, setUnlockedEntries] = useState<Set<string>>(new Set());
-  const [entryPwModal, setEntryPwModal] = useState<{entry: JournalEntry; mode: 'edit' | 'delete' | 'view'} | null>(null);
+  const [entryPwModal, setEntryPwModal] = useState<{entry: JournalEntry; mode: 'edit' | 'delete' | 'view' | 'export'} | null>(null);
   const [viewEntry, setViewEntry] = useState<JournalEntry | null>(null);
   const [entryPwInput, setEntryPwInput] = useState('');
   const [entryPwError, setEntryPwError] = useState(false);
@@ -110,6 +110,8 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
     [facetAuthors, authorSearch],
   );
 
+  useEffect(() => { if (!systemJournalPassword) setJournalUnlocked(true); }, [systemJournalPassword]);
+
   const handleGlobalUnlock = () => {
     if (globalPwInput === systemJournalPassword) {setJournalUnlocked(true); setGlobalPwError(false); setGlobalPwInput('');}
     else setGlobalPwError(true);
@@ -123,6 +125,11 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
   const handleViewTap = (entry: JournalEntry) => {
     if (!entry.password || unlockedEntries.has(entry.id)) {setViewEntry(entry);}
     else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'view'});}
+  };
+
+  const handleExportTap = (entry: JournalEntry) => {
+    if (!entry.password || unlockedEntries.has(entry.id)) {setExportMenuEntry(entry);}
+    else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'export'});}
   };
 
   const handleDeleteTap = (entry: JournalEntry) => {
@@ -140,6 +147,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
       setEntryPwError(false);
       if (entryPwModal.mode === 'edit') {onEdit(entryPwModal.entry);}
       else if (entryPwModal.mode === 'view') {setViewEntry(entryPwModal.entry);}
+      else if (entryPwModal.mode === 'export') {setExportMenuEntry(entryPwModal.entry);}
       else {Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDelete(entryPwModal.entry.id)}]);}
       setEntryPwModal(null);
     } else setEntryPwError(true);
@@ -170,7 +178,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
         {globalPwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, alignSelf: 'flex-start'}}>{t('journal.incorrectPassword')}</Text>}
         <TouchableOpacity onPress={handleGlobalUnlock} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('journal.unlockJournal')}
           style={{width: '100%', backgroundColor: T.accent, borderRadius: 8, paddingVertical: 13, alignItems: 'center', marginTop: 8}}>
-          <Text style={{fontSize: fs(15), fontWeight: '700', color: '#0a0508'}}>{t('journal.unlockJournal')}</Text>
+          <Text style={{fontSize: fs(15), fontWeight: '700', color: initialOn(T.accent)}}>{t('journal.unlockJournal')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -370,7 +378,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
                     {isLocked && <Text style={{fontSize: fs(13)}} accessibilityLabel={t('journal.locked')}>🔒</Text>}
                     <TouchableOpacity onPress={() => onTogglePin(e)} style={{padding: 4}} accessibilityRole="button" accessibilityState={{selected: !!e.pinned}} accessibilityLabel={e.pinned ? t('noteboard.unpin') : t('noteboard.pin')}><Text style={{fontSize: fs(12), color: e.pinned ? T.accent : T.muted}}>📌</Text></TouchableOpacity>
                     <TouchableOpacity onPress={() => handleEntryTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')}, ${e.title || t('common.untitled')}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => setExportMenuEntry(e)} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.export')}><Text style={{fontSize: fs(14), color: T.dim}}>↑</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleExportTap(e)} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.export')}><Text style={{fontSize: fs(14), color: T.dim}}>↑</Text></TouchableOpacity>
                     <TouchableOpacity onPress={() => handleDeleteTap(e)} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.delete')}><Text style={{fontSize: fs(14), color: T.muted}}>✕</Text></TouchableOpacity>
                   </View>
                 </View>

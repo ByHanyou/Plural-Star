@@ -65,7 +65,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [current, setCurrent] = useState<Stroke | null>(null);
-  const [color, setColor] = useState('#FFFFFF');
+  const [color, setColor] = useState(T.text);
   const [width, setWidth] = useState(WIDTHS[2]);
   const [tool, setTool] = useState<Tool>('draw');
   const [view, setView] = useState({tx: 0, ty: 0, scale: 1});
@@ -326,15 +326,16 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     },
   }), [persist]);
 
-  const bucketFill = (wx: number, wy: number) => {
+  const bucketFill = (wx: number, wy: number): boolean => {
     const region = traceEnclosedRegion(wx, wy, strokesRef.current);
-    if (region === null) return;
+    if (region === null) return false;
     const fill: Stroke = Array.isArray(region)
       ? {id: uid(), c: colorRef.current, w: -2, pts: region}
       : {id: uid(), c: colorRef.current, w: -1, pts: [0, 0, 0, 0]};
     const next = [...strokesRef.current, fill];
     setStrokes(next);
     persist(next);
+    return true;
   };
 
   const undo = () => {
@@ -530,6 +531,8 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         accessibilityHint={t('whiteboard.voLearnHint')}
         onAccessibilityTap={voWhere}
         accessibilityActions={[
+          {name: 'increment'},
+          {name: 'decrement'},
           {name: 'draw_up', label: t('whiteboard.voDrawUp')},
           {name: 'draw_down', label: t('whiteboard.voDrawDown')},
           {name: 'draw_left', label: t('whiteboard.voDrawLeft')},
@@ -562,7 +565,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
             case 'move_down': voMove(0, 1, 'whiteboard.voDown', false); break;
             case 'move_left': voMove(-1, 0, 'whiteboard.voLeft', false); break;
             case 'move_right': voMove(1, 0, 'whiteboard.voRight', false); break;
-            case 'fill': voStrokeIdRef.current = null; bucketFill(voCursorRef.current.x, voCursorRef.current.y); voAnnounce(t('whiteboard.voFilled')); break;
+            case 'fill': voStrokeIdRef.current = null; voAnnounce(bucketFill(voCursorRef.current.x, voCursorRef.current.y) ? t('whiteboard.voFilled') : t('whiteboard.voFillNone')); break;
             case 'shape_line': voPlaceShape('line'); break;
             case 'shape_rect': voPlaceShape('rect'); break;
             case 'shape_ellipse': voPlaceShape('ellipse'); break;

@@ -210,7 +210,7 @@ const isHTML = (text: string): boolean => {
   if (/^<(?:img|br)\b/i.test(t)) {
     return /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr|strong|em|b|i|s|del|code|a)\b/i.test(t);
   }
-  return t.startsWith('<') || /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr|strong|em|b|i|s|del|code|a)\b/i.test(t);
+  return /<(?:p|h[1-6]|div|ul|ol|blockquote|pre|hr|strong|em|b|i|s|del|code|a)\b/i.test(t);
 };
 
 const decodeEntities = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
@@ -302,20 +302,27 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
     const [full, openTag, attrs, closeTag] = match;
     const tag = (openTag || closeTag || '').toLowerCase();
 
+    // Every branch falls through to the capture below: an early `continue` here
+    // skipped the text that follows the tag, which emptied list items and lost
+    // blockquote and pre content.
     if (openTag) {
-      if (tag === 'hr') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; segments.push({tag: 'hr', content: ''}); continue; }
-      if (tag === 'ul' || tag === 'ol') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; inList = tag; listItems = []; continue; }
-      if (tag === 'li') { current = ''; continue; }
-      if (tag === 'pre' || tag === 'blockquote') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; currentTag = tag; continue; }
-      if (current.trim()) segments.push({tag: currentTag, content: current});
-      current = '';
-      currentTag = tag;
+      if (tag === 'hr') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; segments.push({tag: 'hr', content: ''}); }
+      else if (tag === 'ul' || tag === 'ol') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; inList = tag; listItems = []; }
+      else if (tag === 'li') { current = ''; }
+      else if (tag === 'pre' || tag === 'blockquote') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; currentTag = tag; }
+      else {
+        if (current.trim()) segments.push({tag: currentTag, content: current});
+        current = '';
+        currentTag = tag;
+      }
     } else if (closeTag) {
-      if (closeTag === 'li') { listItems.push(current); current = ''; continue; }
-      if (closeTag === 'ul' || closeTag === 'ol') { segments.push({tag: closeTag, content: '', listItems: [...listItems]}); inList = ''; listItems = []; continue; }
-      if (current.trim() || closeTag === 'p') segments.push({tag: currentTag, content: current});
-      current = '';
-      currentTag = 'p';
+      if (closeTag === 'li') { listItems.push(current); current = ''; }
+      else if (closeTag === 'ul' || closeTag === 'ol') { segments.push({tag: closeTag, content: '', listItems: [...listItems]}); inList = ''; listItems = []; }
+      else {
+        if (current.trim() || closeTag === 'p') segments.push({tag: currentTag, content: current});
+        current = '';
+        currentTag = 'p';
+      }
     }
     lastIdx = match.index + full.length;
     const nextMatch = blockRe.exec(raw);
@@ -438,7 +445,7 @@ const renderMarkdownLine = (line: string, T: ThemeColors, i: React.Key, members?
   if (line.startsWith('## ')) return <Text key={i} style={{fontSize: fs(16, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(3), T, members, onMentionPress)}</Text>;
   if (line.startsWith('# ')) return <Text key={i} style={{fontSize: fs(18, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text>;
   if (line.startsWith('> ')) return <View key={i} style={{borderLeftWidth: 3, borderLeftColor: T.accent, paddingLeft: 10, marginVertical: 2}}><Text style={{fontSize: fs(13, T), color: T.dim, fontStyle: 'italic', lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text></View>;
-  if (line.startsWith('---') || line.startsWith('***')) return <View key={i} style={{height: 1, backgroundColor: T.border, marginVertical: 8}} />;
+  if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) return <View key={i} style={{height: 1, backgroundColor: T.border, marginVertical: 8}} />;
   if (line.match(/^[-*] /)) return <View key={i} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim}} maxFontSizeMultiplier={1.3} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">•</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text></View>;
   if (line.match(/^\d+\. /)) {const m = line.match(/^(\d+)\. (.*)$/); return <View key={i} style={{flexDirection: 'row', gap: 6, marginVertical: 1}}><Text style={{fontSize: fs(13, T), color: T.dim, width: 16, textAlign: 'right'}} maxFontSizeMultiplier={1.3}>{m?.[1]}.</Text><Text style={{fontSize: fs(13, T), color: T.dim, flex: 1, lineHeight: 20}} maxFontSizeMultiplier={1.3}>{renderInline(m?.[2] || '', T, members, onMentionPress)}</Text></View>;}
   if (!line.trim()) return <View key={i} style={{height: 8}} />;

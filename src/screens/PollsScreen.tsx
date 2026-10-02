@@ -52,7 +52,7 @@ export const PollsScreen = ({theme: T}: Props) => {
   };
 
   const createPoll = () => {
-    if (!question.trim() || options.filter(o => o.trim()).length < 2) return;
+    if (!question.trim() || options.filter(o => o.trim()).length < 2) { Alert.alert(t('polls.incomplete')); return; }
     const poll: MemberPoll = {
       id: uid(), targetMemberId: voterId, question: question.trim(),
       options: options.filter(o => o.trim()).map(o => ({id: uid(), label: o.trim(), votes: []})),
@@ -162,7 +162,7 @@ export const PollsScreen = ({theme: T}: Props) => {
           {options.map((opt, i) => (
             <View key={i} style={{flexDirection: 'row', gap: 6, marginBottom: 6, alignItems: 'center'}}>
               <TextInput value={opt} onChangeText={v => {const u = [...options]; u[i] = v; setOptions(u);}}
-                accessibilityLabel={t('polls.optionPlaceholder')} placeholder={`${t('polls.optionPlaceholder')} ${i + 1}`} placeholderTextColor={T.muted}
+                accessibilityLabel={t('polls.optionPlaceholder')} placeholder={`${t('polls.optionPlaceholder').replace(/[.…]+$/, '')} ${i + 1}`} placeholderTextColor={T.muted}
                 style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: fs(13)}} />
               {options.length > 2 && (
                 <TouchableOpacity onPress={() => setOptions(options.filter((_, j) => j !== i))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('polls.removeOption')}>

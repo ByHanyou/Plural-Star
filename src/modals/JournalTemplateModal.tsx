@@ -1,5 +1,5 @@
 import React, {useState, useRef} from 'react';
-import {View, TouchableOpacity} from 'react-native';
+import {View, TouchableOpacity, Alert} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
@@ -56,12 +56,12 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
         <>
           {!isNew && (
             confirmDel
-              ? <Btn instant variant="danger" T={T} onPress={() => {onDelete?.(f.id); onClose();}}>{t('common.confirm')}</Btn>
+              ? <Btn instant variant="danger" T={T} onPress={() => {clearDraft('journalTemplate', draftId); onDelete?.(f.id); onClose();}}>{t('common.confirm')}</Btn>
               : <Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>
           )}
           <Btn instant T={T} onPress={() => {
             const cur = fRef.current;
-            if (!(cur.name || '').trim()) return;
+            if (!(cur.name || '').trim()) { Alert.alert(t('modal.nameRequired')); return; }
             onSave({...cur, name: cur.name.trim(), title: (cur.title || '').trim()});
             clearDraft('journalTemplate', draftId);
             onClose();

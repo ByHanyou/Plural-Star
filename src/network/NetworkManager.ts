@@ -441,7 +441,9 @@ class NetworkManagerImpl {
       for (const tb of removed) {
         if (!tb || typeof tb.peerId !== 'string' || typeof tb.removedAt !== 'number') continue;
         const mine = byId.get(tb.peerId);
-        const mineAt = mine ? (mine.statusUpdatedAt ?? mine.addedAt ?? 0) : 0;
+        // statusUpdatedAt is bumped by every received front status, so a removal on the
+        // other device looked "older" than a friend who merely kept posting fronts here.
+        const mineAt = mine ? (mine.addedAt ?? 0) : 0;
         if (mine && mine.kind !== 'device' && tb.removedAt > mineAt) {
           this.friends = this.friends.filter(f => f.peerId !== tb.peerId);
           byId.delete(tb.peerId);
@@ -461,9 +463,9 @@ class NetworkManagerImpl {
       if (inc.kind === 'device') continue;
       if (this.identity && inc.peerId === this.identity.peerId) continue;
       const mine = byId.get(inc.peerId);
-      const incAt0 = inc.statusUpdatedAt ?? inc.addedAt ?? 0;
+      const incAdded = inc.addedAt ?? 0;
       const tb = this.tombstoneFor(inc.peerId);
-      if (tb && tb.removedAt >= incAt0) continue;
+      if (tb && tb.removedAt >= incAdded) continue;
       if (tb) this.clearTombstone(inc.peerId);
       if (!mine) {
         this.friends.push(inc);
@@ -618,6 +620,39 @@ class NetworkManagerImpl {
     client.connect();
   }
 
+  /**
+   * Forget every network fact held in memory after "Delete All Data". The storage
+   * keys are already gone; without this the running manager would keep the old
+   * identity, friends and sync state alive and write them straight back, and a
+   * paired device's next sync_req would restore everything.
+   */
+  async wipe(): Promise<void> {
+    if (this.client) { try { this.client.disconnect(); } catch {} }
+    this.client = null;
+    if (this.syncTimer) { clearTimeout(this.syncTimer); this.syncTimer = null; }
+    if (this.mirrorTimer) { clearTimeout(this.mirrorTimer); this.mirrorTimer = null; }
+    this.settings = { enabled: false };
+    this.friends = [];
+    this.friendTombstones = [];
+    this.online = new Set();
+    this.myFront = null;
+    this.myFrontKnown = false;
+    this.myFrontAt = 0;
+    this.myFrontRaw = null;
+    this.gwAnnouncedSig = null;
+    this.gatewayEverRegistered = false;
+    this.gwFlagLoaded = false;
+    this.gwConfirmed = null;
+    this.lastHashes = {};
+    this.mirrorServed = new Map();
+    this.mirrorSentHash = new Map();
+    this.pendingConflicts = new Map();
+    this.identity = await loadOrCreateIdentity();
+    this.subId = await getDeviceSubId();
+    this.setStatus('disabled');
+    this.notify();
+  }
+
   async setEnabled(enabled: boolean): Promise<void> {
     this.settings = { ...this.settings, enabled };
     await this.persistSettings();
@@ -631,6 +666,10 @@ class NetworkManagerImpl {
       this.clearActiveCode('device');
       this.setStatus('disabled');
     }
+  }
+
+  relaySettings(): {relayUrl?: string; token?: string} {
+    return {relayUrl: this.settings.relayUrl, token: this.settings.token};
   }
 
   async setRelayOverride(relayUrl?: string, token?: string): Promise<void> {
@@ -1270,7 +1309,9 @@ class NetworkManagerImpl {
     const anyHidden = readers.length < accepted.length;
     const contentSig = `${fronters}|${startTime}|${name}|${primary}|${coFront}|${coConscious}|${readers.join(',')}`;
     if (contentSig === this.gwAnnouncedSig) return;
-    const ts = this.myFrontAt || Date.now();
+    // The gateway rejects timestamps older than a few minutes, so the announce time
+    // is now, not the time of the last switch.
+    const ts = Date.now();
     const signed = `psgw-front|${self.peerId}|${ts}|${fronters}|${startTime}|${name}|${primary}|${coFront}|${coConscious}|${readers.join(',')}`;
     const sig = nacl.sign.detached(decodeUTF8(signed), self.edSecretKey);
     try {
@@ -1287,9 +1328,10 @@ class NetworkManagerImpl {
         co_conscious: coConscious,
         readers,
       });
-      if (res && res.ok === false && !anyHidden) {
+      let accepted = !!res && res.ok !== false;
+      if (!accepted && !anyHidden) {
         const legacy = `psgw-front|${self.peerId}|${ts}|${fronters}|${startTime}|${name}`;
-        await this.gatewayFetch('/gw/front', {
+        const res2: any = await this.gatewayFetch('/gw/front', {
           peer_id: self.peerId,
           ed_pub: encodeBase64(self.edPublicKey),
           sig: encodeBase64(nacl.sign.detached(decodeUTF8(legacy), self.edSecretKey)),
@@ -1298,8 +1340,10 @@ class NetworkManagerImpl {
           start_time: startTime,
           name,
         });
+        accepted = !!res2 && res2.ok !== false;
       }
-      this.gwAnnouncedSig = contentSig;
+      // A rejected announce is retried on the next change; marking it done hid it.
+      if (accepted) this.gwAnnouncedSig = contentSig;
     } catch {}
   }
 
@@ -1594,6 +1638,10 @@ class NetworkManagerImpl {
     friends: Friend[],
   ): Promise<void> {
     if (!identity?.edSecretKey || !identity?.boxSecretKey) return;
+    // Check the keys before anything is written: a bad payload used to be stored first and
+    // the loader then regenerated a fresh key pair, destroying this device's identity.
+    const keyLen = (s: unknown, n: number) => { try { return typeof s === 'string' && decodeBase64(s).length === n; } catch { return false; } };
+    if (!keyLen(identity.edSecretKey, 64) || !keyLen(identity.boxSecretKey, 32)) return;
     const previousPeerId = this.identity?.peerId;
     await getDeviceIdentity();
     await store.set(IDENTITY_STORAGE_KEY, identity);
@@ -2114,14 +2162,24 @@ class NetworkManagerImpl {
           allMembers = rawM ? JSON.parse(rawM) : [];
         } catch {}
         const mScope = this.effectiveScope(buckets, peerId, 'members');
+        // Facets and custom fronts have their own scopes; history honours them the way the
+        // live front share does, or a facet hidden from a friend still shows in their History.
+        const facetIds = this.allowedFacetIdsFor(buckets, peerId);
+        const customFrontIds = this.allowedCustomFrontIdsFor(buckets, peerId);
+        const allowedBy = (m: any): boolean => {
+          if (m.isCustomFront) return customFrontIds === null || customFrontIds.has(m.id);
+          if (m.isFacet) return facetIds === null || facetIds.has(m.id);
+          return mScope.mode === 'all' || mScope.ids.has(m.id);
+        };
         const visibleIds = new Set(
           (Array.isArray(allMembers) ? allMembers : [])
-            .filter(m => m && !m.deleted && !m.private && (mScope.mode === 'all' || mScope.ids.has(m.id)))
+            .filter(m => m && !m.deleted && !m.private && allowedBy(m))
             .map(m => m.id),
         );
         const keep = (ids?: string[]) => (ids || []).filter(id => visibleIds.has(id));
         const vis = frontVisibilityFor(buckets, peerId);
-        const events = (Array.isArray(list) ? list : [])
+        // A friend who may not see the front at all gets no history either.
+        const events = (!vis.show ? [] : Array.isArray(list) ? list : [])
           .map(ev => {
             if (!ev) return null;
             const memberIds = keep(ev.memberIds);
@@ -2153,11 +2211,13 @@ class NetworkManagerImpl {
           allMembers = rawM ? JSON.parse(rawM) : [];
         } catch {}
         const privateIds = new Set((Array.isArray(allMembers) ? allMembers : []).filter(m => m && m.private).map(m => m.id));
+        // Password-locked entries and entries by private members stay on this device:
+        // the lock is meaningless once the plaintext is on a friend's device, and a
+        // private member's writing is theirs even with their id stripped.
         const shared = (Array.isArray(list) ? list : [])
           .filter(e => e && (scope.mode === 'all' || scope.ids.has(e.id)))
-          .map(e => (Array.isArray(e.authorIds) && e.authorIds.some((id: string) => privateIds.has(id))
-            ? {...e, authorIds: e.authorIds.filter((id: string) => !privateIds.has(id))}
-            : e));
+          .filter(e => !e.password && !(Array.isArray(e.authorIds) && e.authorIds.some((id: string) => privateIds.has(id))))
+          .map(e => { const {password: _omit, ...rest} = e; return rest; });
         payload = JSON.stringify(shared);
       }
     } catch (e) {

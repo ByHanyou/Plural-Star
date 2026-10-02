@@ -16,11 +16,17 @@ const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 const FETCH_TIMEOUT_MS = 10000;
 
-const fetchWithTimeout = (url: string, init?: any): Promise<any> => {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('request timed out')), FETCH_TIMEOUT_MS),
-  );
-  return Promise.race([fetch(url, init), timeout]);
+const fetchWithTimeout = async (url: string, init?: any): Promise<any> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, {...(init || {}), signal: controller.signal});
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('request timed out');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 export class NodeClient {

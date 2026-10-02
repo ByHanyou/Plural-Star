@@ -16,10 +16,13 @@ import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {store, chatMsgKey} from '../storage';
 import {RichText as RichContent} from '../components/MarkdownRenderer';
-import {saveChatMedia, getChatMediaFileName} from '../utils/mediaUtils';
+import {saveChatMedia, getChatMediaFileName, deleteChatMediaFile} from '../utils/mediaUtils';
 import {readClipboardImage} from '../utils/clipboardImage';
 import {showChatPingNotification} from '../services/NotificationService';
 import {NetworkManager} from '../network/NetworkManager';
+
+// Attachments are read fully into memory as base64 before they are saved; cap them.
+const MAX_CHAT_FILE_BYTES = 25 * 1024 * 1024;
 
 const EMOJI_QUICK = ['👍', '❤️', '😂', '😢', '😮', '🎉', '✨', '🔥'];
 
@@ -59,7 +62,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const [activeChannelId, setActiveChannelId] = useState<string | null>(channels.find(c => !c.archived)?.id || null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
-  const [activeMemberId, setActiveMemberId] = useState<string | null>(members.find(m => !m.archived)?.id || null);
+  const [activeMemberId, setActiveMemberId] = useState<string | null>(members.find(m => !m.archived && !m.deleted && !m.isCustomFront)?.id || null);
   const [memberSearch, setMemberSearch] = useState('');
   const [showMemberPicker, setShowMemberPicker] = useState(false);
   const [showChannelList, setShowChannelList] = useState(true);
@@ -85,6 +88,9 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const activeMember = members.find(m => m.id === activeMemberId);
   const activeChannels = channels.filter(c => !c.archived);
   const archivedChannels = channels.filter(c => c.archived);
+  // Image and file messages keep their payload on disk; previews must not print the URI.
+  const previewOf = (m: ChatMessage) => m.type === 'image' ? t('a11y.image') : m.type === 'file' ? getChatMediaFileName(m.content) : truncateRunes(m.content, 40);
+  const unarchiveChannel = (id: string) => onSaveChannels(channels.map(c => c.id === id ? {...c, archived: false, archivedAt: undefined} : c));
   const sortedCategories = sortChatCategories(categories);
   const uncategorized = chatChannelsIn(activeChannels, null, categories);
 
@@ -244,6 +250,8 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     try {
       const [res] = await safePick({type: ['*/*']});
       if (!res) return;
+      const size = typeof (res as any)?.size === 'number' ? (res as any).size : 0;
+      if (size > MAX_CHAT_FILE_BYTES) { Alert.alert(t('chat.imageFailed'), t('chat.fileTooLarge', {mb: MAX_CHAT_FILE_BYTES >> 20})); return; }
       const fileName = res.name || 'file';
       const ext = fileName.split('.').pop()?.toLowerCase() || '';
       const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
@@ -264,7 +272,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
       isAtBottomRef.current = true;
     setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
     } catch (e: any) {
-      if (!isPickerCancel(e)) Alert.alert(t('chat.imageFailed'), e.message || '');
+      if (!isPickerCancel(e)) Alert.alert(t('chat.imageFailed'), e?.message || '');
     }
   };
 
@@ -291,7 +299,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
       isAtBottomRef.current = true;
       setTimeout(() => flatListRef.current?.scrollToEnd({animated: true}), 100);
     } catch (e: any) {
-      Alert.alert(t('chat.imageFailed'), e.message || '');
+      Alert.alert(t('chat.imageFailed'), e?.message || '');
     }
   };
 
@@ -347,6 +355,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
         {text: t('common.delete'), style: 'destructive', onPress: async () => {
           const updated = messages.filter(m => m.id !== msg.id);
           await saveMessages(activeChannelId, updated);
+          if (msg.type === 'image' || msg.type === 'file') deleteChatMediaFile(msg.content).catch(() => {});
           if (editingMessageId === msg.id) cancelEditMessage();
         }},
       ],
@@ -374,7 +383,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   const createChannel = () => {
     const name = newChannelName.trim();
     if (!name) return;
-    if (channels.length >= 100) {
+    if (activeChannels.length >= 100) {
       Alert.alert(t('chat.channelLimit'), t('chat.channelLimitMsg'));
       return;
     }
@@ -422,6 +431,8 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
     Alert.alert(t('chat.deleteChannel'), t('chat.deleteChannelMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.delete'), style: 'destructive', onPress: async () => {
+        const gone = (await store.get<ChatMessage[]>(chatMsgKey(id), [])) ?? [];
+        for (const m of gone) if (m.type === 'image' || m.type === 'file') deleteChatMediaFile(m.content).catch(() => {});
         await store.remove(chatMsgKey(id));
         const updated = channels.filter(c => c.id !== id);
         onSaveChannels(updated);
@@ -487,10 +498,12 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
                 <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', marginTop: 4}}>{t('chat.imageUnavailable')}</Text>
               )
             ) : msg.type === 'file' ? (
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, marginTop: 4}}>
+              <TouchableOpacity activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={msg.content === 'cloud:media' ? t('chat.imageUnavailable') : getChatMediaFileName(msg.content)}
+                onPress={() => { if (msg.content && msg.content !== 'cloud:media') Share.open({url: msg.content, failOnCancel: false}).catch(() => {}); }}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, marginTop: 4}}>
                 <Text style={{fontSize: fs(18)}} accessibilityElementsHidden importantForAccessibility="no">📄</Text>
-                <Text style={{fontSize: fs(13), color: T.info, flex: 1}} numberOfLines={1}>{getChatMediaFileName(msg.content)}</Text>
-              </View>
+                <Text style={{fontSize: fs(13), color: T.info, flex: 1}} numberOfLines={1}>{msg.content === 'cloud:media' ? t('chat.imageUnavailable') : getChatMediaFileName(msg.content)}</Text>
+              </TouchableOpacity>
             ) : (
               <RichContent text={msg.content} T={T} members={members} onMentionPress={onMentionPress} />
             )}
@@ -695,9 +708,19 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
           <View style={{marginTop: 20}}>
             <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 10}}>{t('chat.archivedChannels')}</Text>
             {archivedChannels.map(ch => (
-              <View key={ch.id} style={{padding: 12, borderRadius: 10, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 6, opacity: 0.6}}>
+              <View key={ch.id} style={{padding: 12, borderRadius: 10, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 6, opacity: 0.75}}>
                 <Text style={{fontSize: fs(14), color: T.text}}>#{ch.name}</Text>
                 <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{t('chat.archivedOn', {date: ch.archivedAt ? fmtTime(ch.archivedAt) : '?'})}</Text>
+                <View style={{flexDirection: 'row', gap: 8, marginTop: 8}}>
+                  <TouchableOpacity onPress={() => unarchiveChannel(ch.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.unarchive')}
+                    style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                    <Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}}>{t('chat.unarchive')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteChannel(ch.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.delete')}
+                    style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: T.border}}>
+                    <Text style={{fontSize: fs(11), color: T.muted}}>{t('common.delete')}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </View>
@@ -787,7 +810,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
       {replyTo && !editingMessageId && (
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border}}>
-          <Text style={{fontSize: fs(11), color: T.dim, flex: 1}} numberOfLines={1}>↳ {getMember(replyTo.authorId)?.name}: {truncateRunes(replyTo.content, 40)}</Text>
+          <Text style={{fontSize: fs(11), color: T.dim, flex: 1}} numberOfLines={1}>↳ {getMember(replyTo.authorId)?.name}: {previewOf(replyTo)}</Text>
           <TouchableOpacity onPress={() => setReplyTo(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
         </View>
       )}

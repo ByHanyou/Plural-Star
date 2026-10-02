@@ -4,7 +4,7 @@ import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtTime, isValidTimeHHMM, getLocale, firstDayOfWeek} from '../utils';
+import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtTime, fmtClock, isValidTimeHHMM, getLocale, firstDayOfWeek} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {savePlanner} from '../store/actions';
@@ -161,7 +161,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
 
   const openNewRem = () => {
     setRemId(null); setRemTitle(''); setRemTimes([]); setRemNewTime(''); setRemNotes('');
-    setRemRepeat('daily'); setRemStart(new Date(selected));
+    setRemRepeat('daily'); setRemStart(new Date());
     setRemOpen(true);
   };
 
@@ -210,6 +210,8 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
     ]);
 
   const dayAppts = apptsOn(selected);
+  // A recurring appointment's `time` is its first date; on any other day only the clock matters.
+  const apptClock = (ts: number) => { const d = new Date(ts); return fmtClock(d.getHours(), d.getMinutes()); };
   const selectedLabel = selected.toLocaleDateString(locale, {weekday: 'long', month: 'long', day: 'numeric'});
   const sortedRems = [...planner.reminders].sort((a, b) => (a.times[0] || '').localeCompare(b.times[0] || ''));
 
@@ -450,9 +452,9 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
           return (
           <View key={a.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, borderLeftWidth: 4, borderLeftColor: a.color || markColor, padding: 12, marginBottom: 8}}>
             <TouchableOpacity onPress={() => openEditAppt(a)} activeOpacity={0.7} accessibilityRole="button"
-              accessibilityLabel={[fmtTime(a.time), a.title, a.location, ...meta].filter(Boolean).join(', ')}
+              accessibilityLabel={[apptClock(a.time), a.title, a.location, ...meta].filter(Boolean).join(', ')}
               style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
-              <Text style={{fontSize: fs(13), fontWeight: '700', color: T.accent, width: 58}}>{fmtTime(a.time)}</Text>
+              <Text style={{fontSize: fs(13), fontWeight: '700', color: T.accent, width: 58}}>{apptClock(a.time)}</Text>
               <View style={{flex: 1}}>
                 <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1}>{a.title}</Text>
                 {(a.location || a.notes) ? <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2}>{[a.location, a.notes].filter(Boolean).join(' · ')}</Text> : null}

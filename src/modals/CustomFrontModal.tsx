@@ -60,8 +60,8 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
   const removePfp = async () => {
     Alert.alert(t('modal.removePfp'), t('modal.removeImageMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('common.remove'), style: 'destructive', onPress: async () => {
-        await deleteAvatar(f.id);
+      {text: t('common.remove'), style: 'destructive', onPress: () => {
+        // The file stays until Save, so Cancel/Discard still has the picture.
         set('avatar', undefined);
       }},
     ]);
@@ -70,9 +70,9 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
   return (
     <Sheet visible={visible} title={statusMode ? (isNew ? t('status.add') : t('status.edit')) : (isNew ? t('customFront.add') : t('customFront.edit'))} theme={T} onClose={onClose} footer={<>
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
-      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(f.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
+      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {clearDraft('customFront', draftId); onDelete(f.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('customFront', draftId); onClose();}}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; if ((cur.name || '').trim()) {onSave({...cur, isCustomFront: true}); clearDraft('customFront', draftId); onClose();}}}>{t('common.save')}</Btn>}</>}>
+      {!confirmDel && <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; if ((cur.name || '').trim()) {onSave({...cur, isCustomFront: true}); clearDraft('customFront', draftId); onClose();} else {Alert.alert(t('modal.nameRequired'));}}}>{t('common.save')}</Btn>}</>}>
       <View style={{alignItems: 'center', marginBottom: 16}}>
         <TouchableOpacity onPress={pickPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>
           {f.avatar ? (

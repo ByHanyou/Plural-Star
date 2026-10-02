@@ -313,7 +313,7 @@ export const store = {
   async clearAll(): Promise<void> {
     try {
       const allKeys = await AsyncStorage.getAllKeys();
-      const psKeys = allKeys.filter(k => k.startsWith('ps:'));
+      const psKeys = allKeys.filter(k => k.startsWith('ps:') || k.startsWith('ps.'));
       await AsyncStorage.removeMany(psKeys);
       const exists = await ReactNativeBlobUtil.fs.exists(BACKUP_DIR);
       if (exists) await ReactNativeBlobUtil.fs.unlink(BACKUP_DIR);

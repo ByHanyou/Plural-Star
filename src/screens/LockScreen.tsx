@@ -3,7 +3,7 @@ import {View, Image, StyleSheet, ScrollView, Platform, TouchableOpacity} from 'r
 import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
 
 interface Props {
   theme: ThemeColors;
@@ -49,7 +49,7 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
           />
           {error ? <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, marginTop: -8}}>{error}</Text> : null}
           <TouchableOpacity onPress={submit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('lock.unlock')} style={[s.btn, {backgroundColor: T.accent}]}>
-            <Text style={s.btnText}>{t('lock.unlock')}</Text>
+            <Text style={[s.btnText, {color: initialOn(T.accent)}]}>{t('lock.unlock')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

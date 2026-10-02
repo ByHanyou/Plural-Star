@@ -491,6 +491,7 @@ function MainAppContent() {
   const handleDeleteAccount = async () => {
     await CloudServices.unlink().catch(() => {});
     await clearFrontNotification(); await store.clearAll(); await clearAllMedia();
+    await NetworkManager.wipe().catch(() => {});
     setSystem({name: '', description: ''}); setMembers([]); setFront(null);
     setHistory([]); setJournal([]); setJournalTemplates([]);
     setShareSettings({showFront: true, showMembers: true, showDescriptions: false});

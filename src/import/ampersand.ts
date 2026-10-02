@@ -325,17 +325,28 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           const fieldIdMap: Record<string, string> = {};
           let ageFieldId = '';
           if (extSel.customFields) {
-            const defs: CustomFieldDef[] = amFields.map((f: any, i: number) => {
-              const localId = uid();
+            // Merge by name with the definitions already on the device; replacing the list
+            // wiped every existing field and orphaned the values members held for them.
+            const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
+            const newDefs: CustomFieldDef[] = [];
+            const findDef = (name: string) => [...existingDefs, ...newDefs].find(d => d.name.toLowerCase() === name.toLowerCase());
+            amFields.forEach((f: any, i: number) => {
+              const name = String(f.name || `Field ${i + 1}`);
+              const existing = findDef(name);
+              const localId = existing ? existing.id : uid();
               fieldIdMap[String(f.uuid)] = localId;
-              return {id: localId, name: String(f.name || `Field ${i + 1}`), type: 'text', sortOrder: f.priority ?? i};
+              if (!existing) newDefs.push({id: localId, name, type: 'text', sortOrder: f.priority ?? existingDefs.length + i});
             });
             const hasAge = amMembers.some((a: any) => a?.age != null && String(a.age).trim() !== '');
-            if (hasAge && !defs.some(d => d.name.toLowerCase() === 'age')) {
-              ageFieldId = uid();
-              defs.push({id: ageFieldId, name: 'Age', type: 'text', sortOrder: defs.length});
+            if (hasAge && !amFields.some((f: any) => String(f.name || '').toLowerCase() === 'age')) {
+              const ageDef = findDef('Age');
+              if (ageDef) ageFieldId = ageDef.id;
+              else {
+                ageFieldId = uid();
+                newDefs.push({id: ageFieldId, name: 'Age', type: 'text', sortOrder: existingDefs.length + newDefs.length});
+              }
             }
-            await store.set(KEYS.customFieldDefs, defs);
+            if (newDefs.length > 0) await store.set(KEYS.customFieldDefs, [...existingDefs, ...newDefs]);
           }
 
           const amSystems: any[] = Array.isArray(extPreview.systems) ? extPreview.systems : [];

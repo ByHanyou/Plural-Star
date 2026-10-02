@@ -7,7 +7,7 @@ import {NetworkManager} from '../network/NetworkManager';
 import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup, MirrorSystemProfile, MIRROR_SYSTEM_AVATAR_ID, MIRROR_SYSTEM_BANNER_ID} from '../network/types';
 import {SystemProfileCard} from '../components/SystemProfileCard';
 import Svg, {Path} from 'react-native-svg';
-import {ThemeColors, fontScale} from '../theme';
+import {ThemeColors, fontScale, initialOn} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime, getInitials} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
 import {useAppStore} from '../store/appStore';
@@ -65,7 +65,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     }, 12000);
     NetworkManager.requestMirror(peerId, feature)
       .catch(() => setRequesting('failed'));
-    if (feature === 'groups' || feature === 'history') {
+    if (feature === 'groups' || feature === 'history' || feature === 'journal') {
       NetworkManager.requestMirror(peerId, 'members').catch(() => {});
     }
   }, [peerId, feature]);
@@ -198,7 +198,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           <Image source={{uri: avatar}} style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12}} accessibilityElementsHidden importantForAccessibility="no" />
         ) : (
           <View style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: item.color || T.border}} accessibilityElementsHidden importantForAccessibility="no">
-            <Text style={{fontSize: fs(16), fontWeight: '700', color: '#fff'}}>{Array.from(getInitials(item.name || '?'))[0] || '?'}</Text>
+            <Text style={{fontSize: fs(16), fontWeight: '700', color: initialOn(item.color || T.border)}}>{Array.from(getInitials(item.name || '?'))[0] || '?'}</Text>
           </View>
         )}
         <View style={{flex: 1, minWidth: 0}}>
@@ -272,7 +272,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       </Text>
       <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{fmtTime(item.timestamp)}</Text>
       {(item.hashtags || []).length > 0 && (
-        <Text style={{fontSize: fs(11), color: T.accent, marginTop: 2}} numberOfLines={1}>{(item.hashtags || []).map(x => `#${x}`).join(' ')}</Text>
+        <Text style={{fontSize: fs(11), color: T.accent, marginTop: 2}} numberOfLines={1}>{(item.hashtags || []).map(x => (x.startsWith('#') ? x : `#${x}`)).join(' ')}</Text>
       )}
     </TouchableOpacity>
   );
@@ -526,9 +526,9 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
                 autoFocus
                 onSubmitEditing={tryUnlock}
                 accessibilityLabel={t('journal.password')}
-                style={{borderWidth: 1, borderColor: pwError ? '#E05B5B' : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, color: T.text, fontSize: fs(13)}}
+                style={{borderWidth: 1, borderColor: pwError ? T.danger : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, color: T.text, fontSize: fs(13)}}
               />
-              {pwError && <Text accessibilityRole="alert" style={{fontSize: fs(11), color: '#E05B5B', marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
+              {pwError && <Text accessibilityRole="alert" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
               <View style={{flexDirection: 'row', gap: 10, marginTop: 12}}>
                 <TouchableOpacity onPress={() => setUnlockFor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                   style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>

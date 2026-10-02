@@ -147,7 +147,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
           {fmtTime(entry.startTime)}
           {isOpen ? ` → ${t('history.now')}` : displayEnd ? ` → ${fmtTime(displayEnd)}` : ''}
         </Text>
-        {(entry.mood || entry.location || entry.energyLevel !== undefined) && (
+        {(entry.mood || entry.location || entry.energyLevel != null) && (
           <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
             {entry.mood && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
@@ -161,7 +161,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
                 <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{entry.location}</Text>
               </View>
             )}
-            {entry.energyLevel !== undefined && (
+            {entry.energyLevel != null && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
                 <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
                 <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.energyLevel}/10</Text>
@@ -246,6 +246,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
   const storeHistory = useAppStore(s => s.history);
   const storeJournal = useAppStore(s => s.journal);
   const storeMembers = useAppStore(s => s.members);
+  const systemJournalPassword = useAppStore(s => s.system.journalPassword);
   const history = historyOverride ?? storeHistory;
   const journal = journalOverride ?? storeJournal;
   const members = membersOverride ?? storeMembers;
@@ -600,7 +601,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                     {topMood && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
                         <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topMood')}</Text>
-                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{topMood[0]}</Text>
+                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{translateMood(topMood[0], t)}</Text>
                       </View>
                     )}
                     {topLoc && (
@@ -702,19 +703,19 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                           {'journalEntry' in event && event.journalEntry && (
                             <>
                               <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text, marginBottom: 2}}>
-                                {event.journalEntry.title || t('common.untitled')}
+                                {(event.journalEntry.password || systemJournalPassword) ? '🔒 ' : ''}{event.journalEntry.title || t('common.untitled')}
                               </Text>
-                              {event.journalEntry.body ? (
+                              {event.journalEntry.body && !event.journalEntry.password && !systemJournalPassword ? (
                                 <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}} numberOfLines={2}>
                                   {event.journalEntry.body}
                                 </Text>
                               ) : null}
-                              {(event.journalEntry.hashtags || []).length > 0 && (
+                              {!event.journalEntry.password && !systemJournalPassword && (event.journalEntry.hashtags || []).length > 0 && (
                                 <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6}}>
-                                  {(event.journalEntry.hashtags || []).map((t: string) => (
-                                    <View key={t} style={{paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
+                                  {(event.journalEntry.hashtags || []).map((tag: string) => (
+                                    <View key={tag} style={{paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
                                       backgroundColor: `${T.info}12`, borderWidth: 1, borderColor: `${T.info}30`}}>
-                                      <Text style={{fontSize: fs(10), color: T.info}}>{t}</Text>
+                                      <Text style={{fontSize: fs(10), color: T.info}}>{tag}</Text>
                                     </View>
                                   ))}
                                 </View>

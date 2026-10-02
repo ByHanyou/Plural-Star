@@ -13,6 +13,10 @@ import {store, KEYS} from '../storage';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 
+// StyleSheet.absoluteFill is a registered style id on older React Native typings and
+// absoluteFillObject is gone on newer ones; a plain object spreads on both.
+const ABS_FILL = {position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0};
+
 interface Props {
   theme: ThemeColors;
   onViewMember?: (id: string) => void;
@@ -355,7 +359,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
   useEffect(() => {
     const load = async () => {
-      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets, savedLock] = await Promise.all([
+      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets, savedLock, storedMembers] = await Promise.all([
         store.get<Relationship[]>(KEYS.relationships, []),
         store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []),
         store.get<string[]>(KEYS.systemMapMembers),
@@ -364,6 +368,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
         store.get<boolean>('ps.mapColorThreads', false),
         store.get<boolean>('ps.mapShowFacets', true),
         store.get<boolean>('ps.mapLockPositions', false),
+        store.get<Member[]>(KEYS.members, []),
       ]);
       setShowArchived(!!savedShowArchived);
       setColorAll(!!savedColorAll);
@@ -371,19 +376,24 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       setLockPositions(!!savedLock);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
-      const ids = new Set(useAppStore.getState().members.map(m => m.id));
-      const valid = all.filter(r => ids.has(r.fromId) && ids.has(r.toId));
+      // Prune against the persisted member list: onSyncApplied fires before App has reloaded the
+      // in-memory store, so members that arrived in the same sync would otherwise be missing here
+      // and every relationship to them would be deleted, saved, and synced back out.
+      const memberList = storedMembers && storedMembers.length ? storedMembers : useAppStore.getState().members;
+      const ids = new Set(memberList.map(m => m.id));
+      const known = (id: string) => ids.size === 0 || ids.has(id);
+      const valid = all.filter(r => known(r.fromId) && known(r.toId));
       setRelationships(valid);
       if (savedPositions) {
         const pruned: Record<string, {x: number; y: number}> = {};
         for (const id in savedPositions) {
-          if (ids.has(id)) pruned[id] = savedPositions[id];
+          if (known(id)) pruned[id] = savedPositions[id];
         }
         setPosOverrides(pruned);
       }
-      if (valid.length !== all.length) await store.set(KEYS.relationships, valid);
+      if (ids.size > 0 && valid.length !== all.length) await store.set(KEYS.relationships, valid);
       if (savedMapIds) {
-        setMapIds(savedMapIds.filter(id => ids.has(id)));
+        setMapIds(savedMapIds.filter(id => known(id)));
       } else {
         const seeded = [...new Set(valid.flatMap(r => [r.fromId, r.toId]))];
         setMapIds(seeded);
@@ -982,7 +992,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showEditor && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+        <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
           <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <ScrollView ref={editorScrollRef} contentContainerStyle={{padding: 16, paddingBottom: 28}} keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={{fontSize: fs(17), fontWeight: '600', color: T.text, marginBottom: 14}}>
@@ -1070,7 +1080,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showConnections && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+        <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
           <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('systemMap.connections')}</Text>
@@ -1167,7 +1177,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showMemberPicker && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+        <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
           <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(hostH * 0.75, hostH - kbIn - 16))}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('members.addMember')}</Text>

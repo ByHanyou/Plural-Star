@@ -50,7 +50,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
   const real = (members || []).filter(m => !m.isCustomFront && !m.isFacet);
   const active = real.filter(m => !m.archived);
   const activeFacets = (members || []).filter(m => !m.isCustomFront && m.isFacet && !m.archived);
-  const byId = (id: string) => (members || []).find(m => m.id === id);
+  const byId = (id: string) => (members || []).find(m => m.id === id && !m.deleted);
 
   const save = async (updated: NoteboardEntry[]) => {
     setNotes(updated);
@@ -150,73 +150,6 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
     return b.timestamp - a.timestamp;
   });
 
-  const MemberChips = ({selected, onSelect, allowAll = false, excludeId}: {selected: string; onSelect: (id: string) => void; allowAll?: boolean; excludeId?: string}) => (
-    <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4}}>
-      {allowAll && active.length > 0 && (
-        <TouchableOpacity onPress={() => onSelect(ALL_RECIPIENTS)} activeOpacity={0.7}
-          accessibilityRole="button" accessibilityState={{selected: selected === ALL_RECIPIENTS}}
-          accessibilityLabel={`${t('mailbox.allOthers')} (${active.filter(m => m.id !== excludeId).length})`}
-          style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-            backgroundColor: selected === ALL_RECIPIENTS ? `${T.accent}20` : T.bg,
-            borderColor: selected === ALL_RECIPIENTS ? `${T.accent}50` : T.border}}>
-          <Text style={{fontSize: fs(11), fontWeight: '600', color: selected === ALL_RECIPIENTS ? T.accent : T.dim}}>{t('mailbox.allOthers')} · {active.filter(m => m.id !== excludeId).length}</Text>
-        </TouchableOpacity>
-      )}
-      {active.length > 0 && (
-        <Text accessibilityRole="header" style={{width: '100%', fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('members.title')}</Text>
-      )}
-      {active.map(m => (
-        <TouchableOpacity key={m.id} onPress={() => onSelect(m.id)} activeOpacity={0.7}
-          accessibilityRole="button" accessibilityState={{selected: selected === m.id}} accessibilityLabel={m.name}
-          style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-            backgroundColor: selected === m.id ? `${m.color}20` : T.bg,
-            borderColor: selected === m.id ? `${m.color}50` : T.border}}>
-          <Text style={{fontSize: fs(11), color: selected === m.id ? m.color : T.dim}}>{m.name}</Text>
-        </TouchableOpacity>
-      ))}
-      {activeFacets.length > 0 && (
-        <>
-          <Text accessibilityRole="header" style={{width: '100%', fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 6}}>{t('members.facets')}</Text>
-          {activeFacets.map(m => (
-            <TouchableOpacity key={m.id} onPress={() => onSelect(m.id)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityState={{selected: selected === m.id}} accessibilityLabel={m.name}
-              style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-                backgroundColor: selected === m.id ? `${m.color}20` : T.bg,
-                borderColor: selected === m.id ? `${m.color}50` : T.border}}>
-              <Text style={{fontSize: fs(11), color: selected === m.id ? m.color : T.dim}}>{m.name}</Text>
-            </TouchableOpacity>
-          ))}
-        </>
-      )}
-    </View>
-  );
-
-  const MessageCard = ({note}: {note: NoteboardEntry}) => {
-    const author = byId(note.authorId);
-    const unread = note.read !== true;
-    return (
-      <View style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: unread ? 2 : 1, borderColor: (unread || note.pinned) ? T.accent : T.border, padding: 12, marginBottom: 8}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
-          <View style={{width: 22, height: 22, borderRadius: 5, backgroundColor: author?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
-            <Text style={{fontSize: fs(9), fontWeight: '700', color: initialOn(author?.color || T.muted), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(author?.name || '?')}</Text>
-          </View>
-          <Text style={{fontSize: fs(12), color: author?.color || T.dim, fontWeight: '500'}}>{author?.name || '?'}</Text>
-          {note.pinned && <Text style={{fontSize: fs(10), color: T.accent}} accessibilityLabel={t('noteboard.pinned')}>📌</Text>}
-          <Text style={{fontSize: fs(10), color: T.muted, marginLeft: 'auto'}}>{fmtTime(note.timestamp)}</Text>
-        </View>
-        <Text style={{fontSize: fs(13), color: T.text, lineHeight: 20}}>{note.content}</Text>
-        <View style={{flexDirection: 'row', gap: 14, marginTop: 8}}>
-          <TouchableOpacity onPress={() => togglePin(note.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={note.pinned ? t('noteboard.unpin') : t('noteboard.pin')}>
-            <Text style={{fontSize: fs(11), color: note.pinned ? T.accent : T.dim}}>{note.pinned ? t('noteboard.unpin') : t('noteboard.pin')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => del(note.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.delete')}>
-            <Text style={{fontSize: fs(11), color: T.danger}}>{t('common.delete')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
   if (openId) {
     const owner = byId(openId);
     const msgs = inboxMsgs(openId);
@@ -235,14 +168,14 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
           )}
         </View>
         <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 24}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
-          {msgs.length > 0 ? msgs.map(n => <MessageCard key={n.id} note={n} />) : (
+          {msgs.length > 0 ? msgs.map(n => <MessageCard key={n.id} note={n} author={byId(n.authorId)} onTogglePin={togglePin} onDelete={del} T={T} />) : (
             <View style={{alignItems: 'center', paddingVertical: 40}}>
               <Text style={{fontSize: fs(13), color: T.muted}}>{t('mailbox.emptyInbox')}</Text>
             </View>
           )}
           <View style={{backgroundColor: T.surface, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginTop: 8}}>
             <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('mailbox.replyFrom', {name: owner?.name || '?'})}</Text>
-            <MemberChips selected={fromId} onSelect={setFromId} />
+            <MemberChips active={active} activeFacets={activeFacets} T={T} selected={fromId} onSelect={setFromId} />
             <View style={{flexDirection: 'row', gap: 8, alignItems: 'flex-end', marginTop: 8}}>
               <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('mailbox.messagePlaceholder')} multiline
                 style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 48, textAlignVertical: 'top'}} />
@@ -295,9 +228,9 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
         {composing && (
           <View style={{backgroundColor: T.surface, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 16}}>
             <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('mailbox.from')}</Text>
-            <MemberChips selected={fromId} onSelect={setFromId} />
+            <MemberChips active={active} activeFacets={activeFacets} T={T} selected={fromId} onSelect={setFromId} />
             <Text style={{fontSize: fs(11), color: T.dim, marginTop: 10, marginBottom: 6}}>{t('mailbox.to')}</Text>
-            <MemberChips selected={toId} onSelect={setToId} allowAll excludeId={fromId} />
+            <MemberChips active={active} activeFacets={activeFacets} T={T} selected={toId} onSelect={setToId} allowAll excludeId={fromId} />
             <TextInput value={text} onChangeText={setText} placeholder={t('mailbox.messagePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('mailbox.messagePlaceholder')} multiline
               style={{backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), minHeight: 56, textAlignVertical: 'top', marginTop: 10}} />
             <TouchableOpacity onPress={() => send(toId, fromId)} activeOpacity={0.7} disabled={!fromId || !toId || !text.trim()}
@@ -367,3 +300,81 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
     </View>
   );
 };
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function MemberChips({selected, onSelect, allowAll = false, excludeId, active, activeFacets, T}: {selected: string; onSelect: (id: string) => void; allowAll?: boolean; excludeId?: string; active: Member[]; activeFacets: Member[]; T: ThemeColors}) {
+  const {t} = useTranslation();
+  const fs = fontScale(T);
+  return (
+  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4}}>
+    {allowAll && active.length > 0 && (
+      <TouchableOpacity onPress={() => onSelect(ALL_RECIPIENTS)} activeOpacity={0.7}
+        accessibilityRole="button" accessibilityState={{selected: selected === ALL_RECIPIENTS}}
+        accessibilityLabel={`${t('mailbox.allOthers')} (${active.filter(m => m.id !== excludeId).length})`}
+        style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+          backgroundColor: selected === ALL_RECIPIENTS ? `${T.accent}20` : T.bg,
+          borderColor: selected === ALL_RECIPIENTS ? `${T.accent}50` : T.border}}>
+        <Text style={{fontSize: fs(11), fontWeight: '600', color: selected === ALL_RECIPIENTS ? T.accent : T.dim}}>{t('mailbox.allOthers')} · {active.filter(m => m.id !== excludeId).length}</Text>
+      </TouchableOpacity>
+    )}
+    {active.length > 0 && (
+      <Text accessibilityRole="header" style={{width: '100%', fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('members.title')}</Text>
+    )}
+    {active.map(m => (
+      <TouchableOpacity key={m.id} onPress={() => onSelect(m.id)} activeOpacity={0.7}
+        accessibilityRole="button" accessibilityState={{selected: selected === m.id}} accessibilityLabel={m.name}
+        style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+          backgroundColor: selected === m.id ? `${m.color}20` : T.bg,
+          borderColor: selected === m.id ? `${m.color}50` : T.border}}>
+        <Text style={{fontSize: fs(11), color: selected === m.id ? m.color : T.dim}}>{m.name}</Text>
+      </TouchableOpacity>
+    ))}
+    {activeFacets.length > 0 && (
+      <>
+        <Text accessibilityRole="header" style={{width: '100%', fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 6}}>{t('members.facets')}</Text>
+        {activeFacets.map(m => (
+          <TouchableOpacity key={m.id} onPress={() => onSelect(m.id)} activeOpacity={0.7}
+            accessibilityRole="button" accessibilityState={{selected: selected === m.id}} accessibilityLabel={m.name}
+            style={{paddingHorizontal: 9, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+              backgroundColor: selected === m.id ? `${m.color}20` : T.bg,
+              borderColor: selected === m.id ? `${m.color}50` : T.border}}>
+            <Text style={{fontSize: fs(11), color: selected === m.id ? m.color : T.dim}}>{m.name}</Text>
+          </TouchableOpacity>
+        ))}
+      </>
+    )}
+  </View>
+  );
+}
+
+// Hoisted out of the screen body: a component created inside render is a new
+// component type every render, so React unmounted and remounted its subtree
+// (and any input inside it lost focus) on every keystroke in the parent.
+function MessageCard({note, author, onTogglePin, onDelete, T}: {note: NoteboardEntry; author: Member | undefined; onTogglePin: (id: string) => void; onDelete: (id: string) => void; T: ThemeColors}) {
+  const {t} = useTranslation();
+  const fs = fontScale(T);
+  const unread = note.read !== true;
+  return (
+    <View style={{backgroundColor: note.pinned ? `${T.accent}10` : T.card, borderRadius: 10, borderWidth: unread ? 2 : 1, borderColor: (unread || note.pinned) ? T.accent : T.border, padding: 12, marginBottom: 8}}>
+      <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
+        <View style={{width: 22, height: 22, borderRadius: 5, backgroundColor: author?.color || T.muted, alignItems: 'center', justifyContent: 'center'}}>
+          <Text style={{fontSize: fs(9), fontWeight: '700', color: initialOn(author?.color || T.muted), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(author?.name || '?')}</Text>
+        </View>
+        <Text style={{fontSize: fs(12), color: author?.color || T.dim, fontWeight: '500'}}>{author?.name || '?'}</Text>
+        {note.pinned && <Text style={{fontSize: fs(10), color: T.accent}} accessibilityLabel={t('noteboard.pinned')}>📌</Text>}
+        <Text style={{fontSize: fs(10), color: T.muted, marginLeft: 'auto'}}>{fmtTime(note.timestamp)}</Text>
+      </View>
+      <Text style={{fontSize: fs(13), color: T.text, lineHeight: 20}}>{note.content}</Text>
+      <View style={{flexDirection: 'row', gap: 14, marginTop: 8}}>
+        <TouchableOpacity onPress={() => onTogglePin(note.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={note.pinned ? t('noteboard.unpin') : t('noteboard.pin')}>
+          <Text style={{fontSize: fs(11), color: note.pinned ? T.accent : T.dim}}>{note.pinned ? t('noteboard.unpin') : t('noteboard.pin')}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => onDelete(note.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.delete')}>
+          <Text style={{fontSize: fs(11), color: T.danger}}>{t('common.delete')}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}

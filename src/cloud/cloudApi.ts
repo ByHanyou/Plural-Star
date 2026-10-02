@@ -180,10 +180,14 @@ export class CloudApi {
       return;
     }
     let offset = status.offset;
+    let lastConflict = -1;
     while (offset < total) {
       const end = Math.min(total, offset + UPLOAD_CHUNK_BYTES);
       const r = await this.putChunk(creds, id, tier, ciphertext.subarray(offset, end), offset, total);
       if (r.conflictAt !== undefined) {
+        // The server keeps answering with the same offset: give up instead of spinning.
+        if (r.conflictAt === lastConflict) throw new Error('upload offset did not advance');
+        lastConflict = r.conflictAt;
         offset = r.conflictAt;
         continue;
       }

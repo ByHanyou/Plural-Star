@@ -75,7 +75,7 @@ export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Pro
                 <Text style={{fontSize: fs(13), color: T.text}}>{tier.location}</Text>
               </View>
             ) : null}
-            {tier?.energyLevel !== undefined ? (
+            {tier?.energyLevel != null ? (
               <View style={s.row}>
                 <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{t('energy.level')}</Text>
                 <Text style={{fontSize: fs(13), color: T.text}}>{tier.energyLevel}/10</Text>
