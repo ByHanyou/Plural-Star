@@ -4,6 +4,7 @@ import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
 import {fontScale, ThemeColors} from '../theme';
 import {ImportProgress, progressFraction} from '../import/progress';
+import {fmtPercent} from '../utils';
 
 interface Props {
   visible: boolean;
@@ -54,7 +55,7 @@ export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props
 
           <View style={s.metaRow}>
             {pct !== null && (
-              <Text style={[s.meta, {color: T.dim, fontSize: fs(11)}]}>{`${pct}%`}</Text>
+              <Text style={[s.meta, {color: T.dim, fontSize: fs(11)}]}>{fmtPercent(pct / 100, 0)}</Text>
             )}
             {!!progress?.total && progress.total > 0 && (
               <Text style={[s.meta, {color: T.dim, fontSize: fs(11)}]}>

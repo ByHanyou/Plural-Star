@@ -552,6 +552,11 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     {recoverEntries.map(entry => {
                       const sizeLabel = entry.sizeBytes > 1024 * 1024 ? `${fmtNum(entry.sizeBytes / 1024 / 1024, 1, 1)} MB` : entry.sizeBytes > 1024 ? `${fmtNum(entry.sizeBytes / 1024, 0)} KB` : `${fmtNum(entry.sizeBytes, 0)} B`;
                       const dateLabel = entry.mtime ? fmtTime(entry.mtime) : '';
+                      const previewLabel = entry.items !== undefined
+                        ? t('share.recoverItems', {count: entry.items})
+                        : entry.fields !== undefined
+                          ? t('share.recoverFields', {count: entry.fields})
+                          : entry.name !== undefined ? `"${entry.name}"` : (entry.text || '');
                       const checked = !!recoverSel[entry.key];
                       return (
                         <TouchableOpacity key={entry.key} onPress={() => setRecoverSel(s => ({...s, [entry.key]: !s[entry.key]}))} activeOpacity={0.7}
@@ -562,7 +567,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                           </View>
                           <View style={{flex: 1}}>
                             <Text style={{fontSize: fs(14), color: T.text, fontWeight: '500'}}>{friendlyKeyName(entry.key)}</Text>
-                            <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{entry.preview} · {sizeLabel}{dateLabel ? ` · ${dateLabel}` : ''}</Text>
+                            <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{previewLabel} · {sizeLabel}{dateLabel ? ` · ${dateLabel}` : ''}</Text>
                           </View>
                         </TouchableOpacity>
                       );

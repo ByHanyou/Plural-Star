@@ -40,7 +40,7 @@ export const setupNotificationChannel = async () => {
 export const setupReminderChannel = async () => {
   await notifee.createChannel({
     id: REMINDER_CHANNEL_ID,
-    name: i18n.t('notification.reminders'),
+    name: i18n.t('planner.reminders'),
     importance: AndroidImportance.DEFAULT,
     visibility: AndroidVisibility.PUBLIC,
   });

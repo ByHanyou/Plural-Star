@@ -301,10 +301,11 @@ const verifyExport = async (tempPath: string, filename: string): Promise<void> =
   const lower = filename.toLowerCase();
   const stat = await ReactNativeBlobUtil.fs.stat(tempPath);
   const size = Number(stat.size) || 0;
-  if (!size) throw new Error(`Export produced an empty file (${filename})`);
+  if (!size) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
 
   if (lower.endsWith('.json')) {
-    JSON.parse(await ReactNativeBlobUtil.fs.readFile(tempPath, 'utf8'));
+    const written = await ReactNativeBlobUtil.fs.readFile(tempPath, 'utf8');
+    try { JSON.parse(written); } catch { throw new Error(i18n.t('share.exportVerifyFailed', {filename})); }
     return;
   }
 
@@ -318,7 +319,7 @@ const verifyExport = async (tempPath: string, filename: string): Promise<void> =
       for (let i = tail.length - 4; i >= 0; i--) {
         if (tail[i] === 0x50 && tail[i + 1] === 0x4b && tail[i + 2] === 0x05 && tail[i + 3] === 0x06) { found = true; break; }
       }
-      if (!found) throw new Error(`Export is incomplete (${filename}); the archive has no directory`);
+      if (!found) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
     } finally {
       try { await ReactNativeBlobUtil.fs.unlink(tailPath); } catch {}
     }

@@ -1,5 +1,6 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
+import i18n from '../i18n/i18n';
 import {logError} from './log';
 import {parallelMap, withTimeout} from './concurrency';
 import {MIRROR_GIF_MAX_BYTES, MIRROR_GIF_MAX_B64, mirrorGifDataB64, mirrorGifHash} from '../network/types';
@@ -121,7 +122,7 @@ const downloadViaBlobUtil = async (
         if (settled) return;
         settled = true;
         try { (downloadTask as any).cancel?.(() => {}); } catch {}
-        reject(new Error(`image download timed out after ${DOWNLOAD_TIMEOUT_MS}ms`));
+        reject(new Error(i18n.t('share.couldNotConnect')));
       }, DOWNLOAD_TIMEOUT_MS);
       downloadTask.then(
         (v: any) => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); },

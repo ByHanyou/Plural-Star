@@ -294,7 +294,8 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
         bytes = await readFileBytes(path, res.uri);
       } catch {}
       if (bytes && isAmparBytes(bytes)) {
-        const prev = amparToPreview(bytes, t('share.system'));
+        const amparBytes: Uint8Array = bytes;
+        const prev = (() => { try { return amparToPreview(amparBytes, t('share.system')); } catch { throw new Error(t('share.couldNotReadAmpar')); } })();
         if (prev.members.length === 0 && prev.switches.length === 0) throw new Error(t('share.amparEmpty'));
         setExtPreview(prev);
         setImportSource('ampersand');

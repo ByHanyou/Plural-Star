@@ -474,7 +474,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                 accessibilityRole="switch" accessibilityState={{checked: !!f.profileBg}} accessibilityLabel={t('modal.palBg')}
                 hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
                 style={{width: 30, height: 30, borderRadius: 15, backgroundColor: f.profileBg && isValidHex(f.color) ? f.color : T.surface, borderWidth: 2, borderColor: f.profileBg ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
-                <Text style={{fontSize: 12, fontWeight: '500', color: f.profileBg && isValidHex(f.color) ? inkOn(f.color) : T.dim, includeFontPadding: false, textAlign: 'center'}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">Bg</Text>
+                <Text style={{fontSize: 12, fontWeight: '500', color: f.profileBg && isValidHex(f.color) ? inkOn(f.color) : T.dim, includeFontPadding: false, textAlign: 'center'}} allowFontScaling={false} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{t('modal.palBgShort')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowPicker(true)} activeOpacity={0.8}
                 accessibilityRole="button" accessibilityLabel={t('modal.customColor')}

@@ -97,7 +97,7 @@ const readBackup = async <T>(key: string): Promise<T | null> => {
 
 export const chatMsgKey = (channelId: string): string => `ps:chat:${channelId}`;
 
-export type RecoverableEntry = {key: string; sizeBytes: number; mtime: number; preview: string};
+export type RecoverableEntry = {key: string; sizeBytes: number; mtime: number; items?: number; fields?: number; name?: string; text?: string};
 export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
   try {
     const exists = await ReactNativeBlobUtil.fs.exists(BACKUP_DIR);
@@ -110,13 +110,13 @@ export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
       try {
         const raw = await ReactNativeBlobUtil.fs.readFile(f.path, 'utf8');
         const parsed = JSON.parse(raw);
-        let preview = '';
-        if (Array.isArray(parsed)) preview = `${parsed.length} item${parsed.length === 1 ? '' : 's'}`;
+        const entry: RecoverableEntry = {key, sizeBytes: Number(f.size) || 0, mtime: Number(f.lastModified) || 0};
+        if (Array.isArray(parsed)) entry.items = parsed.length;
         else if (parsed && typeof parsed === 'object') {
-          if (parsed.name) preview = `name: "${String(parsed.name).slice(0, 40)}"`;
-          else preview = `${Object.keys(parsed).length} field${Object.keys(parsed).length === 1 ? '' : 's'}`;
-        } else preview = String(parsed).slice(0, 40);
-        out.push({key, sizeBytes: Number(f.size) || 0, mtime: Number(f.lastModified) || 0, preview});
+          if (parsed.name) entry.name = String(parsed.name).slice(0, 40);
+          else entry.fields = Object.keys(parsed).length;
+        } else entry.text = String(parsed).slice(0, 40);
+        out.push(entry);
       } catch (e) { logError('storage', e); }
     }
     return out.sort((a, b) => b.mtime - a.mtime);

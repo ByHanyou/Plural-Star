@@ -926,6 +926,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               {([1, 2, 3] as const).map(d => (
                 <TouchableOpacity key={d} onPress={() => setDepth(d)} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityState={{selected: depth === d}} accessibilityLabel={`${t('systemMap.depth')} ${d}`}
+                  hitSlop={{top: 9, bottom: 9, left: 2, right: 2}}
                   style={{width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
                     backgroundColor: depth === d ? `${T.accent}25` : T.surface, borderColor: depth === d ? T.accent : T.border}}>
                   <Text style={{fontSize: fs(11), fontWeight: '600', color: depth === d ? T.accent : T.dim}}>{d}</Text>

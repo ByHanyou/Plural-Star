@@ -6,7 +6,7 @@ import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {Member, MemberPoll, PollOption, uid, fmtTime, sortMembersBySearch, memberMatchesSearch} from '../utils';
+import {Member, MemberPoll, PollOption, uid, fmtTime, fmtPercent, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {store, KEYS} from '../storage';
 import {NetworkManager} from '../network/NetworkManager';
 
@@ -212,13 +212,13 @@ export const PollsScreen = ({theme: T}: Props) => {
                 const voted = opt.votes.includes(voterId);
                 return (
                   <TouchableOpacity key={opt.id} onPress={() => !isClosed && vote(poll.id, opt.id)} activeOpacity={isClosed ? 1 : 0.7}
-                    accessibilityRole={poll.multipleChoice ? 'checkbox' : 'button'} accessibilityLabel={`${opt.label}, ${pct}%`}
+                    accessibilityRole={poll.multipleChoice ? 'checkbox' : 'button'} accessibilityLabel={`${opt.label}, ${fmtPercent(pct / 100, 0)}`}
                     accessibilityState={poll.multipleChoice ? {checked: voted, disabled: isClosed} : {selected: voted, disabled: isClosed}}
                     style={{borderRadius: 8, borderWidth: 1, borderColor: voted ? T.accent : T.border, backgroundColor: T.surface, marginBottom: 6, overflow: 'hidden'}}>
                     <View style={{position: 'absolute', left: 0, top: 0, bottom: 0, width: `${pct}%`, backgroundColor: voted ? `${T.accent}55` : `${T.muted}45`}} />
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10}}>
                       <Text style={{fontSize: fs(13), color: voted ? T.accent : T.text, fontWeight: voted ? '600' : '400'}}>{opt.label}</Text>
-                      <Text style={{fontSize: fs(12), color: T.muted}}>{pct}%</Text>
+                      <Text style={{fontSize: fs(12), color: T.muted}}>{fmtPercent(pct / 100, 0)}</Text>
                     </View>
                     {!poll.hideVoterNames && opt.votes.length > 0 && (
                       <Text style={{fontSize: fs(10), color: T.muted, paddingHorizontal: 12, paddingBottom: 6}}>{opt.votes.map(v => getName(v)).join(', ')}</Text>

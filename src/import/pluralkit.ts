@@ -68,7 +68,7 @@ export const handlePluralKitFetch = async (ctx: PluralKitFetchCtx) => {
         pkRequest(`${PK_BASE}/systems/@me`, headers),
         pkRequest(`${PK_BASE}/systems/@me/members`, headers),
         pkRequest(`${PK_BASE}/systems/@me/groups?with_members=true`, headers),
-      ]);
+      ]).catch(() => { throw new Error(t('share.couldNotConnect')); });
       const check = (res: Response) => {
         if (res.ok) return;
         if (res.status === 401 || res.status === 403) throw new Error(t('share.authFailed', {status: res.status}));

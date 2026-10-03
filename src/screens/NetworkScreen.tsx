@@ -4,7 +4,7 @@ import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {fmtDur, fmtTime, uid, Member, MemberGroup, JournalEntry, CustomFieldDef, Relationship, RelationshipTypeDef, PRESET_RELATIONSHIP_TYPES, memberMatchesSearch} from '../utils';
+import {fmtDur, fmtTime, fmtPercent, uid, Member, MemberGroup, JournalEntry, CustomFieldDef, Relationship, RelationshipTypeDef, PRESET_RELATIONSHIP_TYPES, memberMatchesSearch} from '../utils';
 import {fontScale, ThemeColors, initialOn} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
@@ -225,13 +225,13 @@ export const NetworkScreen = ({theme: T}: Props) => {
             {text: t('network.cloudImport'), style: 'destructive', onPress: () => {
               CloudServices.importExisting(cloudMedia)
                 .then(() => setCloudPw(''))
-                .catch((e: any) => Alert.alert(t('network.errorTitle'), String(e?.message || e)));
+                .catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e))));
             }},
           ]);
         }},
       ]);
     } catch (e: any) {
-      Alert.alert(t('network.errorTitle'), String(e?.message || e));
+      Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e)));
     }
   };
   const onCloudUnlink = () => {
@@ -241,7 +241,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
         Alert.alert(t('network.cloudUnlink'), t('network.cloudUnlinkConfirm2'), [
           {text: t('common.cancel'), style: 'cancel'},
           {text: t('network.cloudUnlink'), style: 'destructive', onPress: () => {
-            CloudServices.unlink().then(() => setCloudOn(false)).catch((e: any) => Alert.alert(t('network.errorTitle'), String(e?.message || e)));
+            CloudServices.unlink().then(() => setCloudOn(false)).catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e))));
           }},
         ]);
       }},
@@ -260,8 +260,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
     if (s.includes('object too large')) return t('network.cloudErrTooLarge', {keys: ''});
     if (s.includes('rate limited') || s.includes('429')) return t('network.cloudErrRate');
     if (s.includes('quota') || s.includes('watermark') || s.includes('507')) return t('network.cloudErrFull');
-    if (s.includes('undecryptable') || s.includes('malformed') || s.includes('hash mismatch') || s.includes('bad password')) return t('network.cloudErrCorrupt');
-    if (s.includes('conflict') || s.includes('network') || s.includes('timed out') || s.includes('failed') || s.includes('fetch') || s.includes('not connected') || s.includes('unreach') || /http 5\d\d/.test(s)) return t('network.cloudErrNetwork');
+    if (s.includes('does not open it') || s.includes('bad password') || s.includes('bad auth')) return t('network.cloudErrBadPassword');
+    if (s.includes('undecryptable') || s.includes('malformed') || s.includes('hash mismatch') || s.includes('did not match its id') || s.includes('could not be decrypted')) return t('network.cloudErrCorrupt');
+    if (s.includes('kept changing the vault') || s.includes('conflict') || s.includes('network') || s.includes('timed out') || s.includes('failed') || s.includes('fetch') || s.includes('not connected') || s.includes('unreach') || /http 5\d\d/.test(s)) return t('network.cloudErrNetwork');
     return raw;
   };
   const onGenerate = (kind: Kind) => {
@@ -715,7 +716,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                   )}
                   {cloudBusy && (
                     <Text style={{fontSize: fs(11), color: T.accent, marginTop: 6}} accessibilityLiveRegion="polite">
-                      {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${Math.round(cloud.progress * 100)}%` : ''}
+                      {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${fmtPercent(cloud.progress, 0)}` : ''}
                     </Text>
                   )}
                   {cloud.lastError ? (
@@ -770,7 +771,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                       </TouchableOpacity>
                       {cloudBusy && (
                         <Text style={{fontSize: fs(11), color: T.accent, marginTop: 8}} accessibilityLiveRegion="polite">
-                          {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${Math.round(cloud.progress * 100)}%` : ''}
+                          {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${fmtPercent(cloud.progress, 0)}` : ''}
                         </Text>
                       )}
                       {cloud.lastError ? (
