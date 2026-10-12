@@ -1,6 +1,6 @@
 import {NativeModules, Platform} from 'react-native';
 import type {FrontState, Member} from '../utils';
-import {fmtDur} from '../utils';
+import {fmtDur, frontSessionStart} from '../utils';
 
 type LiveActivityModule = {
   startOrUpdate(payload: Record<string, unknown>): Promise<unknown>;
@@ -68,22 +68,27 @@ export const updateFrontLiveActivity = async (
     return;
   }
 
-  const primaryText = resolveNames(front.primary.memberIds, members);
-  if (!primaryText) {
+  const tierIds = (tier: any): string[] => (Array.isArray(tier?.memberIds) ? tier.memberIds : []);
+  const primaryIds = tierIds(front.primary);
+  const coFrontIds = tierIds(front.coFront);
+  const coConsciousIds = tierIds(front.coConscious);
+  const primaryText = resolveNames(primaryIds, members);
+  if (!primaryText && coFrontIds.length === 0 && coConsciousIds.length === 0) {
     await nativeModule.endActivity();
     return;
   }
 
+  const since = frontSessionStart(front);
   await nativeModule.startOrUpdate({
     systemName: systemName || 'Plural Star',
     primaryText,
-    coFrontText: front.coFront.memberIds.length > 0 ? resolveNames(front.coFront.memberIds, members) : undefined,
-    coConsciousText: front.coConscious.memberIds.length > 0 ? resolveNames(front.coConscious.memberIds, members) : undefined,
+    coFrontText: coFrontIds.length > 0 ? resolveNames(coFrontIds, members) : undefined,
+    coConsciousText: coConsciousIds.length > 0 ? resolveNames(coConsciousIds, members) : undefined,
     mood: front.primary.mood,
     location: front.primary.location,
     note: front.primary.note || undefined,
-    startTime: front.startTime,
-    statusLine: fmtDur(front.startTime),
+    startTime: since,
+    statusLine: fmtDur(since),
     friendsText: friendsText || undefined,
   });
 };

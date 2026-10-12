@@ -2,15 +2,15 @@ import React from 'react';
 import {View, TouchableOpacity, ScrollView, Platform} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {parseMoodList, toggleMoodInList, translateMood} from '../utils';
-import {fontScale} from '../theme';
+import {fontScale, initialOn} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {TFunction} from 'i18next';
 
 export const Btn = ({children, onPress, variant = 'primary', disabled = false, style = {}, T, instant = false}: any) => {
-  const variants: any = {primary: {bg: T.accentBg, color: T.accent, border: `${T.accent}40`}, ghost: {bg: 'transparent', color: T.dim, border: T.border}, danger: {bg: T.dangerBg, color: T.danger, border: `${T.danger}40`}, solid: {bg: T.accent, color: '#0a0508', border: T.accent}, info: {bg: T.infoBg, color: T.info, border: `${T.info}40`}};
+  const variants: any = {primary: {bg: T.accentBg, color: T.accent, border: `${T.accent}40`}, ghost: {bg: 'transparent', color: T.dim, border: T.border}, danger: {bg: T.dangerBg, color: T.danger, border: `${T.danger}40`}, solid: {bg: T.accent, color: initialOn(T.accent), border: T.accent}, info: {bg: T.infoBg, color: T.info, border: `${T.info}40`}};
   const v = variants[variant] || variants.primary;
   const useInstant = instant && Platform.OS === 'ios';
-  return (<TouchableOpacity onPress={useInstant ? undefined : onPress} onPressIn={useInstant ? onPress : undefined} disabled={disabled} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{disabled}} style={[{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1}, style]}><Text style={{fontSize: 14, fontWeight: '500', color: v.color}}>{children}</Text></TouchableOpacity>);
+  return (<TouchableOpacity onPress={useInstant ? undefined : onPress} onPressIn={useInstant ? onPress : undefined} disabled={disabled} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{disabled}} style={[{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1}, style]}><Text style={{fontSize: fontScale(T)(14), fontWeight: '500', color: v.color}}>{children}</Text></TouchableOpacity>);
 };
 
 export const Field = ({label, value, onChange, placeholder, multiline = false, numberOfLines = 4, readOnly = false, T}: any) => {

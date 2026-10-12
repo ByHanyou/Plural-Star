@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useMemo, useCallback, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, StyleSheet, useWindowDimensions} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, useWindowDimensions} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useTranslation} from 'react-i18next';
@@ -8,9 +8,12 @@ import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {TogglePill} from '../components/ToggleSwitch';
 import {logError} from '../utils/log';
+import {NetworkManager} from '../network/NetworkManager';
 import {store, KEYS} from '../storage';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
+
+const ABS_FILL = {position: 'absolute' as const, left: 0, right: 0, top: 0, bottom: 0};
 
 interface Props {
   theme: ThemeColors;
@@ -321,6 +324,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     [rosterEligible, facetEligible, mapIdSet],
   );
   const mapMembers = useMemo(() => eligibleMembers.filter(m => mapIdSet.has(m.id) && (showFacets || !m.isFacet)), [eligibleMembers, mapIdSet, showFacets]);
+  const addableCount = useMemo(
+    () => rosterEligible.filter(m => !mapIdSet.has(m.id)).length +
+      facetEligible.filter(m => !mapIdSet.has(m.id)).length,
+    [rosterEligible, facetEligible, mapIdSet],
+  );
   const memberById = useMemo(() => new Map([...rosterEligible, ...facetEligible].map(m => [m.id, m])), [rosterEligible, facetEligible]);
 
   const [relationships, setRelationships] = useState<Relationship[]>([]);
@@ -348,8 +356,8 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const presetTypes = useMemo(() => types.filter(td => td.preset), [types]);
 
   useEffect(() => {
-    (async () => {
-      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets, savedLock] = await Promise.all([
+    const load = async () => {
+      const [rels, savedTypes, savedMapIds, savedPositions, savedShowArchived, savedColorAll, savedShowFacets, savedLock, storedMembers] = await Promise.all([
         store.get<Relationship[]>(KEYS.relationships, []),
         store.get<RelationshipTypeDef[]>(KEYS.relationshipTypes, []),
         store.get<string[]>(KEYS.systemMapMembers),
@@ -358,6 +366,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
         store.get<boolean>('ps.mapColorThreads', false),
         store.get<boolean>('ps.mapShowFacets', true),
         store.get<boolean>('ps.mapLockPositions', false),
+        store.get<Member[]>(KEYS.members, []),
       ]);
       setShowArchived(!!savedShowArchived);
       setColorAll(!!savedColorAll);
@@ -365,25 +374,29 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       setLockPositions(!!savedLock);
       setCustomTypes(savedTypes || []);
       const all = rels || [];
-      const ids = new Set(members.map(m => m.id));
-      const valid = all.filter(r => ids.has(r.fromId) && ids.has(r.toId));
+      const memberList = storedMembers && storedMembers.length ? storedMembers : useAppStore.getState().members;
+      const ids = new Set(memberList.map(m => m.id));
+      const known = (id: string) => ids.size === 0 || ids.has(id);
+      const valid = all.filter(r => known(r.fromId) && known(r.toId));
       setRelationships(valid);
       if (savedPositions) {
         const pruned: Record<string, {x: number; y: number}> = {};
         for (const id in savedPositions) {
-          if (ids.has(id)) pruned[id] = savedPositions[id];
+          if (known(id)) pruned[id] = savedPositions[id];
         }
         setPosOverrides(pruned);
       }
-      if (valid.length !== all.length) await store.set(KEYS.relationships, valid);
+      if (ids.size > 0 && valid.length !== all.length) await store.set(KEYS.relationships, valid);
       if (savedMapIds) {
-        setMapIds(savedMapIds.filter(id => ids.has(id)));
+        setMapIds(savedMapIds.filter(id => known(id)));
       } else {
         const seeded = [...new Set(valid.flatMap(r => [r.fromId, r.toId]))];
         setMapIds(seeded);
         await store.set(KEYS.systemMapMembers, seeded);
       }
-    })();
+    };
+    load().catch(e => logError('systemMap', e));
+    return NetworkManager.onSyncApplied(() => { load().catch(e => logError('systemMap', e)); });
   }, []);
 
   const toggleShowArchived = () => {
@@ -751,8 +764,10 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     <View ref={hostRef} onLayout={measureHost} style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
         <TouchableOpacity onPress={() => {setShowMemberPicker(true); setMemberPickerSearch(''); measureHost();}} activeOpacity={0.7}
+          disabled={addableCount === 0}
           accessibilityRole="button" accessibilityLabel={t('members.addMember')}
-          style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          accessibilityState={{disabled: addableCount === 0}}
+          style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, opacity: addableCount === 0 ? 0.45 : 1}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}}>{t('systemMap.addMember')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => {setShowConnections(true); setShowAddType(false); setEditTypeId(null);}} activeOpacity={0.7}
@@ -911,6 +926,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               {([1, 2, 3] as const).map(d => (
                 <TouchableOpacity key={d} onPress={() => setDepth(d)} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityState={{selected: depth === d}} accessibilityLabel={`${t('systemMap.depth')} ${d}`}
+                  hitSlop={{top: 9, bottom: 9, left: 2, right: 2}}
                   style={{width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
                     backgroundColor: depth === d ? `${T.accent}25` : T.surface, borderColor: depth === d ? T.accent : T.border}}>
                   <Text style={{fontSize: fs(11), fontWeight: '600', color: depth === d ? T.accent : T.dim}}>{d}</Text>
@@ -972,7 +988,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showEditor && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+        <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
           <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <ScrollView ref={editorScrollRef} contentContainerStyle={{padding: 16, paddingBottom: 28}} keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={{fontSize: fs(17), fontWeight: '600', color: T.text, marginBottom: 14}}>
@@ -1060,7 +1076,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showConnections && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+        <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
           <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('systemMap.connections')}</Text>
@@ -1157,7 +1173,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       )}
 
       {showMemberPicker && (
-        <View style={{...StyleSheet.absoluteFill, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
+        <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
           <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(hostH * 0.75, hostH - kbIn - 16))}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('members.addMember')}</Text>

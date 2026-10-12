@@ -46,7 +46,12 @@ const CRITICAL_KEYS = new Set([
   KEYS.journal, KEYS.groups, KEYS.chatChannels, KEYS.chatCategories, KEYS.relationships,
   KEYS.deviceCodes, KEYS.medical, KEYS.planner,
   'ps:networkIdentity', 'ps:networkFriends', 'ps:networkSettings',
+  KEYS.whiteboard, KEYS.polls, KEYS.noteboards, KEYS.customFieldDefs, KEYS.journalTemplates,
+  KEYS.relationshipTypes, KEYS.systemMapMembers, KEYS.systemMapPositions, KEYS.palettes,
+  KEYS.customColors, KEYS.share, KEYS.settings, 'ps:privacyBuckets',
 ]);
+
+const isCritical = (key: string): boolean => CRITICAL_KEYS.has(key) || key.startsWith('ps:chat:');
 
 const STORAGE_DEBUG = __DEV__;
 
@@ -92,7 +97,7 @@ const readBackup = async <T>(key: string): Promise<T | null> => {
 
 export const chatMsgKey = (channelId: string): string => `ps:chat:${channelId}`;
 
-export type RecoverableEntry = {key: string; sizeBytes: number; mtime: number; preview: string};
+export type RecoverableEntry = {key: string; sizeBytes: number; mtime: number; items?: number; fields?: number; name?: string; text?: string};
 export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
   try {
     const exists = await ReactNativeBlobUtil.fs.exists(BACKUP_DIR);
@@ -101,17 +106,17 @@ export const listRecoverableBackups = async (): Promise<RecoverableEntry[]> => {
     const out: RecoverableEntry[] = [];
     for (const f of files) {
       if (f.type !== 'file' || !f.filename.endsWith('.json')) continue;
-      const key = `ps:${f.filename.replace(/\.json$/, '').replace(/^ps_/, '')}`;
+      const key = `ps:${f.filename.replace(/\.json$/, '').replace(/^ps_/, '').replace(/_/g, ':')}`;
       try {
         const raw = await ReactNativeBlobUtil.fs.readFile(f.path, 'utf8');
         const parsed = JSON.parse(raw);
-        let preview = '';
-        if (Array.isArray(parsed)) preview = `${parsed.length} item${parsed.length === 1 ? '' : 's'}`;
+        const entry: RecoverableEntry = {key, sizeBytes: Number(f.size) || 0, mtime: Number(f.lastModified) || 0};
+        if (Array.isArray(parsed)) entry.items = parsed.length;
         else if (parsed && typeof parsed === 'object') {
-          if (parsed.name) preview = `name: "${String(parsed.name).slice(0, 40)}"`;
-          else preview = `${Object.keys(parsed).length} field${Object.keys(parsed).length === 1 ? '' : 's'}`;
-        } else preview = String(parsed).slice(0, 40);
-        out.push({key, sizeBytes: Number(f.size) || 0, mtime: Number(f.lastModified) || 0, preview});
+          if (parsed.name) entry.name = String(parsed.name).slice(0, 40);
+          else entry.fields = Object.keys(parsed).length;
+        } else entry.text = String(parsed).slice(0, 40);
+        out.push(entry);
       } catch (e) { logError('storage', e); }
     }
     return out.sort((a, b) => b.mtime - a.mtime);
@@ -184,6 +189,64 @@ export const restoreFromBackup = async (key: string): Promise<boolean> => {
   }
 };
 
+type WriteListener = (key: string, removed?: boolean) => void;
+const writeListeners = new Set<WriteListener>();
+export const onStoreWrite = (fn: WriteListener | null): (() => void) => {
+  if (!fn) {
+    writeListeners.clear();
+    return () => {};
+  }
+  writeListeners.add(fn);
+  return () => {
+    writeListeners.delete(fn);
+  };
+};
+const emitWrite = (key: string, removed?: boolean): void => {
+  for (const fn of writeListeners) {
+    try { fn(key, removed); } catch {}
+  }
+};
+
+const writeWithBackup = async (key: string, json: string, value: unknown): Promise<void> => {
+  let asyncStorageOk = true;
+  if (key === KEYS.front && frontValueIsEmpty(value)) {
+    try { await AsyncStorage.setItem(FRONT_CLEARED_KEY, String(Date.now())); } catch (e) { logError('storage', e); }
+  }
+  try {
+    await AsyncStorage.setItem(key, json);
+    if (STORAGE_DEBUG && isCritical(key)) console.log(`[STORAGE] set ${key} OK (${json.length}b)`);
+  } catch (e) {
+    asyncStorageOk = false;
+    console.error(`[STORAGE] AsyncStorage.setItem FAILED for ${key} (${json.length}b):`, e);
+  }
+  if (isCritical(key)) {
+    const isArray = Array.isArray(value);
+    if (!isArray) {
+      if (value != null) {
+        const ok = await writeBackup(key, value);
+        if (!asyncStorageOk && !ok) {
+          console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes — data lost this session`);
+        }
+      }
+    } else {
+      const isEmpty = (value as any[]).length === 0;
+      if (!isEmpty) {
+        const ok = await writeBackup(key, value);
+        if (!asyncStorageOk && !ok) {
+          console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes — data lost this session`);
+        }
+      } else {
+        try {
+          const path = backupPath(key);
+          const exists = await ReactNativeBlobUtil.fs.exists(path);
+          if (exists) await ReactNativeBlobUtil.fs.unlink(path);
+          if (STORAGE_DEBUG) console.log(`[STORAGE] backup-delete ${key} (intentional empty)`);
+        } catch {}
+      }
+    }
+  }
+};
+
 export const store = {
   async get<T>(key: string, fallback: T | null = null): Promise<T | null> {
     let raw: string | null = null;
@@ -198,11 +261,11 @@ export const store = {
     if (raw !== null) {
       try {
         const parsed = JSON.parse(raw) as T;
-        if (STORAGE_DEBUG && CRITICAL_KEYS.has(key)) {
+        if (STORAGE_DEBUG && isCritical(key)) {
           const len = Array.isArray(parsed) ? `${parsed.length} items` : 'object';
           console.log(`[STORAGE] get ${key} (${raw.length}b, ${len})`);
         }
-        if (CRITICAL_KEYS.has(key) && Array.isArray(parsed) && (parsed as any[]).length === 0) {
+        if (isCritical(key) && Array.isArray(parsed) && (parsed as any[]).length === 0) {
           const backup = await readBackup<T>(key);
           if (backup !== null && Array.isArray(backup) && (backup as any[]).length > 0) {
             console.warn(`[STORAGE] Recovered ${key} from backup (was empty)`);
@@ -216,7 +279,7 @@ export const store = {
         console.error(`[STORAGE] JSON.parse failed for ${key}, trying backup:`, e);
       }
     }
-    if (CRITICAL_KEYS.has(key)) {
+    if (isCritical(key)) {
       const backup = await readBackup<T>(key);
       if (backup !== null) {
         console.warn(`[STORAGE] Recovered ${key} from backup (AsyncStorage was ${asyncStorageOk ? 'null' : 'broken'})`);
@@ -224,63 +287,33 @@ export const store = {
         return backup;
       }
     }
-    if (STORAGE_DEBUG && CRITICAL_KEYS.has(key)) console.log(`[STORAGE] get ${key} returned fallback`);
+    if (STORAGE_DEBUG && isCritical(key)) console.log(`[STORAGE] get ${key} returned fallback`);
     return fallback;
   },
   async set(key: string, value: unknown): Promise<void> {
-    const json = JSON.stringify(value);
-    let asyncStorageOk = true;
-    if (key === KEYS.front && frontValueIsEmpty(value)) {
-      try { await AsyncStorage.setItem(FRONT_CLEARED_KEY, String(Date.now())); } catch (e) { logError('storage', e); }
-    }
-    try {
-      await AsyncStorage.setItem(key, json);
-      if (STORAGE_DEBUG && CRITICAL_KEYS.has(key)) console.log(`[STORAGE] set ${key} OK (${json.length}b)`);
-    } catch (e) {
-      asyncStorageOk = false;
-      console.error(`[STORAGE] AsyncStorage.setItem FAILED for ${key} (${json.length}b):`, e);
-    }
-    if (CRITICAL_KEYS.has(key)) {
-      const isArray = Array.isArray(value);
-      if (!isArray) {
-        if (value != null) {
-          const ok = await writeBackup(key, value);
-          if (!asyncStorageOk && !ok) {
-            console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes — data lost this session`);
-          }
-        }
-      } else {
-        const isEmpty = (value as any[]).length === 0;
-        if (!isEmpty) {
-          const ok = await writeBackup(key, value);
-          if (!asyncStorageOk && !ok) {
-            console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes — data lost this session`);
-          }
-        } else {
-          try {
-            const path = backupPath(key);
-            const exists = await ReactNativeBlobUtil.fs.exists(path);
-            if (exists) await ReactNativeBlobUtil.fs.unlink(path);
-            if (STORAGE_DEBUG) console.log(`[STORAGE] backup-delete ${key} (intentional empty)`);
-          } catch {}
-        }
-      }
-    }
+    await writeWithBackup(key, JSON.stringify(value), value);
+    emitWrite(key);
+  },
+  async setRaw(key: string, json: string): Promise<void> {
+    let value: unknown = undefined;
+    try { value = JSON.parse(json); } catch { value = undefined; }
+    await writeWithBackup(key, json, value);
   },
   async remove(key: string): Promise<void> {
     try {
       await AsyncStorage.removeItem(key);
-      if (CRITICAL_KEYS.has(key)) {
+      if (isCritical(key)) {
         const path = backupPath(key);
         const exists = await ReactNativeBlobUtil.fs.exists(path);
         if (exists) await ReactNativeBlobUtil.fs.unlink(path);
       }
     } catch (e) { console.error('Storage remove error:', e); }
+    emitWrite(key, true);
   },
   async clearAll(): Promise<void> {
     try {
       const allKeys = await AsyncStorage.getAllKeys();
-      const psKeys = allKeys.filter(k => k.startsWith('ps:'));
+      const psKeys = allKeys.filter(k => k.startsWith('ps:') || k.startsWith('ps.'));
       await AsyncStorage.removeMany(psKeys);
       const exists = await ReactNativeBlobUtil.fs.exists(BACKUP_DIR);
       if (exists) await ReactNativeBlobUtil.fs.unlink(BACKUP_DIR);

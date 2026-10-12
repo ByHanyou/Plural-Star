@@ -21,10 +21,32 @@ export interface MemberGroup {
   sortOrder?: number;
   sourceId?: string;
   description?: string;
+  linkedMemberId?: string;
 }
 
 export const groupKind = (g: MemberGroup): GroupNodeKind => g.kind || 'group';
 export const groupParent = (g: MemberGroup): string | null => g.parentId ?? null;
+
+export const linkedSubsystemsOf = (groups: MemberGroup[], memberId: string): MemberGroup[] =>
+  memberId ? groups.filter(g => groupKind(g) === 'subsystem' && g.linkedMemberId === memberId) : [];
+
+export const setSubsystemLinks = (groups: MemberGroup[], memberId: string, subsystemIds: string[]): MemberGroup[] => {
+  if (!memberId) return groups;
+  const want = new Set(subsystemIds);
+  let changed = false;
+  const next = groups.map(g => {
+    if (groupKind(g) !== 'subsystem') return g;
+    if (want.has(g.id)) {
+      if (g.linkedMemberId === memberId) return g;
+      changed = true;
+      return {...g, linkedMemberId: memberId};
+    }
+    if (g.linkedMemberId !== memberId) return g;
+    changed = true;
+    return {...g, linkedMemberId: undefined};
+  });
+  return changed ? next : groups;
+};
 
 export const childrenOf = (nodes: MemberGroup[], parentId: string | null): MemberGroup[] =>
   nodes
@@ -113,9 +135,11 @@ export interface MemberPoll {
   createdAt: number;
   closedAt?: number;
   hideVoterNames?: boolean;
+  multipleChoice?: boolean;
 }
 
 export type MemberSortMode = 'alphabetical' | 'reverse-alphabetical' | 'age' | 'color' | 'role' | 'manual';
+export type FrontSortMode = 'added' | 'az' | 'za' | 'custom';
 
 export interface Member {
   id: string;
@@ -130,6 +154,8 @@ export interface Member {
   deleted?: boolean;
   avatar?: string;
   avatarTransparent?: boolean;
+  profileBg?: boolean;
+  private?: boolean;
   banner?: string;
   customFields?: CustomFieldValue[];
   sortOrder?: number;
@@ -625,13 +651,15 @@ export interface AppSettings {
   textScale: TextScale;
   memberSortMode?: MemberSortMode;
   groupSortMode?: MemberSortMode;
+  frontSortMode?: FrontSortMode;
+  frontCustomOrder?: string[];
   frontCheckInterval?: number;
   noteboardNotifications?: boolean;
   appLockPassword?: string;
   useDyslexicFont?: boolean;
   fontChoice?: import('./theme').FontChoice;
   customFrontsSeeded?: boolean;
-  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'};
+  memberListFields?: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean; count?: boolean; background?: 'plain' | 'color' | 'banner'; browse?: boolean};
 }
 
 export interface ExportPayload {
@@ -852,9 +880,27 @@ export const withMemberSince = (next: FrontState | null, prev: FrontState | null
   const prevIds = new Set(prev ? allFrontMemberIds(prev) : []);
   const since: Record<string, number> = {};
   for (const id of allFrontMemberIds(next)) {
-    since[id] = prevSince[id] ?? (prevIds.has(id) ? (prev?.startTime ?? now) : now);
+    since[id] = prevIds.has(id) ? (prevSince[id] ?? prev?.startTime ?? now) : now;
   }
   return {...next, memberSince: since};
+};
+
+export const frontSessionStart = (f: FrontState, include?: (id: string) => boolean): number => {
+  const any = f as any;
+  const since: Record<string, number> = any?.memberSince || {};
+  const segment = typeof any?.startTime === 'number' && any.startTime > 0 ? any.startTime : 0;
+  for (const key of ['primary', 'coFront', 'coConscious']) {
+    const tier = any?.[key];
+    const ids: string[] = tier && Array.isArray(tier.memberIds) ? tier.memberIds.filter((id: string) => !include || include(id)) : [];
+    if (ids.length === 0) continue;
+    let earliest = segment;
+    for (const id of ids) {
+      const at = since[id];
+      if (typeof at === 'number' && Number.isFinite(at) && at > 0 && (earliest === 0 || at < earliest)) earliest = at;
+    }
+    return earliest || f.startTime;
+  }
+  return f.startTime;
 };
 
 export const frontToHistoryEntry = (f: FrontState, endTime: number | null, changeType: HistoryChangeType = 'front', changeTier?: FrontTierKey): HistoryEntry => ({
@@ -922,6 +968,28 @@ const localeComparer = (): ((a: string, b: string) => number) => {
 export const nameCompare = (a: unknown, b: unknown): number =>
   localeComparer()(String(a ?? ''), String(b ?? ''));
 
+export const orderFronters = (ids: string[], mode: FrontSortMode | undefined, nameOf: (id: string) => string, custom?: string[]): string[] => {
+  if (mode === 'az') return [...ids].sort((a, b) => nameCompare(nameOf(a), nameOf(b)));
+  if (mode === 'za') return [...ids].sort((a, b) => nameCompare(nameOf(b), nameOf(a)));
+  if (mode === 'custom' && custom && custom.length > 0) {
+    const rank = new Map(custom.map((id, i) => [id, i]));
+    return ids
+      .map((id, i) => ({id, key: rank.get(id) ?? custom.length + i}))
+      .sort((a, b) => a.key - b.key)
+      .map(x => x.id);
+  }
+  return ids;
+};
+
+export const placeInCustomOrder = (custom: string[] | undefined, ordered: string[], keep: (id: string) => boolean): string[] => {
+  const tier = [...new Set(ordered)];
+  const inTier = new Set(tier);
+  const base = [...new Set((custom || []).filter(id => inTier.has(id) || keep(id)))];
+  for (const id of tier) if (!base.includes(id)) base.push(id);
+  let k = 0;
+  return base.map(id => (inTier.has(id) ? tier[k++] : id));
+};
+
 let clockCache: {tag: string; hour12: boolean; am: string; pm: string} | null = null;
 
 const clockInfo = (): {tag: string; hour12: boolean; am: string; pm: string} => {
@@ -955,6 +1023,15 @@ const clockInfo = (): {tag: string; hour12: boolean; am: string; pm: string} => 
 export const uses12HourClock = (): boolean => clockInfo().hour12;
 
 export const dayPeriodLabel = (isPM: boolean): string => (isPM ? clockInfo().pm : clockInfo().am);
+
+export const fmtClock = (hours: number, minutes: number): string => {
+  const d = new Date(2000, 0, 1, hours, minutes, 0);
+  try {
+    return d.toLocaleTimeString(getLocale(), {hour: 'numeric', minute: '2-digit'});
+  } catch {
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+};
 
 const numberFormatCache = new Map<string, (n: number) => string>();
 
@@ -996,13 +1073,53 @@ export const fmtDur = (start: number, end?: number | null): string => {
   const ms = (end ?? Date.now()) - start;
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
-  if (h >= 24) return `${Math.floor(h / 24)}d ${h % 24}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return m > 0 ? `${m}m` : '<1m';
+  if (h >= 24) return i18n.t('common.durDaysHours', {d: Math.floor(h / 24), h: h % 24});
+  if (h > 0) return i18n.t('common.durHoursMinutes', {h, m});
+  return m > 0 ? i18n.t('common.durMinutes', {m}) : i18n.t('common.durUnderMinute');
+};
+
+const SUNDAY_FIRST_LANGS = new Set(['en', 'pt', 'ja', 'ko', 'hi', 'th', 'zhHant', 'af']);
+
+export const firstDayOfWeek = (): number => (SUNDAY_FIRST_LANGS.has(i18n.language || 'en') ? 0 : 1);
+
+export const truncateRunes = (s: string, max: number, ellipsis = ''): string => {
+  const runes = Array.from(String(s ?? ''));
+  if (runes.length <= max) return runes.join('');
+  return runes.slice(0, Math.max(0, max)).join('') + ellipsis;
+};
+
+export const upperRune = (ch: string): string => {
+  const up = ch.toUpperCase();
+  const cp = up.codePointAt(0) ?? 0;
+  if (cp >= 0x1c90 && cp <= 0x1cbf) return ch;
+  return up;
+};
+
+export const upperText = (s: string): string => Array.from(String(s ?? '')).map(upperRune).join('');
+
+export const lowerRune = (ch: string): string => {
+  const low = ch.toLowerCase();
+  const cp = low.codePointAt(0) ?? 0;
+  if (cp >= 0xab70 && cp <= 0xabbf) return ch;
+  return low;
+};
+
+export const fileSlug = (name: string, fallback = 'plural-star'): string => {
+  const cleaned = String(name ?? '')
+    .normalize('NFC')
+    .replace(/[\\/:*?"<>|\u0000-\u001F\u007F]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const slug = Array.from(truncateRunes(cleaned, 60)).map(lowerRune).join('').replace(/^-+|-+$/g, '');
+  return slug || fallback;
 };
 
 export const getInitials = (name: string): string =>
-  name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  Array.from(String(name ?? '').split(' ').map(w => Array.from(w)[0] ?? '').join('')).slice(0, 2).map(ch => {
+    const up = upperRune(ch);
+    return Array.from(up).length === 1 ? up : ch;
+  }).join('');
 
 export const isValidHex = (hex: string): boolean =>
   /^#[0-9A-Fa-f]{6}$/.test(hex);
@@ -1012,10 +1129,30 @@ export const normalizeHex = (input: string): string =>
 
 const asStr = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
 
-export const memberMatchesSearch = (m: {name: string; nickname?: string}, search: string): boolean => {
+export const tagKey = (tag: string): string => asStr(tag).normalize('NFC').toLowerCase();
+
+export const tagFromInput = (input: string): string | null => {
+  const raw = asStr(input).trim().replace(/^#/, '').normalize('NFC');
+  return raw ? `#${raw}` : null;
+};
+
+export const mergeTags = (cur: string[] | undefined, add: string[]): string[] => {
+  const out = [...(cur || [])];
+  const have = new Set(out.map(tagKey));
+  for (const tag of add) {
+    const k = tagKey(tag);
+    if (!k || have.has(k)) continue;
+    have.add(k);
+    out.push(tag);
+  }
+  return out;
+};
+
+export const memberMatchesSearch = (m: {name: string; nickname?: string; tags?: string[]}, search: string): boolean => {
   const q = asStr(search).trim().toLowerCase();
   if (!q) return true;
-  return asStr(m.name).toLowerCase().includes(q) || asStr(m.nickname || '').toLowerCase().includes(q);
+  return asStr(m.name).toLowerCase().includes(q) || asStr(m.nickname || '').toLowerCase().includes(q)
+    || (m.tags || []).some(tag => tagKey(tag).includes(q));
 };
 
 export const sortMembersBySearch = <T extends {name: string; nickname?: string}>(items: T[], search: string): T[] => {

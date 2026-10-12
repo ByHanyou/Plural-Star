@@ -1,5 +1,5 @@
 import React, {useState, useMemo, useCallback, useDeferredValue} from 'react';
-import {View, ScrollView, TouchableOpacity, StyleSheet, Alert} from 'react-native';
+import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, useWindowDimensions} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {useTranslation} from 'react-i18next';
@@ -21,6 +21,12 @@ const tierDetailsFor = (memberId: string, entry: HistoryEntry): {mood?: string; 
   const tier = memberTierInEntry(memberId, entry);
   if (tier === 'coFront') return {mood: entry.coFrontMood, note: entry.coFrontNote, location: entry.coFrontLocation, energy: entry.coFrontEnergy};
   if (tier === 'coConscious') return {mood: entry.coConsciousMood, note: entry.coConsciousNote, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy};
+  return {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
+};
+
+const changeTierDetailsFor = (entry: HistoryEntry): {mood?: string; note?: string; location?: string; energy?: number} => {
+  if (entry.changeTier === 'coFront') return {mood: entry.coFrontMood, note: entry.coFrontNote, location: entry.coFrontLocation, energy: entry.coFrontEnergy};
+  if (entry.changeTier === 'coConscious') return {mood: entry.coConsciousMood, note: entry.coConsciousNote, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy};
   return {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
 };
 
@@ -140,7 +146,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
           {fmtTime(entry.startTime)}
           {isOpen ? ` → ${t('history.now')}` : displayEnd ? ` → ${fmtTime(displayEnd)}` : ''}
         </Text>
-        {(entry.mood || entry.location || entry.energyLevel !== undefined) && (
+        {(entry.mood || entry.location || entry.energyLevel != null) && (
           <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
             {entry.mood && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
@@ -151,10 +157,10 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
             {entry.location && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
                 <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.location}</Text>
+                <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{entry.location}</Text>
               </View>
             )}
-            {entry.energyLevel !== undefined && (
+            {entry.energyLevel != null && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
                 <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
                 <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.energyLevel}/10</Text>
@@ -179,7 +185,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
                 {td.location ? (
                   <View style={[s.badge, {backgroundColor: T.surface}]}>
                     <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                    <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{td.location}</Text>
+                    <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{td.location}</Text>
                   </View>
                 ) : null}
                 {td.energy !== undefined ? (
@@ -239,12 +245,15 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
   const storeHistory = useAppStore(s => s.history);
   const storeJournal = useAppStore(s => s.journal);
   const storeMembers = useAppStore(s => s.members);
+  const systemJournalPassword = useAppStore(s => s.system.journalPassword);
   const history = historyOverride ?? storeHistory;
   const journal = journalOverride ?? storeJournal;
   const members = membersOverride ?? storeMembers;
   const onSaveHistory = saveHistory;
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
+  const win = useWindowDimensions();
+  const landscape = win.width > win.height;
   const [subTab, setSubTab] = useState<SubTab>('front');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -375,6 +384,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
       ...mergedSessions.map(m => ({
         type: 'front',
         time: m.startTime,
+        tier: m.tier,
         entry: {...m.last, startTime: m.startTime, endTime: m.endTime},
       })),
       ...history
@@ -399,15 +409,26 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
     journal:  '📖',
   };
 
-  const getEventLabel = (type: string, entry: HistoryEntry): string => {
-    const tierSuffix = entry.changeTier && entry.changeTier !== 'primary' ? t('history.tierSuffix', {tier: t(`tier.${entry.changeTier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : '';
-    if ((type === 'mood' || type === 'location') && entry.mood && entry.location) return t('history.moodLocationChanged') + tierSuffix;
+  const eventDetails = (type: string, entry: HistoryEntry) =>
+    type === 'mood' || type === 'location' || type === 'note'
+      ? changeTierDetailsFor(entry)
+      : selectedMemberId
+      ? tierDetailsFor(selectedMemberId, entry)
+      : {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
+
+  const suffixFor = (tier?: FrontTierKey | null): string =>
+    tier && tier !== 'primary' ? t('history.tierSuffix', {tier: t(`tier.${tier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : '';
+
+  const getEventLabel = (type: string, entry: HistoryEntry, d: {mood?: string; location?: string}, frontTier?: FrontTierKey | null): string => {
+    const tierSuffix = suffixFor(entry.changeTier);
+    if ((type === 'mood' || type === 'location') && d.mood && d.location) return t('history.moodLocationChanged') + tierSuffix;
     if (type === 'mood')     return t('history.moodChanged') + tierSuffix;
     if (type === 'location') return t('history.locationChanged') + tierSuffix;
     if (type === 'note')     return t('history.noteUpdated') + tierSuffix;
     if (type === 'journal')  return t('history.journalEntry');
-    return singlet ? t('history.statusChange') : t('history.frontSwitch');
+    return (singlet ? t('history.statusChange') : t('history.frontSwitch')) + (singlet ? '' : suffixFor(frontTier));
   };
+  const tierColor = (tier?: FrontTierKey | null): string => tier === 'coFront' ? T.info : tier === 'coConscious' ? T.success : T.accent;
 
   const pickerMembers = singlet
     ? [...members.filter(m => m.id === selfId), ...singletStatuses(members)]
@@ -416,10 +437,10 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
-      <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: 16}}>
+      <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: landscape ? 6 : 16}}>
         <Text
           accessibilityRole="header"
-          style={[s.heading, {color: T.text}]}
+          style={[s.heading, {color: T.text}, landscape && {fontSize: fs(15)}]}
           numberOfLines={1}
           maxFontSizeMultiplier={1.2}>
           {t('history.title')}
@@ -431,6 +452,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
               style={[s.subtab, {
                 flex: 1,
                 alignItems: 'center',
+                paddingVertical: landscape ? 5 : 10,
                 borderBottomWidth: 2,
                 borderBottomColor: subTab === tab ? T.accent : 'transparent',
               }]}>
@@ -574,7 +596,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                     {topMood && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
                         <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.topMood')}</Text>
-                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{topMood[0]}</Text>
+                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{translateMood(topMood[0], t)}</Text>
                       </View>
                     )}
                     {topLoc && (
@@ -607,9 +629,10 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                 }
                 renderItem={({item: event, index: i}: {item: any; index: number}) => {
                     const icon = EVENT_ICONS[event.type] || '◈';
-                    const label = 'entry' in event ? getEventLabel(event.type, event.entry) : getEventLabel(event.type, {} as any);
+                    const details = 'entry' in event && event.entry ? eventDetails(event.type, event.entry) : {};
+                    const label = 'entry' in event ? getEventLabel(event.type, event.entry, details, event.tier) : getEventLabel(event.type, {} as any, {});
                     const color = event.type === 'front'
-                      ? T.accent
+                      ? tierColor(event.tier)
                       : event.type === 'journal'
                       ? T.info
                       : T.dim;
@@ -631,7 +654,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
 
                           {'entry' in event && event.entry && (() => {
                             const e = event.entry;
-                            const d = selectedMemberId ? tierDetailsFor(selectedMemberId, e) : {mood: e.mood, note: e.note, location: e.location, energy: e.energyLevel};
+                            const d = details;
                             const isOpen = e.endTime === null && event.type === 'front';
                             return (
                               <>
@@ -652,7 +675,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                                     {d.location && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
                                         <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{d.location}</Text>
+                                        <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{d.location}</Text>
                                       </View>
                                     )}
                                     {d.energy !== undefined && (
@@ -675,19 +698,19 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                           {'journalEntry' in event && event.journalEntry && (
                             <>
                               <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text, marginBottom: 2}}>
-                                {event.journalEntry.title || t('common.untitled')}
+                                {(event.journalEntry.password || systemJournalPassword) ? '🔒 ' : ''}{event.journalEntry.title || t('common.untitled')}
                               </Text>
-                              {event.journalEntry.body ? (
+                              {event.journalEntry.body && !event.journalEntry.password && !systemJournalPassword ? (
                                 <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}} numberOfLines={2}>
                                   {event.journalEntry.body}
                                 </Text>
                               ) : null}
-                              {(event.journalEntry.hashtags || []).length > 0 && (
+                              {!event.journalEntry.password && !systemJournalPassword && (event.journalEntry.hashtags || []).length > 0 && (
                                 <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6}}>
-                                  {(event.journalEntry.hashtags || []).map((t: string) => (
-                                    <View key={t} style={{paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
+                                  {(event.journalEntry.hashtags || []).map((tag: string) => (
+                                    <View key={tag} style={{paddingHorizontal: 7, paddingVertical: 2, borderRadius: 999,
                                       backgroundColor: `${T.info}12`, borderWidth: 1, borderColor: `${T.info}30`}}>
-                                      <Text style={{fontSize: fs(10), color: T.info}}>{t}</Text>
+                                      <Text style={{fontSize: fs(10), color: T.info}}>{tag}</Text>
                                     </View>
                                   ))}
                                 </View>
@@ -711,6 +734,6 @@ const s = StyleSheet.create({
   heading: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic', marginBottom: 0},
   subtab: {paddingHorizontal: 16, paddingVertical: 10, marginBottom: -1},
   card: {borderRadius: 12, borderWidth: 1, padding: 12},
-  badge: {flexDirection: 'row', alignItems: 'center', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3},
+  badge: {flexDirection: 'row', alignItems: 'center', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, maxWidth: '100%'},
   stat: {flex: 1, borderRadius: 10, borderWidth: 1, padding: 10},
 });

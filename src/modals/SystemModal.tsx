@@ -3,24 +3,35 @@ import {View, TouchableOpacity, Alert, Text as RawText} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {BUILTIN_PALETTES, FONT_OPTIONS, fontScale, ensureReadable, textFloor} from '../theme';
+import {BUILTIN_PALETTES, MAX_CUSTOM_PALETTES, FONT_OPTIONS, fontScale, ensureReadable, textFloor} from '../theme';
 import type {CustomPalette, FontChoice, ThemeColors} from '../theme';
 import {uid, isValidHex, normalizeHex, TextScale, TEXT_SCALE_OPTIONS} from '../utils';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
+import {ColorPickerModal} from '../components/ColorPickerModal';
 
-const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => (
-  <View style={{flex: 1}}>
-    <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
-    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-      <View style={{width: 20, height: 20, borderRadius: 4, backgroundColor: isValidHex(normalizeHex(value)) ? normalizeHex(value) : '#333', borderWidth: 1, borderColor: T.border}} />
-      <TextInput value={value} onChangeText={onChange} accessibilityLabel={label} placeholder="#000000" placeholderTextColor={T.muted} maxLength={7} autoCapitalize="characters"
-        style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: isValidHex(normalizeHex(value)) || value.length < 2 ? T.border : T.danger, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5, fontSize: 12, fontFamily: 'monospace'}} />
+const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => {
+  const [open, setOpen] = useState(false);
+  const valid = isValidHex(normalizeHex(value));
+  return (
+    <View style={{flex: 1}}>
+      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
+      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.7}
+        accessibilityRole="button" accessibilityLabel={label} accessibilityValue={{text: value}}
+        style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+        <View style={{width: 20, height: 20, borderRadius: 4, backgroundColor: valid ? normalizeHex(value) : '#333', borderWidth: 1, borderColor: T.border}} />
+        <View style={{flex: 1, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5}}>
+          <Text style={{fontSize: 12, fontFamily: 'monospace', color: T.text}} numberOfLines={1}>{value}</Text>
+        </View>
+      </TouchableOpacity>
+      <ColorPickerModal visible={open} title={label} value={value} T={T}
+        onSave={hex => { onChange(hex); setOpen(false); }}
+        onClose={() => setOpen(false)} />
     </View>
-  </View>
-);
+  );
+};
 
 export const SystemModal = ({visible, theme: T, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onOpenProfile, onClose}: any) => {
   const fs = fontScale(T);
@@ -42,6 +53,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [appLockPw, setAppLockPw] = useState<string>(settings?.appLockPassword || '');
   const [showAppLockPw, setShowAppLockPw] = useState<boolean>(!!settings?.appLockPassword);
   const [filesEnabled, setFilesEnabled] = useState<boolean>(settings?.filesEnabled ?? true);
+  const [gpsEnabled, setGpsEnabled] = useState<boolean>(!!settings?.gpsEnabled);
   const [singletMode, setSingletMode] = useState<boolean>(settings?.accountMode === 'singlet');
   const [textScale, setTextScale] = useState<TextScale>(settings?.textScale ?? 1.0);
   const [fontChoice, setFontChoice] = useState<FontChoice>(settings?.fontChoice ?? (settings?.useDyslexicFont === true ? 'opendyslexic' : 'default'));
@@ -58,7 +70,10 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
 
   const allPalettes: CustomPalette[] = [...BUILTIN_PALETTES, ...(palettes || [])];
   const userPalettes: CustomPalette[] = palettes || [];
-  const canAdd = userPalettes.length < 10;
+  const canAdd = userPalettes.length < MAX_CUSTOM_PALETTES;
+  const [themesOpen, setThemesOpen] = useState(false);
+  React.useEffect(() => { if (visible) setThemesOpen(false); }, [visible]);
+  const activePalette = allPalettes.find(p => p.id === activePaletteId) || BUILTIN_PALETTES[0];
 
   const startNewPalette = () => {
     const p: CustomPalette = {id: uid(), name: '', bg: '#0A1F2E', accent: '#DAA520', text: '#C0C0C0', mid: '#7A8A99'};
@@ -92,7 +107,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   return (
     <Sheet visible={visible} title={t('modal.systemSettings')} theme={T} onClose={onClose} footer={<Btn instant T={T} onPress={() => {
       onSave({...system, ...(singletMode ? {name: sysName, description: sysDesc} : {}), journalPassword: showJournalPw && journalPw ? journalPw : undefined});
-      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, tierNames: tierMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
+      onSaveSettings({...settings, accountMode: singletMode ? 'singlet' : 'system', locations: locs, customMoods: moods, language: selectedLang, notificationsEnabled: notifEnabled, persistentFrontNotif: persistFront, filesEnabled, gpsEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, notificationRefreshMinutes: notifRefreshMins, noteboardNotifications: noteboardNotifs, terminology: termMap, tierNames: tierMap, appLockPassword: showAppLockPw && appLockPw ? appLockPw : undefined});
       onClose();
     }}>{t('common.save')}</Btn>}>
       {singletMode ? (
@@ -107,6 +122,16 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}}>
         <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.palette')}</Text>
         <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 10}}>{t('modal.paletteDesc')}</Text>
+        <TouchableOpacity onPress={() => setThemesOpen(o => !o)} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityState={{expanded: themesOpen}} accessibilityLabel={t('modal.palette')} accessibilityValue={{text: activePalette.name}}
+          style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: themesOpen ? `${T.accent}60` : T.border, marginBottom: themesOpen ? 8 : 0}}>
+          <View style={{flexDirection: 'row', gap: 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {[activePalette.bg, activePalette.accent, activePalette.text, activePalette.mid].map((c, i) => (<View key={i} style={{width: 14, height: 14, borderRadius: 4, backgroundColor: c, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'}} />))}
+          </View>
+          <Text style={{flex: 1, fontSize: fs(14), color: T.text}} numberOfLines={1}>{activePalette.name}</Text>
+          <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{themesOpen ? '▲' : '▼'}</Text>
+        </TouchableOpacity>
+        {themesOpen && (<>
         <View style={{gap: 6, marginBottom: 10}}>
           {allPalettes.map(p => {
             const isActive = activePaletteId === p.id;
@@ -174,7 +199,8 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             </View>
           </View>
         )}
-        <Text style={{fontSize: fs(10), color: T.muted, marginTop: 6}}>{t('modal.paletteSlots', {used: userPalettes.length, max: 10})}</Text>
+        <Text style={{fontSize: fs(10), color: T.muted, marginTop: 6}}>{t('modal.paletteSlots', {used: userPalettes.length, max: MAX_CUSTOM_PALETTES})}</Text>
+        </>)}
       </View>
 
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
@@ -196,7 +222,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.gpsDesc')}</Text></View>
-          <ToggleSwitch value={!!settings?.gpsEnabled} onToggle={() => {const next = !settings?.gpsEnabled; onSaveSettings({...settings, locations: locs, customMoods: moods, gpsEnabled: next, language: selectedLang, notificationsEnabled: notifEnabled, filesEnabled, textScale, fontChoice, useDyslexicFont: fontChoice === 'opendyslexic', frontCheckInterval, noteboardNotifications: noteboardNotifs});}} label={t('modal.gpsLocation')} T={T} style={{marginLeft: 12}} /></View>
+          <ToggleSwitch value={gpsEnabled} onToggle={() => setGpsEnabled(!gpsEnabled)} label={t('modal.gpsLocation')} T={T} style={{marginLeft: 12}} /></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.fileAccess')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.fileAccessDesc')}</Text></View>
@@ -214,20 +240,20 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{singletMode ? t('notification.statusCheck') : t('notification.frontCheck')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 8}}>{singletMode ? t('notification.statusCheckDesc') : t('notification.frontCheckDesc')}</Text>
           <TouchableOpacity onPress={() => setShowFrontCheckPicker(!showFrontCheckPicker)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{expanded: showFrontCheckPicker}} accessibilityLabel={singletMode ? t('notification.statusCheck') : t('notification.frontCheck')} accessibilityValue={{text: frontCheckInterval === 0 ? t('common.close') : t('notification.everyNHours', {count: frontCheckInterval})}}
+            accessibilityRole="button" accessibilityState={{expanded: showFrontCheckPicker}} accessibilityLabel={singletMode ? t('notification.statusCheck') : t('notification.frontCheck')} accessibilityValue={{text: frontCheckInterval === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: frontCheckInterval})}}
             style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showFrontCheckPicker ? `${T.accent}60` : T.border}}>
-            <Text style={{fontSize: fs(14), color: T.text}}>{frontCheckInterval === 0 ? t('common.close') : t('notification.everyNHours', {count: frontCheckInterval})}</Text>
+            <Text style={{fontSize: fs(14), color: T.text}}>{frontCheckInterval === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: frontCheckInterval})}</Text>
             <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{showFrontCheckPicker ? '▲' : '▼'}</Text>
           </TouchableOpacity>
           {showFrontCheckPicker && (
             <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
               {[0, 1, 2, 3, 4, 6, 8, 12].map(hours => (
                 <TouchableOpacity key={hours} onPress={() => {setFrontCheckInterval(hours); setShowFrontCheckPicker(false);}} activeOpacity={0.7}
-                  accessibilityRole="menuitem" accessibilityState={{selected: frontCheckInterval === hours}} accessibilityLabel={hours === 0 ? t('common.close') : t('notification.everyNHours', {count: hours})}
+                  accessibilityRole="menuitem" accessibilityState={{selected: frontCheckInterval === hours}} accessibilityLabel={hours === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: hours})}
                   style={{paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border,
                     backgroundColor: frontCheckInterval === hours ? `${T.accent}15` : 'transparent'}}>
                   <Text style={{fontSize: fs(14), color: frontCheckInterval === hours ? T.accent : T.text, fontWeight: frontCheckInterval === hours ? '600' : '400'}}>
-                    {hours === 0 ? t('common.close') : t('notification.everyNHours', {count: hours})}
+                    {hours === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: hours})}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -278,7 +304,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('terminology.title')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('terminology.hint')}</Text>
         </View>
-        {([['member', 'members'], ['fronter', 'fronters'], ['group', 'groups'], ['facet', 'facets'], ['front', 'fronting'], ['system']] as const).map(pair => (
+        {([['member', 'members'], ['fronter', 'fronters'], ['group', 'groups'], ['facet', 'facets'], ['front', 'fronting'], ['system', 'hub'], ['journal', 'history'], ['archive']] as const).map(pair => (
           <View key={pair[0]} style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
             {pair.map(term => (
               <View key={term} style={{flex: 1}}>

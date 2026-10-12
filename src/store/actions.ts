@@ -1,13 +1,13 @@
 import {Alert} from 'react-native';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, ChatMessage, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid} from '../utils';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, ChatMessage, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid, mergeTags} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
 import {logError} from '../utils/log';
 import type {CustomPalette} from '../theme';
-import {migrateInlineChatMedia, rebaseChatMessageMedia} from '../utils/mediaUtils';
-import {reschedulePlannerNotifications} from '../services/NotificationService';
+import {migrateInlineChatMedia, rebaseChatMessageMedia, deleteAvatar} from '../utils/mediaUtils';
+import { reschedulePlannerNotifications} from '../services/NotificationService';
 import {useAppStore} from './appStore';
 
 export const loadChatMessages = async (channels: ChatChannel[]) => {
@@ -36,6 +36,25 @@ export const saveSystem = async (d: SystemInfo) => {
   setSystem(d); await store.set(KEYS.system, d);
 };
 
+const pruneFrontOfGone = (d: Member[], front: FrontState | null): FrontState | null | undefined => {
+  if (!front) return undefined;
+  const gone = new Set(d.filter(m => m.archived || m.deleted).map(m => m.id));
+  if (gone.size === 0) return undefined;
+  const pruneTier = (tier: any) => tier ? {...tier, memberIds: (tier.memberIds || []).filter((id: string) => !gone.has(id))} : tier;
+  const next: any = {...front, primary: pruneTier(front.primary), coFront: pruneTier(front.coFront), coConscious: pruneTier(front.coConscious)};
+  const count = (f: any) => (f?.primary?.memberIds?.length || 0) + (f?.coFront?.memberIds?.length || 0) + (f?.coConscious?.memberIds?.length || 0);
+  if (count(next) === count(front)) return undefined;
+  return isFrontEmpty(next) ? null : next;
+};
+
+export const pruneFrontOfRemovedMembers = async () => {
+  const {members, front, setFront} = useAppStore.getState();
+  const cleaned = pruneFrontOfGone(members, front);
+  if (cleaned === undefined) return;
+  setFront(cleaned);
+  await store.set(KEYS.front, cleaned);
+};
+
 export const saveMembers = async (d: Member[]) => {
   const {loaded, front, setMembers, setFront} = useAppStore.getState();
   if (!loaded && d.length === 0) {
@@ -44,16 +63,10 @@ export const saveMembers = async (d: Member[]) => {
   }
   setMembers(d);
   await store.set(KEYS.members, d);
-  const archivedIds = new Set(d.filter(m => m.archived).map(m => m.id));
-  if (archivedIds.size > 0 && front) {
-    const pruneTier = (tier: any) => tier ? {...tier, memberIds: (tier.memberIds || []).filter((id: string) => !archivedIds.has(id))} : tier;
-    const next: any = {...front, primary: pruneTier(front.primary), coFront: pruneTier(front.coFront), coConscious: pruneTier(front.coConscious)};
-    const count = (f: any) => (f?.primary?.memberIds?.length || 0) + (f?.coFront?.memberIds?.length || 0) + (f?.coConscious?.memberIds?.length || 0);
-    if (count(next) !== count(front)) {
-      const cleaned = isFrontEmpty(next) ? null : next;
-      setFront(cleaned);
-      await store.set(KEYS.front, cleaned);
-    }
+  const cleaned = pruneFrontOfGone(d, front);
+  if (cleaned !== undefined) {
+    setFront(cleaned);
+    await store.set(KEYS.front, cleaned);
   }
 };
 
@@ -81,9 +94,19 @@ export const saveShareSettings = async (d: ShareSettings) => {
 };
 
 export const saveGroups = async (d: MemberGroup[]) => {
-  const {loaded, setGroups} = useAppStore.getState();
+  const {loaded, setGroups, groups: previous, members, setMembers} = useAppStore.getState();
   if (!loaded && d.length === 0) return;
   setGroups(d); await store.set(KEYS.groups, d);
+  const kept = new Set(d.map(g => g.id));
+  const gone = new Set((previous || []).filter(g => !kept.has(g.id)).map(g => g.id));
+  if (gone.size === 0) return;
+  let changed = false;
+  const next = members.map(m => {
+    if (!m.groupIds || !m.groupIds.some(id => gone.has(id))) return m;
+    changed = true;
+    return {...m, groupIds: m.groupIds.filter(id => !gone.has(id))};
+  });
+  if (changed) { setMembers(next); await store.set(KEYS.members, next); }
 };
 
 export const savePalettes = async (d: CustomPalette[]) => {
@@ -235,8 +258,9 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
   if (nf && appSettings.gpsEnabled && !cleanPrimary.location?.trim()) {
     try {
       const gpsLocation = await getGPSLocation();
-      if (gpsLocation && gpsLocation !== explicitLocation) {
-        const patched: FrontState = {...nf, primary: {...nf.primary, location: gpsLocation}};
+      const live = useAppStore.getState().front;
+      if (gpsLocation && gpsLocation !== explicitLocation && live && finalFront && live.startTime === finalFront.startTime && !live.primary.location?.trim()) {
+        const patched: FrontState = {...live, primary: {...live.primary, location: gpsLocation}};
         useAppStore.getState().setFront(patched);
         await store.set(KEYS.front, patched);
         await updateLastLocation(gpsLocation);
@@ -250,11 +274,11 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
 };
 
 export const updateFrontDetails = async (tier: FrontTierKey, mood?: string, location?: string, note?: string, energyLevel?: number) => {
+  const resolvedLocation = tier === 'primary' ? await maybeGPS(location) : location;
   const {front, history, setFront} = useAppStore.getState();
   if (!front) return;
   const now = Date.now();
   const tierData = front[tier];
-  const resolvedLocation = tier === 'primary' ? await maybeGPS(location) : location;
   const updatedTier = {...tierData, mood, location: resolvedLocation, note: note ?? tierData.note, energyLevel};
   const moodChanged = (mood || undefined) !== (tierData.mood || undefined);
   const locChanged = (resolvedLocation || undefined) !== (tierData.location || undefined);
@@ -305,13 +329,43 @@ export const removeFromFront = async (id: string) => {
 
 export const saveMember = async (m: Member) => {
   const {members} = useAppStore.getState();
-  const u = members.find(x => x.id === m.id) ? members.map(x => (x.id === m.id ? m : x)) : [...members, m];
+  const prev = members.find(x => x.id === m.id);
+  const u = prev ? members.map(x => (x.id === m.id ? m : x)) : [...members, m];
   await saveMembers(u);
+  if (prev?.avatar && !m.avatar) deleteAvatar(m.id).catch(e => logError('saveMember: avatar', e));
+};
+
+const forgetMemberLinks = async (id: string): Promise<void> => {
+  try {
+    const rels = (await store.get<any[]>(KEYS.relationships, [])) || [];
+    const keep = rels.filter(r => r && r.fromId !== id && r.toId !== id);
+    if (keep.length !== rels.length) await store.set(KEYS.relationships, keep);
+  } catch (e) { logError('deleteMember: relationships', e); }
+  try {
+    const ids = (await store.get<string[]>(KEYS.systemMapMembers, [])) || [];
+    if (ids.includes(id)) await store.set(KEYS.systemMapMembers, ids.filter(x => x !== id));
+  } catch (e) { logError('deleteMember: map members', e); }
+  try {
+    const pos = (await store.get<Record<string, unknown>>(KEYS.systemMapPositions, {})) || {};
+    if (id in pos) { const {[id]: _drop, ...rest} = pos; await store.set(KEYS.systemMapPositions, rest); }
+  } catch (e) { logError('deleteMember: map positions', e); }
 };
 
 export const deleteMember = async (id: string) => {
+  await forgetMemberLinks(id);
   const {members} = useAppStore.getState();
   return saveMembers(members.map(m => m.id === id ? {...m, archived: true, deleted: true} : m));
+};
+
+export const restoreDeletedMember = async (id: string) => {
+  const {members} = useAppStore.getState();
+  return saveMembers(members.map(m => m.id === id ? {...m, deleted: false, archived: false} : m));
+};
+
+export const bulkSetFacet = async (ids: string[], toFacet: boolean) => {
+  const {members} = useAppStore.getState();
+  const idSet = new Set(ids);
+  await saveMembers(members.map(m => idSet.has(m.id) && !m.isCustomFront ? {...m, isFacet: toFacet} : m));
 };
 
 export const bulkSetArchived = async (ids: string[], archived: boolean) => {
@@ -321,6 +375,7 @@ export const bulkSetArchived = async (ids: string[], archived: boolean) => {
 };
 
 export const bulkDeleteMembers = async (ids: string[]) => {
+  for (const id of ids) await forgetMemberLinks(id);
   const {members} = useAppStore.getState();
   const idSet = new Set(ids);
   await saveMembers(members.map(m => idSet.has(m.id) ? {...m, archived: true, deleted: true} : m));
@@ -330,6 +385,17 @@ export const bulkAddGroups = async (ids: string[], groupIds: string[]) => {
   const {members} = useAppStore.getState();
   const idSet = new Set(ids);
   await saveMembers(members.map(m => idSet.has(m.id) ? {...m, groupIds: [...new Set([...(m.groupIds || []), ...groupIds])]} : m));
+};
+
+export const bulkAddTags = async (ids: string[], tags: string[]) => {
+  if (ids.length === 0 || tags.length === 0) return;
+  const {members} = useAppStore.getState();
+  const idSet = new Set(ids);
+  await saveMembers(members.map(m => {
+    if (!idSet.has(m.id)) return m;
+    const next = mergeTags(m.tags, tags);
+    return next.length === (m.tags || []).length ? m : {...m, tags: next};
+  }));
 };
 
 export const bulkRemoveFromGroup = async (ids: string[], groupId: string) => {
@@ -379,9 +445,10 @@ export const ensureSelfMember = async (): Promise<Member> => {
   return nm;
 };
 
-export const applyFrontState = async (f: FrontState | null) => {
+export const applyFrontState = async (f: FrontState | null, since?: number) => {
   const {front, setFront} = useAppStore.getState();
-  const next = withMemberSince(f, front, Date.now());
+  const now = Date.now();
+  const next = withMemberSince(f, front, typeof since === 'number' && Number.isFinite(since) && since > 0 ? Math.min(since, now) : now);
   setFront(next);
   await store.set(KEYS.front, next);
 };
@@ -399,6 +466,16 @@ export const saveMemberSortMode = async (mode: MemberSortMode) => {
 export const saveGroupSortMode = async (mode: MemberSortMode) => {
   const {appSettings, setAppSettings} = useAppStore.getState();
   const next = {...appSettings, groupSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
+};
+
+export const saveFrontSortMode = async (mode: FrontSortMode) => {
+  const {appSettings, setAppSettings} = useAppStore.getState();
+  const next = {...appSettings, frontSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
+};
+
+export const saveFrontCustomOrder = async (order: string[]) => {
+  const {appSettings, setAppSettings} = useAppStore.getState();
+  const next = {...appSettings, frontCustomOrder: order}; setAppSettings(next); await store.set(KEYS.settings, next);
 };
 
 export const reorderMember = async (id: string, direction: 'up' | 'down') => {

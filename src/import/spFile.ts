@@ -39,7 +39,7 @@ export const handleSPFileImport = async (ctx: SPFileCtx) => {
       const spCustomFields = Array.isArray(data.customFields) ? data.customFields : [];
       const systemInfo = spUsers[0] || {};
       const sanitized = spMembers.map((m: any) => {
-        if (m?.name) m.name = String(m.name).replace(/[-\u001F\u007F]/g, '').trim();
+        if (m?.name) m.name = String(m.name).replace(/[\u0000-\u001F\u007F]/g, '').trim();
         return m;
       });
       setExtPreview({system: {content: systemInfo}, members: sanitized, switches: spHistory, groups: spGroups, customFields: spCustomFields});
@@ -52,9 +52,7 @@ export const handleSPFileImport = async (ctx: SPFileCtx) => {
 export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
   const {extPreview, extSel, importMode, system, members, t, setExtPreview, onDataImported} = ctx;
     if (!extPreview) return;
-    Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
-      {text: t('common.cancel'), style: 'cancel'},
-      {text: t('share.importBtn'), onPress: async () => {
+    const importSPFile = async () => {
         const spMembers = extPreview.members;
         const spHistory = extPreview.switches;
         const sysData = extPreview.system?.content || extPreview.system || {};
@@ -103,7 +101,8 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
             });
             if (spId) idMap[spId] = newId;
           });
-          await store.set(KEYS.members, finalizeMemberReplace(merged, idMap, importMode));
+          const finalized = finalizeMemberReplace(merged, idMap, importMode);
+          await store.set(KEYS.members, finalized);
           const avatarUrls: Record<string, string[]> = {};
           if (extSel.avatars) {
             const spFallbackUid = String(spMembers.find((x: any) => x.uid)?.uid || '');
@@ -116,7 +115,7 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
           }
           const avatarEntries = Object.entries(avatarUrls);
           if (avatarEntries.length > 0) {
-            const withAvatars = [...merged];
+            const withAvatars = [...finalized];
             for (const [memberId, urls] of avatarEntries) {
               const avatar = await downloadFirstAvatar(memberId, urls as string[]);
               if (avatar) {
@@ -228,6 +227,9 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
         }
         setExtPreview(null);
         setTimeout(() => onDataImported(), 500);
-      }},
+    };
+    Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('share.importBtn'), onPress: () => { importSPFile().catch((e: any) => Alert.alert(t('share.importFailed'), String(e?.message || e))); }},
     ]);
   };

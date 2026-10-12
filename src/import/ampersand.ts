@@ -294,14 +294,15 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
         bytes = await readFileBytes(path, res.uri);
       } catch {}
       if (bytes && isAmparBytes(bytes)) {
-        const prev = amparToPreview(bytes, t('share.system'));
+        const amparBytes: Uint8Array = bytes;
+        const prev = (() => { try { return amparToPreview(amparBytes, t('share.system')); } catch { throw new Error(t('share.couldNotReadAmpar')); } })();
         if (prev.members.length === 0 && prev.switches.length === 0) throw new Error(t('share.amparEmpty'));
         setExtPreview(prev);
         setImportSource('ampersand');
         return;
       }
       throw new Error(t('share.ampersandNeedsJson', {
-        defaultValue: "That isn't an Ampersand JSON export. In Ampersand, use Export your data and pick the JSON file.",
+        defaultValue: "That isn't an Ampersand export. In Ampersand, use Export your data and pick the .ampar archive or the JSON file.",
       }));
     } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || t('share.couldNotReadAmpar')); }
   };
@@ -325,17 +326,26 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           const fieldIdMap: Record<string, string> = {};
           let ageFieldId = '';
           if (extSel.customFields) {
-            const defs: CustomFieldDef[] = amFields.map((f: any, i: number) => {
-              const localId = uid();
+            const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
+            const newDefs: CustomFieldDef[] = [];
+            const findDef = (name: string) => [...existingDefs, ...newDefs].find(d => d.name.toLowerCase() === name.toLowerCase());
+            amFields.forEach((f: any, i: number) => {
+              const name = String(f.name || `Field ${i + 1}`);
+              const existing = findDef(name);
+              const localId = existing ? existing.id : uid();
               fieldIdMap[String(f.uuid)] = localId;
-              return {id: localId, name: String(f.name || `Field ${i + 1}`), type: 'text', sortOrder: f.priority ?? i};
+              if (!existing) newDefs.push({id: localId, name, type: 'text', sortOrder: f.priority ?? existingDefs.length + i});
             });
             const hasAge = amMembers.some((a: any) => a?.age != null && String(a.age).trim() !== '');
-            if (hasAge && !defs.some(d => d.name.toLowerCase() === 'age')) {
-              ageFieldId = uid();
-              defs.push({id: ageFieldId, name: 'Age', type: 'text', sortOrder: defs.length});
+            if (hasAge && !amFields.some((f: any) => String(f.name || '').toLowerCase() === 'age')) {
+              const ageDef = findDef('Age');
+              if (ageDef) ageFieldId = ageDef.id;
+              else {
+                ageFieldId = uid();
+                newDefs.push({id: ageFieldId, name: 'Age', type: 'text', sortOrder: existingDefs.length + newDefs.length});
+              }
             }
-            await store.set(KEYS.customFieldDefs, defs);
+            if (newDefs.length > 0) await store.set(KEYS.customFieldDefs, [...existingDefs, ...newDefs]);
           }
 
           const amSystems: any[] = Array.isArray(extPreview.systems) ? extPreview.systems : [];

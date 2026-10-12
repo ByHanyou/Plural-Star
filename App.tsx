@@ -41,6 +41,8 @@ import {StatusScreen} from './src/screens/StatusScreen';
 import {ProfileScreen} from './src/screens/ProfileScreen';
 import {NetworkScreen} from './src/screens/NetworkScreen';
 import {NetworkManager} from './src/network/NetworkManager';
+import {CloudServices, bootCloudServices} from './src/cloud/cloudPlatform';
+import {installDestructiveGuard} from './src/cloud/destructiveGuard';
 import {SetFrontModal, SetStatusModal, EditFrontDetailModal, MemberModal, JournalModal, SystemModal, SystemProfileModal, CustomFrontModal} from './src/modals';
 import {AppErrorBoundary} from './src/components/AppErrorBoundary';
 import {SplashView} from './src/components/SplashView';
@@ -49,7 +51,7 @@ import {TabBar, Tab, TAB_IDS} from './src/components/TabBar';
 import {useFrontNotifications} from './src/hooks/useFrontNotifications';
 import {useNoteboardNotifications} from './src/hooks/useNoteboardNotifications';
 import {useAppStore, DEFAULT_SETTINGS} from './src/store/appStore';
-import {saveSystem, saveMembers, savePalettes, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
+import {saveSystem, saveMembers, savePalettes, selectPalette, updateFront, updateFrontDetails, quickAddToFront, removeFromFront, saveMember, deleteMember, restoreDeletedMember, pruneFrontOfRemovedMembers, bulkSetArchived, bulkDeleteMembers, bulkAddGroups, bulkAddTags, bulkSetFacet, saveEntry, deleteEntry, addJournalEntry, saveAppSettings, ensureSelfMember, saveMemberListFields, saveMemberSortMode, reorderMember} from './src/store/actions';
 import {requestPermissions} from './src/utils/permissions';
 import {logError} from './src/utils/log';
 import {mergeHistoryEntries} from './src/import/convert';
@@ -304,6 +306,7 @@ function MainAppContent() {
       if (((fr && !fr.primary && migratedFront) || (!fr && migratedFront)) && !storageSuspect) {
         await store.set(KEYS.front, migratedFront);
       }
+      if (!storageSuspect) await pruneFrontOfRemovedMembers();
       setHistory(dedupedHist);
       setJournal(jour || []);
       setJournalTemplates(jourTemplates || []);
@@ -415,14 +418,26 @@ function MainAppContent() {
         loadAll();
       }
       if (s === 'active') {
+        NetworkManager.retryInitIfLocked();
         NetworkManager.requestFriendFronts();
         NetworkManager.flushPendingFronts();
+        CloudServices.wake();
       }
     });
     return () => sub.remove();
   }, [loadAll]);
-  useEffect(() => { NetworkManager.init().catch(e => console.error('[NETWORK] init failed:', e)); }, []);
-  useEffect(() => { NetworkManager.notifyDataChanged(); }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
+  useEffect(() => {
+    NetworkManager.init()
+      .catch(e => console.error('[NETWORK] init failed:', e))
+      .finally(() => {
+        bootCloudServices();
+        installDestructiveGuard();
+      });
+  }, []);
+  useEffect(() => {
+    NetworkManager.notifyDataChanged();
+    CloudServices.schedulePush();
+  }, [system, members, history, journal, journalTemplates, groups, palettes, chatChannels, medical, appSettings]);
   useEffect(() => NetworkManager.onSyncApplied(() => { loadAll(); }), [loadAll]);
   useEffect(() => NetworkManager.onSyncConflict(c => {
     Alert.alert(
@@ -473,7 +488,9 @@ function MainAppContent() {
   useEffect(() => { store.get<string>('ps:lastLocation').then(loc => { if (loc) setLastKnownLocation(loc); }); }, []);
 
   const handleDeleteAccount = async () => {
+    await CloudServices.unlink().catch(() => {});
     await clearFrontNotification(); await store.clearAll(); await clearAllMedia();
+    await NetworkManager.wipe().catch(() => {});
     setSystem({name: '', description: ''}); setMembers([]); setFront(null);
     setHistory([]); setJournal([]); setJournalTemplates([]);
     setShareSettings({showFront: true, showMembers: true, showDescriptions: false});
@@ -582,6 +599,7 @@ function MainAppContent() {
       onView={m => {setEditMember(m); setViewOnlyMember(true); setShowMember(true);}}
       onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
       onBulkDelete={bulkDeleteMembers}
+      onRestoreDeleted={restoreDeletedMember}
     />
   );
 
@@ -592,7 +610,7 @@ function MainAppContent() {
           return <StatusScreen theme={C} selfId={selfMember?.id}
             onSetStatus={async () => {await ensureSelfMember(); setShowSetFront(true);}} onEditDetails={handleEditDetails} />;
         }
-        return <FrontScreen theme={C} onSetFront={() => setShowSetFront(true)} onEditDetails={handleEditDetails} />;
+        return <FrontScreen theme={C} onSetFront={() => setShowSetFront(true)} onEditDetails={handleEditDetails} onOpenMember={openMemberById} />;
       case 'members':
         if (isSinglet) {
           return <ProfileScreen theme={C} member={selfMember}
@@ -612,6 +630,8 @@ function MainAppContent() {
           onBulkRestore={(ids: string[]) => bulkSetArchived(ids, false)}
           onBulkDelete={bulkDeleteMembers}
           onBulkAddGroups={bulkAddGroups}
+          onBulkAddTags={bulkAddTags}
+          onBulkSetFacet={bulkSetFacet}
         />;
       case 'hub':
         return <HubScreen theme={C} singlet={isSinglet} selfId={selfMember?.id} renderShareScreen={renderShareScreen} renderStatsScreen={renderStatsScreen} renderChatScreen={renderChatScreen} renderCustomFieldsScreen={renderCustomFieldsScreen} renderSystemManagerScreen={() => <SystemManagerScreen theme={C} onViewMember={openMemberById} />} renderArchiveScreen={renderArchiveScreen} renderPollsScreen={renderPollsScreen} renderSystemMapScreen={renderSystemMapScreen} systemMapRelCount={systemMapRelCount} mapFocus={mapFocus} renderMailboxScreen={renderMailboxScreen} renderWhiteboardScreen={renderWhiteboardScreen} renderColorsScreen={renderColorsScreen} renderNetworkScreen={renderNetworkScreen} resetKey={hubResetKey} editHistoryIndex={editHistoryIndex} onClearEditHistory={() => setEditHistoryIndex(null)} />;

@@ -28,3 +28,21 @@ export const parallelMap = async <T, U>(
   await Promise.all(Array.from({length: lanes}, () => runOne()));
   return results;
 };
+
+export const withTimeout = <T>(
+  promise: Promise<T>,
+  ms: number,
+  label = 'operation',
+): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+    promise.then(
+      v => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); },
+      e => { if (settled) return; settled = true; clearTimeout(timer); reject(e); },
+    );
+  });

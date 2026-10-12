@@ -16,11 +16,17 @@ const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 const FETCH_TIMEOUT_MS = 10000;
 
-const fetchWithTimeout = (url: string, init?: any): Promise<any> => {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('request timed out')), FETCH_TIMEOUT_MS),
-  );
-  return Promise.race([fetch(url, init), timeout]);
+const fetchWithTimeout = async (url: string, init?: any): Promise<any> => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, {...(init || {}), signal: controller.signal});
+  } catch (e: any) {
+    if (e?.name === 'AbortError') throw new Error('request timed out');
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 };
 
 export class NodeClient {
@@ -156,11 +162,13 @@ export class NodeClient {
     this.ws = ws;
 
     ws.onopen = () => {
+      if (this.ws !== ws) return;
       this.reconnectAttempts = 0;
       this.emit('status', 'online' as ConnStatus);
     };
 
     ws.onmessage = ev => {
+      if (this.ws !== ws) return;
       let msg: any;
       try {
         msg = JSON.parse(typeof ev.data === 'string' ? ev.data : '');
@@ -172,10 +180,12 @@ export class NodeClient {
     };
 
     ws.onerror = e => {
+      if (this.ws !== ws) return;
       this.emit('error', e);
     };
 
     ws.onclose = () => {
+      if (this.ws !== ws) return;
       this.ws = null;
       if (this.wantOpen) {
         this.emit('status', 'reconnecting' as ConnStatus);
@@ -201,6 +211,23 @@ export class NodeClient {
 
   ensureConnected(): void {
     if (!this.wantOpen || this.ws) return;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectAttempts = 0;
+    this.openSocket();
+  }
+
+  reconnect(): void {
+    if (!this.wantOpen) return;
+    const stale = this.ws;
+    this.ws = null;
+    if (stale) {
+      try {
+        stale.close();
+      } catch {}
+    }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

@@ -12,14 +12,17 @@ import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 import {GroupBrowser} from '../components/GroupBrowser';
-import {Member, MemberGroup, GroupNodeKind, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName, isRosterMember} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName} from '../utils';
 
 interface Props {
   theme: ThemeColors;
   onViewMember?: (id: string) => void;
+  startBrowsing?: boolean;
+  header?: React.ReactNode;
+  hideRootTitle?: boolean;
 }
 
-export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
+export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, header, hideRootTitle}: Props) => {
   const members = useAppStore(s => s.members);
   const groups = useAppStore(s => s.groups);
   const front = useAppStore(s => s.front);
@@ -45,7 +48,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const [editDesc, setEditDesc] = useState('');
   const [movingIds, setMovingIds] = useState<string[] | null>(null);
   const [selectMode, setSelectMode] = useState(false);
-  const [browse, setBrowse] = useState(false);
+  const [browse, setBrowse] = useState(!!startBrowsing);
   const [browseId, setBrowseId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [quickFrontFor, setQuickFrontFor] = useState<Member | null>(null);
@@ -54,6 +57,9 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const [addSearch, setAddSearch] = useState('');
   const [removeMode, setRemoveMode] = useState(false);
   const [removeIds, setRemoveIds] = useState<string[]>([]);
+  const [editLinked, setEditLinked] = useState<string | null>(null);
+  const [linkPickOpen, setLinkPickOpen] = useState(false);
+  const [linkSearch, setLinkSearch] = useState('');
 
   const isFronting = (id: string): boolean => !!front && (
     (front.primary?.memberIds || []).includes(id) ||
@@ -215,7 +221,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   const renameNode = (id: string) => {
     const name = editName.trim();
     if (!name) return;
-    onSaveGroups(groups.map(g => g.id === id ? {...g, name, color: editColor, description: editDesc.trim() || undefined} : g));
+    onSaveGroups(groups.map(g => g.id === id ? {...g, name, color: editColor, description: editDesc.trim() || undefined, ...(groupKind(g) === 'subsystem' ? {linkedMemberId: editLinked || undefined} : {})} : g));
     setEditId(null); setEditName('');
   };
 
@@ -224,7 +230,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     seen.add(g.id);
     const isEditing = editId === g.id;
     const isSub = groupKind(g) === 'subsystem';
-    const memberCount = members.filter(m => isRosterMember(m) && (m.groupIds || []).includes(g.id)).length;
+    const memberCount = members.filter(m => !m.deleted && !m.archived && (m.groupIds || []).includes(g.id)).length;
     const moving = movingIds;
     const canDrop = !!moving && !moving.includes(g.id) && !moving.some(id => isDescendant(groups, g.id, id));
     const isSelected = selectedIds.includes(g.id);
@@ -263,7 +269,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             </View>
           ) : (
             <>
-              <Text onPress={selectMode && !moving ? () => toggleSelected(g.id) : undefined} style={{flex: 1, fontSize: fs(14), color: T.text, fontWeight: '500'}} numberOfLines={1}>{isSub ? '⊟ ' : ''}{g.name}</Text>
+              <Text onPress={selectMode && !moving ? () => toggleSelected(g.id) : undefined}
+                accessibilityRole={selectMode && !moving ? 'button' : undefined}
+                accessibilityState={selectMode && !moving ? {selected: selectedIds.includes(g.id)} : undefined}
+                style={{flex: 1, fontSize: fs(14), color: T.text, fontWeight: '500'}} numberOfLines={1}>{isSub ? '⊟ ' : ''}{g.name}</Text>
               {canDrop ? (
                 <TouchableOpacity onPress={() => moveNodes(moving!, g.id)} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.moveHere')}: ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.successBg, borderColor: `${T.success}40`}}><Text style={{fontSize: fs(11), color: T.success}}>{t('memberGroups.moveHere')}</Text></TouchableOpacity>
               ) : moving && moving.includes(g.id) ? (
@@ -276,7 +285,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
                   <TouchableOpacity ref={(el) => { moveBtnRefs.current[g.id] = el; }} onPress={() => reorderNode(g.id, 'up')} disabled={sibIdx <= 0} accessibilityRole="button" accessibilityState={{disabled: sibIdx <= 0}} accessibilityLabel={sibIdx <= 0 ? `${t('members.moveUp')} ${g.name}` : `${t('members.moveUp')} ${g.name}, ${t('members.moveAbove', {name: sibs[sibIdx - 1].name})}`} style={{padding: 2, opacity: sibIdx <= 0 ? 0.25 : 1}}><Text style={{fontSize: fs(13), color: T.dim}}>▲</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => reorderNode(g.id, 'down')} disabled={sibIdx === sibs.length - 1} accessibilityRole="button" accessibilityState={{disabled: sibIdx === sibs.length - 1}} accessibilityLabel={sibIdx === sibs.length - 1 ? `${t('members.moveDown')} ${g.name}` : `${t('members.moveDown')} ${g.name}, ${t('members.moveBelow', {name: sibs[sibIdx + 1].name})}`} style={{padding: 2, opacity: sibIdx === sibs.length - 1 ? 0.25 : 1}}><Text style={{fontSize: fs(13), color: T.dim}}>▼</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => setMovingIds([g.id])} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.move')} ${g.name}`}><Text style={{fontSize: fs(15), color: T.dim}}>⇄</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => {setEditId(g.id); setEditName(g.name); setEditColor(g.color || PALETTE[0]); setEditDesc(g.description || '');}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => {setEditId(g.id); setEditName(g.name); setEditColor(g.color || PALETTE[0]); setEditDesc(g.description || ''); setEditLinked(g.linkedMemberId || null);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
                   <TouchableOpacity onPress={() => deleteNode(g.id)} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${g.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
                 </>
               )}
@@ -289,6 +298,20 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             <TextInput value={editDesc} onChangeText={setEditDesc} multiline placeholder={t('modal.descriptionBio')} placeholderTextColor={T.muted}
               accessibilityLabel={t('modal.descriptionBio')}
               style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginTop: 8, minHeight: 60, textAlignVertical: 'top'}} />
+            {isSub && (() => {
+              const linked = editLinked ? members.find(m => m.id === editLinked && !m.deleted) || null : null;
+              return (
+                <TouchableOpacity onPress={() => { setLinkSearch(''); setLinkPickOpen(true); }} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityLabel={`${t('memberGroups.linkedFronter')}: ${linked ? linked.name : t('memberGroups.noLinkedFronter')}`}
+                  style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}>
+                  <Text style={{fontSize: fs(11), color: T.dim}}>{t('memberGroups.linkedFronter')}</Text>
+                  <View style={{flex: 1}} />
+                  {linked ? <Avatar member={linked} size={22} T={T} /> : null}
+                  <Text style={{flexShrink: 1, fontSize: fs(13), color: linked ? T.text : T.muted}} numberOfLines={1}>{linked ? linked.name : t('memberGroups.noLinkedFronter')}</Text>
+                  <Text style={{fontSize: fs(15), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
+                </TouchableOpacity>
+              );
+            })()}
           </View>
         )}
         {childrenOf(groups, g.id).map(c => renderNode(c, depth + 1, seen))}
@@ -297,6 +320,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
   };
 
   const browseEligible = members.filter(m => !m.archived && !m.isCustomFront && !m.isFacet);
+  const browseListable = members.filter(m => !m.archived && !m.deleted);
   if (browse) {
     const folderMembers = browseId === null
       ? browseEligible.filter(m => !(m.groupIds || []).length)
@@ -326,16 +350,18 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
     };
     return (
       <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} bottomOffset={24}>
+        {header}
         <GroupBrowser
           T={T}
           groups={groups}
-          members={browseEligible}
+          members={browseListable}
           browseId={browseId}
           onNavigate={goBrowseTo}
           onViewMember={id => onViewMember && onViewMember(id)}
           sortMode={groupSortMode}
           onSortModeChange={saveGroupSortMode}
-          rootTitle={t('systemManager.title')}
+          rootTitle={hideRootTitle ? '' : t('systemManager.title')}
+          linkedMember={current && groupKind(current) === 'subsystem' && current.linkedMemberId ? members.find(m => m.id === current.linkedMemberId && !m.deleted) || null : null}
           headerRight={<>
           {current && !removeMode && (
             <TouchableOpacity onPress={() => { setAddPickIds([]); setAddSearch(''); setAddPickOpen(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberGroups.addMembers')}
@@ -414,7 +440,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
 
         <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
-            <View style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 360, backgroundColor: T.card, borderColor: T.border}}>
+            <View accessibilityViewIsModal onAccessibilityEscape={() => setQuickFrontFor(null)} style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 360, backgroundColor: T.card, borderColor: T.border}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 12}} numberOfLines={1}>{t('members.addToFront')} — {quickFrontFor?.name}</Text>
               {(['primary', 'coFront', 'coConscious'] as FrontTierKey[]).map(tier => (
                 <TouchableOpacity key={tier}
@@ -436,7 +462,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
 
         <Modal visible={addPickOpen} transparent animationType="fade" onRequestClose={() => setAddPickOpen(false)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
-            <View style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 400, maxHeight: '80%', backgroundColor: T.card, borderColor: T.border}}>
+            <View accessibilityViewIsModal onAccessibilityEscape={() => setAddPickOpen(false)} style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 400, maxHeight: '80%', backgroundColor: T.card, borderColor: T.border}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}} numberOfLines={1}>{t('memberGroups.addMembers')} — {current?.name}</Text>
               <TextInput value={addSearch} onChangeText={setAddSearch} placeholder={t('common.search')} placeholderTextColor={T.muted}
                 accessibilityLabel={t('common.search')}
@@ -518,6 +544,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
 
   return (
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled" scrollEnabled={!dragging} bottomOffset={24}>
+      {header}
       <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 14, lineHeight: 18}}>{t('systemManager.desc')}</Text>
       <View style={{flexDirection: 'row', marginBottom: 12}}>
         <TouchableOpacity onPress={() => { goBrowseTo(null); setBrowse(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemManager.browse')}
@@ -588,6 +615,36 @@ export const SystemManagerScreen = ({theme: T, onViewMember}: Props) => {
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginTop: 8, minHeight: 60, textAlignVertical: 'top'}} />
         </View>
       )}
+      <Modal visible={linkPickOpen} transparent animationType="fade" onRequestClose={() => setLinkPickOpen(false)}>
+        <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setLinkPickOpen(false)}
+            style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 400, maxHeight: '80%', backgroundColor: T.card, borderColor: T.border}}>
+            <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}} numberOfLines={1}>{t('memberGroups.linkedFronter')}</Text>
+            <TextInput value={linkSearch} onChangeText={setLinkSearch} placeholder={t('common.search')} placeholderTextColor={T.muted}
+              accessibilityLabel={t('common.search')}
+              style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: fs(13), marginBottom: 10}} />
+            <ScrollView style={{flexShrink: 1}} keyboardShouldPersistTaps="handled">
+              {[null, ...sortMembersBySearch(members.filter(m => !m.deleted && !m.archived && !m.isCustomFront && memberMatchesSearch(m, linkSearch)), linkSearch)].map(m => {
+                const on = m ? editLinked === m.id : !editLinked;
+                const label = m ? m.name : t('memberGroups.noLinkedFronter');
+                return (
+                  <TouchableOpacity key={m ? m.id : 'none'} onPress={() => { setEditLinked(m ? m.id : null); setLinkPickOpen(false); }} activeOpacity={0.7}
+                    accessibilityRole="radio" accessibilityState={{checked: on}} accessibilityLabel={label}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8}}>
+                    {m ? <Avatar member={m} size={26} T={T} /> : <View style={{width: 26, height: 26}} />}
+                    <Text style={{flex: 1, fontSize: fs(13), color: m ? T.text : T.dim}} numberOfLines={1}>{label}</Text>
+                    {on ? <Text style={{fontSize: fs(13), fontWeight: '700', color: T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text> : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setLinkPickOpen(false)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+              style={{alignItems: 'center', paddingVertical: 10, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+              <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAwareScrollView>
   );
 };

@@ -86,12 +86,15 @@ export const openMessage = (
     return null;
   }
 
-  if (!nacl.sign.detached.verify(concat(nonce, ct), sig, edPub)) {
+  let sigOk = false;
+  try { sigOk = nacl.sign.detached.verify(concat(nonce, ct), sig, edPub); } catch { sigOk = false; }
+  if (!sigOk) {
     console.warn('[NETWORK] envelope signature invalid — dropping');
     return null;
   }
 
-  const plaintext = nacl.box.open(ct, nonce, boxPub, self.boxSecretKey);
+  let plaintext: Uint8Array | null = null;
+  try { plaintext = nacl.box.open(ct, nonce, boxPub, self.boxSecretKey); } catch { plaintext = null; }
   if (!plaintext) {
     console.warn('[NETWORK] box.open failed — dropping');
     return null;

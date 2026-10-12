@@ -1,7 +1,9 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
+import i18n from '../i18n/i18n';
 import {logError} from './log';
-import {parallelMap} from './concurrency';
+import {parallelMap, withTimeout} from './concurrency';
+import {MIRROR_GIF_MAX_BYTES, MIRROR_GIF_MAX_B64, mirrorGifDataB64, mirrorGifHash} from '../network/types';
 
 const AVATAR_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars`;
 const CHAT_MEDIA_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_chat_media`;
@@ -71,6 +73,13 @@ export const saveAvatar = async (memberId: string, base64: string): Promise<stri
   else if (raw.startsWith('UklGR')) ext = 'webp';
   const path = `${AVATAR_DIR}/${memberId}.${ext}`;
   await ReactNativeBlobUtil.fs.writeFile(path, raw, 'base64');
+  for (const other of ['jpg', 'png', 'gif', 'webp']) {
+    if (other === ext) continue;
+    try {
+      const stale = `${AVATAR_DIR}/${memberId}.${other}`;
+      if (await ReactNativeBlobUtil.fs.exists(stale)) await ReactNativeBlobUtil.fs.unlink(stale);
+    } catch {}
+  }
   return `file://${path}?t=${Date.now()}`;
 };
 
@@ -105,7 +114,7 @@ const downloadViaBlobUtil = async (
       followRedirect: true,
     }).fetch('GET', url, {
       Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5',
-      'User-Agent': 'PluralStar/1.9.2 (avatar-import)',
+      'User-Agent': 'PluralStar (https://github.com/ByHanyou/Plural-Star) avatar-import',
     });
     const result = await new Promise<any>((resolve, reject) => {
       let settled = false;
@@ -113,7 +122,7 @@ const downloadViaBlobUtil = async (
         if (settled) return;
         settled = true;
         try { (downloadTask as any).cancel?.(() => {}); } catch {}
-        reject(new Error(`image download timed out after ${DOWNLOAD_TIMEOUT_MS}ms`));
+        reject(new Error(i18n.t('share.couldNotConnect')));
       }, DOWNLOAD_TIMEOUT_MS);
       downloadTask.then(
         (v: any) => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); },
@@ -167,9 +176,9 @@ const downloadViaFetchFallback = async (
   url: string,
 ): Promise<string | undefined> => {
   try {
-    const res = await fetch(url, {headers: {Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5'}});
+    const res = await withTimeout(fetch(url, {headers: {Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5'}}), DOWNLOAD_TIMEOUT_MS, 'image download');
     if (!res.ok) return undefined;
-    const blob: any = await res.blob();
+    const blob: any = await withTimeout(res.blob(), DOWNLOAD_TIMEOUT_MS, 'image download');
     const dataUrl: string = await new Promise((resolve, reject) => {
       const fr = new FileReader();
       fr.onloadend = () => resolve(String(fr.result || ''));
@@ -224,7 +233,7 @@ export const deleteAvatar = async (memberId: string): Promise<void> => {
     for (const ext of ['jpg', 'png', 'gif', 'webp']) {
       const path = `${AVATAR_DIR}/${memberId}.${ext}`;
       const exists = await ReactNativeBlobUtil.fs.exists(path);
-      if (exists) { await ReactNativeBlobUtil.fs.unlink(path); break; }
+      if (exists) await ReactNativeBlobUtil.fs.unlink(path);
     }
   } catch {}
   try {
@@ -240,6 +249,15 @@ export const saveChatMedia = async (messageId: string, base64: string, ext: stri
   const path = `${CHAT_MEDIA_DIR}/${messageId}.${safeExt}`;
   await ReactNativeBlobUtil.fs.writeFile(path, raw, 'base64');
   return `file://${path}?t=${Date.now()}`;
+};
+
+export const deleteChatMediaFile = async (uri: string): Promise<void> => {
+  if (!uri || !uri.startsWith('file://')) return;
+  const path = uri.replace(/^file:\/\//, '').split('?')[0];
+  if (!path.startsWith(CHAT_MEDIA_DIR)) return;
+  try {
+    if (await ReactNativeBlobUtil.fs.exists(path)) await ReactNativeBlobUtil.fs.unlink(path);
+  } catch {}
 };
 
 export const getChatMediaFileName = (uri: string): string => {
@@ -320,7 +338,7 @@ export const saveBioImageFromUri = async (imageId: string, sourceUri: string): P
   return persistImage(sourceUri, destPath);
 };
 
-const rebaseDocumentUri = (uri?: string | null): string | undefined => {
+export const rebaseDocumentUri = (uri?: string | null): string | undefined => {
   if (!uri || typeof uri !== 'string' || !uri.startsWith('file://')) return uri || undefined;
   const docMarker = '/Documents/';
   const idx = uri.indexOf(docMarker);
@@ -493,15 +511,141 @@ export const migrateInlineChatMedia = async (messages: any[]): Promise<{messages
   return {messages: updated, changed};
 };
 
-export const clearAllMedia = async (): Promise<void> => {
+const MIRROR_GIF_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_mirror_gifs`;
+
+const gifProbeCache = new Map<string, {size: number; mtime: number; h: string | null}>();
+
+const localPathOf = (uri: string): string =>
+  (rebaseDocumentUri(uri) || uri).replace(/^file:\/\//, '').split('#')[0].split('?')[0];
+
+const ensureDirSafe = async (dir: string): Promise<void> => {
+  if (await ReactNativeBlobUtil.fs.exists(dir)) return;
   try {
-    const avatarExists = await ReactNativeBlobUtil.fs.exists(AVATAR_DIR);
-    if (avatarExists) await ReactNativeBlobUtil.fs.unlink(AVATAR_DIR);
-    const chatExists = await ReactNativeBlobUtil.fs.exists(CHAT_MEDIA_DIR);
-    if (chatExists) await ReactNativeBlobUtil.fs.unlink(CHAT_MEDIA_DIR);
-    const bioExists = await ReactNativeBlobUtil.fs.exists(BIO_IMAGE_DIR);
-    if (bioExists) await ReactNativeBlobUtil.fs.unlink(BIO_IMAGE_DIR);
-    const bannerExists = await ReactNativeBlobUtil.fs.exists(BANNER_DIR);
-    if (bannerExists) await ReactNativeBlobUtil.fs.unlink(BANNER_DIR);
+    await ReactNativeBlobUtil.fs.mkdir(dir);
+  } catch (e) {
+    if (!(await ReactNativeBlobUtil.fs.exists(dir))) throw e;
+  }
+};
+
+export const mirrorGifProbe = async (src: string): Promise<string | null> => {
+  if (!src || typeof src !== 'string') return null;
+  if (src.startsWith('data:')) {
+    const b64 = mirrorGifDataB64(src);
+    return b64 ? mirrorGifHash(b64) : null;
+  }
+  if (!src.startsWith('file://')) return null;
+  const path = localPathOf(src);
+  try {
+    const st = await ReactNativeBlobUtil.fs.stat(path);
+    const size = Number(st.size) || 0;
+    const mtime = Number(st.lastModified) || 0;
+    if (size < 6 || size > MIRROR_GIF_MAX_BYTES) return null;
+    const hit = gifProbeCache.get(path);
+    if (hit && hit.size === size && hit.mtime === mtime) return hit.h;
+    const head = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_gif_head_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+    let isGif = false;
+    try {
+      await ReactNativeBlobUtil.fs.slice(path, head, 0, 6);
+      isGif = (await ReactNativeBlobUtil.fs.readFile(head, 'base64')).startsWith('R0lGOD');
+    } finally {
+      ReactNativeBlobUtil.fs.unlink(head).catch(() => {});
+    }
+    const h = isGif ? await ReactNativeBlobUtil.fs.hash(path, 'md5') : null;
+    if (gifProbeCache.size >= 256) gifProbeCache.clear();
+    gifProbeCache.set(path, {size, mtime, h});
+    return h;
+  } catch {
+    return null;
+  }
+};
+
+export const mirrorGifBase64 = async (src: string): Promise<string | null> => {
+  if (!src || typeof src !== 'string') return null;
+  if (src.startsWith('data:')) return mirrorGifDataB64(src);
+  if (!src.startsWith('file://')) return null;
+  try {
+    const path = localPathOf(src);
+    const st = await ReactNativeBlobUtil.fs.stat(path);
+    if ((Number(st.size) || 0) > MIRROR_GIF_MAX_BYTES) return null;
+    const b64 = await ReactNativeBlobUtil.fs.readFile(path, 'base64');
+    return b64.startsWith('R0lGOD') && b64.length <= MIRROR_GIF_MAX_B64 ? b64 : null;
+  } catch {
+    return null;
+  }
+};
+
+const mirrorGifPeerDir = (peerId: string): string => `${MIRROR_GIF_DIR}/${peerId.replace(/[^A-Za-z0-9]/g, '_')}`;
+
+const mirrorGifName = (feature: string, id: string, h: string): string => {
+  let t = 0x811c9dc5;
+  for (let i = 0; i < id.length; i++) {
+    t ^= id.charCodeAt(i);
+    t = Math.imul(t, 0x01000193);
+  }
+  return `${feature}-${(t >>> 0).toString(16)}-${h}.gif`;
+};
+
+export const mirrorGifFiles = async (peerId: string, feature: string, wants: Map<string, string>): Promise<Record<string, string>> => {
+  const out: Record<string, string> = {};
+  if (wants.size === 0) return out;
+  const dir = mirrorGifPeerDir(peerId);
+  try {
+    if (!(await ReactNativeBlobUtil.fs.exists(dir))) return out;
+    const have = new Set(await ReactNativeBlobUtil.fs.ls(dir));
+    wants.forEach((h, id) => {
+      const name = mirrorGifName(feature, id, h);
+      if (have.has(name)) out[id] = `file://${dir}/${name}`;
+    });
+  } catch (e) {
+    logError('media', e);
+  }
+  return out;
+};
+
+export const pruneMirrorGifs = async (peerId: string, feature: string, wants: Map<string, string>): Promise<void> => {
+  const dir = mirrorGifPeerDir(peerId);
+  try {
+    if (!(await ReactNativeBlobUtil.fs.exists(dir))) return;
+    const keep = new Set<string>();
+    wants.forEach((h, id) => keep.add(mirrorGifName(feature, id, h)));
+    for (const name of await ReactNativeBlobUtil.fs.ls(dir)) {
+      if (!name.startsWith(`${feature}-`) || keep.has(name)) continue;
+      await ReactNativeBlobUtil.fs.unlink(`${dir}/${name}`).catch(() => {});
+    }
+  } catch (e) {
+    logError('media', e);
+  }
+};
+
+export const saveMirrorGif = async (peerId: string, feature: string, id: string, h: string, b64: string): Promise<boolean> => {
+  try {
+    await ensureDirSafe(MIRROR_GIF_DIR);
+    const dir = mirrorGifPeerDir(peerId);
+    await ensureDirSafe(dir);
+    const dest = `${dir}/${mirrorGifName(feature, id, h)}`;
+    const tmp = `${dest}.part`;
+    await ReactNativeBlobUtil.fs.writeFile(tmp, b64, 'base64');
+    if (await ReactNativeBlobUtil.fs.exists(dest)) await ReactNativeBlobUtil.fs.unlink(dest);
+    await ReactNativeBlobUtil.fs.mv(tmp, dest);
+    return true;
+  } catch (e) {
+    logError('media', e);
+    return false;
+  }
+};
+
+export const clearMirrorGifs = async (peerId?: string): Promise<void> => {
+  const dir = peerId ? mirrorGifPeerDir(peerId) : MIRROR_GIF_DIR;
+  try {
+    if (await ReactNativeBlobUtil.fs.exists(dir)) await ReactNativeBlobUtil.fs.unlink(dir);
   } catch {}
+};
+
+export const clearAllMedia = async (): Promise<void> => {
+  for (const dir of [AVATAR_DIR, AVATAR_FULL_DIR, CHAT_MEDIA_DIR, BIO_IMAGE_DIR, BANNER_DIR]) {
+    try {
+      if (await ReactNativeBlobUtil.fs.exists(dir)) await ReactNativeBlobUtil.fs.unlink(dir);
+    } catch {}
+  }
+  try { await clearMirrorGifs(); } catch {}
 };

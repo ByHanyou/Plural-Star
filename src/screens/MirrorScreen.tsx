@@ -7,8 +7,8 @@ import {NetworkManager} from '../network/NetworkManager';
 import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup, MirrorSystemProfile, MIRROR_SYSTEM_AVATAR_ID, MIRROR_SYSTEM_BANNER_ID} from '../network/types';
 import {SystemProfileCard} from '../components/SystemProfileCard';
 import Svg, {Path} from 'react-native-svg';
-import {ThemeColors, fontScale} from '../theme';
-import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime} from '../utils';
+import {ThemeColors, fontScale, initialOn} from '../theme';
+import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime, getInitials} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
 import {useAppStore} from '../store/appStore';
 import {saveGroupSortMode} from '../store/actions';
@@ -65,7 +65,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     }, 12000);
     NetworkManager.requestMirror(peerId, feature)
       .catch(() => setRequesting('failed'));
-    if (feature === 'groups' || feature === 'history') {
+    if (feature === 'groups' || feature === 'history' || feature === 'journal') {
       NetworkManager.requestMirror(peerId, 'members').catch(() => {});
     }
   }, [peerId, feature]);
@@ -198,7 +198,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           <Image source={{uri: avatar}} style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12}} accessibilityElementsHidden importantForAccessibility="no" />
         ) : (
           <View style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: item.color || T.border}} accessibilityElementsHidden importantForAccessibility="no">
-            <Text style={{fontSize: fs(16), fontWeight: '700', color: '#fff'}}>{(item.name || '?').slice(0, 1).toUpperCase()}</Text>
+            <Text style={{fontSize: fs(16), fontWeight: '700', color: initialOn(item.color || T.border)}}>{Array.from(getInitials(item.name || '?'))[0] || '?'}</Text>
           </View>
         )}
         <View style={{flex: 1, minWidth: 0}}>
@@ -272,7 +272,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       </Text>
       <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{fmtTime(item.timestamp)}</Text>
       {(item.hashtags || []).length > 0 && (
-        <Text style={{fontSize: fs(11), color: T.accent, marginTop: 2}} numberOfLines={1}>{(item.hashtags || []).map(x => `#${x}`).join(' ')}</Text>
+        <Text style={{fontSize: fs(11), color: T.accent, marginTop: 2}} numberOfLines={1}>{(item.hashtags || []).map(x => (x.startsWith('#') ? x : `#${x}`)).join(' ')}</Text>
       )}
     </TouchableOpacity>
   );
@@ -332,8 +332,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           {sortedAppts.length > 0 ? (
             <>
               <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '700', color: T.dim, marginBottom: 8}}>{t('planner.appt')}</Text>
-              {sortedAppts.map((a: any) => (
-                <View key={String(a?.id || a?.time)} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8}}>
+              {sortedAppts.map((a: any, ai: number) => (
+                <View key={`${String(a?.id || a?.time)}-${ai}`} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8}}>
                   <Text style={{fontSize: fs(13), fontWeight: '600', color: a?.color || T.text}} numberOfLines={2}>{String(a?.title || '')}</Text>
                   <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{fmtTime(Number(a?.time) || 0)}</Text>
                   {a?.location ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}} numberOfLines={2}>{String(a.location)}</Text> : null}
@@ -345,8 +345,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           {rems.length > 0 ? (
             <>
               <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '700', color: T.dim, marginTop: sortedAppts.length > 0 ? 12 : 0, marginBottom: 8}}>{t('planner.reminders')}</Text>
-              {rems.map((r: any) => (
-                <View key={String(r?.id || r?.title)} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8, opacity: r?.enabled === false ? 0.5 : 1}}>
+              {rems.map((r: any, ri: number) => (
+                <View key={`${String(r?.id || r?.title)}-${ri}`} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8, opacity: r?.enabled === false ? 0.5 : 1}}>
                   <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}} numberOfLines={2}>{String(r?.title || '')}</Text>
                   {Array.isArray(r?.times) && r.times.length > 0 ? (
                     <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{r.times.join('  ·  ')}</Text>
@@ -488,7 +488,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
           if (!mm) {
             return (
               <Modal visible transparent animationType="fade" onRequestClose={() => setViewMemberId(null)}>
-                <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'}}>
+                <View accessibilityViewIsModal onAccessibilityEscape={() => setViewMemberId(null)} style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'}}>
                   <ActivityIndicator color={T.accent} />
                 </View>
               </Modal>
@@ -515,7 +515,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
 
         <Modal visible={!!unlockFor} transparent animationType="fade" onRequestClose={() => setUnlockFor(null)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24, paddingBottom: 24 + kbHeight}}>
-            <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
+            <View accessibilityViewIsModal onAccessibilityEscape={() => setUnlockFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, padding: 16}}>
               <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}}>🔒 {unlockFor?.title || t('common.untitled')}</Text>
               <TextInput
                 value={pwInput}
@@ -526,9 +526,9 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
                 autoFocus
                 onSubmitEditing={tryUnlock}
                 accessibilityLabel={t('journal.password')}
-                style={{borderWidth: 1, borderColor: pwError ? '#E05B5B' : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, color: T.text, fontSize: fs(13)}}
+                style={{borderWidth: 1, borderColor: pwError ? T.danger : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, color: T.text, fontSize: fs(13)}}
               />
-              {pwError && <Text accessibilityRole="alert" style={{fontSize: fs(11), color: '#E05B5B', marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
+              {pwError && <Text accessibilityRole="alert" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
               <View style={{flexDirection: 'row', gap: 10, marginTop: 12}}>
                 <TouchableOpacity onPress={() => setUnlockFor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                   style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>

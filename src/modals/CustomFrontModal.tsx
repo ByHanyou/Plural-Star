@@ -10,9 +10,10 @@ import {PALETTE, fontScale, initialOn} from '../theme';
 import {Member, MemberGroup, uid, getInitials, sortGroupsForDisplay, groupKind} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
-import {deleteAvatar, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
+import {saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
+import {ToggleSwitch} from '../components/ToggleSwitch';
 
 export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave, onDelete, onClose, isFronting = false, statusMode = false}: any) => {
   const {t} = useTranslation();
@@ -59,8 +60,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
   const removePfp = async () => {
     Alert.alert(t('modal.removePfp'), t('modal.removeImageMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('common.remove'), style: 'destructive', onPress: async () => {
-        await deleteAvatar(f.id);
+      {text: t('common.remove'), style: 'destructive', onPress: () => {
         set('avatar', undefined);
       }},
     ]);
@@ -69,9 +69,9 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
   return (
     <Sheet visible={visible} title={statusMode ? (isNew ? t('status.add') : t('status.edit')) : (isNew ? t('customFront.add') : t('customFront.edit'))} theme={T} onClose={onClose} footer={<>
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
-      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(f.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
+      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {clearDraft('customFront', draftId); onDelete(f.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('customFront', draftId); onClose();}}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; if ((cur.name || '').trim()) {onSave({...cur, isCustomFront: true}); clearDraft('customFront', draftId); onClose();}}}>{t('common.save')}</Btn>}</>}>
+      {!confirmDel && <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; if ((cur.name || '').trim()) {onSave({...cur, isCustomFront: true}); clearDraft('customFront', draftId); onClose();} else {Alert.alert(t('modal.nameRequired'));}}}>{t('common.save')}</Btn>}</>}>
       <View style={{alignItems: 'center', marginBottom: 16}}>
         <TouchableOpacity onPress={pickPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.changePfp')}>
           {f.avatar ? (
@@ -137,6 +137,13 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
           style={{width: 30, height: 30, borderRadius: 8, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
           <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
         </TouchableOpacity>
+      </View>
+      <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 6}}>
+        <View style={{flex: 1}}>
+          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.private')}</Text>
+          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.privateDesc')}</Text>
+        </View>
+        <ToggleSwitch value={!!f.private} onToggle={() => set('private', !f.private)} label={t('modal.private')} T={T} style={{marginLeft: 12}} />
       </View>
       {isFronting && <Text style={{fontSize: fs(11), color: T.danger, lineHeight: 15, marginTop: 4}}>{t('members.frontingLockMsg')}</Text>}
       {visible && <ImageCropHost theme={T} />}

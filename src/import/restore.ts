@@ -90,7 +90,14 @@ const mergeBackupMembers = (existing: Member[], incoming: Member[]): Member[] =>
       const nm = String(im.name || '').trim().toLowerCase();
       at = nm ? out.findIndex(m => !claimed.has(m.id) && !m.isCustomFront && !m.isFacet && String(m.name || '').trim().toLowerCase() === nm) : -1;
     }
-    if (at >= 0) { out[at] = {...out[at], ...im, id: out[at].id, deleted: im.deleted ?? false}; claimed.add(out[at].id); }
+    if (at >= 0) {
+      const local = out[at];
+      const incDeleted = !!im.deleted;
+      const deleted = incDeleted && !!local.deleted;
+      const archived = deleted ? true : (incDeleted ? !!local.archived : (im.archived ?? local.archived ?? false));
+      out[at] = {...local, ...im, id: local.id, deleted, archived};
+      claimed.add(local.id);
+    }
     else { out.push(im); claimed.add(im.id); }
   });
   return out;
@@ -684,7 +691,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 }, 4, (done, total) => setRestoreProgress(t('share.progressAvatarsDownloadN', {done, total})));
                 if (Object.keys(downloaded).length > 0) {
                   const withAvatars = newMembers.map(m => downloaded[m.id] ? {...m, avatar: downloaded[m.id]} : m);
-                  await store.set(KEYS.members, withAvatars);
+                  await store.set(KEYS.members, [...withAvatars, ...spKeptLocals]);
                 }
               }
             }
@@ -742,7 +749,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 if (importedOpenFront) await store.set(KEYS.front, importedOpenFront);
               }
             }
-            setRestoreDone(true); setRestoring(false);
+            setRestoreDone(true); setRestoring(false); setTimeout(() => onDataImported(), 800);
             return;
           }
 
@@ -879,7 +886,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 }
               }
             }
-            setRestoreDone(true); setRestoring(false);
+            setRestoreDone(true); setRestoring(false); setTimeout(() => onDataImported(), 800);
             return;
           }
           const data: ExportPayload = rawData;

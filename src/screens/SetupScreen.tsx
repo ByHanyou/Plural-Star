@@ -3,7 +3,7 @@ import {View, Image, StyleSheet, ScrollView, TouchableOpacity} from 'react-nativ
 import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 
 interface Props {
@@ -37,7 +37,7 @@ export const SetupScreen = ({theme: T, onSave}: Props) => {
             style={[s.input, s.textarea, {backgroundColor: T.surface, color: T.text, borderColor: T.border}]} />
           <TouchableOpacity onPress={() => name.trim() && onSave({name: name.trim(), description: desc.trim(), singlet})}
             activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('setup.enter')} style={[s.btn, {backgroundColor: T.accent}]}>
-            <Text style={s.btnText}>{t('setup.enter')}</Text>
+            <Text style={[s.btnText, {color: initialOn(T.accent)}]}>{t('setup.enter')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setSinglet(!singlet)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{selected: singlet}} accessibilityLabel={t('setup.observatory')}

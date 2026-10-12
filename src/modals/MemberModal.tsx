@@ -8,20 +8,23 @@ import {Sheet} from '../components/Sheet';
 import {Avatar} from '../components/Avatar';
 import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
-import {PALETTE, fontScale, ensureReadable, initialOn} from '../theme';
-import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, groupKind, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, isValidHex, normalizeHex} from '../utils';
+import {ColorPickerModal} from '../components/ColorPickerModal';
+import {PALETTE, fontScale, ensureReadable, initialOn, inkOn, profileTheme} from '../theme';
+import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, groupKind, groupParent, nameCompare, childrenOf, descendantsOf, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, isValidHex, tagKey, linkedSubsystemsOf, setSubsystemLinks} from '../utils';
 import {store, KEYS} from '../storage';
+import {useAppStore} from '../store/appStore';
+import {saveGroups} from '../store/actions';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {DateTimeEditor} from '../components/DateTimeEditor';
-import {deleteAvatar, saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl, avatarFullUri} from '../utils/mediaUtils';
+import {saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl, avatarFullUri} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const MemberModal = ({visible, theme: T, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
+export const MemberModal = ({visible, theme: baseT, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
   const {t} = useTranslation();
-  const fs = fontScale(T);
+  const fs = fontScale(baseT);
   const isNew = !member;
   const [readMode, setReadMode] = useState<boolean>(!!readOnlyProp);
   const readOnly = readMode;
@@ -44,10 +47,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const [showLink, setShowLink] = useState(false);
   const [linkInput, setLinkInput] = useState('');
   const [linking, setLinking] = useState(false);
-  const [showHexEntry, setShowHexEntry] = useState(false);
-  const [hexInput, setHexInput] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
 
-  const mc = ensureReadable(f.color || T.accent, T.card, 3);
+  const bgOn = readOnly && !!f.profileBg && isValidHex(f.color);
+  const T = React.useMemo(() => (bgOn ? profileTheme(baseT, f.color) : baseT), [bgOn, baseT, f.color]);
+  const mc = bgOn ? T.text : ensureReadable(f.color || T.accent, T.card, 3);
+  const edge = bgOn ? T.border : `${f.color}40`;
 
   type MemberTab = 'main' | 'fields' | 'connections';
   const [memberTab, setMemberTab] = useState<MemberTab>('main');
@@ -62,7 +67,18 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFieldDefs(d || []));
   }, [fieldDefsOverride]);
 
-  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setShowHexEntry(false); setHexInput(''); setMemberTab('main'); setReadMode(readOnlyProp); } }, [visible, member?.id]);
+  React.useEffect(() => { if (visible) { const fresh = member || {id: uid(), name: '', pronouns: '', role: '', color: PALETTE[0], description: '', tags: [], groupIds: []}; setF({...fresh, tags: fresh.tags || [], groupIds: fresh.groupIds || []}); setConfirmDel(false); setTagInput(''); setShowDescEditor(false); setShowLink(false); setLinkInput(''); setLinking(false); setShowPicker(false); setMemberTab('main'); setReadMode(readOnlyProp); } }, [visible, member?.id]);
+  useEffect(() => {
+    if (!visible || !lockRead || !member) return;
+    setF(cur => {
+      if (cur.id !== member.id) return cur;
+      const had = cur.customFields || [];
+      const next = member.customFields || [];
+      const same = cur.banner === member.banner && cur.avatar === member.avatar && had.length === next.length
+        && had.every((c: any, i: number) => c.fieldId === next[i].fieldId && c.value === next[i].value);
+      return same ? cur : {...cur, banner: member.banner, avatar: member.avatar, customFields: member.customFields};
+    });
+  }, [visible, lockRead, member]);
   const draftId = isNew ? 'new' : (member?.id || f.id);
   useDraft<Member>('member', readOnly ? '' : draftId, visible, f, d => setF(cur => ({
     ...d,
@@ -74,10 +90,39 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     fRef.current = {...fRef.current, [k]: v};
     setF(x => ({...x, [k]: v}));
   };
-  const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').toLowerCase(); if (!raw) return; const cur = f.tags || []; if (!cur.includes(`#${raw}`)) set('tags', [...cur, `#${raw}`]); setTagInput(''); };
-  const applyCustomHex = () => { const n = normalizeHex(hexInput); if (!isValidHex(n)) return; set('color', n); setShowHexEntry(false); };
+  const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').normalize('NFC'); if (!raw) return; const cur = f.tags || []; const next = `#${raw}`; if (!cur.some(x => tagKey(x) === tagKey(next))) set('tags', [...cur, next]); setTagInput(''); };
+  const applyTag = (tag: string) => { const cur = f.tags || []; if (!cur.some(x => tagKey(x) === tagKey(tag))) set('tags', [...cur, tag]); setTagInput(''); };
+  const tagSuggestions = React.useMemo(() => {
+    const mine = new Set((f.tags || []).map(tagKey));
+    const seen = new Map<string, string>();
+    for (const tag of ((members || []) as Member[]).flatMap((m: Member) => m.tags || [])) {
+      const k = tagKey(tag);
+      if (mine.has(k) || seen.has(k)) continue;
+      seen.set(k, tag);
+    }
+    const q = tagKey(tagInput.trim().replace(/^#/, ''));
+    return [...seen.values()]
+      .filter(tag => !q || tagKey(tag).includes(q))
+      .sort((a, b) => { const ka = tagKey(a), kb = tagKey(b); return ka < kb ? -1 : ka > kb ? 1 : 0; })
+      .slice(0, 30);
+  }, [members, f.tags, tagInput]);
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
   const [groupInfo, setGroupInfo] = useState<MemberGroup | null>(null);
+  const [groupOpen, setGroupOpen] = useState<Record<string, boolean>>({});
+  useEffect(() => { if (visible) setGroupOpen({}); }, [visible, member?.id]);
+  const [linkSel, setLinkSel] = useState<string[] | null>(null);
+  useEffect(() => { if (visible) setLinkSel(null); }, [visible, member?.id]);
+  const linkedIds = linkSel ?? linkedSubsystemsOf(groups || [], f.id).map((g: MemberGroup) => g.id);
+  const toggleLink = (gid: string) => setLinkSel(cur => {
+    const base = cur ?? linkedSubsystemsOf(groups || [], f.id).map((g: MemberGroup) => g.id);
+    return base.includes(gid) ? base.filter(x => x !== gid) : [...base, gid];
+  });
+  const applyLinks = async (memberId: string) => {
+    if (!linkSel) return;
+    const live = useAppStore.getState().groups;
+    const next = setSubsystemLinks(live, memberId, linkSel);
+    if (next !== live) await saveGroups(next);
+  };
   const doClone = async () => {
     const rnd = String(Math.floor(10000 + Math.random() * 90000));
     const clone: Member = {
@@ -121,8 +166,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const removeAvatar = async () => {
     Alert.alert(t('modal.removePfp'), t('modal.removeImageMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('common.remove'), style: 'destructive', onPress: async () => {
-        await deleteAvatar(f.id);
+      {text: t('common.remove'), style: 'destructive', onPress: () => {
         set('avatar', undefined);
       }},
     ]);
@@ -163,7 +207,12 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
   const relTypeName = (td: RelationshipTypeDef) => (td.preset && !td.overridden) ? t(`relType.${td.id}`, {defaultValue: td.name}) : td.name;
   const relTypeInverse = (td: RelationshipTypeDef) => !td.directional ? relTypeName(td) : ((td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`, {defaultValue: td.inverseName || td.name}) : (td.inverseName || td.name));
   const connRole = (r: Relationship) => { const td = relTypeMap.get(r.typeId); if (!td) return '?'; return r.fromId === f.id ? relTypeInverse(td) : relTypeName(td); };
-  const myConnections = relList.filter((r: Relationship) => r.fromId === f.id || r.toId === f.id);
+  const otherIsGone = (id: string) => {
+    const m = (members || []).find((x: Member) => x.id === id);
+    return !!m && !!m.deleted;
+  };
+  const myConnections = relList.filter((r: Relationship) =>
+    (r.fromId === f.id || r.toId === f.id) && !otherIsGone(r.fromId === f.id ? r.toId : r.fromId));
 
   const connRows: {key: string; otherId: string; name: string; note?: string; label: string; color: string; other: Member | undefined}[] =
     connectionsOverride
@@ -209,9 +258,9 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
     ) : (<>
       {!isNew && !confirmDel && <Btn instant variant="danger" T={T} disabled={isFronting} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>}
       {!isNew && !confirmDel && <Btn instant variant="ghost" T={T} onPress={() => setShowClone(true)}>{t('members.clone')}</Btn>}
-      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
+      {confirmDel && (<><Btn instant variant="danger" T={T} onPress={() => {clearDraft('member', draftId); onDelete(member.id); onClose();}}>{t('modal.confirmDelete')}</Btn><Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(false)}>{t('common.cancel')}</Btn></>)}
       {!confirmDel && <Btn instant variant="ghost" T={T} onPress={() => {clearDraft('member', draftId); onClose();}}>{t('common.cancel')}</Btn>}
-      {!confirmDel && <Btn instant T={T} onPress={async () => {Keyboard.dismiss(); const cur = fRef.current; const nm = (cur.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...cur, name: nm}); clearDraft('member', draftId); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
+      {!confirmDel && <Btn instant T={T} onPress={async () => {Keyboard.dismiss(); const cur = fRef.current; const nm = (cur.name || '').trim(); if (!nm) {Alert.alert(t('modal.nameRequired')); return;} try {await onSave({...cur, name: nm}); await applyLinks(cur.id); clearDraft('member', draftId); onClose();} catch (e: any) {Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''));}}}>{t('common.save')}</Btn>}</>)}>
 
       {!isNew && !profileMode && !readOnly && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 14}}
@@ -260,10 +309,10 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
           <TouchableOpacity onPress={f.avatar ? openViewPfp : undefined} activeOpacity={f.avatar ? 0.7 : 1}
             accessibilityRole={f.avatar ? 'button' : 'image'} accessibilityLabel={f.avatar ? t('modal.viewPfp') : (f.name || '?')}>
             {f.avatar ? (
-              <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: f.color}} resizeMode="cover" />
+              <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 80, height: 80, borderRadius: 18, borderWidth: 2, borderColor: bgOn ? T.border : f.color}} resizeMode="cover" />
             ) : (
-              <View style={{width: 80, height: 80, borderRadius: 18, backgroundColor: f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)'}}>
-                <Text style={{fontSize: fs(28), fontWeight: '700', color: initialOn(f.color), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
+              <View style={{width: 80, height: 80, borderRadius: 18, backgroundColor: bgOn ? T.surface : f.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: bgOn ? T.border : 'rgba(255,255,255,0.15)'}}>
+                <Text style={{fontSize: fs(28), fontWeight: '700', color: bgOn ? T.text : initialOn(f.color), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(f.name || '?')}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -280,8 +329,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         )}
 
         <View style={{flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginBottom: 10}}>
-          <View accessibilityLabel={`${profileMode ? t('profile.favoriteColor') : t('modal.color')}: ${f.color}`} style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: `${f.color}40`, backgroundColor: T.surface}}>
-            <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: f.color, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'}} />
+          <View accessibilityLabel={`${profileMode ? t('profile.favoriteColor') : t('modal.color')}: ${f.color}`} style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: edge, backgroundColor: T.surface}}>
+            <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: f.color, borderWidth: 1, borderColor: bgOn ? T.border : 'rgba(255,255,255,0.2)'}} />
             <Text style={{fontSize: fs(11), color: T.dim, fontFamily: 'monospace'}} accessibilityElementsHidden importantForAccessibility="no">{f.color}</Text>
           </View>
         </View>
@@ -289,7 +338,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         {!profileMode && (f.tags || []).length > 0 && (
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10}}>
             {(f.tags || []).map((tag: string) => (
-              <View key={tag} style={{paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${f.color}18`, borderWidth: 1, borderColor: `${f.color}40`}}>
+              <View key={tag} style={{paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: bgOn ? T.surface : `${f.color}18`, borderWidth: 1, borderColor: edge}}>
                 <Text style={{fontSize: fs(11), color: mc}}>{tag}</Text>
               </View>
             ))}
@@ -304,11 +353,32 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 <TouchableOpacity key={g.id} onPress={g.description ? () => setGroupInfo(g) : undefined} activeOpacity={g.description ? 0.7 : 1}
                   accessibilityRole="button" accessibilityLabel={g.name}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
-                    backgroundColor: `${g.color || T.accent}20`, borderColor: `${g.color || T.accent}50`}}>
+                    backgroundColor: bgOn ? T.surface : `${g.color || T.accent}20`, borderColor: bgOn ? T.border : `${g.color || T.accent}50`}}>
                   <View style={{width: 7, height: 7, borderRadius: groupKind(g) === 'subsystem' ? 1.5 : 3.5, backgroundColor: g.color || T.accent}} />
-                  <Text style={{fontSize: fs(11), color: g.color || T.accent}}>{g.name}</Text>
+                  <Text style={{fontSize: fs(11), color: bgOn ? ensureReadable(g.color || T.accent, T.surface, 4.5) : (g.color || T.accent)}}>{g.name}</Text>
                 </TouchableOpacity>
               ))}
+            </View>
+          );
+        })()}
+
+        {!lockRead && (() => {
+          const linkedSubs = sortGroupsForDisplay(linkedSubsystemsOf(groups || [], f.id), groups || []);
+          if (linkedSubs.length === 0) return null;
+          return (
+            <View style={{marginBottom: 12}}>
+              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 6, fontWeight: '600'}}>{t('memberGroups.linkedSubsystems')}</Text>
+              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7}}>
+                {linkedSubs.map((g: MemberGroup) => (
+                  <TouchableOpacity key={g.id} onPress={g.description ? () => setGroupInfo(g) : undefined} activeOpacity={g.description ? 0.7 : 1}
+                    accessibilityRole={g.description ? 'button' : undefined} accessibilityLabel={g.name}
+                    style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
+                      backgroundColor: bgOn ? T.surface : `${g.color || T.accent}20`, borderColor: bgOn ? T.border : `${g.color || T.accent}50`}}>
+                    <View style={{width: 7, height: 7, borderRadius: 1.5, backgroundColor: g.color || T.accent}} />
+                    <Text style={{fontSize: fs(11), color: bgOn ? ensureReadable(g.color || T.accent, T.surface, 4.5) : (g.color || T.accent)}}>{g.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           );
         })()}
@@ -316,7 +386,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         {f.description ? (
           <View style={{marginBottom: 14}}>
             <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
-            <View style={{backgroundColor: T.surface, borderWidth: 1, borderColor: `${f.color}40`, borderRadius: 8, padding: 12, minHeight: 80}}>
+            <View style={{backgroundColor: T.surface, borderWidth: 1, borderColor: edge, borderRadius: 8, padding: 12, minHeight: 80}}>
               <RichDescription text={f.description} T={T} members={members} onMentionPress={onMentionPress} />
             </View>
           </View>
@@ -400,33 +470,22 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 style={{width: 30, height: 30, borderRadius: 15, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
                 <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setShowHexEntry(s => { const next = !s; if (next) setHexInput((f.color || '').toUpperCase()); return next; })} activeOpacity={0.8}
-                accessibilityRole="button" accessibilityState={{expanded: showHexEntry}} accessibilityLabel={t('modal.customColor')}
+              <TouchableOpacity onPress={() => set('profileBg', !f.profileBg)} activeOpacity={0.8}
+                accessibilityRole="switch" accessibilityState={{checked: !!f.profileBg}} accessibilityLabel={t('modal.palBg')}
                 hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-                style={{width: 30, height: 30, borderRadius: 15, backgroundColor: T.surface, borderWidth: 2, borderColor: showHexEntry ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
-                <Text style={{fontSize: 14, fontWeight: '700', color: showHexEntry ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">#</Text>
+                style={{width: 30, height: 30, borderRadius: 15, backgroundColor: f.profileBg && isValidHex(f.color) ? f.color : T.surface, borderWidth: 2, borderColor: f.profileBg ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
+                <Text style={{fontSize: 12, fontWeight: '500', color: f.profileBg && isValidHex(f.color) ? inkOn(f.color) : T.dim, includeFontPadding: false, textAlign: 'center'}} allowFontScaling={false} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{t('modal.palBgShort')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setShowPicker(true)} activeOpacity={0.8}
+                accessibilityRole="button" accessibilityLabel={t('modal.customColor')}
+                hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+                style={{width: 30, height: 30, borderRadius: 15, backgroundColor: T.surface, borderWidth: 2, borderColor: T.border, alignItems: 'center', justifyContent: 'center'}}>
+                <Text style={{fontSize: 14, fontWeight: '700', color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">#</Text>
               </TouchableOpacity>
             </View>
-            {showHexEntry && (
-              <View style={{marginTop: 10}}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                  <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
-                    style={{width: 30, height: 30, borderRadius: 15, backgroundColor: isValidHex(normalizeHex(hexInput)) ? normalizeHex(hexInput) : T.surface, borderWidth: 2, borderColor: T.border}} />
-                  <TextInput value={hexInput} onChangeText={(v: string) => setHexInput(v.replace(/\s+/g, ''))} placeholder="#000000" placeholderTextColor={T.muted} maxLength={7} autoCapitalize="characters" autoCorrect={false}
-                    accessibilityLabel={t('modal.customColor')}
-                    style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: isValidHex(normalizeHex(hexInput)) || hexInput.length < 2 ? T.border : T.danger, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), fontFamily: 'monospace'}}
-                    onSubmitEditing={applyCustomHex} returnKeyType="done" />
-                  <TouchableOpacity onPress={applyCustomHex} disabled={!isValidHex(normalizeHex(hexInput))} activeOpacity={0.8}
-                    accessibilityRole="button" accessibilityLabel={t('common.confirm')} accessibilityState={{disabled: !isValidHex(normalizeHex(hexInput))}}
-                    style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: isValidHex(normalizeHex(hexInput)) ? `${T.accent}50` : T.border, backgroundColor: isValidHex(normalizeHex(hexInput)) ? T.accentBg : T.surface, opacity: isValidHex(normalizeHex(hexInput)) ? 1 : 0.5}}>
-                    <Text style={{fontSize: fs(12), fontWeight: '600', color: isValidHex(normalizeHex(hexInput)) ? T.accent : T.dim}}>{t('common.confirm')}</Text>
-                  </TouchableOpacity>
-                </View>
-                {hexInput.length >= 2 && !isValidHex(normalizeHex(hexInput)) && (
-                  <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.danger, marginTop: 4}}>{t('modal.invalidHex')}</Text>
-                )}
-              </View>
-            )}
+            <ColorPickerModal visible={showPicker} title={t('modal.customColor')} value={f.color} T={T}
+              onSave={(hex: string) => { set('color', hex); setShowPicker(false); }}
+              onClose={() => setShowPicker(false)} />
           </View>
         ) : (
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14}}>
@@ -443,20 +502,107 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             groups || [],
           );
           if (readOnly && visibleGroups.length === 0) return null;
+          const all: MemberGroup[] = groups || [];
+          const selected = new Set(f.groupIds || []);
+          const chip = (g: MemberGroup, extra?: React.ReactNode) => {
+            const active = selected.has(g.id);
+            return (
+              <TouchableOpacity key={g.id} onPress={readOnly ? (g.description ? () => setGroupInfo(g) : undefined) : () => togGroup(g.id)} activeOpacity={readOnly && !g.description ? 1 : 0.7}
+                accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={g.name}
+                style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                  backgroundColor: active ? `${g.color || T.accent}20` : T.surface, borderColor: active ? `${g.color || T.accent}50` : T.border}}>
+                <View style={{width: 7, height: 7, borderRadius: groupKind(g) === 'subsystem' ? 1.5 : 3.5, backgroundColor: g.color || T.accent}} />
+                <Text style={{fontSize: fs(12), color: active ? (g.color || T.accent) : T.dim}}>{g.name}</Text>
+                {active && !readOnly && <Text style={{fontSize: fs(11), fontWeight: '700', color: g.color || T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                {extra}
+              </TouchableOpacity>
+            );
+          };
+          if (readOnly) {
+            return (
+              <>
+                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
+                <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14}}>{visibleGroups.map((g: MemberGroup) => chip(g))}</View>
+              </>
+            );
+          }
+          const isOpen = (g: MemberGroup): boolean =>
+            g.id in groupOpen ? groupOpen[g.id] : descendantsOf(all, g.id).some(d => selected.has(d.id));
+          const toggleOpen = (g: MemberGroup) => setGroupOpen(prev => ({...prev, [g.id]: !isOpen(g)}));
+          const exists = new Set(all.map(g => g.id));
+          const roots = all
+            .filter(g => { const p = groupParent(g); return p === null || !exists.has(p); })
+            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || nameCompare(a.name, b.name));
+          const reachable = new Set<string>();
+          const mark = (g: MemberGroup) => { if (reachable.has(g.id)) return; reachable.add(g.id); for (const c of childrenOf(all, g.id)) mark(c); };
+          roots.forEach(mark);
+          const unreached = all.filter(g => !reachable.has(g.id));
+          const seen = new Set<string>();
+          const renderLevel = (parentId: string | null, depth: number): React.ReactNode => {
+            const kids = (parentId === null ? roots : childrenOf(all, parentId)).filter(g => !seen.has(g.id));
+            kids.forEach(g => seen.add(g.id));
+            const leaves = kids.filter(g => childrenOf(all, g.id).length === 0);
+            const parents = kids.filter(g => childrenOf(all, g.id).length > 0);
+            return (
+              <View style={{paddingLeft: depth === 0 ? 0 : 16, gap: 7}}>
+                {leaves.length > 0 && (
+                  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7}}>{leaves.map(g => chip(g))}</View>
+                )}
+                {parents.map(g => {
+                  const open = isOpen(g);
+                  const activeKids = descendantsOf(all, g.id).filter(d => selected.has(d.id)).length;
+                  return (
+                    <View key={g.id} style={{gap: 7}}>
+                      <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                        {chip(g)}
+                        <TouchableOpacity onPress={() => toggleOpen(g)} activeOpacity={0.7} hitSlop={{top: 6, bottom: 6, left: 6, right: 6}}
+                          accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={g.name}
+                          style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}>
+                          {!open && activeKids > 0 && <Text style={{fontSize: fs(10), fontWeight: '600', color: g.color || T.accent}}>{activeKids}</Text>}
+                          <Text style={{fontSize: fs(10), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{open ? '▽' : '▷'}</Text>
+                        </TouchableOpacity>
+                      </View>
+                      {open && renderLevel(g.id, depth + 1)}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          };
           return (
             <>
               <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
+              <View style={{marginBottom: 14, gap: 7}}>
+                {renderLevel(null, 0)}
+                {unreached.length > 0 && (
+                  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7}}>{unreached.map(g => chip(g))}</View>
+                )}
+              </View>
+            </>
+          );
+        })()}
+
+        {!lockRead && (() => {
+          const subs = sortGroupsForDisplay((groups || []).filter((g: MemberGroup) => groupKind(g) === 'subsystem'), groups || []);
+          if (subs.length === 0) return null;
+          return (
+            <>
+              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.linkedSubsystems')}</Text>
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14}}>
-                {visibleGroups.map((g: MemberGroup) => {
-                  const active = (f.groupIds || []).includes(g.id);
+                {subs.map((g: MemberGroup) => {
+                  const on = linkedIds.includes(g.id);
+                  const other = !on && g.linkedMemberId && g.linkedMemberId !== f.id
+                    ? (members || []).find((m: Member) => m.id === g.linkedMemberId && !m.deleted)
+                    : undefined;
                   return (
-                    <TouchableOpacity key={g.id} onPress={readOnly ? (g.description ? () => setGroupInfo(g) : undefined) : () => togGroup(g.id)} activeOpacity={readOnly && !g.description ? 1 : 0.7}
-                      accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={g.name}
+                    <TouchableOpacity key={g.id} onPress={() => toggleLink(g.id)} activeOpacity={0.7}
+                      accessibilityRole="checkbox" accessibilityState={{checked: on}}
+                      accessibilityLabel={other ? `${g.name}, ${t('memberGroups.linkedFronter')}: ${other.name}` : g.name}
                       style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-                        backgroundColor: active ? `${g.color || T.accent}20` : T.surface, borderColor: active ? `${g.color || T.accent}50` : T.border}}>
-                      <View style={{width: 7, height: 7, borderRadius: groupKind(g) === 'subsystem' ? 1.5 : 3.5, backgroundColor: g.color || T.accent}} />
-                      <Text style={{fontSize: fs(12), color: active ? (g.color || T.accent) : T.dim}}>{g.name}</Text>
-                      {active && !readOnly && <Text style={{fontSize: fs(11), fontWeight: '700', color: g.color || T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
+                        backgroundColor: on ? `${g.color || T.accent}20` : T.surface, borderColor: on ? `${g.color || T.accent}50` : T.border}}>
+                      <View style={{width: 7, height: 7, borderRadius: 1.5, backgroundColor: g.color || T.accent}} />
+                      <Text style={{fontSize: fs(12), color: on ? (g.color || T.accent) : T.dim}}>{g.name}{other ? `  ·  ${other.name}` : ''}</Text>
+                      {on && <Text style={{fontSize: fs(11), fontWeight: '700', color: g.color || T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                     </TouchableOpacity>
                   );
                 })}
@@ -487,6 +633,17 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
             <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
           </View>
         )}
+        {!readOnly && tagSuggestions.length > 0 && (
+          <View accessibilityRole="list" accessibilityLabel={t('members.allTags')} style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: -6, marginBottom: 14}}>
+            {tagSuggestions.map(tag => (
+              <TouchableOpacity key={tagKey(tag)} onPress={() => applyTag(tag)} activeOpacity={0.7}
+                accessibilityRole="button" accessibilityLabel={`${t('common.add')} ${tag}`}
+                style={{paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', backgroundColor: T.surface, borderColor: T.border}}>
+                <Text style={{fontSize: fs(12), color: T.dim}}>{tag}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         </>)}
 
         {(!readOnly || f.description) && (
@@ -502,6 +659,18 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
         {!readOnly && <RichTextEditor visible={showDescEditor} title={t('modal.descriptionBio')} initialContent={f.description || ''} theme={T}
           members={members}
           onSave={(html: string) => {set('description', html); setShowDescEditor(false);}} onClose={() => setShowDescEditor(false)} />}
+
+        {!readOnly && !profileMode && (
+          <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4, marginBottom: isNew ? 0 : 14}}>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+              <View style={{flex: 1}}>
+                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.private')}</Text>
+                <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.privateDesc')}</Text>
+              </View>
+              <ToggleSwitch value={!!f.private} onToggle={() => set('private', !f.private)} label={t('modal.private')} T={T} style={{marginLeft: 12}} />
+            </View>
+          </View>
+        )}
 
         {!isNew && !readOnly && (
           <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}}>
@@ -525,7 +694,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
           if (readOnly && visibleDefs.length === 0) return null;
           return (<>
           {readOnly && (
-            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 8, fontWeight: '600', borderTopWidth: 1, borderTopColor: `${f.color}40`, paddingTop: 14}}>{t('customFields.title')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 8, fontWeight: '600', borderTopWidth: 1, borderTopColor: edge, paddingTop: 14}}>{t('customFields.title')}</Text>
           )}
           {visibleDefs.length > 0 ? visibleDefs.map((fd, fdIndex) => {
             const cfv = (f.customFields || []).find(v => v.fieldId === fd.id);
@@ -703,9 +872,10 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                       value={val === null || val === '' ? '' : String(val)}
                       onChangeText={(raw: string) => {
                         const cleaned = raw.replace(/[^0-9.\-]/g, '');
-                        if (cleaned === '' || cleaned === '-' || cleaned === '.') { setFieldVal(fd.id, null); return; }
+                        if (cleaned === '') { setFieldVal(fd.id, null); return; }
                         const n = Number(cleaned);
-                        if (Number.isFinite(n)) setFieldVal(fd.id, n);
+                        if (Number.isFinite(n) && !/[.\-]$/.test(cleaned) && cleaned !== '.') setFieldVal(fd.id, n);
+                        else setFieldVal(fd.id, cleaned);
                       }}
                       accessibilityLabel={fd.name} placeholder={fd.name}
                       placeholderTextColor={T.muted}
@@ -733,7 +903,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       {(memberTab === 'connections' || (readOnly && !profileMode)) && !isNew && (!readOnly || connRows.length > 0 || onShowOnMap) && (
         <View>
           {readOnly && (
-            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 8, fontWeight: '600', borderTopWidth: 1, borderTopColor: `${f.color}40`, paddingTop: 14}}>{t('systemMap.connections')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 8, fontWeight: '600', borderTopWidth: 1, borderTopColor: edge, paddingTop: 14}}>{t('systemMap.connections')}</Text>
           )}
           {onShowOnMap && (
             <TouchableOpacity onPress={() => onShowOnMap(f.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.showOnMap')}
@@ -752,8 +922,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
                 <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{row.name}</Text>
                 {row.note ? <Text style={{fontSize: fs(11), color: T.muted}} numberOfLines={1}>{row.note}</Text> : null}
               </View>
-              <View style={{backgroundColor: `${row.color}20`, borderWidth: 1, borderColor: `${row.color}60`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3}}>
-                <Text style={{fontSize: fs(10), color: row.color}}>{row.label}</Text>
+              <View style={{backgroundColor: bgOn ? T.surface : `${row.color}20`, borderWidth: 1, borderColor: bgOn ? T.border : `${row.color}60`, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3}}>
+                <Text style={{fontSize: fs(10), color: bgOn ? ensureReadable(row.color, T.surface, 4.5) : row.color}}>{row.label}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -763,7 +933,8 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
       {visible && <ImageCropHost theme={T} />}
       <Modal visible={viewPfp && !!f.avatar} transparent animationType="fade" onRequestClose={() => setViewPfp(false)}>
         <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', padding: 16}} activeOpacity={1}
-          onPress={() => setViewPfp(false)} accessibilityRole="button" accessibilityLabel={t('common.close')}>
+          onPress={() => setViewPfp(false)} accessibilityRole="button" accessibilityLabel={t('common.close')}
+          accessibilityViewIsModal onAccessibilityEscape={() => setViewPfp(false)}>
           <Image source={{uri: pfpFull || f.avatar}} style={{width: '100%', height: '80%', borderRadius: 12}} resizeMode="contain"
             accessibilityRole="image" accessibilityLabel={t('modal.viewPfpOf', {name: f.name || '?'})} />
           <Text style={{fontSize: fs(13), color: T.dim, marginTop: 16}}>{t('common.close')}</Text>
@@ -790,7 +961,7 @@ export const MemberModal = ({visible, theme: T, member, members, groups, setting
 
       <Modal visible={showClone} transparent animationType="fade" onRequestClose={() => setShowClone(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
-          <View style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setShowClone(false)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 4}}>{t('members.clone')}</Text>
             <Text style={{fontSize: fs(12), color: T.dim, paddingHorizontal: 16, paddingBottom: 8}}>{t('members.cloneFields')}</Text>
             {([['name', t('modal.name')], ['pronouns', t('modal.pronouns')], ['role', t('modal.role')], ['color', t('memberProfile.color')], ['description', t('modal.descriptionLabel')]] as ['name' | 'pronouns' | 'role' | 'color' | 'description', string][]).map(([k, label]) => {

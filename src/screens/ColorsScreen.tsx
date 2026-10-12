@@ -6,6 +6,7 @@ import {fontScale, ThemeColors} from '../theme';
 import {ColorPicker} from '../components/ColorPicker';
 import {PRESET_COLORS, PresetColor, presetColorName, COLOR_SETS, ColorSet, MAX_CUSTOM_COLORS, normalizeCustomColors, isValidHex, normalizeHex} from '../utils';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
 import {logError} from '../utils/log';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
@@ -30,7 +31,9 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
   const [editValue, setEditValue] = useState('#FF0000');
 
   useEffect(() => {
-    store.get<string[]>(KEYS.customColors, []).then(v => setCustomColors(normalizeCustomColors(v)));
+    const load = () => { store.get<string[]>(KEYS.customColors, []).then(v => setCustomColors(normalizeCustomColors(v))); };
+    load();
+    return NetworkManager.onSyncApplied(load);
   }, []);
 
   const saveColors = (next: string[]) => {
@@ -114,7 +117,7 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
 
       <Modal visible={editing} transparent animationType="fade" onRequestClose={() => setEditSlot(null)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20, paddingBottom: 20 + kb}}>
-          <View style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setEditSlot(null)} style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <Text accessibilityRole="header" style={{fontSize: fs(14), fontWeight: '600', color: T.text, marginBottom: 12}}>{t('colors.customSlot', {n: (editSlot ?? 0) + 1})}</Text>
             <ColorPicker value={editValue} onChange={setEditValue} T={T} />
             <View style={{flexDirection: 'row', gap: 8, marginTop: 14}}>

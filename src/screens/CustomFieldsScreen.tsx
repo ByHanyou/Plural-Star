@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, AccessibilityInfo, findNodeHandle, LayoutChangeEvent} from 'react-native';
 import {KeyboardAwareScrollView, KeyboardStickyView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useDragReorder} from '../hooks/useDragReorder';
@@ -8,6 +8,9 @@ import {useTranslation} from 'react-i18next';
 import {fontScale, ThemeColors} from '../theme';
 import {CustomFieldDef, CustomFieldType, uid} from '../utils';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
+import {useAppStore} from '../store/appStore';
+import {saveMembers} from '../store/actions';
 
 const FIELD_TYPES: {type: CustomFieldType; label: string; icon: string}[] = [
   {type: 'text', label: 'Text', icon: 'Tt'},
@@ -38,6 +41,12 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [newType, setNewType] = useState<CustomFieldType>('text');
   const [newMarkdown, setNewMarkdown] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [barH, setBarH] = useState(0);
+  const onBarLayout = (e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    setBarH(prev => (Math.abs(prev - h) > 1 ? h : prev));
+  };
+  const clearance = Math.max(barH, 64) + 24;
   const [editId, setEditId] = useState<string | null>(null);
   const [retypeId, setRetypeId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -58,7 +67,9 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const {drag, dragging, registerHeight, makeHandlePanHandlers} = useDragReorder({enabled: reorderOn, onDrop: onDropField});
 
   useEffect(() => {
-    store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || []));
+    const load = () => { store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || [])); };
+    load();
+    return NetworkManager.onSyncApplied(load);
   }, []);
 
   const save = async (updated: CustomFieldDef[]) => {
@@ -77,7 +88,12 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const deleteField = (id: string) => {
     Alert.alert(t('customFields.deleteField'), t('customFields.deleteFieldMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('common.delete'), style: 'destructive', onPress: () => save(fields.filter(f => f.id !== id))},
+      {text: t('common.delete'), style: 'destructive', onPress: () => {
+        save(fields.filter(f => f.id !== id));
+        const members = useAppStore.getState().members;
+        const cleaned = members.map(m => (m.customFields || []).some(v => v.fieldId === id) ? {...m, customFields: (m.customFields || []).filter(v => v.fieldId !== id)} : m);
+        if (cleaned.some((m, i) => m !== members[i])) saveMembers(cleaned).catch(() => {});
+      }},
     ]);
   };
 
@@ -121,7 +137,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
 
   return (
     <View style={{flex: 1}}>
-      <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: 100}} scrollEnabled={!dragging} bottomOffset={80}>
+      <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: clearance}} scrollEnabled={!dragging} bottomOffset={clearance}>
         {fields.length > 1 && (
           <View style={{flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10}}>
             <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
@@ -230,7 +246,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
       </KeyboardAwareScrollView>
 
       <KeyboardStickyView style={{position: 'absolute', bottom: 0, left: 0, right: 0}}>
-      <View style={{backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
+      <View onLayout={onBarLayout} style={{backgroundColor: T.surface, borderTopWidth: 1, borderTopColor: T.border, padding: 12}}>
         <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
           <TextInput value={newName} onChangeText={setNewName} accessibilityLabel={t('customFields.fieldName')} placeholder={t('customFields.fieldName')} placeholderTextColor={T.muted}
             style={{flex: 1, backgroundColor: T.bg, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
@@ -248,7 +264,8 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
         </View>
 
         {showTypePicker && (
-          <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, marginTop: 8, overflow: 'hidden'}}>
+          <ScrollView style={{maxHeight: 240, marginTop: 8}} keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             {FIELD_TYPES.map(ft => (
               <TouchableOpacity key={ft.type} onPress={() => {setNewType(ft.type); setShowTypePicker(false);}} activeOpacity={0.7}
                 accessibilityRole="menuitem" accessibilityState={{selected: newType === ft.type}} accessibilityLabel={typeLabel(ft.type)}
@@ -258,7 +275,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
                 <Text style={{fontSize: fs(13), color: newType === ft.type ? T.accent : T.text, fontWeight: newType === ft.type ? '600' : '400'}}>{typeLabel(ft.type)}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         )}
       </View>
       </KeyboardStickyView>

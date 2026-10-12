@@ -18,7 +18,9 @@ interface Props {
   members?: Member[];
 }
 
-const MD_TOOLS: {label: string; a11y: string; before: string; after: string; bold?: boolean; italic?: boolean; strike?: boolean}[] = [
+type MdTool = {label: string; a11y: string; before: string; after: string; bold?: boolean; italic?: boolean; strike?: boolean; side?: 'left' | 'right'};
+
+const MD_TOOLS: MdTool[] = [
   {label: 'B', a11y: 'markdown.toolBold', before: '**', after: '**', bold: true},
   {label: 'I', a11y: 'markdown.toolItalic', before: '*', after: '*', italic: true},
   {label: 'S', a11y: 'markdown.toolStrike', before: '~~', after: '~~', strike: true},
@@ -27,6 +29,8 @@ const MD_TOOLS: {label: string; a11y: string; before: string; after: string; bol
   {label: 'H3', a11y: 'markdown.toolH3', before: '### ', after: ''},
   {label: '🔗', a11y: 'markdown.toolLink', before: '[', after: '](url)'},
   {label: '🖼', a11y: 'markdown.toolImage', before: '<img src="', after: '" width="100" height="100">'},
+  {label: '🖼≡', a11y: 'markdown.toolImageLeft', before: '', after: '', side: 'left'},
+  {label: '≡🖼', a11y: 'markdown.toolImageRight', before: '', after: '', side: 'right'},
   {label: '•', a11y: 'markdown.toolBullets', before: '- ', after: ''},
   {label: '1.', a11y: 'markdown.toolNumbered', before: '1. ', after: ''},
   {label: '❝', a11y: 'markdown.toolQuote', before: '> ', after: ''},
@@ -34,14 +38,14 @@ const MD_TOOLS: {label: string; a11y: string; before: string; after: string; bol
   {label: '—', a11y: 'markdown.toolDivider', before: '\n---\n', after: ''},
 ];
 
-const MdToolbar = ({onInsert, T}: {onInsert: (before: string, after: string) => void; T: ThemeColors}) => {
+const MdToolbar = ({onInsert, T}: {onInsert: (tool: MdTool) => void; T: ThemeColors}) => {
   const fs = fontScale(T);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
       style={{maxHeight: 40, flexGrow: 0, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}
       contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 6, gap: 6, flexDirection: 'row', alignItems: 'center'}}>
       {MD_TOOLS.map(tool => (
-        <TouchableOpacity key={tool.label} onPress={() => onInsert(tool.before, tool.after)} activeOpacity={0.7}
+        <TouchableOpacity key={tool.label} onPress={() => onInsert(tool)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={i18n.t(tool.a11y)}
           style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: T.border, backgroundColor: T.bg}}>
           <Text style={{fontSize: fs(12), fontWeight: tool.bold ? '700' : '500', fontStyle: tool.italic ? 'italic' : 'normal', textDecorationLine: tool.strike ? 'line-through' : 'none', color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{tool.label}</Text>
@@ -154,19 +158,33 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
     return () => { s1.remove(); s2.remove(); };
   }, []);
 
-  const insertAtCursor = (build: (prior: string) => string) => {
+  const insertAtCursor = (build: (prior: string, rest: string) => string) => {
     setText(prev => {
       const at = Math.min(Math.max(selEndRef.current, 0), prev.length);
       const prior = prev.slice(0, at);
-      const snippet = build(prior);
+      const rest = prev.slice(at);
+      const snippet = build(prior, rest);
       selEndRef.current = at + snippet.length;
-      return prior + snippet + prev.slice(at);
+      return prior + snippet + rest;
     });
   };
 
   const insertFormat = (before: string, after: string) => {
     const placeholder = before.includes('<img') ? i18n.t('editor.urlPlaceholder') : (after ? i18n.t('editor.textPlaceholder') : '');
     insertAtCursor(() => before + placeholder + after);
+  };
+
+  const insertSidePicture = (side: 'left' | 'right') => {
+    insertAtCursor((prior, rest) => {
+      const lead = prior && !prior.endsWith('\n') ? '\n' : '';
+      const tail = !rest || rest.startsWith('\n\n') ? '' : rest.startsWith('\n') ? '\n' : '\n\n';
+      return `${lead}<img src="${i18n.t('editor.urlPlaceholder')}" width="100" height="100" align="${side}">\n${i18n.t('editor.textPlaceholder')}${tail}`;
+    });
+  };
+
+  const insertTool = (tool: MdTool) => {
+    if (tool.side) insertSidePicture(tool.side);
+    else insertFormat(tool.before, tool.after);
   };
 
   const insertMention = (m: Member) => {
@@ -198,7 +216,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
       </View>
       <View style={{flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}>
         <View style={{flex: 1}}>
-          <MdToolbar onInsert={insertFormat} T={T} />
+          <MdToolbar onInsert={insertTool} T={T} />
         </View>
         {members && members.length > 0 && (
           <TouchableOpacity onPress={() => setShowMentionPicker(true)} activeOpacity={0.7}

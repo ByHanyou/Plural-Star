@@ -6,7 +6,7 @@ import {useTranslation} from 'react-i18next';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {loadChatMessages} from '../store/actions';
-import {Member, HistoryEntry, fmtDur, fmtNum, fmtPercent, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
+import {Member, HistoryEntry, fmtDur, fmtNum, fmtPercent, fmtClock, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
 import {getTierNameOverride} from '../i18n/terminology';
@@ -187,22 +187,6 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
 
   const getMember = (id: string) => members.find(m => m.id === id);
 
-  const RangeBtn = ({id, label}: {id: TimeRange; label: string}) => (
-    <TouchableOpacity onPress={() => setRange(id)} activeOpacity={0.7}
-      accessibilityRole="button" accessibilityState={{selected: range === id}}
-      style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
-        backgroundColor: range === id ? `${T.accent}20` : T.surface, borderColor: range === id ? `${T.accent}60` : T.border}}>
-      <Text style={{fontSize: fs(12), color: range === id ? T.accent : T.dim, fontWeight: range === id ? '600' : '400'}}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  const StatCard = ({label, value, accent}: {label: string; value: string; accent?: boolean}) => (
-    <View style={{flex: 1, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12}}>
-      <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
-      <Text style={{fontSize: fs(16), fontWeight: '700', color: accent ? T.accent : T.text}}>{value}</Text>
-    </View>
-  );
-
   const rankColor = (i: number) => i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : T.dim;
 
   const ShowMoreRow = ({boardKey, total, limit}: {boardKey: string; total: number; limit: number}) => {
@@ -298,10 +282,10 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
   return (
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} bottomOffset={24}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16}}>
-        <RangeBtn id="all" label={t('stats.allTime')} />
-        <RangeBtn id="7d" label={t('stats.last7')} />
-        <RangeBtn id="30d" label={t('stats.last30')} />
-        <RangeBtn id="custom" label={t('stats.customRange')} />
+        <RangeBtn selected={range} onSelect={setRange} T={T} id="all" label={t('stats.allTime')} />
+        <RangeBtn selected={range} onSelect={setRange} T={T} id="7d" label={t('stats.last7')} />
+        <RangeBtn selected={range} onSelect={setRange} T={T} id="30d" label={t('stats.last30')} />
+        <RangeBtn selected={range} onSelect={setRange} T={T} id="custom" label={t('stats.customRange')} />
       </View>
 
       {range === 'custom' && (
@@ -359,9 +343,9 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       )}
 
       <View style={{flexDirection: 'row', gap: 8, marginBottom: 16}}>
-        <StatCard label={t('stats.totalTime')} value={fmtDur(0, stats.totalMs)} accent />
-        <StatCard label={t('stats.sessions')} value={String(stats.totalSessions)} />
-        {!singlet && <StatCard label={t('stats.messages')} value={String(stats.totalMessages)} />}
+        <StatCard T={T} label={t('stats.totalTime')} value={fmtDur(0, stats.totalMs)} accent />
+        <StatCard T={T} label={t('stats.sessions')} value={String(stats.totalSessions)} />
+        {!singlet && <StatCard T={T} label={t('stats.messages')} value={String(stats.totalMessages)} />}
       </View>
 
       <FrontLeaderboard />
@@ -393,7 +377,9 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       {stats.peakHours.some((v: number) => v > 0) && (
         <View style={{marginBottom: 16}}>
           <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.peakHours')}</Text>
-          <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
+          <View accessible accessibilityRole="image"
+            accessibilityLabel={`${t('stats.peakHours')}: ${(stats.peakHours as number[]).map((c, h) => c > 0 ? `${fmtClock(h, 0)} (${fmtNum(c)})` : '').filter(Boolean).join(', ')}`}
+            style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
             {stats.peakHours.map((count: number, h: number) => {
               const max = Math.max(...stats.peakHours as number[], 1);
               return (
@@ -403,7 +389,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
               );
             })}
           </View>
-          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}}>
+          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {stats.peakHours.map((_: number, h: number) => (
               <View key={h} style={{flex: 1, alignItems: 'center'}}>
                 <Text style={{fontSize: fs(7), color: T.muted}}>{h % 6 === 0 ? h : ''}</Text>
@@ -419,14 +405,16 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
             <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('stats.energyByHour')}</Text>
             <Text style={{fontSize: fs(9), color: T.muted}}>{t('energy.outOf10')}</Text>
           </View>
-          <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
+          <View accessible accessibilityRole="image"
+            accessibilityLabel={`${t('stats.energyByHour')}, ${t('energy.outOf10')}: ${(stats.energyByHour as number[]).map((avg, h) => avg > 0 ? `${fmtClock(h, 0)} (${fmtNum(avg, 1)})` : '').filter(Boolean).join(', ')}`}
+            style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
             {stats.energyByHour.map((avg: number, h: number) => (
               <View key={h} style={{flex: 1, justifyContent: 'flex-end', height: '100%'}}>
                 <View style={{width: '100%', height: avg > 0 ? Math.max((avg / 10) * 45, 2) : 1, backgroundColor: avg > 0 ? T.accent : `${T.dim}40`, borderRadius: 1}} />
               </View>
             ))}
           </View>
-          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}}>
+          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {stats.energyByHour.map((_: number, h: number) => (
               <View key={h} style={{flex: 1, alignItems: 'center'}}>
                 <Text style={{fontSize: fs(7), color: T.muted}}>{h % 6 === 0 ? h : ''}</Text>
@@ -437,7 +425,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       )}
 
       <View style={{marginBottom: 16}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.statusDetails') : t('stats.topCoMembers')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.statusDetails') : t('stats.memberDetails')}</Text>
         {(() => {
           const eligible = (m: Member) => !m.archived && (!singlet || (m.isCustomFront && !SINGLET_HIDDEN_STATUS_NAMES.includes(m.name)));
           const chip = (m: Member) => (
@@ -501,7 +489,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
           const coGroups: {key: string; label: string; all: [string, number][]}[] = singlet
             ? [{key: 'coMembers', label: t('stats.coStatuses'), all: topCoAll}]
             : [
-              {key: 'coMembers', label: t('stats.topCoMembers'), all: topCoAll.filter(([id]) => coKind(id) === 'member')},
+              {key: 'coMembers', label: t('members.title'), all: topCoAll.filter(([id]) => coKind(id) === 'member')},
               {key: 'coFacets', label: t('members.facets'), all: topCoAll.filter(([id]) => coKind(id) === 'facet')},
               {key: 'coCustomFronts', label: t('members.customFronts'), all: topCoAll.filter(([id]) => coKind(id) === 'customFront')},
             ];
@@ -556,3 +544,25 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
     </KeyboardAwareScrollView>
   );
 };
+
+function RangeBtn({id, label, selected, onSelect, T}: {id: TimeRange; label: string; selected: TimeRange; onSelect: (id: TimeRange) => void; T: ThemeColors}) {
+  const fs = fontScale(T);
+  return (
+  <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.7}
+    accessibilityRole="button" accessibilityState={{selected: selected === id}}
+    style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
+      backgroundColor: selected === id ? `${T.accent}20` : T.surface, borderColor: selected === id ? `${T.accent}60` : T.border}}>
+    <Text style={{fontSize: fs(12), color: selected === id ? T.accent : T.dim, fontWeight: selected === id ? '600' : '400'}}>{label}</Text>
+  </TouchableOpacity>
+  );
+}
+
+function StatCard({label, value, accent, T}: {label: string; value: string; accent?: boolean; T: ThemeColors}) {
+  const fs = fontScale(T);
+  return (
+  <View style={{flex: 1, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12}}>
+    <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
+    <Text style={{fontSize: fs(16), fontWeight: '700', color: accent ? T.accent : T.text}}>{value}</Text>
+  </View>
+  );
+}

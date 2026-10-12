@@ -4,6 +4,7 @@ import Svg, {G, Path} from 'react-native-svg';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {store, KEYS} from '../storage';
+import {NetworkManager} from '../network/NetworkManager';
 import {uid} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {logError} from '../utils/log';
@@ -64,7 +65,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
 
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [current, setCurrent] = useState<Stroke | null>(null);
-  const [color, setColor] = useState('#FFFFFF');
+  const [color, setColor] = useState(T.text);
   const [width, setWidth] = useState(WIDTHS[2]);
   const [tool, setTool] = useState<Tool>('draw');
   const [view, setView] = useState({tx: 0, ty: 0, scale: 1});
@@ -99,10 +100,12 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const setCursor = (c: {x: number; y: number}) => { voCursorRef.current = c; setVoCursor(c); };
 
   useEffect(() => {
-    (async () => {
+    const load = async () => {
       const saved = await store.get<Stroke[]>(KEYS.whiteboard, []);
       if (saved && Array.isArray(saved)) setStrokes(saved.filter(s => s && Array.isArray(s.pts) && s.pts.length >= 2));
-    })();
+    };
+    load();
+    return NetworkManager.onSyncApplied(() => { if (!dirtyRef.current) load(); });
   }, []);
 
   const persist = useCallback((next: Stroke[]) => {
@@ -183,7 +186,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
 
   useEffect(() => {
     if (tool !== 'poly' && polyPtsRef.current) cancelPoly();
-  }, [tool]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tool]);
 
   const eraseAt = (wx: number, wy: number) => {
     const radius = widthRef.current;
@@ -323,15 +326,16 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     },
   }), [persist]);
 
-  const bucketFill = (wx: number, wy: number) => {
+  const bucketFill = (wx: number, wy: number): boolean => {
     const region = traceEnclosedRegion(wx, wy, strokesRef.current);
-    if (region === null) return;
+    if (region === null) return false;
     const fill: Stroke = Array.isArray(region)
       ? {id: uid(), c: colorRef.current, w: -2, pts: region}
       : {id: uid(), c: colorRef.current, w: -1, pts: [0, 0, 0, 0]};
     const next = [...strokesRef.current, fill];
     setStrokes(next);
     persist(next);
+    return true;
   };
 
   const undo = () => {
@@ -527,6 +531,8 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         accessibilityHint={t('whiteboard.voLearnHint')}
         onAccessibilityTap={voWhere}
         accessibilityActions={[
+          {name: 'increment'},
+          {name: 'decrement'},
           {name: 'draw_up', label: t('whiteboard.voDrawUp')},
           {name: 'draw_down', label: t('whiteboard.voDrawDown')},
           {name: 'draw_left', label: t('whiteboard.voDrawLeft')},
@@ -559,7 +565,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
             case 'move_down': voMove(0, 1, 'whiteboard.voDown', false); break;
             case 'move_left': voMove(-1, 0, 'whiteboard.voLeft', false); break;
             case 'move_right': voMove(1, 0, 'whiteboard.voRight', false); break;
-            case 'fill': voStrokeIdRef.current = null; bucketFill(voCursorRef.current.x, voCursorRef.current.y); voAnnounce(t('whiteboard.voFilled')); break;
+            case 'fill': voStrokeIdRef.current = null; voAnnounce(bucketFill(voCursorRef.current.x, voCursorRef.current.y) ? t('whiteboard.voFilled') : t('whiteboard.voFillNone')); break;
             case 'shape_line': voPlaceShape('line'); break;
             case 'shape_rect': voPlaceShape('rect'); break;
             case 'shape_ellipse': voPlaceShape('ellipse'); break;
@@ -599,7 +605,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       </View>
       <Modal visible={voHelpOpen} transparent animationType="fade" onRequestClose={() => setVoHelpOpen(false)}>
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', padding: 24}}>
-          <View style={{backgroundColor: T.card, borderRadius: 12, padding: 16, maxHeight: '80%'}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setVoHelpOpen(false)} style={{backgroundColor: T.card, borderRadius: 12, padding: 16, maxHeight: '80%'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(17), fontWeight: '700', color: T.text, marginBottom: 8}}>{t('whiteboard.voCommands')}</Text>
             <ScrollView>
               <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 12}}>{t('whiteboard.voHint')}</Text>

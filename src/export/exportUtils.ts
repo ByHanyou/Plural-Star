@@ -16,6 +16,9 @@ import {
   ExportPayload,
   fmtTime,
   fmtDur,
+  getLocale,
+  truncateRunes,
+  fileSlug,
 } from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
 import {parallelMap} from '../utils/concurrency';
@@ -182,14 +185,14 @@ const buildEmailBody = (
   history: HistoryEntry[],
   journal: JournalEntry[],
 ): string => {
-  const realMembers = members.filter(m => !m.isCustomFront && !m.isFacet);
+  const realMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
   const mList = realMembers
     .map(m => `• ${m.name}${m.pronouns ? ` (${m.pronouns})` : ''}${m.role ? ` — ${m.role}` : ''}`)
     .join('\n');
 
   const jList = journal
     .slice(0, 10)
-    .map(e => `[${fmtTime(e.timestamp)}] ${e.title || i18n.t('common.untitled')}\n${e.body?.slice(0, 300) || ''}${(e.body?.length ?? 0) > 300 ? '…' : ''}`)
+    .map(e => `[${fmtTime(e.timestamp)}] ${e.title || i18n.t('common.untitled')}\n${truncateRunes(e.body || '', 300, '…')}`)
     .join('\n\n---\n\n');
 
   const hList = history
@@ -200,7 +203,7 @@ const buildEmailBody = (
     })
     .join('\n');
 
-  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString(i18n.language)}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
+  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString(getLocale())}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
 };
 
 
@@ -215,8 +218,41 @@ const mimeFor = (filename: string): string => {
   return 'text/plain';
 };
 
+const STREAM_CHUNK_CHARS = 64 * 1024;
+
+const verifyExport = async (tempPath: string, filename: string): Promise<void> => {
+  const lower = filename.toLowerCase();
+  const stat = await ReactNativeBlobUtil.fs.stat(tempPath);
+  const size = Number(stat.size) || 0;
+  if (!size) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
+
+  if (lower.endsWith('.json')) {
+    const written = await ReactNativeBlobUtil.fs.readFile(tempPath, 'utf8');
+    try { JSON.parse(written); } catch { throw new Error(i18n.t('share.exportVerifyFailed', {filename})); }
+    return;
+  }
+
+  if (lower.endsWith('.zip')) {
+    const tailLen = Math.min(size, 66 * 1024);
+    const tailPath = `${tempPath}.tail`;
+    try {
+      await ReactNativeBlobUtil.fs.slice(tempPath, tailPath, size - tailLen, size);
+      const tail = u8FromBase64(await ReactNativeBlobUtil.fs.readFile(tailPath, 'base64'));
+      let found = false;
+      for (let i = tail.length - 4; i >= 0; i--) {
+        if (tail[i] === 0x50 && tail[i + 1] === 0x4b && tail[i + 2] === 0x05 && tail[i + 3] === 0x06) { found = true; break; }
+      }
+      if (!found) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
+    } finally {
+      try { await ReactNativeBlobUtil.fs.unlink(tailPath); } catch {}
+    }
+  }
+};
+
 const deliverFile = async (tempPath: string, filename: string): Promise<void> => {
   const isAndroid = Platform.OS === 'android';
+
+  await verifyExport(tempPath, filename);
 
   if (isAndroid) {
     try {
@@ -232,8 +268,8 @@ const deliverFile = async (tempPath: string, filename: string): Promise<void> =>
       );
     } catch (e: any) {
       Alert.alert(
-        i18n.t('share.exportReady', {defaultValue: 'Export failed'}),
-        String(e?.message || e || 'Unknown error'),
+        i18n.t('share.exportFailed'),
+        String(e?.message || e || ''),
         [{text: i18n.t('common.ok')}],
       );
     } finally {
@@ -271,12 +307,23 @@ const saveStreamedToDownloads = async (
 ): Promise<void> => {
   const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
   try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
-  const stream = await ReactNativeBlobUtil.fs.writeStream(tempPath, 'utf8', false);
-  try {
-    await write((s) => stream.write(s));
-  } finally {
-    await stream.close();
-  }
+  let started = false;
+  await write(async (s: string) => {
+    if (!s) return;
+    let i = 0;
+    while (i < s.length) {
+      let end = Math.min(i + STREAM_CHUNK_CHARS, s.length);
+      if (end < s.length) {
+        const c = s.charCodeAt(end - 1);
+        if (c >= 0xd800 && c <= 0xdbff) end -= 1;
+      }
+      const piece = s.slice(i, end);
+      if (started) await ReactNativeBlobUtil.fs.appendFile(tempPath, piece, 'utf8');
+      else { await ReactNativeBlobUtil.fs.writeFile(tempPath, piece, 'utf8'); started = true; }
+      i = end;
+    }
+  });
+  if (!started) await ReactNativeBlobUtil.fs.writeFile(tempPath, '', 'utf8');
   await deliverFile(tempPath, filename);
 };
 
@@ -291,7 +338,7 @@ export const exportJSON = async (
   const cat = { ...ALL_CATEGORIES, ...(categories || {}) };
   const base = await buildExportBase(system, members, history, journal, cat);
   const baseStr = JSON.stringify(base);
-  const slug = system.name.replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(system.name);
   await saveStreamedToDownloads(`${slug}-export-${dateSlug()}.json`, async (append) => {
     await append(baseStr.slice(0, -1));
     await append(',"avatars":');
@@ -338,15 +385,15 @@ const buildPluralKitExport = (
   const pkMembers = realMembers.map(m => ({
     id: idMap[m.id],
     uuid: pkUuid(),
-    name: (m.name || 'Member').slice(0, 100),
+    name: truncateRunes(m.name || 'Member', 100),
     display_name: null,
     color: pkHexColor(m.color),
     birthday: null,
-    pronouns: m.pronouns ? m.pronouns.slice(0, 100) : null,
+    pronouns: m.pronouns ? truncateRunes(m.pronouns, 100) : null,
     avatar_url: pkPublicUrl(m.avatar) || m.pkAvatarUrl || null,
     webhook_avatar_url: null,
     banner: pkPublicUrl(m.banner) || m.pkBannerUrl || null,
-    description: m.description ? m.description.slice(0, 1000) : null,
+    description: m.description ? truncateRunes(m.description, 1000) : null,
     created: new Date(m.createdAt || Date.now()).toISOString(),
     keep_proxy: m.pkKeepProxy ?? false,
     tts: false,
@@ -368,8 +415,8 @@ const buildPluralKitExport = (
 
   return {
     version: 1,
-    name: system?.name ? system.name.slice(0, 100) : null,
-    description: system?.description ? system.description.slice(0, 1000) : null,
+    name: system?.name ? truncateRunes(system.name, 100) : null,
+    description: system?.description ? truncateRunes(system.description, 1000) : null,
     tag: null,
     pronouns: null,
     color: null,
@@ -386,7 +433,7 @@ export const exportPluralKit = async (
   history: HistoryEntry[],
 ): Promise<void> => {
   const obj = buildPluralKitExport(system, members, history);
-  const slug = system.name.replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(system.name);
   await saveToDownloads(JSON.stringify(obj, null, 2), `${slug}-pluralkit-${dateSlug()}.json`);
 };
 
@@ -415,12 +462,20 @@ const zipToFile = async (
   addFiles: (add: (name: string, bytes: Uint8Array) => Promise<void>) => Promise<void>,
 ): Promise<void> => {
   try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
-  const stream = await ReactNativeBlobUtil.fs.writeStream(tempPath, 'base64', false);
+  let started = false;
+  const put = async (b64: string) => {
+    if (!b64) return;
+    if (started) await ReactNativeBlobUtil.fs.appendFile(tempPath, b64, 'base64');
+    else { await ReactNativeBlobUtil.fs.writeFile(tempPath, b64, 'base64'); started = true; }
+  };
   const queue: Uint8Array[] = [];
   let zipErr: unknown = null;
-  const zip = new Zip((err: unknown, data: Uint8Array | undefined) => {
-    if (err) { zipErr = err; return; }
+  let markDone: () => void = () => {};
+  const finished = new Promise<void>(resolve => { markDone = resolve; });
+  const zip = new Zip((err: unknown, data: Uint8Array | undefined, final?: boolean) => {
+    if (err) { zipErr = err; markDone(); return; }
     if (data && data.length) queue.push(data);
+    if (final) markDone();
   });
   let carry = new Uint8Array(0);
   const drain = async () => {
@@ -436,7 +491,7 @@ const zipToFile = async (
         buf = chunk;
       }
       const aligned = buf.length - (buf.length % 3);
-      if (aligned > 0) await stream.write(b64Aligned(buf, aligned));
+      if (aligned > 0) await put(b64Aligned(buf, aligned));
       carry = aligned < buf.length ? new Uint8Array(buf.subarray(aligned)) : new Uint8Array(0);
     }
   };
@@ -448,9 +503,11 @@ const zipToFile = async (
   };
   await addFiles(add);
   zip.end();
+  await finished;
   await drain();
-  if (carry.length) await stream.write(b64Tail(carry, 0));
-  await stream.close();
+  if (carry.length) await put(b64Tail(carry, 0));
+  if (!started) await ReactNativeBlobUtil.fs.writeFile(tempPath, '', 'base64');
+  if (zipErr) throw zipErr;
 };
 
 const extFromDataUri = (uri: string): string => {
@@ -527,7 +584,7 @@ export const exportZipBundle = async (
     export_date: new Date().toISOString(),
   };
 
-  const slug = system.name.replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(system.name);
   const filename = `${slug}-export-${dateSlug()}.zip`;
   const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
 
@@ -611,7 +668,7 @@ const collectBundledMemberMedia = (
 export const importZipBundle = async (zipPath: string): Promise<ImportedZipBundle> => {
   const {files, data, manifest} = await readZipBundle(zipPath);
   if (!data || !isPluralStarBundleData(data, manifest)) {
-    throw new Error('This .zip is not a Plural Star backup bundle.');
+    throw new Error(i18n.t('share.bundleNotRecognized'));
   }
   const rawMembers = Array.isArray(data.members) ? data.members : [];
   const members = rawMembers.map((member: any) => {
@@ -639,7 +696,7 @@ export const exportEmail = (
   recipient: string,
 ): void => {
   const subject = encodeURIComponent(
-    `${system.name} — ${i18n.t('share.exportDocTitle')} · ${new Date().toLocaleDateString(i18n.language, {month: 'long', day: 'numeric', year: 'numeric'})}`,
+    `${system.name} — ${i18n.t('share.exportDocTitle')} · ${new Date().toLocaleDateString(getLocale(), {month: 'long', day: 'numeric', year: 'numeric'})}`,
   );
   const body = encodeURIComponent(buildEmailBody(system, members, history, journal));
   Linking.openURL(`mailto:${recipient}?subject=${subject}&body=${body}`);
@@ -673,7 +730,7 @@ export const exportAllJournalJSON = async (
   journal: JournalEntry[],
   systemName: string,
 ): Promise<void> => {
-  const slug = systemName.replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(systemName);
   await saveToDownloads(
     JSON.stringify({journal, exportedAt: new Date().toISOString()}, null, 2),
     `${slug}-journal-${dateSlug()}.json`,
@@ -685,7 +742,7 @@ export const exportAllJournalTxt = async (
   members: Member[],
   systemName: string,
 ): Promise<void> => {
-  const slug = systemName.replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(systemName);
   await saveToDownloads(
     buildJournalTxt(journal, members),
     `${slug}-journal-${dateSlug()}.txt`,
@@ -697,7 +754,7 @@ export const exportAllJournalMd = async (
   members: Member[],
   systemName: string,
 ): Promise<void> => {
-  const slug = systemName.replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(systemName);
   await saveToDownloads(
     buildJournalMd(journal, members),
     `${slug}-journal-${dateSlug()}.md`,
@@ -709,7 +766,7 @@ export const exportEntryTxt = async (
   entry: JournalEntry,
   members: Member[],
 ): Promise<void> => {
-  const slug = (entry.title || 'entry').replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(entry.title || '', 'entry');
   await saveToDownloads(
     buildJournalTxt([entry], members),
     `${slug}-${dateSlug()}.txt`,
@@ -720,7 +777,7 @@ export const exportEntryMd = async (
   entry: JournalEntry,
   members: Member[],
 ): Promise<void> => {
-  const slug = (entry.title || 'entry').replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(entry.title || '', 'entry');
   await saveToDownloads(
     buildJournalMd([entry], members),
     `${slug}-${dateSlug()}.md`,
@@ -730,7 +787,7 @@ export const exportEntryMd = async (
 export const exportEntryJSON = async (
   entry: JournalEntry,
 ): Promise<void> => {
-  const slug = (entry.title || 'entry').replace(/\s+/g, '-').toLowerCase();
+  const slug = fileSlug(entry.title || '', 'entry');
   await saveToDownloads(
     JSON.stringify(entry, null, 2),
     `${slug}-${dateSlug()}.json`,
