@@ -46,13 +46,6 @@ export interface FrontShare {
   startTime?: number;
 }
 
-export interface RendezvousRecord {
-  peerId: string;
-  edPublicKey: string;
-  boxPublicKey: string;
-  sig: string;
-}
-
 export const FRIENDS_STORAGE_KEY = 'ps:networkFriends';
 export const NETWORK_SETTINGS_KEY = 'ps:networkSettings';
 

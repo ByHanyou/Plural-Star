@@ -3,7 +3,7 @@ import {View, TouchableOpacity, ScrollView, Keyboard, Alert, Text as RNText} fro
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {Member, MemberGroup, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch, memberMatchesSearch, tagKey} from '../utils';
+import {Member, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch, memberMatchesSearch, tagKey} from '../utils';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {TFunction} from 'i18next';
@@ -43,9 +43,9 @@ export const KindToggles = ({kinds, setKinds, T, t}: {kinds: PickerKinds; setKin
   );
 };
 
-export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups, allAssigned, T, t, kindLabel}: {
+export const TierMemberPicker = ({tierKey, selected, setSelected, pools, allAssigned, T, t, kindLabel}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
-  pools: PickerPool[]; groups: MemberGroup[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
+  pools: PickerPool[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
   kindLabel?: string;
 }) => {
   const fs = fontScale(T);
@@ -176,7 +176,7 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
   );
 };
 
-export const SetFrontModal = ({visible, theme: T, members, groups, current, settings, lastKnownLocation, onSave, onClose}: any) => {
+export const SetFrontModal = ({visible, theme: T, members, current, settings, lastKnownLocation, onSave, onClose}: any) => {
   const fs = fontScale(T);
   const {t} = useTranslation();
   const [primaryIds, setPrimaryIds] = useState<Set<string>>(new Set());
@@ -278,7 +278,7 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       ]);
     }}>{t('common.clear')}</Btn><Btn instant T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
-      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} pools={pools} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} pools={pools} allAssigned={allAssigned} T={T} t={t} />
       <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <LocationPicker location={primaryLocation} setLocation={setPrimaryLocation} allLocations={allLocations} color={T.accent} T={T} t={t} />
@@ -288,7 +288,7 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       <Field label={t('modal.noteOptional')} value={primaryNote} onChange={setPrimaryNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
 
       <SectionDivider label={t('tier.coFront')} color={T.info} T={T} />
-      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} pools={pools} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} pools={pools} allAssigned={allAssigned} T={T} t={t} />
       <MoodPicker mood={coFrontMood} setMood={setCoFrontMood} customMood={coFrontCustomMood} setCustomMood={setCoFrontCustomMood} showCustom={coFrontShowCustom} setShowCustom={setCoFrontShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <LocationPicker location={coFrontLocation} setLocation={setCoFrontLocation} allLocations={allLocations} color={T.info} T={T} t={t} />
@@ -298,7 +298,7 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       <Field label={t('modal.noteOptional')} value={coFrontNote} onChange={setCoFrontNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
 
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
-      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} pools={pools} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} pools={pools} allAssigned={allAssigned} T={T} t={t} />
       <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <LocationPicker location={coConsciousLocation} setLocation={setCoConsciousLocation} allLocations={allLocations} color={T.success} T={T} t={t} />

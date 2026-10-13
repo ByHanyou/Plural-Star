@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useMemo, useCallback, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, StyleSheet, useWindowDimensions} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, useWindowDimensions} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useTranslation} from 'react-i18next';
@@ -624,7 +624,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
         animTy.setValue(p.ty);
       }
     },
-    onPanResponderRelease: (evt, gs) => {
+    onPanResponderRelease: (_evt, gs) => {
       const drag = dragRef.current;
       dragRef.current = null;
       if (!panRef.current.moved) {

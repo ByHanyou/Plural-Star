@@ -1,6 +1,5 @@
 import {CloudApi, VaultCreds} from './cloudApi';
 import {
-  CLOUD_LINK_KEY,
   CloudError,
   CloudLinkState,
   CloudPhase,

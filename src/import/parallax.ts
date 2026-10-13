@@ -52,7 +52,7 @@ export const handleParallaxPick = async (ctx: ParallaxCtx) => {
 };
 
 export const handleParallaxConfirm = (ctx: ParallaxCtx) => {
-  const {extPreview, extSel, importMode, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setRestoreProgress, onDataImported} = ctx;
+  const {extPreview, extSel, importMode, t, setExtPreview, setImportStatus, setImportMsg, setRestoreProgress, onDataImported} = ctx;
   if (!extPreview || extPreview.source !== 'parallax') return;
   Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
     {text: t('common.cancel'), style: 'cancel'},

@@ -6,23 +6,20 @@ import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readFileText} from '../utils/fileBytes';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
-import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
-import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory, fmtTime, fmtNum} from '../utils';
+import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, zipTextOf} from '../export/exportUtils';
+import {KEYS, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
+import {Member, JournalEntry, ShareSettings, uid, fmtTime, fmtNum} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
 type ImportSource = 'backup' | 'journal' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace' | 'plurallog' | 'parallax';
 
-import {saveAvatarFromUrl, saveAvatar, saveBannerFromBase64, saveBannerFromUrl, migrateInlineChatMedia} from '../utils/mediaUtils';
-import {parallelMap} from '../utils/concurrency';
 import {fontScale, ThemeColors} from '../theme';
 import {ImportWaitOverlay} from '../components/ImportWaitOverlay';
 import {ImportProgress, ImportControl} from '../import/progress';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useAppStore} from '../store/appStore';
 import {saveShareSettings} from '../store/actions';
-import {normalizeSpAvatarUrl, spAvatarCandidates, downloadFirstAvatar, spGet} from '../import/spApi';
-import {convertSPSwitches, convertPKSwitches, normHex, mergeForeignMember, finalizeMemberReplace, mergeHistoryEntries, getStoredMembers, mergeMediaIntoMembers, psTime, convertPluralSpaceFronts, ImportMode} from '../import/convert';
+import type {ImportMode} from '../import/convert';
 import {handleRestore, findOurcanaJsonEntry} from '../import/restore';
 import {handlePluralKitFetch} from '../import/pluralkit';
 import {handleExtImport} from '../import/extApply';

@@ -17,12 +17,12 @@ import {saveGroups} from '../store/actions';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {DateTimeEditor} from '../components/DateTimeEditor';
-import {deleteAvatar, saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl, avatarFullUri} from '../utils/mediaUtils';
+import {saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl, avatarFullUri} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const MemberModal = ({visible, theme: baseT, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
+export const MemberModal = ({visible, theme: baseT, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
   const {t} = useTranslation();
   const fs = fontScale(baseT);
   const isNew = !member;

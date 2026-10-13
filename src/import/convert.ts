@@ -87,7 +87,7 @@ export const finalizeMemberReplace = (merged: Member[], idMap: Record<string, st
   });
 };
 
-export const historySig = (e: HistoryEntry): string =>
+const historySig = (e: HistoryEntry): string =>
   `${e.startTime}|${[...(e.memberIds || [])].sort().join(',')}|${[...(e.coFrontIds || [])].sort().join(',')}|${[...(e.coConsciousIds || [])].sort().join(',')}|${e.changeType || 'front'}|${e.changeTime ?? ''}`;
 
 export const mergeHistoryEntries = (incoming: HistoryEntry[], existing: HistoryEntry[]): HistoryEntry[] => {

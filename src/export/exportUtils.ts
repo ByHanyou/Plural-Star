@@ -25,8 +25,6 @@ import {parallelMap} from '../utils/concurrency';
 import {readFileBytes, u8FromBase64} from '../utils/fileBytes';
 import {Zip, ZipPassThrough, strToU8, strFromU8, unzipSync} from 'fflate';
 
-export {u8FromBase64};
-
 export interface ExportCategories {
   system?: boolean;
   members?: boolean;
@@ -103,7 +101,7 @@ const streamImageMap = async (
   await append('}');
 };
 
-export const buildExportBase = async (
+const buildExportBase = async (
   system: SystemInfo,
   members: Member[],
   history: HistoryEntry[],
@@ -181,82 +179,7 @@ export const buildExportBase = async (
   };
 };
 
-export const buildHtmlExport = (
-  system: SystemInfo,
-  members: Member[],
-  history: HistoryEntry[],
-  journal: JournalEntry[],
-): string => {
-  const docMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
-  const esc = (v: unknown): string => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const RICH_TAGS = /&lt;(\/?)(b|i|u|s|em|strong|br|p|img|a|ul|ol|li|h[1-6]|blockquote|pre|code|hr|span|div)((?:\s[^&<>]*?)?)\s*(\/?)&gt;/gi;
-  const escRich = (v: unknown): string => esc(v).replace(RICH_TAGS, (_m, slash, tag, attrs, self) => `<${slash}${tag}${String(attrs).replace(/&quot;/g, '"')}${self}>`);
-  const memberRows = docMembers
-    .map(
-      m => `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:600">${esc(m.name)}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd">${esc(m.pronouns || '—')}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd">${esc(m.role || '—')}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:13px;color:#555">${escRich(m.description || '—')}</td>
-    </tr>`,
-    )
-    .join('');
-
-  const journalHtml = journal
-    .map(e => {
-      const authors = (e.authorIds || [])
-        .map(id => members.find(m => m.id === id)?.name)
-        .filter(Boolean);
-      return `<div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #eee">
-        <h3 style="margin:0 0 4px;font-size:16px">${esc(e.title || i18n.t('common.untitled'))}</h3>
-        <div style="font-size:12px;color:#888;margin-bottom:10px">${fmtTime(e.timestamp)}${authors.length ? ` · By: ${esc(authors.join(', '))}` : ''}</div>
-        <div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${escRich(e.body || '')}</div>
-      </div>`;
-    })
-    .join('');
-
-  const historyRows = history
-    .slice(0, 100)
-    .map(e => {
-      const names =
-        (e.memberIds || [])
-          .map(id => members.find(m => m.id === id)?.name)
-          .filter(Boolean)
-          .join(', ') || i18n.t('common.unknown');
-      return `<tr>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${esc(names)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${fmtTime(e.startTime)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${fmtDur(e.startTime, e.endTime)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;color:#666">${esc(e.note || '')}</td>
-      </tr>`;
-    })
-    .join('');
-
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>${esc(system.name)} — ${i18n.t('share.exportDocTitle')}</title>
-  <style>
-    body{font-family:OpenDyslexic,serif;max-width:860px;margin:40px auto;padding:0 24px;color:#222;line-height:1.6}
-    h1{font-size:32px;margin-bottom:4px}
-    h2{font-size:22px;margin:40px 0 16px;border-bottom:2px solid #c9a96e;padding-bottom:8px;color:#7a5c2e}
-    table{width:100%;border-collapse:collapse}
-    th{text-align:left;padding:8px 12px;background:#f5f0e8;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:#7a5c2e}
-    .meta{font-size:13px;color:#888;margin-bottom:32px}
-  </style></head>
-  <body>
-  <h1>${esc(system.name)}</h1>
-  ${system.description ? `<p style="font-size:16px;color:#555;margin-top:0">${escRich(system.description)}</p>` : ''}
-  <div class="meta">${i18n.t('share.exportDocMeta', {date: new Date().toLocaleString(getLocale(), {dateStyle: 'long', timeStyle: 'short'}), members: docMembers.length, journal: journal.length, history: history.length})}</div>
-  <h2>${i18n.t('share.exportDocMembers')}</h2>
-  ${docMembers.length ? `<table><thead><tr><th>${i18n.t('share.exportDocName')}</th><th>${i18n.t('share.exportDocPronouns')}</th><th>${i18n.t('share.exportDocRole')}</th><th>${i18n.t('share.exportDocDescription')}</th></tr></thead><tbody>${memberRows}</tbody></table>` : `<p style="color:#888">${i18n.t('share.exportDocNoMembers')}</p>`}
-  <h2>${i18n.t('share.exportDocJournal')}</h2>
-  ${journal.length ? journalHtml : `<p style="color:#888">${i18n.t('share.exportDocNoJournal')}</p>`}
-  <h2>${i18n.t('share.exportDocHistory')}</h2>
-  ${history.length ? `<table><thead><tr><th>${i18n.t('share.exportDocWho')}</th><th>${i18n.t('share.exportDocStarted')}</th><th>${i18n.t('share.exportDocEnded')}</th><th>${i18n.t('share.exportDocDuration')}</th><th>${i18n.t('share.exportDocNote')}</th></tr></thead><tbody>${historyRows}</tbody></table>${history.length > 100 ? `<p style="font-size:12px;color:#888;margin-top:8px">${i18n.t('share.exportDocShowing', {total: history.length})}</p>` : ''}` : `<p style="color:#888">${i18n.t('share.exportDocNoHistory')}</p>`}
-  </body></html>`;
-};
-
-export const buildEmailBody = (
+const buildEmailBody = (
   system: SystemInfo,
   members: Member[],
   history: HistoryEntry[],
@@ -450,7 +373,7 @@ const pkUuid = (): string =>
     return v.toString(16);
   });
 
-export const buildPluralKitExport = (
+const buildPluralKitExport = (
   system: SystemInfo,
   members: Member[],
   history: HistoryEntry[],
@@ -677,8 +600,6 @@ export const exportZipBundle = async (
   await deliverFile(tempPath, filename);
 };
 
-export const exportBundle = exportZipBundle;
-
 const normalizeZipEntryPath = (value: string): string => value.replace(/\\/g, '/').replace(/^\.?\//, '');
 
 const findZipEntry = (
@@ -765,19 +686,6 @@ export const importZipBundle = async (zipPath: string): Promise<ImportedZipBundl
       banners,
     },
   };
-};
-
-export const exportHTML = async (
-  system: SystemInfo,
-  members: Member[],
-  history: HistoryEntry[],
-  journal: JournalEntry[],
-): Promise<void> => {
-  const slug = fileSlug(system.name);
-  await saveToDownloads(
-    buildHtmlExport(system, members, history, journal),
-    `${slug}-export-${dateSlug()}.html`,
-  );
 };
 
 export const exportEmail = (

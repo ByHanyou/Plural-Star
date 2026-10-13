@@ -4,7 +4,7 @@ import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtTime, fmtClock, isValidTimeHHMM, getLocale, firstDayOfWeek} from '../utils';
+import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtClock, isValidTimeHHMM, getLocale, firstDayOfWeek} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {savePlanner} from '../store/actions';

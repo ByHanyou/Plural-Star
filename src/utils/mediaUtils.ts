@@ -202,7 +202,7 @@ const downloadViaFetchFallback = async (
     await ReactNativeBlobUtil.fs.writeFile(finalPath, raw, 'base64');
     return `file://${finalPath}?t=${Date.now()}`;
   } catch (e) {
-    console.error('[PS] avatar fetch fallback error:', e);
+    if (__DEV__) console.error('[PS] avatar fetch fallback error:', e);
     return undefined;
   }
 };

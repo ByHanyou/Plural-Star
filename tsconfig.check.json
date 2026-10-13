@@ -1,6 +1,10 @@
 {
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
-    "types": []
+    "types": [],
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false
   }
 }

@@ -4,9 +4,9 @@ import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
-import {Member, MemberPoll, PollOption, uid, fmtTime, fmtPercent, sortMembersBySearch, memberMatchesSearch} from '../utils';
+import {Member, MemberPoll, uid, fmtTime, fmtPercent, sortMembersBySearch, memberMatchesSearch} from '../utils';
 import {store, KEYS} from '../storage';
 import {NetworkManager} from '../network/NetworkManager';
 

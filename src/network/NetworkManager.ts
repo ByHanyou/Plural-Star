@@ -286,7 +286,7 @@ export interface NetworkState {
 
 type LinkKind = 'friend' | 'device';
 
-export interface IncomingDM {
+interface IncomingDM {
   peerId: string;
   body: string;
   ts: number;

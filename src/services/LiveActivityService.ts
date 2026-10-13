@@ -17,8 +17,6 @@ const nativeModule: LiveActivityModule | null =
 const resolveNames = (ids: string[], members: Member[]): string =>
   ids.map(id => members.find(m => m.id === id)?.name || '?').join(', ');
 
-export const liveActivitiesSupported = Platform.OS === 'ios' && !!nativeModule;
-
 export const getFriendsPushToken = async (): Promise<string | null> => {
   if (!nativeModule || typeof nativeModule.getFriendsPushToken !== 'function') return null;
   try {

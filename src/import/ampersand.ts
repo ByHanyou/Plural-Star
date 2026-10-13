@@ -29,7 +29,7 @@ export type AmpersandCtx = {
 
 const AMPAR_MAGIC = [0x41, 0x4d, 0x50, 0x41, 0x52, 0x00];
 
-export const isAmparBytes = (b: Uint8Array): boolean =>
+const isAmparBytes = (b: Uint8Array): boolean =>
   !!b && b.length > 10 && AMPAR_MAGIC.every((c, i) => b[i] === c);
 
 const utf8 = (b: Uint8Array, start: number, len: number): string => {
@@ -54,7 +54,7 @@ const utf8 = (b: Uint8Array, start: number, len: number): string => {
   return out;
 };
 
-export const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => {
+const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let p = 10;
 
@@ -138,7 +138,7 @@ export const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => 
   return out;
 };
 
-export const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) => {
+const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) => {
   const byTable: Record<string, any[]> = {};
   for (const r of decodeAmpar(bytes)) (byTable[r.table] = byTable[r.table] || []).push(r.data);
   const systems: any[] = byTable.systems || [];
@@ -155,7 +155,7 @@ export const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) =>
   };
 };
 
-export const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
+const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
   const db = d?.database || {};
   const systems: any[] = Array.isArray(db.systems) ? db.systems : [];
   const defaultId = String(d?.config?.appConfig?.defaultSystem || '');

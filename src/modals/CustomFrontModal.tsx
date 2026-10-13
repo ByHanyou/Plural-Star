@@ -10,7 +10,7 @@ import {PALETTE, fontScale, initialOn} from '../theme';
 import {Member, MemberGroup, uid, getInitials, sortGroupsForDisplay, groupKind} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
-import {deleteAvatar, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
+import {saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 import {ToggleSwitch} from '../components/ToggleSwitch';

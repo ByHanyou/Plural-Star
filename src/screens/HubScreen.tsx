@@ -8,7 +8,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {saveHistory, applyFrontState} from '../store/actions';
-import {Member, HistoryEntry, FrontState, FrontTier, FrontTierKey, fmtTime, fmtDur, allFrontMemberIds, sortMembersBySearch, memberMatchesSearch, singletStatuses, isRosterMember} from '../utils';
+import {Member, HistoryEntry, FrontState, FrontTier, FrontTierKey, fmtTime, allFrontMemberIds, sortMembersBySearch, memberMatchesSearch, singletStatuses, isRosterMember} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {PlannerScreen} from './PlannerScreen';
 import {EnergyRow} from '../modals/shared';

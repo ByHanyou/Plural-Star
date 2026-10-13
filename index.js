@@ -15,7 +15,7 @@ const handleFrontNotifEvent = allowReassert => async event => {
     if (event?.type !== EventType.DELIVERED) return;
     if (allowReassert) await svc.reassertFrontNotification();
     await svc.rearmFrontNotificationRefresh();
-  } catch (e) {}
+  } catch {}
 };
 
 notifee.onBackgroundEvent(handleFrontNotifEvent(true));
