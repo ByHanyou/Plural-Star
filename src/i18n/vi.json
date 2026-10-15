@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Viết bằng markdown…",
     "urlPlaceholder": "URL ở đây",
     "textPlaceholder": "văn bản",
-    "body": "Trình soạn thảo"
+    "body": "Trình soạn thảo",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "In đậm",
@@ -97,7 +98,14 @@
     "unknown": "Không rõ",
     "untitled": "Chưa có tiêu đề",
     "ok": "OK",
-    "search": "Tìm kiếm…"
+    "search": "Tìm kiếm…",
+    "removeItem": "Gỡ bỏ {{name}}",
+    "addItem": "Thêm {{name}}",
+    "clearItem": "Xóa sạch {{name}}",
+    "editItem": "Sửa {{name}}",
+    "deleteItem": "Xóa {{name}}",
+    "exportItem": "Xuất {{name}}",
+    "errorCode": "Mã lỗi: {{code}}"
   },
   "a11y": {
     "settings": "Cài đặt",
@@ -116,7 +124,8 @@
     "minute": "Phút",
     "switchToAm": "PM, chuyển sang AM",
     "switchToPm": "AM, chuyển sang PM",
-    "image": "Hình ảnh"
+    "image": "Hình ảnh",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Đã xảy ra lỗi",
@@ -183,7 +192,8 @@
     "statusesDesc": "Trạng thái mô tả tình trạng của bạn — như Đang ngủ, Đang làm việc, hay Lo lắng. Chọn chúng khi cập nhật trạng thái.",
     "noStatuses": "Chưa có trạng thái nào. Thêm một cái để bắt đầu.",
     "activeStatus": "Đang hoạt động",
-    "favoriteColor": "Màu Yêu thích"
+    "favoriteColor": "Màu Yêu thích",
+    "statusActiveA11y": "{{name}}, đang hoạt động"
   },
   "settings": {
     "observatory": "Giao diện Đài quan sát (Singlet)",
@@ -200,7 +210,9 @@
     "noNote": "Chưa có ghi chú. Nhấn Sửa để thêm.",
     "clearFront": "Xóa Front",
     "clearFrontMsg": "Thao tác này sẽ xóa tất cả các tầng và ghi lại kết thúc phiên hiện tại. Tiếp tục?",
-    "clearFrontTitle": "Xóa Front?"
+    "clearFrontTitle": "Xóa Front?",
+    "frontingForA11y": "{{name}}, đã front được {{dur}}",
+    "frontingForSince": "Đã front được <b>{{dur}}</b> · từ {{time}}"
   },
   "members": {
     "fieldCount": "Số thành viên",
@@ -280,7 +292,19 @@
     "bulkRestoreMsg": "Khôi phục {{count}} thành viên về trạng thái hoạt động?",
     "bulkDelete": "Xóa thành viên",
     "bulkDeleteMsg": "Xóa vĩnh viễn {{count}} thành viên? Không thể hoàn tác.",
-    "recentlyDeleted": "Đã xóa gần đây"
+    "recentlyDeleted": "Đã xóa gần đây",
+    "nameInTier": "{{name}}, trong {{tier}}",
+    "moveUpItem": "Di chuyển {{name}} lên",
+    "moveDownItem": "Di chuyển {{name}} xuống",
+    "addToFrontName": "Thêm vào front — {{name}}",
+    "removeFromFrontName": "Gỡ khỏi front — {{name}}",
+    "titleCount": "Thành viên ({{n}})",
+    "facetsCount": "Diện ({{n}})",
+    "customFrontsCount": "Front Tùy chỉnh ({{n}})",
+    "restoreItem": "Khôi phục {{name}}",
+    "bulkArchiveMsg_other": "Lưu trữ {{count}} thành viên? Có thể khôi phục sau.",
+    "bulkRestoreMsg_other": "Khôi phục {{count}} thành viên về trạng thái hoạt động?",
+    "bulkDeleteMsg_other": "Xóa vĩnh viễn {{count}} thành viên? Không thể hoàn tác."
   },
   "history": {
     "title": "Lịch sử",
@@ -324,7 +348,15 @@
     "deleteConfirm2": "Không thể hoàn tác. Thật sự xóa?",
     "deleteConfirm3": "Xác nhận lần cuối: xóa vĩnh viễn mục này?",
     "showMore": "Hiện thêm",
-    "showLess": "Thu gọn"
+    "showLess": "Thu gọn",
+    "moodBadge": "tâm trạng <b>{{mood}}</b>",
+    "atBadge": "tại <b>{{location}}</b>",
+    "energyBadge": "Năng lượng <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Đã đổi Tâm trạng và Vị trí ({{tier}})",
+    "moodChanged_tier": "Đã đổi Tâm trạng ({{tier}})",
+    "locationChanged_tier": "Đã đổi Vị trí ({{tier}})",
+    "noteUpdated_tier": "Đã cập nhật Ghi chú ({{tier}})",
+    "frontSwitch_tier": "Chuyển Front ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Mẫu này sẽ bị gỡ vĩnh viễn.",
@@ -359,7 +391,8 @@
     "templateName": "Tên Mẫu *",
     "templateNamePlaceholder": "vd. Trang Buổi sáng",
     "templateTitle": "Tiêu đề Bài (đặt sẵn)",
-    "templateBody": "Nội dung Bài (đặt sẵn)"
+    "templateBody": "Nội dung Bài (đặt sẵn)",
+    "openEntryHint": "Mở toàn bộ bài viết"
   },
   "share": {
     "jsonHint": "ZIP và JSON là các bản sao lưu đầy đủ mà bạn có thể nhập lại vào Plural Star.",
@@ -564,6 +597,7 @@
     "exportReady": "Bản xuất Sẵn sàng",
     "exportReadyMsg": "{{filename}} đã được tạo, nhưng bảng chia sẻ không tự mở được.",
     "importing": "Đang nhập…",
+    "exporting": "Đang xuất…",
     "importStopping": "Đang hoàn tất bước này rồi dừng…",
     "importStopped": "Đã dừng nhập. {{count}} bước đã hoàn tất và được lưu; các bước còn lại chưa chạy.",
     "importCancelHint": "Dừng sau khi bước hiện tại hoàn tất. Các bước đã xong vẫn được giữ.",
@@ -581,7 +615,32 @@
     "progressBannersDownloadN": "Đang tải ảnh bìa… {{done}}/{{total}}",
     "progressChat": "Đang khôi phục trò chuyện…",
     "progressChatN": "Đang khôi phục kênh trò chuyện… {{done}}/{{total}}",
-    "progressSavingMembers": "Đang lưu thành viên…"
+    "progressSavingMembers": "Đang lưu thành viên…",
+    "exportAs": "Xuất dưới dạng {{format}}",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "“{{text}}”",
+    "exportMailExportedLine": "Đã xuất: {{date}}",
+    "exportMailMembersHeader": "THÀNH VIÊN ({{count}})",
+    "exportMailJournalHeader": "NHẬT KÝ ({{count}})",
+    "exportMailJournalHeaderRecent": "NHẬT KÝ ({{count}} — hiển thị {{shown}} mục gần nhất)",
+    "exportMailHistoryHeader": "LỊCH SỬ FRONT ({{count}})",
+    "exportMailHistoryHeaderRecent": "LỊCH SỬ FRONT ({{count}} — hiển thị {{shown}} mục gần nhất)",
+    "exportTitleLine": "Tiêu đề: {{title}}",
+    "exportDateLine": "Ngày: {{date}}",
+    "exportAuthorsLine": "Tác giả: {{authors}}",
+    "importStopped_other": "Đã dừng nhập. {{count}} bước đã hoàn tất và được lưu; các bước còn lại chưa chạy.",
+    "psAvatarsImported_other": "Đã nhập {{count}} ảnh đại diện.",
+    "recoverConfirmMsg_other": "Khôi phục {{count}} mục sao lưu vào ứng dụng? Thao tác này sẽ ghi đè dữ liệu hiện tại của các danh mục đó.",
+    "cfUnmatched_other": "{{count}} khóa không khớp với bất kỳ ID/tên trường nào của chúng tôi. Ví dụ các khóa không khớp: {{samples}}",
+    "unnamedMember": "Thành viên chưa đặt tên",
+    "fieldN": "Trường {{n}}",
+    "systemN": "Hệ thống {{n}}",
+    "groupN": "Nhóm {{n}}",
+    "channelN": "Kênh {{n}}",
+    "ageField": "Tuổi",
+    "errUnexpected": "Đã xảy ra lỗi. Vui lòng kiểm tra tệp và thử lại."
   },
   "hub": {
     "overlapMore": "+{{count}} nữa",
@@ -608,11 +667,11 @@
     "statistics": "Thống kê",
     "systemChat": "Trò chuyện Hệ thống",
     "archive": "Lưu trữ",
-    "discord": "Discord",
     "credits": "Ghi công",
     "creditLogo": "Logo Plural Star",
     "creditIos": "Bản port iOS của Plural Star",
-    "supportPS": "Ủng hộ PS"
+    "supportPS": "Ủng hộ PS",
+    "discord": "Discord"
   },
   "modal": {
     "read": "Xem",
@@ -651,6 +710,8 @@
     "colorLock": "Khóa màu",
     "invalidHex": "Mã màu hex không hợp lệ",
     "customColor": "Màu tùy chỉnh",
+    "emoji": "Emoji",
+    "emojiPlaceholder": "vd. 🦊",
     "transparentColor": "Trong suốt",
     "removeImageMsg": "Gỡ ảnh này?",
     "deletePaletteMsg": "Bảng màu này sẽ bị gỡ vĩnh viễn.",
@@ -724,7 +785,7 @@
     "removePfp": "Gỡ Ảnh",
     "viewPfp": "Xem Ảnh",
     "viewPfpOf": "Ảnh của {{name}}",
-    "fancyPants": "Fancy Pants",
+    "fancyPants": "Trình soạn thảo trực quan",
     "selectedText": "chữ",
     "searchAuthors": "Tìm tác giả…",
     "textSize": "Cỡ Chữ",
@@ -733,7 +794,17 @@
     "textScaleLarge": "Lớn",
     "textScaleExtraLarge": "Rất Lớn",
     "dyslexicFont": "Phông chữ Thân thiện với Người khó đọc",
-    "dyslexicFontDesc": "Chuyển chữ nội dung sang OpenDyslexic. Tiêu đề giữ phông chữ tạo kiểu."
+    "dyslexicFontDesc": "Chuyển chữ nội dung sang OpenDyslexic. Tiêu đề giữ phông chữ tạo kiểu.",
+    "cropArea": "Vùng cắt",
+    "addEntryPassword": "Thêm mật khẩu bài",
+    "removeEntryPassword": "Gỡ mật khẩu bài",
+    "addJournalPassword": "Thêm mật khẩu nhật ký",
+    "removeJournalPassword": "Gỡ mật khẩu nhật ký",
+    "addAppLockPassword": "Thêm mật khẩu khóa ứng dụng",
+    "removeAppLockPassword": "Gỡ mật khẩu khóa ứng dụng",
+    "fontDefault": "Mặc định",
+    "paletteObsidian": "Đá vỏ chai",
+    "paletteSteel": "Thép"
   },
   "notification": {
     "filePermTitle": "Truy cập Tệp",
@@ -776,7 +847,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} ghi chú mới",
     "chatPingTitle": "◆ {{speaker}} đã ping bạn trong #{{channel}}",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "Nhấn để xem tin nhắn."
+    "chatPingBodyEmpty": "Nhấn để xem tin nhắn.",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -827,11 +899,19 @@
     "removeMembers": "Gỡ thành viên",
     "deleteGroup": "Xóa Nhóm",
     "deleteGroupMsg": "Gỡ nhóm này? Thành viên sẽ không bị xóa.",
-    "deleteWithChildrenMsg": "Nhóm này chứa {{count}} mục lồng nhau. Giữ chúng và chuyển lên một cấp, hay xóa tất cả?"
+    "deleteWithChildrenMsg": "Nhóm này chứa {{count}} mục lồng nhau. Giữ chúng và chuyển lên một cấp, hay xóa tất cả?",
+    "subgroupCount_other": "{{count}} nhóm con",
+    "expandA11y": "Nhóm con của {{name}}, đã chọn {{count}}",
+    "subsystemNamed": "{{name}}, hệ thống con",
+    "moveItem": "Di chuyển {{name}}",
+    "addMembersTo": "Thêm thành viên — {{name}}",
+    "newKind": "Loại mục mới",
+    "deleteWithChildrenMsg_other": "Nhóm này chứa {{count}} mục lồng nhau. Giữ chúng và chuyển lên một cấp, hay xóa tất cả?"
   },
   "stats": {
     "showMore": "Hiện thêm",
     "showMoreN": "Hiện thêm — đang hiện {{shown}} trên {{total}}",
+    "showMoreShort": "Hiện thêm ({{shown}}/{{total}})",
     "energyByHour": "Năng lượng theo Giờ",
     "allTime": "Mọi lúc",
     "last7": "7 Ngày",
@@ -861,7 +941,10 @@
     "topCoMembers": "Đồng Thành viên Hàng đầu",
     "msgsSuffix": "tin",
     "sessionsSuffix": "phiên",
-    "totalSessions": "Tổng số Phiên"
+    "totalSessions": "Tổng số Phiên",
+    "sessionsCount_other": "{{count}} phiên",
+    "msgsCount_other": "{{count}} tin",
+    "timesCount": "{{count}}×"
   },
   "chat": {
     "imageUnavailable": "[ảnh không khả dụng]",
@@ -910,12 +993,46 @@
     "deleteMsgConfirm": "Tin nhắn này sẽ bị gỡ vĩnh viễn.",
     "editingHeader": "Đang sửa tin nhắn",
     "editPlaceholder": "Sửa tin nhắn…",
-    "imagePreview": "[ảnh]"
+    "imagePreview": "[ảnh]",
+    "reactionA11y_other": "{{emoji}}, {{count}} cảm xúc",
+    "replyTo": "Trả lời {{name}}",
+    "archiveChannelNamed": "Lưu trữ {{name}}",
+    "defaultGeneral": "Chung",
+    "defaultVenting": "Trút bầu tâm sự",
+    "defaultPlanning": "Lên kế hoạch",
+    "attachment": "Tệp đính kèm"
   },
   "customFront": {
     "add": "Thêm Front Tùy chỉnh",
     "edit": "Sửa Front Tùy chỉnh",
     "namePlaceholder": "Tên front tùy chỉnh"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Hay nói",
+      "nonVerbal": "Không lời",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Mờ nhạt",
+      "blendy": "Hòa trộn",
+      "rapidSwitching": "Chuyển đổi nhanh",
+      "foggy": "Mơ hồ",
+      "grounded": "Vững vàng",
+      "dissociated": "Phân ly",
+      "anxious": "Lo lắng",
+      "depressed": "Trầm cảm",
+      "cheerful": "Hớn hở",
+      "happy": "Vui vẻ",
+      "sad": "Buồn",
+      "crisis": "Khủng hoảng",
+      "melancholy": "U sầu",
+      "stimming": "Tự kích thích",
+      "stressed": "Căng thẳng",
+      "working": "Đang làm việc",
+      "traveling": "Đang đi xa",
+      "sleeping": "Đang ngủ",
+      "hyperfocus": "Siêu tập trung"
+    }
   },
   "lock": {
     "locked": "Đã khóa",
@@ -933,7 +1050,8 @@
     "browse": "Duyệt",
     "deleteSelectedMsg": "Gỡ {{count}} mục đã chọn? Thành viên sẽ không bị xóa.",
     "desc": "Tạo, sửa, sắp xếp lại và xóa nhóm cùng hệ thống con. Nhấn ⇄ trên một mục, rồi nhấn điểm đến, để lồng nó vào.",
-    "title": "Trình quản lý Hệ thống"
+    "title": "Trình quản lý Hệ thống",
+    "deleteSelectedMsg_other": "Gỡ {{count}} mục đã chọn? Thành viên sẽ không bị xóa."
   },
   "customFields": {
     "title": "Trường Tùy chỉnh",
@@ -985,6 +1103,7 @@
     "cloudErrRate": "Quá nhiều lần thử. Đợi một phút rồi thử lại.",
     "cloudErrFull": "Kho lưu trữ hoặc nút đã hết dung lượng.",
     "cloudErrTooLarge": "Bị bỏ qua, lớn hơn 25 MB: {{keys}}",
+    "cloudErrOverQuota": "Bị bỏ qua, kho lưu trữ đã hết dung lượng: {{keys}}",
     "cloudErrBadPassword": "Kho lưu trữ đã tồn tại nhưng mật khẩu này không mở được.",
     "cloudErrCorrupt": "Không đọc được kho lưu trữ trên thiết bị này. Hủy liên kết rồi liên kết lại bằng cùng mật khẩu.",
     "cloudUnavailable": "Nút bạn đang kết nối không cung cấp Dịch vụ đám mây.",
@@ -1053,6 +1172,7 @@
     "deleteBucket": "Xóa vòng",
     "deleteBucketMsg": "Xóa “{{name}}”?",
     "cloneBucket": "Nhân bản vòng",
+    "cloneBucketName": "Nhân bản vòng — {{name}}",
     "viewShared": "Xem nội dung chia sẻ",
     "mirrorNothing": "Họ chưa chia sẻ mục này với bạn.",
     "mirrorOffline": "Bạn bè ngoại tuyến — hiển thị bản sao nhận được gần nhất.",
@@ -1103,7 +1223,16 @@
     "syncCloneSending": "Đang gửi bản sao đầu tiên…",
     "syncCloneReceiving": "Đang nhận bản sao đầu tiên…",
     "syncCloneDone": "Đã hoàn tất bản sao đầu tiên",
-    "publishFailed": "Không thể công bố mã của bạn — kiểm tra kết nối và thử lại."
+    "publishFailed": "Không thể công bố mã của bạn — kiểm tra kết nối và thử lại.",
+    "friendStatusOffline": "{{status}}. Ngoại tuyến",
+    "scopeCount": "Đã chọn {{count}}",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Đã xảy ra lỗi khi đồng bộ đám mây. Vui lòng thử lại.",
+    "scopeSelectTitle": "{{feature}} — Chọn",
+    "viewSharedTitle": "{{name}} — Xem nội dung chia sẻ",
+    "deviceFallback": "Thiết bị",
+    "friendFallback": "Bạn",
+    "androidDeviceFallback": "Thiết bị Android"
   },
   "terminology": {
     "fronter": "Người front",
@@ -1176,7 +1305,9 @@
     "addTime": "Thêm giờ",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Nhắc nhở từ sổ kế hoạch"
+    "notifReminder": "Nhắc nhở từ sổ kế hoạch",
+    "todayA11y": "Hôm nay, {{date}}",
+    "reminderOff": "Tắt"
   },
   "mailbox": {
     "title": "Hộp thư",
@@ -1199,7 +1330,13 @@
     "messageCount_other": "{{count}} tin nhắn",
     "unreadCount": "{{count}} chưa đọc",
     "deleteTitle": "Xóa tin nhắn",
-    "deleteMsg": "Xóa tin nhắn này? Không thể hoàn tác."
+    "deleteMsg": "Xóa tin nhắn này? Không thể hoàn tác.",
+    "locked": "Đã khóa",
+    "unlocked": "Không khóa",
+    "allOthersCount": "Tất cả Thành viên khác · {{count}}",
+    "unread": "Chưa đọc",
+    "deleteFrom": "Xóa tin nhắn từ {{name}}",
+    "frontersHaveMail": "Thư chưa đọc cho: {{names}}"
   },
   "whiteboard": {
     "title": "Bảng trắng",
@@ -1254,7 +1391,9 @@
     "voPosDown": "{{n}} bên dưới",
     "voPosUp": "{{n}} bên trên",
     "voEdges": "{{left}} đến mép trái, {{right}} đến phải, {{top}} đến trên, {{bottom}} đến dưới",
-    "voRecentered": "Bút đã về chính giữa"
+    "voRecentered": "Bút đã về chính giữa",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Cỡ cọ {{n}}"
   },
   "systemMap": {
     "connections": "Kết nối",
@@ -1298,7 +1437,10 @@
     "zoomIn": "Phóng to",
     "zoomOut": "Thu nhỏ",
     "resetView": "Đặt lại khung nhìn",
-    "notePlaceholder": "Ghi chú tùy chọn…"
+    "notePlaceholder": "Ghi chú tùy chọn…",
+    "mapA11y": "Bản đồ quan hệ, {{members}}, {{relationships}}",
+    "mapA11yHint": "Dùng menu thao tác để chọn một thành viên",
+    "depthN_other": "{{count}} bước kết nối"
   },
   "relType": {
     "love": "Tình yêu",
@@ -1363,13 +1505,17 @@
     "deletePollMsg": "Thao tác này sẽ gỡ vĩnh viễn cuộc bình chọn này.",
     "noPolls": "Chưa có bình chọn nào.",
     "closed": "Đã đóng",
-    "votingAs": "Bình chọn với tư cách:"
+    "votingAs": "Bình chọn với tư cách:",
+    "optionN": "Lựa chọn {{n}}",
+    "removeOptionN": "Gỡ lựa chọn {{n}}"
   },
   "energy": {
     "label": "Năng lượng",
     "level": "Mức Năng lượng",
     "avgEnergy": "Năng lượng TB",
-    "outOf10": "/10 năng lượng"
+    "outOf10": "/10 năng lượng",
+    "levelN": "Mức năng lượng {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Xem",

@@ -187,14 +187,15 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
               <View pointerEvents="none" style={{position: 'absolute', left: rect.x + rect.w, top: rect.y, width: disp.x + disp.w - rect.x - rect.w, height: rect.h, backgroundColor: 'rgba(0,0,0,0.55)'}} />
               <View
                 {...moveResponder.panHandlers}
-                accessible accessibilityRole="adjustable" accessibilityLabel={i18n.t('modal.cropImage')}
+                accessible accessibilityLabel={i18n.t('modal.cropArea')}
                 style={{position: 'absolute', left: rect.x, top: rect.y, width: rect.w, height: rect.h, borderWidth: 2, borderColor: T.accent}}
               />
               {([['tl', tlResponder], ['tr', trResponder], ['bl', blResponder], ['br', brResponder]] as [Corner, typeof tlResponder][]).map(([corner, resp]) => (
                 <View
                   key={corner}
                   {...resp.panHandlers}
-                  accessible accessibilityRole="adjustable" accessibilityLabel={i18n.t('modal.cropImage')}
+                  accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
+                  hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
                   style={{
                     position: 'absolute',
                     left: (corner === 'tl' || corner === 'bl' ? rect.x : rect.x + rect.w) - HANDLE / 2,
@@ -208,11 +209,11 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
           )}
         </View>
         <View style={{flexDirection: 'row', gap: 10, padding: 16, paddingBottom: 32}}>
-          <TouchableOpacity onPress={() => finish(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')}
+          <TouchableOpacity onPress={() => finish(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')} hitSlop={{top: 6, bottom: 6}}
             style={{flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', alignItems: 'center'}}>
             <Text style={{fontSize: fs(14), fontWeight: '600', color: '#fff'}}>{i18n.t('common.cancel')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={confirmCrop} disabled={busy || !rect} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.save')} accessibilityState={{disabled: busy || !rect}}
+          <TouchableOpacity onPress={confirmCrop} disabled={busy || !rect} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.save')} accessibilityState={{disabled: busy || !rect}} hitSlop={{top: 6, bottom: 6}}
             style={{flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: T.accent, alignItems: 'center', opacity: busy || !rect ? 0.5 : 1}}>
             <Text style={{fontSize: fs(14), fontWeight: '600', color: '#fff'}}>{i18n.t('common.save')}</Text>
           </TouchableOpacity>

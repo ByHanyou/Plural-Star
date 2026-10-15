@@ -9,7 +9,7 @@ const handleFrontNotifEvent = allowReassert => async event => {
     const svc = require('./src/services/NotificationService');
     if (event?.detail?.notification?.id !== svc.NOTIF_ID) return;
     if (event?.type === EventType.DISMISSED) {
-      await svc.noteFrontNotifDismissed();
+      await svc.noteFrontNotifDismissed(event?.detail?.notification);
       return;
     }
     if (event?.type !== EventType.DELIVERED) return;

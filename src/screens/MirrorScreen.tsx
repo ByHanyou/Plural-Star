@@ -1,5 +1,5 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {View, Modal, Platform, ScrollView, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar} from 'react-native';
+import {View, Modal, Platform, ScrollView, FlatList, TouchableOpacity, Image, ActivityIndicator, StatusBar, AccessibilityInfo} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
@@ -8,7 +8,7 @@ import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup, MirrorSystem
 import {SystemProfileCard} from '../components/SystemProfileCard';
 import Svg, {Path} from 'react-native-svg';
 import {ThemeColors, fontScale, initialOn} from '../theme';
-import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime, getInitials} from '../utils';
+import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime, fmtClock, getInitials} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
 import {useAppStore} from '../store/appStore';
 import {saveGroupSortMode} from '../store/actions';
@@ -35,6 +35,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const [entry, setEntry] = useState<MirrorCacheEntry | null>(null);
   const [memberCache, setMemberCache] = useState<MirrorMember[]>([]);
   const [memberMedia, setMemberMedia] = useState<Record<string, string>>({});
+  const [groupCache, setGroupCache] = useState<{groups: MirrorGroup[]; membership: Record<string, {id: string; name: string}[]>} | null>(null);
   const [requesting, setRequesting] = useState<'idle' | 'sent' | 'failed'>('idle');
   const [browseId, setBrowseId] = useState<string | null>(null);
   const [viewMemberId, setViewMemberId] = useState<string | null>(null);
@@ -54,6 +55,11 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       setMemberCache(mc && Array.isArray(mc.data) ? mc.data : []);
       setMemberMedia(mc?.media || {});
     }
+    if (feature === 'members') {
+      const gc = await NetworkManager.loadMirror(peerId, 'groups');
+      const d: any = gc && !gc.none && gc.data && typeof gc.data === 'object' && !Array.isArray(gc.data) ? gc.data : null;
+      setGroupCache(d ? {groups: Array.isArray(d.groups) ? d.groups : [], membership: d.membership && typeof d.membership === 'object' ? d.membership : {}} : null);
+    }
   }, [peerId, feature]);
 
   const request = useCallback(() => {
@@ -68,6 +74,9 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     if (feature === 'groups' || feature === 'history' || feature === 'journal') {
       NetworkManager.requestMirror(peerId, 'members').catch(() => {});
     }
+    if (feature === 'members') {
+      NetworkManager.requestMirror(peerId, 'groups').catch(() => {});
+    }
   }, [peerId, feature]);
 
   useEffect(() => {
@@ -77,15 +86,19 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     setViewMemberId(null);
     setViewEntry(null);
     setUnlockFor(null);
+    setGroupCache(null);
     reload();
     request();
     const unsub = NetworkManager.onMirrorUpdated((pid, feat) => {
-      if (pid === peerId && (feat === feature || feat === 'members')) {
+      if (pid !== peerId) return;
+      if (feat === feature) {
         if (waitRef.current) {
           clearTimeout(waitRef.current);
           waitRef.current = null;
         }
         setRequesting('idle');
+        reload();
+      } else if (feat === 'members' || (feature === 'members' && feat === 'groups')) {
         reload();
       }
     });
@@ -153,6 +166,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       setViewEntry(e);
     } else {
       setPwError(true);
+      if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));
     }
   };
 
@@ -192,7 +206,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         onPress={() => setViewMemberId(item.id)}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`${item.name}${sub ? `. ${sub}` : ''}`}
+        accessibilityLabel={[item.name, sub || null, item.archived ? t('members.archived') : null].filter(Boolean).join(', ')}
         style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
         {avatar ? (
           <Image source={{uri: avatar}} style={{width: fs(40), height: fs(40), borderRadius: fs(20), marginRight: 12}} accessibilityElementsHidden importantForAccessibility="no" />
@@ -212,7 +226,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
   const groupsData: {groups: MirrorGroup[]; membership: Record<string, {id: string; name: string}[]>} =
     feature === 'groups' && entry?.data && typeof entry.data === 'object' && !Array.isArray(entry.data)
       ? {groups: entry.data.groups || [], membership: entry.data.membership || {}}
-      : {groups: [], membership: {}};
+      : feature === 'members' && groupCache ? groupCache : {groups: [], membership: {}};
 
   const browserGroups: MemberGroup[] = groupsData.groups.map(g => {
     const ids = new Set(groupsData.groups.map(x => x.id));
@@ -237,7 +251,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     const named: Record<string, string> = {};
     Object.values(groupsData.membership).forEach(list => (list || []).forEach(m => { named[m.id] = m.name; }));
     return Object.keys(named).map(id => {
-      const mm = memberCache.find(x => x.id === id) || {id, name: named[id]};
+      const mm = mirrorMembers.find(x => x.id === id) || {id, name: named[id]};
       return toMember(mm as MirrorMember, groupIdsBy[id] || []);
     });
   })();
@@ -265,7 +279,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       onPress={() => openJournalEntry(item)}
       activeOpacity={0.7}
       accessibilityRole="button"
-      accessibilityLabel={`${item.password ? '🔒 ' : ''}${item.pinned ? '📌 ' : ''}${item.title || t('common.untitled')}, ${fmtTime(item.timestamp)}`}
+      accessibilityLabel={[item.title || t('common.untitled'), item.pinned ? t('noteboard.pinned') : null, item.password ? t('journal.locked') : null, fmtTime(item.timestamp)].filter(Boolean).join(', ')}
       style={{paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
       <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1}>
         {item.pinned ? '📌 ' : ''}{item.password ? '🔒 ' : ''}{item.title || t('common.untitled')}
@@ -347,9 +361,9 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
               <Text accessibilityRole="header" style={{fontSize: fs(12), fontWeight: '700', color: T.dim, marginTop: sortedAppts.length > 0 ? 12 : 0, marginBottom: 8}}>{t('planner.reminders')}</Text>
               {rems.map((r: any, ri: number) => (
                 <View key={`${String(r?.id || r?.title)}-${ri}`} style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8, opacity: r?.enabled === false ? 0.5 : 1}}>
-                  <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}} numberOfLines={2}>{String(r?.title || '')}</Text>
+                  <Text style={{fontSize: fs(13), fontWeight: '600', color: T.text}} numberOfLines={2} accessibilityLabel={r?.enabled === false ? [String(r?.title || ''), t('planner.reminderOff')].join(', ') : undefined}>{String(r?.title || '')}</Text>
                   {Array.isArray(r?.times) && r.times.length > 0 ? (
-                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{r.times.join('  ·  ')}</Text>
+                    <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{r.times.map((tm: unknown) => { const [h, m] = String(tm).split(':').map(Number); return Number.isFinite(h) && Number.isFinite(m) ? fmtClock(h, m) : String(tm); }).join('  ·  ')}</Text>
                   ) : null}
                   {r?.notes ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}}>{String(r.notes)}</Text> : null}
                 </View>
@@ -489,7 +503,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
             return (
               <Modal visible transparent animationType="fade" onRequestClose={() => setViewMemberId(null)}>
                 <View accessibilityViewIsModal onAccessibilityEscape={() => setViewMemberId(null)} style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center'}}>
-                  <ActivityIndicator color={T.accent} />
+                  <ActivityIndicator color={T.accent} accessibilityLabel={t('network.mirrorLoading')} />
                 </View>
               </Modal>
             );
@@ -528,14 +542,14 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
                 accessibilityLabel={t('journal.password')}
                 style={{borderWidth: 1, borderColor: pwError ? T.danger : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, color: T.text, fontSize: fs(13)}}
               />
-              {pwError && <Text accessibilityRole="alert" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
+              {pwError && <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
               <View style={{flexDirection: 'row', gap: 10, marginTop: 12}}>
                 <TouchableOpacity onPress={() => setUnlockFor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                  style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                   <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={tryUnlock} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('journal.unlock')}
-                  style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
                   <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('journal.unlock')}</Text>
                 </TouchableOpacity>
               </View>

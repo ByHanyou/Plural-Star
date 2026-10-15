@@ -73,6 +73,8 @@ export interface CloudStatus {
   phase: CloudPhase;
   progress: number;
   lastError: string | null;
+  /** Short code for lastError, for support: CLOUD-<HTTP status> for a node reply, CLOUD-APP otherwise. */
+  lastErrorCode: string | null;
   mediaTier: boolean;
   deviceCount: number;
   lastSyncAt: number;
@@ -93,6 +95,9 @@ export class CloudError extends Error {
     this.extra = extra;
   }
 }
+
+/** The support code for an error: CLOUD-<HTTP status> when the node answered, CLOUD-APP for anything else. */
+export const cloudErrorCode = (e: unknown): string => (e instanceof CloudError ? `CLOUD-${e.status}` : 'CLOUD-APP');
 
 export interface CloudRequest {
   method: 'GET' | 'POST' | 'PUT' | 'HEAD' | 'DELETE';

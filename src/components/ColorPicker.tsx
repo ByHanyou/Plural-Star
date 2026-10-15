@@ -161,8 +161,9 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel={t('lock.unlock')}
+            hitSlop={{top: 6, bottom: 6}}
             style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.65)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.7)'}}>
-            <Text style={{fontSize: 14}}>🔒</Text>
+            <Text style={{fontSize: 14}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">🔒</Text>
             <Text style={{fontSize: 13, fontWeight: '600', color: '#FFFFFF'}}>{t('lock.unlock')}</Text>
           </TouchableOpacity>
         </View>
@@ -171,7 +172,6 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         <View
           onLayout={e => { const {width, height} = e.nativeEvent.layout; sqRef.current = {w: width, h: height}; setSqSize({w: width, h: height}); }}
           {...sqPan.panHandlers}
-          accessibilityRole="adjustable"
           accessibilityLabel={t('modal.color')}
           accessibilityValue={{text: curHex}}
           accessibilityState={{disabled: locked}}
@@ -197,14 +197,16 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: curHex, borderWidth: 1, borderColor: T.border}} />
         <TextInput value={hexText} onChangeText={onHexChange} placeholder="#000000" placeholderTextColor={T.muted} maxLength={7} autoCapitalize="characters" autoCorrect={false}
           accessibilityLabel={t('modal.color')}
+          accessibilityHint={isValidHex(normalizeHex(hexText)) || hexText.length < 2 ? undefined : t('modal.invalidHex')}
           style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: isValidHex(normalizeHex(hexText)) || hexText.length < 2 ? T.border : T.danger, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, fontFamily: 'monospace'}} />
         <TouchableOpacity
           onPress={() => setLocked(l => !l)}
           accessibilityRole="switch"
           accessibilityLabel={t('modal.colorLock')}
           accessibilityState={{checked: locked}}
+          hitSlop={{top: 4, bottom: 4, left: 4, right: 4}}
           style={{width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: locked ? T.accent : T.border, backgroundColor: T.surface}}>
-          <Text style={{fontSize: 16}}>{locked ? '🔒' : '🔓'}</Text>
+          <Text style={{fontSize: 16}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{locked ? '🔒' : '🔓'}</Text>
         </TouchableOpacity>
       </View>
     </View>

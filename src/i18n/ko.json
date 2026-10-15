@@ -48,7 +48,8 @@
     "markdownPlaceholder": "마크다운으로 작성하세요…",
     "urlPlaceholder": "URL 입력",
     "textPlaceholder": "텍스트",
-    "body": "편집기"
+    "body": "편집기",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "굵게",
@@ -97,7 +98,14 @@
     "unknown": "알 수 없음",
     "untitled": "제목 없음",
     "ok": "확인",
-    "search": "검색…"
+    "search": "검색…",
+    "removeItem": "{{name}} 삭제",
+    "addItem": "{{name}} 추가",
+    "clearItem": "{{name}} 지우기",
+    "editItem": "{{name}} 편집",
+    "deleteItem": "{{name}} 삭제",
+    "exportItem": "{{name}} 내보내기",
+    "errorCode": "오류 코드: {{code}}"
   },
   "a11y": {
     "settings": "설정",
@@ -116,7 +124,8 @@
     "minute": "분",
     "switchToAm": "PM, AM으로 전환",
     "switchToPm": "AM, PM으로 전환",
-    "image": "이미지"
+    "image": "이미지",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "문제가 발생했어요",
@@ -183,7 +192,8 @@
     "statusesDesc": "상태는 지금 어떤지를 나타내요 — 자는 중, 일하는 중, 불안함 같은 것들요. 상태를 업데이트할 때 선택하세요.",
     "noStatuses": "아직 상태가 없어요. 하나 추가해서 시작하세요.",
     "activeStatus": "활성",
-    "favoriteColor": "좋아하는 색"
+    "favoriteColor": "좋아하는 색",
+    "statusActiveA11y": "{{name}}, 활성"
   },
   "settings": {
     "observatory": "옵저버토리(싱글렛) 인터페이스",
@@ -200,7 +210,9 @@
     "noNote": "메모가 없어요. 편집을 눌러 추가하세요.",
     "clearFront": "프런트 지우기",
     "clearFrontMsg": "모든 단계가 지워지고 현재 세션 종료가 기록돼요. 계속할까요?",
-    "clearFrontTitle": "프런트를 지울까요?"
+    "clearFrontTitle": "프런트를 지울까요?",
+    "frontingForA11y": "{{name}}, 프런팅 시간 {{dur}}",
+    "frontingForSince": "프런팅 시간 <b>{{dur}}</b> · {{time}}부터"
   },
   "members": {
     "frontingLockTitle": "현재 프런팅 중",
@@ -280,7 +292,19 @@
     "bulkRestoreMsg": "멤버 {{count}}명을 활성으로 복원할까요?",
     "bulkDelete": "멤버 삭제",
     "bulkDeleteMsg": "멤버 {{count}}명을 영구 삭제할까요? 되돌릴 수 없어요.",
-    "recentlyDeleted": "최근 삭제된 항목"
+    "recentlyDeleted": "최근 삭제된 항목",
+    "nameInTier": "{{name}}, {{tier}}에 있음",
+    "moveUpItem": "{{name}} 위로 이동",
+    "moveDownItem": "{{name}} 아래로 이동",
+    "addToFrontName": "프런트에 추가 — {{name}}",
+    "removeFromFrontName": "프런트에서 빼기 — {{name}}",
+    "titleCount": "멤버 ({{n}})",
+    "facetsCount": "패싯 ({{n}})",
+    "customFrontsCount": "커스텀 프런트 ({{n}})",
+    "restoreItem": "{{name}} 복원",
+    "bulkArchiveMsg_other": "멤버 {{count}}명을 보관할까요? 나중에 복원할 수 있어요.",
+    "bulkRestoreMsg_other": "멤버 {{count}}명을 활성으로 복원할까요?",
+    "bulkDeleteMsg_other": "멤버 {{count}}명을 영구 삭제할까요? 되돌릴 수 없어요."
   },
   "history": {
     "title": "기록",
@@ -324,7 +348,15 @@
     "deleteConfirm2": "되돌릴 수 없어요. 정말 삭제할까요?",
     "deleteConfirm3": "최종 확인: 이 기록을 영구 삭제할까요?",
     "showMore": "더 보기",
-    "showLess": "접기"
+    "showLess": "접기",
+    "moodBadge": "기분 <b>{{mood}}</b>",
+    "atBadge": "위치 <b>{{location}}</b>",
+    "energyBadge": "에너지 <b>{{value}}</b>",
+    "moodLocationChanged_tier": "기분·위치 변경됨 ({{tier}})",
+    "moodChanged_tier": "기분 변경됨 ({{tier}})",
+    "locationChanged_tier": "위치 변경됨 ({{tier}})",
+    "noteUpdated_tier": "메모 업데이트됨 ({{tier}})",
+    "frontSwitch_tier": "프런트 스위치 ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "이 템플릿이 영구 삭제돼요.",
@@ -359,7 +391,8 @@
     "templateName": "템플릿 이름 *",
     "templateNamePlaceholder": "예: 아침 일기",
     "templateTitle": "글 제목 (미리 설정)",
-    "templateBody": "글 본문 (미리 설정)"
+    "templateBody": "글 본문 (미리 설정)",
+    "openEntryHint": "전체 글을 열어요"
   },
   "share": {
     "banners": "배너",
@@ -564,6 +597,7 @@
     "exportReady": "내보내기 준비됨",
     "exportReadyMsg": "{{filename}}이(가) 생성됐지만 공유 창을 자동으로 열지 못했어요.",
     "importing": "가져오는 중…",
+    "exporting": "내보내는 중…",
     "importStopping": "이 단계를 마치고 중단할게요…",
     "progressJournal": "일지 복원 중…",
     "progressHistory": "프런트 기록 복원 중…",
@@ -581,7 +615,32 @@
     "progressBannersDownloadN": "배너 다운로드 중… {{done}}/{{total}}",
     "progressChat": "채팅 복원 중…",
     "progressChatN": "채팅 채널 복원 중… {{done}}/{{total}}",
-    "progressSavingMembers": "멤버 저장 중…"
+    "progressSavingMembers": "멤버 저장 중…",
+    "exportAs": "{{format}}(으)로 내보내기",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "“{{text}}”",
+    "exportMailExportedLine": "내보낸 날짜: {{date}}",
+    "exportMailMembersHeader": "멤버 ({{count}})",
+    "exportMailJournalHeader": "일지 ({{count}})",
+    "exportMailJournalHeaderRecent": "일지 ({{count}} — 최근 {{shown}}개 표시)",
+    "exportMailHistoryHeader": "프런트 기록 ({{count}})",
+    "exportMailHistoryHeaderRecent": "프런트 기록 ({{count}} — 최근 {{shown}}개 표시)",
+    "exportTitleLine": "제목: {{title}}",
+    "exportDateLine": "날짜: {{date}}",
+    "exportAuthorsLine": "작성자: {{authors}}",
+    "importStopped_other": "가져오기 중단됨. {{count}}개 단계가 완료·저장됐고, 나머지 단계는 실행되지 않았어요.",
+    "psAvatarsImported_other": "아바타 {{count}}개를 가져왔어요.",
+    "recoverConfirmMsg_other": "백업 항목 {{count}}개를 앱에 복원할까요? 해당 카테고리의 현재 데이터를 덮어써요.",
+    "cfUnmatched_other": "{{count}}개 키가 우리 필드 ID/이름과 일치하지 않았어요. 일치하지 않은 키 예시: {{samples}}",
+    "unnamedMember": "이름 없는 멤버",
+    "fieldN": "필드 {{n}}",
+    "systemN": "시스템 {{n}}",
+    "groupN": "그룹 {{n}}",
+    "channelN": "채널 {{n}}",
+    "ageField": "나이",
+    "errUnexpected": "문제가 발생했어요. 파일을 확인하고 다시 시도해 주세요."
   },
   "hub": {
     "front": "프런트",
@@ -608,11 +667,11 @@
     "statistics": "통계",
     "systemChat": "시스템 채팅",
     "archive": "보관함",
-    "discord": "Discord",
     "credits": "크레딧",
     "creditLogo": "Plural Star 로고",
     "creditIos": "Plural Star iOS 포팅",
-    "supportPS": "PS 후원하기"
+    "supportPS": "PS 후원하기",
+    "discord": "Discord"
   },
   "modal": {
     "linkPfp": "이미지 연결",
@@ -651,6 +710,8 @@
     "colorLock": "색상 잠금",
     "invalidHex": "잘못된 hex 색상",
     "customColor": "사용자 지정 색상",
+    "emoji": "이모지",
+    "emojiPlaceholder": "예: 🦊",
     "transparentColor": "투명",
     "removeImageMsg": "이 이미지를 삭제할까요?",
     "deletePaletteMsg": "이 팔레트가 영구 삭제돼요.",
@@ -733,7 +794,17 @@
     "textScaleLarge": "크게",
     "textScaleExtraLarge": "아주 크게",
     "dyslexicFont": "난독증 친화 글꼴",
-    "dyslexicFontDesc": "본문을 OpenDyslexic으로 바꿔요. 제목은 기존 글꼴을 유지해요."
+    "dyslexicFontDesc": "본문을 OpenDyslexic으로 바꿔요. 제목은 기존 글꼴을 유지해요.",
+    "cropArea": "자르기 영역",
+    "addEntryPassword": "글 비밀번호 추가",
+    "removeEntryPassword": "글 비밀번호 삭제",
+    "addJournalPassword": "일지 비밀번호 추가",
+    "removeJournalPassword": "일지 비밀번호 삭제",
+    "addAppLockPassword": "앱 잠금 비밀번호 추가",
+    "removeAppLockPassword": "앱 잠금 비밀번호 삭제",
+    "fontDefault": "기본",
+    "paletteObsidian": "흑요석",
+    "paletteSteel": "스틸"
   },
   "notification": {
     "locationPermTitle": "위치 권한",
@@ -776,7 +847,8 @@
     "noteboardUnreadLine_other": "{{name}}: 새 노트 {{count}}개",
     "chatPingTitle": "◆ {{speaker}} 님이 #{{channel}}에서 나를 핑했어요",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "메시지를 보려면 누르세요."
+    "chatPingBodyEmpty": "메시지를 보려면 누르세요.",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -827,11 +899,19 @@
     "removeMembers": "멤버 제거",
     "deleteGroup": "그룹 삭제",
     "deleteGroupMsg": "이 그룹을 삭제할까요? 멤버는 삭제되지 않아요.",
-    "deleteWithChildrenMsg": "여기에 중첩된 항목 {{count}}개가 있어요. 유지하고 한 단계 위로 옮길까요, 아니면 전부 삭제할까요?"
+    "deleteWithChildrenMsg": "여기에 중첩된 항목 {{count}}개가 있어요. 유지하고 한 단계 위로 옮길까요, 아니면 전부 삭제할까요?",
+    "subgroupCount_other": "하위 그룹 {{count}}개",
+    "expandA11y": "{{name}} 하위 그룹, {{count}}개 선택됨",
+    "subsystemNamed": "{{name}}, 하위 시스템",
+    "moveItem": "{{name}} 이동",
+    "addMembersTo": "멤버 추가 — {{name}}",
+    "newKind": "새 항목 유형",
+    "deleteWithChildrenMsg_other": "여기에 중첩된 항목 {{count}}개가 있어요. 유지하고 한 단계 위로 옮길까요, 아니면 전부 삭제할까요?"
   },
   "stats": {
     "showMore": "더 보기",
     "showMoreN": "더 보기 — {{total}}개 중 {{shown}}개 표시",
+    "showMoreShort": "더 보기 ({{shown}}/{{total}})",
     "energyByHour": "시간대별 에너지",
     "allTime": "전체 기간",
     "last7": "7일",
@@ -861,7 +941,10 @@
     "topCoMembers": "최다 동반 멤버",
     "msgsSuffix": "개",
     "sessionsSuffix": "세션",
-    "totalSessions": "총 세션"
+    "totalSessions": "총 세션",
+    "sessionsCount_other": "세션 {{count}}개",
+    "msgsCount_other": "{{count}}개",
+    "timesCount": "{{count}}×"
   },
   "chat": {
     "addReaction": "반응 추가",
@@ -910,12 +993,46 @@
     "deleteMsgConfirm": "이 메시지가 영구 삭제돼요.",
     "editingHeader": "메시지 편집 중",
     "editPlaceholder": "메시지 편집…",
-    "imagePreview": "[이미지]"
+    "imagePreview": "[이미지]",
+    "reactionA11y_other": "{{emoji}}, 반응 {{count}}개",
+    "replyTo": "{{name}} 님에게 답장",
+    "archiveChannelNamed": "{{name}} 보관",
+    "defaultGeneral": "일반",
+    "defaultVenting": "털어놓기",
+    "defaultPlanning": "계획",
+    "attachment": "첨부 파일"
   },
   "customFront": {
     "add": "커스텀 프런트 추가",
     "edit": "커스텀 프런트 편집",
     "namePlaceholder": "커스텀 프런트 이름"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "수다스러움",
+      "nonVerbal": "비언어",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "흐릿함",
+      "blendy": "섞임",
+      "rapidSwitching": "잦은 전환",
+      "foggy": "멍함",
+      "grounded": "안정됨",
+      "dissociated": "해리됨",
+      "anxious": "불안함",
+      "depressed": "우울함",
+      "cheerful": "명랑함",
+      "happy": "행복함",
+      "sad": "슬픔",
+      "crisis": "위기",
+      "melancholy": "울적함",
+      "stimming": "스티밍",
+      "stressed": "스트레스",
+      "working": "일하는 중",
+      "traveling": "여행 중",
+      "sleeping": "자는 중",
+      "hyperfocus": "과몰입"
+    }
   },
   "lock": {
     "locked": "잠김",
@@ -933,7 +1050,8 @@
     "browse": "둘러보기",
     "deleteSelectedMsg": "선택한 항목 {{count}}개를 삭제할까요? 멤버는 삭제되지 않아요.",
     "desc": "그룹과 하위 시스템을 만들고, 편집하고, 재배치하고, 삭제해요. 항목의 ⇄를 누른 다음 이동할 위치를 누르면 중첩돼요.",
-    "title": "시스템 관리자"
+    "title": "시스템 관리자",
+    "deleteSelectedMsg_other": "선택한 항목 {{count}}개를 삭제할까요? 멤버는 삭제되지 않아요."
   },
   "customFields": {
     "title": "커스텀 필드",
@@ -985,6 +1103,7 @@
     "cloudErrRate": "시도 횟수가 너무 많습니다. 1분 기다렸다가 다시 시도하세요.",
     "cloudErrFull": "금고 또는 노드에 공간이 없습니다.",
     "cloudErrTooLarge": "25 MB를 초과하여 제외됨: {{keys}}",
+    "cloudErrOverQuota": "금고에 공간이 없어 제외됨: {{keys}}",
     "cloudErrBadPassword": "금고가 있지만 이 비밀번호로는 열 수 없습니다.",
     "cloudErrCorrupt": "이 기기에서 금고를 읽을 수 없습니다. 연결을 해제하고 같은 비밀번호로 다시 연결하세요.",
     "cloudUnavailable": "연결된 노드는 클라우드 서비스를 제공하지 않습니다.",
@@ -1053,6 +1172,7 @@
     "deleteBucket": "버킷 삭제",
     "deleteBucketMsg": "“{{name}}”을(를) 삭제할까요?",
     "cloneBucket": "버킷 복제",
+    "cloneBucketName": "버킷 복제 — {{name}}",
     "viewShared": "공유 항목 보기",
     "mirrorNothing": "아직 이 항목을 나와 공유하지 않았어요.",
     "mirrorOffline": "친구가 오프라인이에요 — 마지막으로 받은 사본을 표시해요.",
@@ -1103,7 +1223,16 @@
     "syncCloneSending": "첫 복사 보내는 중…",
     "syncCloneReceiving": "첫 복사 받는 중…",
     "syncCloneDone": "첫 복사 완료",
-    "publishFailed": "코드를 게시할 수 없었어요 — 연결을 확인하고 다시 시도하세요."
+    "publishFailed": "코드를 게시할 수 없었어요 — 연결을 확인하고 다시 시도하세요.",
+    "friendStatusOffline": "{{status}}. 오프라인",
+    "scopeCount": "{{count}}개 선택됨",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "클라우드 동기화 중 문제가 발생했어요. 다시 시도해 주세요.",
+    "scopeSelectTitle": "{{feature}} — 선택",
+    "viewSharedTitle": "{{name}} — 공유 항목 보기",
+    "deviceFallback": "기기",
+    "friendFallback": "친구",
+    "androidDeviceFallback": "Android 기기"
   },
   "terminology": {
     "fronter": "프런터",
@@ -1176,7 +1305,9 @@
     "addTime": "시간 추가",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "플래너 리마인더"
+    "notifReminder": "플래너 리마인더",
+    "todayA11y": "오늘, {{date}}",
+    "reminderOff": "꺼짐"
   },
   "mailbox": {
     "title": "우편함",
@@ -1199,7 +1330,13 @@
     "messageCount_other": "메시지 {{count}}개",
     "unreadCount": "읽지 않음 {{count}}개",
     "deleteTitle": "메시지 삭제",
-    "deleteMsg": "이 메시지를 삭제할까요? 되돌릴 수 없어요."
+    "deleteMsg": "이 메시지를 삭제할까요? 되돌릴 수 없어요.",
+    "locked": "잠김",
+    "unlocked": "잠기지 않음",
+    "allOthersCount": "다른 모든 멤버 · {{count}}",
+    "unread": "읽지 않음",
+    "deleteFrom": "{{name}} 님의 메시지 삭제",
+    "frontersHaveMail": "읽지 않은 우편이 있어요: {{names}}"
   },
   "whiteboard": {
     "title": "화이트보드",
@@ -1254,7 +1391,9 @@
     "voPosDown": "아래 {{n}}",
     "voPosUp": "위 {{n}}",
     "voEdges": "왼쪽 가장자리까지 {{left}}, 오른쪽까지 {{right}}, 위까지 {{top}}, 아래까지 {{bottom}}",
-    "voRecentered": "펜을 가운데로 옮겼어요"
+    "voRecentered": "펜을 가운데로 옮겼어요",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "브러시 크기 {{n}}"
   },
   "systemMap": {
     "connections": "연결",
@@ -1298,7 +1437,10 @@
     "zoomIn": "확대",
     "zoomOut": "축소",
     "resetView": "보기 초기화",
-    "notePlaceholder": "메모 (선택)…"
+    "notePlaceholder": "메모 (선택)…",
+    "mapA11y": "관계 지도, {{members}}, {{relationships}}",
+    "mapA11yHint": "동작 메뉴에서 멤버를 선택하세요",
+    "depthN_other": "연결 {{count}}단계"
   },
   "relType": {
     "love": "사랑",
@@ -1363,13 +1505,17 @@
     "deletePollMsg": "이 투표가 영구 삭제돼요.",
     "noPolls": "아직 투표가 없어요.",
     "closed": "마감됨",
-    "votingAs": "투표하는 멤버:"
+    "votingAs": "투표하는 멤버:",
+    "optionN": "선택지 {{n}}",
+    "removeOptionN": "선택지 {{n}} 삭제"
   },
   "energy": {
     "label": "에너지",
     "level": "에너지 수준",
     "avgEnergy": "평균 에너지",
-    "outOf10": "/10 에너지"
+    "outOf10": "/10 에너지",
+    "levelN": "에너지 수준 {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "보기",

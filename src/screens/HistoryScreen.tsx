@@ -1,15 +1,15 @@
-import React, {useState, useMemo, useCallback, useDeferredValue} from 'react';
+import React, {useState, useMemo, useCallback, useDeferredValue, useRef} from 'react';
 import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, useWindowDimensions} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
-import {useTranslation} from 'react-i18next';
+import {useTranslation, Trans} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
 import {saveHistory} from '../store/actions';
 import {AccentText} from '../components/AccentText';
 import {HistoryEntry, JournalEntry, Member, FrontTierKey, fmtTime, fmtDate, fmtDur, fmtNum, translateMood, sortMembersBySearch, memberMatchesSearch, singletStatuses, buildEffectiveEnd} from '../utils';
-import {FlashList} from '@shopify/flash-list';
+import {FlashList, useMappingHelper} from '@shopify/flash-list';
 import {FrontTimeline} from '../components/FrontTimeline';
 
 const memberInEntry = (memberId: string, entry: HistoryEntry): boolean =>
@@ -88,9 +88,14 @@ interface FrontHistoryEntryRowProps {
 const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
   entry, isLastInGroup, originalIndex, entryKey, isExpanded, memberMap, T, fs, t, selfId, singlet, effectiveEnd, onToggleExpand, onEditEntry, onDelete,
 }: FrontHistoryEntryRowProps) {
+  const {getMappingKey} = useMappingHelper();
   const allPrimary = (entry.memberIds || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
   const withoutSelf = singlet && selfId ? allPrimary.filter(m => m.id !== selfId) : allPrimary;
   const primaryFronters = singlet && withoutSelf.length === 0 ? allPrimary : withoutSelf;
+  const coFrontMembers = (entry.coFrontIds || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
+  const coConMembers = (entry.coConsciousIds || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
+  // A row with no primary fronter shows its co-front, else co-conscious, members instead of "Unknown" (same fallback as the notification title).
+  const shownFronters = primaryFronters.length ? primaryFronters : coFrontMembers.length ? coFrontMembers : coConMembers;
   const displayEnd = entry.endTime ?? effectiveEnd;
   const isOpen = displayEnd === null;
   const hasCoFront = (entry.coFrontIds || []).length > 0;
@@ -109,6 +114,7 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
   const hiddenPrimary = primaryFronters.length - visiblePrimary.length;
   const primaryDisplay = visiblePrimary.map(m => m.name).join(', ')
     + (hiddenPrimary > 0 ? `, +${hiddenPrimary}` : '');
+  const fallbackDisplay = primaryFronters.length ? '' : shownFronters.slice(0, NAME_CAP).map(m => m.name).join(', ') + (shownFronters.length > NAME_CAP ? `, +${shownFronters.length - NAME_CAP}` : '');
   const showToggle =
     totalMembers > NAME_CAP || primaryDisplay.length > PRIMARY_TRUNC_THRESHOLD;
   return (
@@ -123,14 +129,14 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
         borderColor: isOpen ? `${T.accent}40` : T.border, marginBottom: 8}]}>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4}}>
           <View style={{flexDirection: 'row'}}>
-            {primaryFronters.slice(0, 3).map((m, j) => (
-              <View key={m.id} style={{marginLeft: j ? -8 : 0, zIndex: 10 - j}}>
+            {shownFronters.slice(0, 3).map((m, j) => (
+              <View key={getMappingKey(m.id, j)} style={{marginLeft: j ? -8 : 0, zIndex: 10 - j}}>
                 <Avatar member={m} size={26} T={T} />
               </View>
             ))}
           </View>
           <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={isExpanded ? undefined : 1}>
-            {primaryDisplay || t('common.unknown')}
+            {primaryDisplay || fallbackDisplay || t('common.unknown')}
           </Text>
           <AccentText T={T} style={{fontSize: fs(12), color: T.accent, fontWeight: '500'}}>
             {fmtDur(entry.startTime, displayEnd)}
@@ -150,20 +156,17 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
           <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4}}>
             {entry.mood && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
-                <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
-                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(entry.mood, t)}</Text>
+                <Text style={{fontSize: fs(10), color: T.dim}}><Trans i18nKey="history.moodBadge" values={{mood: translateMood(entry.mood, t)}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
               </View>
             )}
             {entry.location && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
-                <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{entry.location}</Text>
+                <Text style={{flexShrink: 1, fontSize: fs(10), color: T.dim}} numberOfLines={1}><Trans i18nKey="history.atBadge" values={{location: entry.location}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
               </View>
             )}
             {entry.energyLevel != null && (
               <View style={[s.badge, {backgroundColor: T.surface}]}>
-                <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
-                <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{entry.energyLevel}/10</Text>
+                <Text style={{fontSize: fs(10), color: T.dim}}><Trans i18nKey="history.energyBadge" values={{value: t('energy.outOfTen', {n: fmtNum(entry.energyLevel, 0)})}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
               </View>
             )}
           </View>
@@ -171,33 +174,30 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
         {isExpanded && ([
           {label: t('tier.coFrontShort'), color: T.info, mood: entry.coFrontMood, location: entry.coFrontLocation, energy: entry.coFrontEnergy, note: entry.coFrontNote},
           {label: t('tier.coConShort'), color: T.success, mood: entry.coConsciousMood, location: entry.coConsciousLocation, energy: entry.coConsciousEnergy, note: entry.coConsciousNote},
-        ] as const).map(td => (
+        ] as const).map((td, ti) => (
           (td.mood || td.location || td.energy !== undefined || td.note) ? (
-            <View key={td.label} style={{marginBottom: 4}}>
+            <View key={getMappingKey(td.label, ti)} style={{marginBottom: 4}}>
               <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center'}}>
                 <Text style={{fontSize: fs(10), color: td.color, fontWeight: '600'}}>{td.label}</Text>
                 {td.mood ? (
                   <View style={[s.badge, {backgroundColor: T.surface}]}>
-                    <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
-                    <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(td.mood, t)}</Text>
+                    <Text style={{fontSize: fs(10), color: T.dim}}><Trans i18nKey="history.moodBadge" values={{mood: translateMood(td.mood, t)}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
                   </View>
                 ) : null}
                 {td.location ? (
                   <View style={[s.badge, {backgroundColor: T.surface}]}>
-                    <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                    <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{td.location}</Text>
+                    <Text style={{flexShrink: 1, fontSize: fs(10), color: T.dim}} numberOfLines={1}><Trans i18nKey="history.atBadge" values={{location: td.location}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
                   </View>
                 ) : null}
                 {td.energy !== undefined ? (
                   <View style={[s.badge, {backgroundColor: T.surface}]}>
-                    <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
-                    <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{td.energy}/10</Text>
+                    <Text style={{fontSize: fs(10), color: T.dim}}><Trans i18nKey="history.energyBadge" values={{value: t('energy.outOfTen', {n: fmtNum(td.energy, 0)})}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
                   </View>
                 ) : null}
               </View>
               {td.note ? (
                 <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 7, marginTop: 4}}>
-                  <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}}>{td.note}</Text>
+                  <Text style={{fontSize: fs(12), color: T.dim, lineHeight: fs(17)}}>{td.note}</Text>
                 </View>
               ) : null}
             </View>
@@ -205,14 +205,14 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
         ))}
         {entry.note ? (
           <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 8}}>
-            <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18}}>{entry.note}</Text>
+            <Text style={{fontSize: fs(12), color: T.dim, lineHeight: fs(18)}}>{entry.note}</Text>
           </View>
         ) : null}
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4}}>
           {showToggle ? (
             <TouchableOpacity onPress={() => onToggleExpand(entryKey)} activeOpacity={0.7}
               accessibilityRole="button" accessibilityState={{expanded: isExpanded}}
-              style={{paddingVertical: 2, paddingHorizontal: 6}}>
+              hitSlop={{top: 12, bottom: 12, left: 6, right: 6}} style={{paddingVertical: 2, paddingHorizontal: 6}}>
               <Text style={{fontSize: fs(10), color: T.accent, fontWeight: '500'}}>
                 {isExpanded ? t('history.showLess') : t('history.showMore')}
               </Text>
@@ -222,14 +222,14 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
             {onEditEntry && (
               <TouchableOpacity onPress={() => onEditEntry(originalIndex)} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityLabel={t('history.editEntry')}
-                style={{paddingVertical: 2, paddingHorizontal: 6}}>
+                hitSlop={{top: 12, bottom: 12, left: 6, right: 6}} style={{paddingVertical: 2, paddingHorizontal: 6}}>
                 <Text style={{fontSize: fs(10), color: T.accent, opacity: 0.8}}>{t('history.editEntry')}</Text>
               </TouchableOpacity>
             )}
             {onDelete && (
               <TouchableOpacity onPress={() => onDelete(originalIndex)} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityLabel={t('history.deleteEntry')}
-                style={{paddingVertical: 2, paddingHorizontal: 6}}>
+                hitSlop={{top: 12, bottom: 12, left: 6, right: 6}} style={{paddingVertical: 2, paddingHorizontal: 6}}>
                 <Text style={{fontSize: fs(10), color: T.danger, opacity: 0.6}}>{t('history.deleteEntry')}</Text>
               </TouchableOpacity>
             )}
@@ -252,6 +252,10 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
   const onSaveHistory = saveHistory;
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
+  // The edit callback from App is a new function on every render; the row renderer uses a stable one so the rows do not all re-render on each visit.
+  const onEditEntryRef = useRef(onEditEntry);
+  onEditEntryRef.current = onEditEntry;
+  const editEntry = useCallback((originalIndex: number) => onEditEntryRef.current?.(originalIndex), []);
   const win = useWindowDimensions();
   const landscape = win.width > win.height;
   const [subTab, setSubTab] = useState<SubTab>('front');
@@ -351,11 +355,11 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
         singlet={singlet}
         effectiveEnd={item.effectiveEnd}
         onToggleExpand={toggleEntryExpanded}
-        onEditEntry={readOnly ? undefined : onEditEntry}
+        onEditEntry={readOnly || !onEditEntry ? undefined : editEntry}
         onDelete={readOnly ? undefined : startDelete}
       />
     );
-  }, [expandedEntries, memberMap, T, fs, t, singlet, selfId, toggleEntryExpanded, onEditEntry, startDelete, readOnly]);
+  }, [expandedEntries, memberMap, T, fs, t, singlet, selfId, toggleEntryExpanded, editEntry, !onEditEntry, startDelete, readOnly]);
 
   const mergedSessions = useMemo(() => {
     if (!selectedMemberId) return [];
@@ -416,17 +420,16 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
       ? tierDetailsFor(selectedMemberId, entry)
       : {mood: entry.mood, note: entry.note, location: entry.location, energy: entry.energyLevel};
 
-  const suffixFor = (tier?: FrontTierKey | null): string =>
-    tier && tier !== 'primary' ? t('history.tierSuffix', {tier: t(`tier.${tier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : '';
+  const withTier = (key: string, tier?: FrontTierKey | null): string =>
+    tier && tier !== 'primary' ? t(key, {context: 'tier', tier: t(`tier.${tier === 'coFront' ? 'coFront' : 'coConscious'}`)}) : t(key);
 
   const getEventLabel = (type: string, entry: HistoryEntry, d: {mood?: string; location?: string}, frontTier?: FrontTierKey | null): string => {
-    const tierSuffix = suffixFor(entry.changeTier);
-    if ((type === 'mood' || type === 'location') && d.mood && d.location) return t('history.moodLocationChanged') + tierSuffix;
-    if (type === 'mood')     return t('history.moodChanged') + tierSuffix;
-    if (type === 'location') return t('history.locationChanged') + tierSuffix;
-    if (type === 'note')     return t('history.noteUpdated') + tierSuffix;
+    if ((type === 'mood' || type === 'location') && d.mood && d.location) return withTier('history.moodLocationChanged', entry.changeTier);
+    if (type === 'mood')     return withTier('history.moodChanged', entry.changeTier);
+    if (type === 'location') return withTier('history.locationChanged', entry.changeTier);
+    if (type === 'note')     return withTier('history.noteUpdated', entry.changeTier);
     if (type === 'journal')  return t('history.journalEntry');
-    return (singlet ? t('history.statusChange') : t('history.frontSwitch')) + (singlet ? '' : suffixFor(frontTier));
+    return singlet ? t('history.statusChange') : withTier('history.frontSwitch', frontTier);
   };
   const tierColor = (tier?: FrontTierKey | null): string => tier === 'coFront' ? T.info : tier === 'coConscious' ? T.success : T.accent;
 
@@ -440,7 +443,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: landscape ? 6 : 16}}>
         <Text
           accessibilityRole="header"
-          style={[s.heading, {color: T.text}, landscape && {fontSize: fs(15)}]}
+          style={[s.heading, {color: T.text, fontSize: fs(22)}, landscape && {fontSize: fs(15)}]}
           numberOfLines={1}
           maxFontSizeMultiplier={1.2}>
           {t('history.title')}
@@ -449,7 +452,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
           {(['front', 'member', 'timeline'] as SubTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
-              style={[s.subtab, {
+              hitSlop={{top: 6, bottom: 6}} style={[s.subtab, {
                 flex: 1,
                 alignItems: 'center',
                 paddingVertical: landscape ? 5 : 10,
@@ -512,7 +515,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                       <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text}}>{selectedMember.name}</Text>
                       {selectedMember.pronouns ? <Text style={{fontSize: fs(11), color: T.dim}}>{selectedMember.pronouns}</Text> : null}
                     </View>
-                    <TouchableOpacity onPress={() => {setSelectedMemberId(null); setMemberSearch('');}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.clear')} ${selectedMember.name}`}>
+                    <TouchableOpacity hitSlop={{top: 12, bottom: 12, left: 12, right: 12}} onPress={() => {setSelectedMemberId(null); setMemberSearch('');}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.clearItem', {name: selectedMember.name})}>
                       <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
                     </TouchableOpacity>
                   </View>
@@ -591,7 +594,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                     </View>
                     <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
                       <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('history.sessions')}</Text>
-                      <Text style={{fontSize: fs(15), fontWeight: '700', color: T.text}}>{mergedSessions.length}</Text>
+                      <Text style={{fontSize: fs(15), fontWeight: '700', color: T.text}}>{fmtNum(mergedSessions.length, 0)}</Text>
                     </View>
                     {topMood && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
@@ -608,7 +611,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                     {avgEnergy !== null && (
                       <View style={[s.stat, {backgroundColor: T.card, borderColor: T.border}]}>
                         <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 3}}>{t('stats.avgEnergy')}</Text>
-                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{fmtNum(avgEnergy, 1, 1)}/10</Text>
+                        <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}} numberOfLines={1}>{t('energy.outOfTen', {n: fmtNum(avgEnergy, 1, 1)})}</Text>
                       </View>
                     )}
                   </View>
@@ -648,7 +651,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                         <View style={[s.card, {flex: 1, backgroundColor: T.card, borderColor: T.border}]}>
                           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 4}}>
                             <Text style={{fontSize: fs(12), color, marginRight: 6, fontWeight: '600',
-                              }}>{icon} {label}</Text>
+                              }} accessibilityLabel={label}>{icon} {label}</Text>
                             <Text style={{fontSize: fs(11), color: T.muted, marginLeft: 'auto'}}>{fmtTime(event.time)}</Text>
                           </View>
 
@@ -668,27 +671,24 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                                   <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: d.note ? 4 : 0}}>
                                     {d.mood && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                        <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.mood')} </Text>
-                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{translateMood(d.mood, t)}</Text>
+                                        <Text style={{fontSize: fs(10), color: T.dim}}><Trans i18nKey="history.moodBadge" values={{mood: translateMood(d.mood, t)}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
                                       </View>
                                     )}
                                     {d.location && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                        <Text style={{fontSize: fs(10), color: T.dim}}>{t('history.at')} </Text>
-                                        <Text style={{flexShrink: 1, fontSize: fs(11), color: T.text, fontWeight: '500'}} numberOfLines={1}>{d.location}</Text>
+                                        <Text style={{flexShrink: 1, fontSize: fs(10), color: T.dim}} numberOfLines={1}><Trans i18nKey="history.atBadge" values={{location: d.location}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
                                       </View>
                                     )}
                                     {d.energy !== undefined && (
                                       <View style={[s.badge, {backgroundColor: T.surface}]}>
-                                        <Text style={{fontSize: fs(10), color: T.dim}}>{t('energy.label')} </Text>
-                                        <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}}>{d.energy}/10</Text>
+                                        <Text style={{fontSize: fs(10), color: T.dim}}><Trans i18nKey="history.energyBadge" values={{value: t('energy.outOfTen', {n: fmtNum(d.energy, 0)})}} components={{b: <Text style={{fontSize: fs(11), color: T.text, fontWeight: '500'}} />}} /></Text>
                                       </View>
                                     )}
                                   </View>
                                 )}
                                 {d.note ? (
                                   <View style={{backgroundColor: T.surface, borderRadius: 6, padding: 7}}>
-                                    <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}}>{d.note}</Text>
+                                    <Text style={{fontSize: fs(12), color: T.dim, lineHeight: fs(17)}}>{d.note}</Text>
                                   </View>
                                 ) : null}
                               </>
@@ -701,7 +701,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
                                 {(event.journalEntry.password || systemJournalPassword) ? '🔒 ' : ''}{event.journalEntry.title || t('common.untitled')}
                               </Text>
                               {event.journalEntry.body && !event.journalEntry.password && !systemJournalPassword ? (
-                                <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 17}} numberOfLines={2}>
+                                <Text style={{fontSize: fs(12), color: T.dim, lineHeight: fs(17)}} numberOfLines={2}>
                                   {event.journalEntry.body}
                                 </Text>
                               ) : null}

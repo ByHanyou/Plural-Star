@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Skriv i markdown…",
     "urlPlaceholder": "URL här",
     "textPlaceholder": "text",
-    "body": "Redigerare"
+    "body": "Redigerare",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Fet",
@@ -97,7 +98,14 @@
     "unknown": "Okänd",
     "untitled": "Namnlös",
     "ok": "OK",
-    "search": "Sök…"
+    "search": "Sök…",
+    "removeItem": "Ta bort {{name}}",
+    "addItem": "Lägg till {{name}}",
+    "clearItem": "Rensa {{name}}",
+    "editItem": "Redigera {{name}}",
+    "deleteItem": "Radera {{name}}",
+    "exportItem": "Exportera {{name}}",
+    "errorCode": "Felkod: {{code}}"
   },
   "a11y": {
     "settings": "Inställningar",
@@ -116,7 +124,8 @@
     "minute": "Minut",
     "switchToAm": "PM, byt till AM",
     "switchToPm": "AM, byt till PM",
-    "image": "Bild"
+    "image": "Bild",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Något gick fel",
@@ -183,7 +192,8 @@
     "statusesDesc": "Statusar beskriver hur du mår — som Sover, Jobbar eller Ängslig. Välj dem när du uppdaterar din status.",
     "noStatuses": "Inga statusar ännu. Lägg till en för att komma igång.",
     "activeStatus": "Aktiv",
-    "favoriteColor": "Favoritfärg"
+    "favoriteColor": "Favoritfärg",
+    "statusActiveA11y": "{{name}}, aktiv"
   },
   "settings": {
     "observatory": "Observatorium-gränssnitt (singlet)",
@@ -200,7 +210,9 @@
     "noNote": "Ingen anteckning. Tryck på Redigera för att lägga till en.",
     "clearFront": "Rensa front",
     "clearFrontMsg": "Detta rensar alla nivåer och loggar slutet på den aktuella sessionen. Fortsätta?",
-    "clearFrontTitle": "Rensa front?"
+    "clearFrontTitle": "Rensa front?",
+    "frontingForA11y": "{{name}}, frontat i {{dur}}",
+    "frontingForSince": "Frontat i <b>{{dur}}</b> · sedan {{time}}"
   },
   "members": {
     "frontingLockTitle": "Frontar just nu",
@@ -281,7 +293,22 @@
     "bulkRestoreMsg": "Återställ {{count}} medlem(mar) till aktiva?",
     "bulkDelete": "Radera medlemmar",
     "bulkDeleteMsg": "Radera {{count}} medlem(mar) permanent? Detta kan inte ångras.",
-    "recentlyDeleted": "Nyligen raderade"
+    "recentlyDeleted": "Nyligen raderade",
+    "nameInTier": "{{name}}, i {{tier}}",
+    "moveUpItem": "Flytta upp {{name}}",
+    "moveDownItem": "Flytta ner {{name}}",
+    "addToFrontName": "Lägg till i fronten — {{name}}",
+    "removeFromFrontName": "Ta bort från fronten — {{name}}",
+    "titleCount": "Medlemmar ({{n}})",
+    "facetsCount": "Fasetter ({{n}})",
+    "customFrontsCount": "Egna fronter ({{n}})",
+    "restoreItem": "Återställ {{name}}",
+    "bulkArchiveMsg_one": "Arkivera {{count}} medlem? Den kan återställas senare.",
+    "bulkArchiveMsg_other": "Arkivera {{count}} medlemmar? De kan återställas senare.",
+    "bulkRestoreMsg_one": "Återställ {{count}} medlem till aktiv?",
+    "bulkRestoreMsg_other": "Återställ {{count}} medlemmar till aktiva?",
+    "bulkDeleteMsg_one": "Radera {{count}} medlem permanent? Detta kan inte ångras.",
+    "bulkDeleteMsg_other": "Radera {{count}} medlemmar permanent? Detta kan inte ångras."
   },
   "history": {
     "title": "Historik",
@@ -325,7 +352,15 @@
     "deleteConfirm2": "Detta kan inte ångras. Radera ändå?",
     "deleteConfirm3": "Sista bekräftelsen: radera posten permanent?",
     "showMore": "Visa mer",
-    "showLess": "Visa mindre"
+    "showLess": "Visa mindre",
+    "moodBadge": "humör <b>{{mood}}</b>",
+    "atBadge": "på <b>{{location}}</b>",
+    "energyBadge": "Energi <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Humör & plats ändrade ({{tier}})",
+    "moodChanged_tier": "Humör ändrat ({{tier}})",
+    "locationChanged_tier": "Plats ändrad ({{tier}})",
+    "noteUpdated_tier": "Anteckning uppdaterad ({{tier}})",
+    "frontSwitch_tier": "Frontbyte ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Detta tar bort mallen permanent.",
@@ -360,7 +395,8 @@
     "templateName": "Mallnamn *",
     "templateNamePlaceholder": "t.ex. Morgonsidor",
     "templateTitle": "Inläggstitel (förval)",
-    "templateBody": "Inläggstext (förval)"
+    "templateBody": "Inläggstext (förval)",
+    "openEntryHint": "Öppnar hela inlägget"
   },
   "share": {
     "banners": "Banners",
@@ -570,6 +606,7 @@
     "exportReady": "Export klar",
     "exportReadyMsg": "{{filename}} genererades, men delningsmenyn kunde inte öppnas automatiskt.",
     "importing": "Importerar…",
+    "exporting": "Exporterar…",
     "importStopping": "Avslutar det här steget och stoppar sedan…",
     "progressJournal": "Återställer dagbok…",
     "progressHistory": "Återställer fronthistorik…",
@@ -587,7 +624,36 @@
     "progressBannersDownloadN": "Laddar ner banners… {{done}}/{{total}}",
     "progressChat": "Återställer chatt…",
     "progressChatN": "Återställer chattkanaler… {{done}}/{{total}}",
-    "progressSavingMembers": "Sparar medlemmar…"
+    "progressSavingMembers": "Sparar medlemmar…",
+    "exportAs": "Exportera som {{format}}",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "”{{text}}”",
+    "exportMailExportedLine": "Exporterad: {{date}}",
+    "exportMailMembersHeader": "MEDLEMMAR ({{count}})",
+    "exportMailJournalHeader": "DAGBOK ({{count}})",
+    "exportMailJournalHeaderRecent": "DAGBOK ({{count}} — visar de {{shown}} senaste)",
+    "exportMailHistoryHeader": "FRONTHISTORIK ({{count}})",
+    "exportMailHistoryHeaderRecent": "FRONTHISTORIK ({{count}} — visar de {{shown}} senaste)",
+    "exportTitleLine": "Titel: {{title}}",
+    "exportDateLine": "Datum: {{date}}",
+    "exportAuthorsLine": "Författare: {{authors}}",
+    "importStopped_one": "Importen stoppades. {{count}} steg hann bli klart och sparades; resterande steg kördes inte.",
+    "importStopped_other": "Importen stoppades. {{count}} steg hann bli klara och sparades; resterande steg kördes inte.",
+    "psAvatarsImported_one": "Importerade {{count}} avatar.",
+    "psAvatarsImported_other": "Importerade {{count}} avatarer.",
+    "recoverConfirmMsg_one": "Återställ {{count}} objekt till appen? Detta skriver över nuvarande data för den kategorin.",
+    "recoverConfirmMsg_other": "Återställ {{count}} objekt till appen? Detta skriver över nuvarande data för de kategorierna.",
+    "cfUnmatched_one": "{{count}} nyckel matchade inga av våra fält-ID:n/namn. Omatchad nyckel: {{samples}}",
+    "cfUnmatched_other": "{{count}} nycklar matchade inga av våra fält-ID:n/namn. Exempel på omatchade nycklar: {{samples}}",
+    "unnamedMember": "Namnlös medlem",
+    "fieldN": "Fält {{n}}",
+    "systemN": "System {{n}}",
+    "groupN": "Grupp {{n}}",
+    "channelN": "Kanal {{n}}",
+    "ageField": "Ålder",
+    "errUnexpected": "Något gick fel. Kontrollera filen och försök igen."
   },
   "hub": {
     "front": "Front",
@@ -614,11 +680,11 @@
     "statistics": "Statistik",
     "systemChat": "Systemchatt",
     "archive": "Arkiv",
-    "discord": "Discord",
     "credits": "Medverkande",
     "creditLogo": "Plural Star-logotyp",
     "creditIos": "Plural Star iOS-port",
-    "supportPS": "Stöd PS"
+    "supportPS": "Stöd PS",
+    "discord": "Discord"
   },
   "modal": {
     "linkPfp": "Länka bild",
@@ -657,6 +723,8 @@
     "colorLock": "Färglås",
     "invalidHex": "Ogiltig hexfärg",
     "customColor": "Egen färg",
+    "emoji": "Emoji",
+    "emojiPlaceholder": "t.ex. 🦊",
     "transparentColor": "Transparent",
     "removeImageMsg": "Ta bort den här bilden?",
     "deletePaletteMsg": "Detta tar bort paletten permanent.",
@@ -730,7 +798,7 @@
     "removePfp": "Ta bort bild",
     "viewPfp": "Visa bild",
     "viewPfpOf": "Bild på {{name}}",
-    "fancyPants": "Fancy Pants",
+    "fancyPants": "Visuell redigerare",
     "selectedText": "text",
     "searchAuthors": "Sök författare…",
     "textSize": "Textstorlek",
@@ -739,7 +807,17 @@
     "textScaleLarge": "Stor",
     "textScaleExtraLarge": "Extra stor",
     "dyslexicFont": "Dyslexivänligt typsnitt",
-    "dyslexicFontDesc": "Byter brödtexten till OpenDyslexic. Rubriker behåller sitt stiliserade typsnitt."
+    "dyslexicFontDesc": "Byter brödtexten till OpenDyslexic. Rubriker behåller sitt stiliserade typsnitt.",
+    "cropArea": "Beskärningsområde",
+    "addEntryPassword": "Lägg till inläggslösenord",
+    "removeEntryPassword": "Ta bort inläggslösenord",
+    "addJournalPassword": "Lägg till dagbokslösenord",
+    "removeJournalPassword": "Ta bort dagbokslösenord",
+    "addAppLockPassword": "Lägg till lösenord för applås",
+    "removeAppLockPassword": "Ta bort lösenord för applås",
+    "fontDefault": "Standard",
+    "paletteObsidian": "Obsidian",
+    "paletteSteel": "Stål"
   },
   "notification": {
     "locationPermTitle": "Platsbehörighet",
@@ -783,7 +861,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} nya anteckningar",
     "chatPingTitle": "◆ {{speaker}} pingade dig i #{{channel}}",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "Tryck för att se meddelandet."
+    "chatPingBodyEmpty": "Tryck för att se meddelandet.",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -834,11 +913,21 @@
     "removeMembers": "Ta bort medlemmar",
     "deleteGroup": "Radera grupp",
     "deleteGroupMsg": "Ta bort den här gruppen? Medlemmarna raderas inte.",
-    "deleteWithChildrenMsg": "Den här innehåller {{count}} nästlade objekt. Behåll dem och flytta upp dem en nivå, eller radera allt?"
+    "deleteWithChildrenMsg": "Den här innehåller {{count}} nästlade objekt. Behåll dem och flytta upp dem en nivå, eller radera allt?",
+    "subgroupCount_one": "{{count}} undergrupp",
+    "subgroupCount_other": "{{count}} undergrupper",
+    "expandA11y": "Undergrupper till {{name}}, {{count}} valda",
+    "subsystemNamed": "{{name}}, undersystem",
+    "moveItem": "Flytta {{name}}",
+    "addMembersTo": "Lägg till medlemmar — {{name}}",
+    "newKind": "Typ av nytt objekt",
+    "deleteWithChildrenMsg_one": "Den här innehåller {{count}} nästlat objekt. Behåll det och flytta upp det en nivå, eller radera allt?",
+    "deleteWithChildrenMsg_other": "Den här innehåller {{count}} nästlade objekt. Behåll dem och flytta upp dem en nivå, eller radera allt?"
   },
   "stats": {
     "showMore": "Visa mer",
     "showMoreN": "Visa mer — visar {{shown}} av {{total}}",
+    "showMoreShort": "Visa mer ({{shown}}/{{total}})",
     "energyByHour": "Energi per timme",
     "allTime": "All tid",
     "last7": "7 dagar",
@@ -868,7 +957,13 @@
     "topCoMembers": "Topp co-medlemmar",
     "msgsSuffix": "medd.",
     "sessionsSuffix": "sessioner",
-    "totalSessions": "Totalt antal sessioner"
+    "totalSessions": "Totalt antal sessioner",
+    "sessionsCount_one": "{{count}} session",
+    "sessionsCount_other": "{{count}} sessioner",
+    "msgsCount_one": "{{count}} medd.",
+    "msgsCount_other": "{{count}} medd.",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "session"
   },
   "chat": {
     "addReaction": "Lägg till reaktion",
@@ -917,12 +1012,47 @@
     "deleteMsgConfirm": "Meddelandet tas bort permanent.",
     "editingHeader": "Redigerar meddelande",
     "editPlaceholder": "Redigera meddelande…",
-    "imagePreview": "[bild]"
+    "imagePreview": "[bild]",
+    "reactionA11y_one": "{{emoji}}, {{count}} reaktion",
+    "reactionA11y_other": "{{emoji}}, {{count}} reaktioner",
+    "replyTo": "Svara {{name}}",
+    "archiveChannelNamed": "Arkivera {{name}}",
+    "defaultGeneral": "Allmänt",
+    "defaultVenting": "Ventilera",
+    "defaultPlanning": "Planering",
+    "attachment": "Bilaga"
   },
   "customFront": {
     "add": "Lägg till egen front",
     "edit": "Redigera egen front",
     "namePlaceholder": "Namn på egen front"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Pratsam",
+      "nonVerbal": "Icke-verbal",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Suddig",
+      "blendy": "Blandad",
+      "rapidSwitching": "Snabba växlingar",
+      "foggy": "Dimmig",
+      "grounded": "Jordad",
+      "dissociated": "Dissocierad",
+      "anxious": "Orolig",
+      "depressed": "Deprimerad",
+      "cheerful": "Munter",
+      "happy": "Glad",
+      "sad": "Ledsen",
+      "crisis": "Kris",
+      "melancholy": "Melankolisk",
+      "stimming": "Självstimulering",
+      "stressed": "Stressad",
+      "working": "Arbetar",
+      "traveling": "På resa",
+      "sleeping": "Sover",
+      "hyperfocus": "Hyperfokus"
+    }
   },
   "lock": {
     "locked": "Låst",
@@ -940,7 +1070,9 @@
     "browse": "Bläddra",
     "deleteSelectedMsg": "Ta bort {{count}} valda objekt? Medlemmarna raderas inte.",
     "desc": "Skapa, redigera, ordna om och radera grupper och undersystem. Tryck på ⇄ på ett objekt och sedan på ett mål för att nästla det.",
-    "title": "Systemhanterare"
+    "title": "Systemhanterare",
+    "deleteSelectedMsg_one": "Ta bort {{count}} valt objekt? Medlemmarna raderas inte.",
+    "deleteSelectedMsg_other": "Ta bort {{count}} valda objekt? Medlemmarna raderas inte."
   },
   "customFields": {
     "title": "Egna fält",
@@ -993,6 +1125,7 @@
     "cloudErrRate": "För många försök. Vänta en minut och försök igen.",
     "cloudErrFull": "Valvet eller noden har slut på utrymme.",
     "cloudErrTooLarge": "Utelämnat, större än 25 MB: {{keys}}",
+    "cloudErrOverQuota": "Utelämnat, valvet har slut på utrymme: {{keys}}",
     "cloudErrBadPassword": "Valvet finns, men det här lösenordet öppnar det inte.",
     "cloudErrCorrupt": "Valvet kunde inte läsas på den här enheten. Koppla bort och koppla igen med samma lösenord.",
     "cloudUnavailable": "Noden du är ansluten till erbjuder inte Molntjänster.",
@@ -1061,6 +1194,7 @@
     "deleteBucket": "Radera cirkel",
     "deleteBucketMsg": "Radera ”{{name}}”?",
     "cloneBucket": "Klona cirkel",
+    "cloneBucketName": "Klona cirkel — {{name}}",
     "viewShared": "Visa delat",
     "mirrorNothing": "De har inte delat detta med dig ännu.",
     "mirrorOffline": "Vännen är offline — visar den senast mottagna kopian.",
@@ -1111,7 +1245,17 @@
     "syncCloneSending": "Skickar första kopian…",
     "syncCloneReceiving": "Tar emot första kopian…",
     "syncCloneDone": "Första kopian klar",
-    "publishFailed": "Kunde inte publicera din kod — kontrollera anslutningen och försök igen."
+    "publishFailed": "Kunde inte publicera din kod — kontrollera anslutningen och försök igen.",
+    "friendStatusOffline": "{{status}}. Offline",
+    "scopeCount": "{{count}} valda",
+    "scopeCount_one": "{{count}} vald",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Något gick fel med molnsynkroniseringen. Försök igen.",
+    "scopeSelectTitle": "{{feature}} — Urval",
+    "viewSharedTitle": "{{name}} — Visa delat",
+    "deviceFallback": "Enhet",
+    "friendFallback": "Vän",
+    "androidDeviceFallback": "Android-enhet"
   },
   "terminology": {
     "fronter": "Frontare",
@@ -1185,7 +1329,9 @@
     "addTime": "Lägg till tid",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Planerarpåminnelse"
+    "notifReminder": "Planerarpåminnelse",
+    "todayA11y": "Idag, {{date}}",
+    "reminderOff": "Av"
   },
   "mailbox": {
     "title": "Brevlåda",
@@ -1209,7 +1355,13 @@
     "unreadCount": "{{count}} olästa",
     "unreadCount_one": "{{count}} oläst",
     "deleteTitle": "Radera meddelande",
-    "deleteMsg": "Ta bort meddelandet? Detta kan inte ångras."
+    "deleteMsg": "Ta bort meddelandet? Detta kan inte ångras.",
+    "locked": "Låst",
+    "unlocked": "Inte låst",
+    "allOthersCount": "Alla andra Medlemmar · {{count}}",
+    "unread": "Oläst",
+    "deleteFrom": "Radera meddelande från {{name}}",
+    "frontersHaveMail": "Oläst post till: {{names}}"
   },
   "whiteboard": {
     "title": "Whiteboard",
@@ -1264,7 +1416,9 @@
     "voPosDown": "{{n}} nedåt",
     "voPosUp": "{{n}} uppåt",
     "voEdges": "{{left}} till vänsterkanten, {{right}} till högerkanten, {{top}} till överkanten, {{bottom}} till underkanten",
-    "voRecentered": "Pennan centrerad i mitten"
+    "voRecentered": "Pennan centrerad i mitten",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Penselstorlek {{n}}"
   },
   "systemMap": {
     "connections": "Kopplingar",
@@ -1309,7 +1463,11 @@
     "zoomIn": "Zooma in",
     "zoomOut": "Zooma ut",
     "resetView": "Återställ vyn",
-    "notePlaceholder": "Valfri anteckning…"
+    "notePlaceholder": "Valfri anteckning…",
+    "mapA11y": "Relationskarta, {{members}}, {{relationships}}",
+    "mapA11yHint": "Använd åtgärdsmenyn för att välja en medlem",
+    "depthN_one": "{{count}} koppling utåt",
+    "depthN_other": "{{count}} kopplingar utåt"
   },
   "relType": {
     "love": "Kärlek",
@@ -1375,13 +1533,17 @@
     "deletePollMsg": "Detta tar bort omröstningen permanent.",
     "noPolls": "Inga omröstningar ännu.",
     "closed": "Stängd",
-    "votingAs": "Röstar som:"
+    "votingAs": "Röstar som:",
+    "optionN": "Alternativ {{n}}",
+    "removeOptionN": "Ta bort alternativ {{n}}"
   },
   "energy": {
     "label": "Energi",
     "level": "Energinivå",
     "avgEnergy": "Snittenergi",
-    "outOf10": "/10 energi"
+    "outOf10": "/10 energi",
+    "levelN": "Energinivå {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Läsning",

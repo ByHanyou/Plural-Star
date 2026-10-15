@@ -4,7 +4,7 @@ import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
 import {fontScale, ThemeColors} from '../theme';
 import {ImportProgress, progressFraction} from '../import/progress';
-import {fmtPercent} from '../utils';
+import {fmtPercent, fmtNum} from '../utils';
 
 interface Props {
   visible: boolean;
@@ -59,16 +59,14 @@ export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props
             )}
             {!!progress?.total && progress.total > 0 && (
               <Text style={[s.meta, {color: T.dim, fontSize: fs(11)}]}>
-                {`${progress.done ?? 0}/${progress.total}`}
+                {`${fmtNum(progress.done ?? 0, 0)}/${fmtNum(progress.total, 0)}`}
               </Text>
             )}
           </View>
 
           {stopping ? (
             <Text style={[s.label, {color: T.accent, fontSize: fs(12)}]}>
-              {t('share.importStopping', {
-                defaultValue: 'Finishing this step, then stopping…',
-              })}
+              {t('share.importStopping')}
             </Text>
           ) : onCancel ? (
             <TouchableOpacity
@@ -76,9 +74,8 @@ export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={t('common.cancel')}
-              accessibilityHint={t('share.importCancelHint', {
-                defaultValue: 'Stops after the current step finishes. Steps already done are kept.',
-              })}
+              accessibilityHint={t('share.importCancelHint')}
+              hitSlop={{top: 6, bottom: 6}}
               style={[s.cancel, {borderColor: T.border}]}>
               <Text style={[s.cancelText, {color: T.dim, fontSize: fs(13)}]}>
                 {t('common.cancel')}

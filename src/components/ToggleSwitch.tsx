@@ -11,6 +11,7 @@ export const TogglePill = ({on, T}: {on: boolean; T: ThemeColors}) => (
 export const ToggleSwitch = ({value, onToggle, label, T, disabled = false, activeOpacity = 0.8, style}: {value: boolean; onToggle?: () => void; label?: string; T: ThemeColors; disabled?: boolean; activeOpacity?: number; style?: any}) => (
   <TouchableOpacity onPress={disabled ? undefined : onToggle} activeOpacity={activeOpacity} disabled={disabled}
     accessibilityRole="switch" accessibilityState={{checked: value, ...(disabled ? {disabled: true} : {})}} accessibilityLabel={label}
+    hitSlop={{top: 11, bottom: 11, left: 4, right: 4}}
     style={[disabled ? {opacity: 0.4} : null, style]}>
     <TogglePill on={value} T={T} />
   </TouchableOpacity>

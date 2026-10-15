@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, Image, StyleSheet, ScrollView, Platform, TouchableOpacity} from 'react-native';
+import {View, Image, StyleSheet, ScrollView, Platform, TouchableOpacity, AccessibilityInfo} from 'react-native';
 import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
@@ -25,6 +25,7 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
       onUnlock();
     } else {
       setError(t('lock.wrongPassword'));
+      if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(t('lock.wrongPassword'));
     }
   };
 
@@ -32,10 +33,10 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
     <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
         <Image source={require('../assets/splash-logo.png')} style={s.logo} resizeMode="contain" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
-        <Text accessibilityRole="header" style={[s.heading, {color: T.accent}]}>{systemName || t('lock.locked')}</Text>
-        <Text style={[s.sub, {color: T.dim}]}>{t('lock.subtitle')}</Text>
+        <Text accessibilityRole="header" style={[s.heading, {color: T.accent, fontSize: fs(24)}]}>{systemName || t('lock.locked')}</Text>
+        <Text style={[s.sub, {color: T.dim, fontSize: fs(14)}]}>{t('lock.subtitle')}</Text>
         <View style={s.form}>
-          <Text style={[s.label, {color: T.dim}]}>{t('lock.password')}</Text>
+          <Text style={[s.label, {color: T.dim, fontSize: fs(10)}]}>{t('lock.password')}</Text>
           <TextInput
             value={input}
             onChangeText={v => { setInput(v); if (error) setError(''); }}
@@ -45,11 +46,11 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
             autoFocus
             onSubmitEditing={submit}
             returnKeyType="go"
-            style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: error ? T.danger : T.border}]}
+            style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: error ? T.danger : T.border, fontSize: fs(14)}]}
           />
-          {error ? <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, marginTop: -8}}>{error}</Text> : null}
+          {error ? <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, marginTop: -8}} accessibilityLiveRegion="polite">{error}</Text> : null}
           <TouchableOpacity onPress={submit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('lock.unlock')} style={[s.btn, {backgroundColor: T.accent}]}>
-            <Text style={[s.btnText, {color: initialOn(T.accent)}]}>{t('lock.unlock')}</Text>
+            <Text style={[s.btnText, {color: initialOn(T.accent), fontSize: fs(15)}]}>{t('lock.unlock')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

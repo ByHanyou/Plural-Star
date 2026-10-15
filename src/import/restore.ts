@@ -1,5 +1,8 @@
 import {Alert} from 'react-native';
+import {importNameKey} from './importNames';
+import {ImportUserError} from './importError';
 import type {TFunction} from 'i18next';
+import i18n from '../i18n/i18n';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import {Member, MemberGroup, HistoryEntry, JournalEntry, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, AppSettings, uid, findOpenFrontInHistory} from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
@@ -107,7 +110,7 @@ const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCt
   const {restoreSel, importMode, setRestoreProgress, t} = ctx;
     const upd = importMode === 'update';
     if (restoreSel.journal && data.journal) {
-      if (!(await runPhase(ctx, t('share.progressJournal', {defaultValue: 'Restoring journal…'}), async () => {
+      if (!(await runPhase(ctx, t('share.progressJournal'), async () => {
         const next = upd
           ? mergeById(await store.get<JournalEntry[]>(KEYS.journal, []), data.journal!, (a, b) => a.timestamp === b.timestamp && a.title === b.title).sort((a, b) => b.timestamp - a.timestamp)
           : data.journal;
@@ -115,7 +118,7 @@ const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCt
       }))) return;
     }
     if (restoreSel.frontHistory && data.frontHistory) {
-      if (!(await runPhase(ctx, t('share.progressHistory', {defaultValue: 'Restoring front history…'}), async () => {
+      if (!(await runPhase(ctx, t('share.progressHistory'), async () => {
         const next = upd
           ? mergeHistoryEntries(data.frontHistory!, await store.get<HistoryEntry[]>(KEYS.history, []) || [])
           : data.frontHistory;
@@ -123,9 +126,9 @@ const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCt
       }))) return;
     }
     if (restoreSel.groups && data.groups) {
-      if (!(await runPhase(ctx, t('share.progressGroups', {defaultValue: 'Restoring groups…'}), async () => {
+      if (!(await runPhase(ctx, t('share.progressGroups'), async () => {
         const next = upd
-          ? mergeById(await store.get<MemberGroup[]>(KEYS.groups, []), data.groups!, (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase())
+          ? mergeById(await store.get<MemberGroup[]>(KEYS.groups, []), data.groups!, (a, b) => importNameKey(a.name) === importNameKey(b.name))
           : data.groups;
         await store.set(KEYS.groups, next);
       }))) return;
@@ -134,13 +137,13 @@ const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCt
     if (restoreSel.chat) {
       if (data.chatChannels) {
         const nextCh = upd
-          ? mergeById(await store.get<any[]>(KEYS.chatChannels, []), data.chatChannels as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase())
+          ? mergeById(await store.get<any[]>(KEYS.chatChannels, []), data.chatChannels as any[], (a, b) => importNameKey(a.name) === importNameKey(b.name))
           : data.chatChannels;
         await store.set(KEYS.chatChannels, nextCh);
       }
       if (data.chatCategories) {
         const nextCat = upd
-          ? mergeById(await store.get<any[]>(KEYS.chatCategories, []), data.chatCategories as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase())
+          ? mergeById(await store.get<any[]>(KEYS.chatCategories, []), data.chatCategories as any[], (a, b) => importNameKey(a.name) === importNameKey(b.name))
           : data.chatCategories;
         await store.set(KEYS.chatCategories, nextCat);
       }
@@ -165,7 +168,7 @@ const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCt
       }
     }
     if (ctx.control?.shouldStop()) return;
-    if (ctx.control) ctx.control.begin(t('share.progressSettings', {defaultValue: 'Restoring settings…'}));
+    if (ctx.control) ctx.control.begin(t('share.progressSettings'));
     if (restoreSel.settings || restoreSel.moods) {
       const currentSettings = await store.get<AppSettings>(KEYS.settings) || {} as AppSettings;
       let newSettings = {...currentSettings};
@@ -176,12 +179,12 @@ const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCt
       if (restoreSel.moods) newSettings.customMoods = data.customMoods || data.settings?.customMoods || [];
       await store.set(KEYS.settings, newSettings);
     }
-    if (restoreSel.palettes && data.palettes) await store.set(KEYS.palettes, upd ? mergeById(await store.get<any[]>(KEYS.palettes, []), data.palettes as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase()) : data.palettes);
+    if (restoreSel.palettes && data.palettes) await store.set(KEYS.palettes, upd ? mergeById(await store.get<any[]>(KEYS.palettes, []), data.palettes as any[], (a, b) => importNameKey(a.name) === importNameKey(b.name)) : data.palettes);
     if (restoreSel.frontHistory && data.front !== undefined) await store.set(KEYS.front, data.front);
-    if (restoreSel.customFields && data.customFieldDefs) await store.set(KEYS.customFieldDefs, upd ? mergeById(await store.get<any[]>(KEYS.customFieldDefs, []), data.customFieldDefs as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase()) : data.customFieldDefs);
+    if (restoreSel.customFields && data.customFieldDefs) await store.set(KEYS.customFieldDefs, upd ? mergeById(await store.get<any[]>(KEYS.customFieldDefs, []), data.customFieldDefs as any[], (a, b) => importNameKey(a.name) === importNameKey(b.name)) : data.customFieldDefs);
     if (restoreSel.noteboards && data.noteboards) await store.set(KEYS.noteboards, upd ? mergeById(await store.get<any[]>(KEYS.noteboards, []), data.noteboards as any[], (a, b) => a.timestamp === b.timestamp && a.authorId === b.authorId && a.content === b.content) : data.noteboards);
     if (restoreSel.polls && data.polls) await store.set(KEYS.polls, upd ? mergeById(await store.get<any[]>(KEYS.polls, []), data.polls as any[]) : data.polls);
-    if (restoreSel.journalTemplates && data.journalTemplates) await store.set(KEYS.journalTemplates, upd ? mergeById(await store.get<any[]>(KEYS.journalTemplates, []), data.journalTemplates as any[], (a, b) => String(a.name || '').toLowerCase() === String(b.name || '').toLowerCase()) : data.journalTemplates);
+    if (restoreSel.journalTemplates && data.journalTemplates) await store.set(KEYS.journalTemplates, upd ? mergeById(await store.get<any[]>(KEYS.journalTemplates, []), data.journalTemplates as any[], (a, b) => importNameKey(a.name) === importNameKey(b.name)) : data.journalTemplates);
     if (restoreSel.relationships && data.relationships) await store.set(KEYS.relationships, upd ? mergeById(await store.get<any[]>(KEYS.relationships, []), data.relationships as any[]) : data.relationships);
     if (restoreSel.relationships && data.relationshipTypes) await store.set(KEYS.relationshipTypes, upd ? mergeById(await store.get<any[]>(KEYS.relationshipTypes, []), data.relationshipTypes as any[]) : data.relationshipTypes);
     if (restoreSel.relationships && data.systemMapMembers) await store.set(KEYS.systemMapMembers, upd ? [...new Set([...(await store.get<string[]>(KEYS.systemMapMembers, []) || []), ...data.systemMapMembers])] : data.systemMapMembers);
@@ -248,7 +251,7 @@ const normalizeOurcana = (raw: any): any => {
     .sort((a: any, b: any) => (a.properties?.order ?? 0) - (b.properties?.order ?? 0))
     .map((n: any, i: number) => ({
       id: String(n.id),
-      name: String(n.properties?.label || `Field ${i + 1}`).trim() || `Field ${i + 1}`,
+      name: String(n.properties?.label || i18n.t('share.fieldN', {n: i + 1})).trim() || i18n.t('share.fieldN', {n: i + 1}),
       order: n.properties?.order ?? i,
       type: String(n.properties?.type || 'text'),
     }));
@@ -412,7 +415,7 @@ const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: Record<
       ouMembers.forEach((m: any) => {
         const useDisplay = m.showOnlyDisplayName && m.displayName;
         mergeForeignMember(merged, idMap, String(m.id), {
-          name: (useDisplay ? String(m.displayName) : String(m.name || '')).trim() || 'Unnamed member',
+          name: (useDisplay ? String(m.displayName) : String(m.name || '')).trim() || t('share.unnamedMember'),
           pronouns: String(m.pronouns || ''), role: '', color: normHex(m.color),
           description: String(m.desc || ''), archived: !!m.archived,
         });
@@ -426,7 +429,7 @@ const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: Record<
       ouTags.forEach((tg: any) => {
         const name = String(tg.label || tg.name || 'Group');
         const srcId = `ou:${String(tg.id)}`;
-        let g = mergedGroups.find(x => x.sourceId === srcId) || mergedGroups.find(x => !x.sourceId && x.name.toLowerCase() === name.toLowerCase());
+        let g = mergedGroups.find(x => x.sourceId === srcId) || mergedGroups.find(x => !x.sourceId && importNameKey(x.name) === importNameKey(name));
         if (!g) { g = {id: uid(), name, color: tg.color ? normHex(tg.color) : undefined, sourceId: srcId}; mergedGroups.push(g); }
         else { g.name = name; g.sourceId = srcId; }
         groupIdMap[String(tg.id)] = g.id;
@@ -459,8 +462,8 @@ const importOurcana = async (rawDataIn: any, ctx: RestoreCtx, zipFiles?: Record<
       const fieldIdMap: Record<string, string> = {};
       const newDefs: CustomFieldDef[] = [];
       ouFieldDefs.forEach((f: any, i: number) => {
-        const name = String(f.name || `Field ${i + 1}`);
-        const existing = existingDefs.find(d => d.name.toLowerCase() === name.toLowerCase());
+        const name = String(f.name || t('share.fieldN', {n: i + 1}));
+        const existing = existingDefs.find(d => importNameKey(d.name) === importNameKey(name));
         let localId: string;
         if (existing) { localId = existing.id; } else {
           localId = uid();
@@ -529,7 +532,7 @@ const importMultiplicity = async (rawData: any, ctx: RestoreCtx) => {
       const merged: Member[] = [...existing];
       alters.forEach((a: any) => {
         mergeForeignMember(merged, idMap, 'mx:' + String(a.alter_id), {
-          name: (a.name && String(a.name).trim()) || (a.display_name && String(a.display_name).trim()) || 'Unnamed member',
+          name: (a.name && String(a.name).trim()) || (a.display_name && String(a.display_name).trim()) || t('share.unnamedMember'),
           pronouns: String(a.pronouns || ''), role: '', color: normHex(a.colour),
           description: String(a.description || ''), archived: !!a.is_archived,
         });
@@ -606,7 +609,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
           try { rawData = JSON.parse(content); } catch {
             const zb = await readZipBundle(restorePath);
             const inner = findOurcanaJsonEntry(zb.files);
-            if (!inner) throw new Error(t('share.invalidJsonBackup'));
+            if (!inner) throw new ImportUserError(t('share.invalidJsonBackup'));
             rawData = JSON.parse(zipTextOf(zb.files[inner]));
             ourZipFiles = zb.files;
           }
@@ -650,7 +653,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
               const id = existing ? existing.id : uid();
               return {
                 id,
-                name: spName || 'Unknown',
+                name: spName || t('common.unknown'),
                 pronouns: String(sp.pronouns || ''),
                 role: '',
                 color: normHex(sp.color),
@@ -701,9 +704,9 @@ export const handleRestore = (ctx: RestoreCtx) => {
               const newDefs: CustomFieldDef[] = [];
               rawData.customFields.forEach((cf: any, i: number) => {
                 const candidates = [cf._id, cf.id, cf.uuid].map(normId).filter(Boolean);
-                const spName = String(cf.name || `Field ${i + 1}`);
+                const spName = String(cf.name || t('share.fieldN', {n: i + 1}));
                 const spType = cf.type;
-                const existing = existingDefs.find(d => d.name.toLowerCase() === spName.toLowerCase());
+                const existing = existingDefs.find(d => importNameKey(d.name) === importNameKey(spName));
                 let localId: string;
                 if (existing) { localId = existing.id; } else {
                   localId = uid();
@@ -783,7 +786,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
               alters.forEach((a: any) => {
                 const extId = String(a.id);
                 const incoming = {
-                  name: (a.name && String(a.name).trim()) || 'Unnamed member',
+                  name: (a.name && String(a.name).trim()) || t('share.unnamedMember'),
                   pronouns: String(a.pronouns || ''),
                   role: '',
                   color: ocColor(a.color),
@@ -791,8 +794,8 @@ export const handleRestore = (ctx: RestoreCtx) => {
                 };
                 const bySource = merged.findIndex(em => em.sourceId === extId);
                 if (bySource >= 0) { merged[bySource] = {...merged[bySource], ...incoming, sourceId: extId}; idMap[extId] = merged[bySource].id; return; }
-                const lower = incoming.name.toLowerCase();
-                const byName = merged.findIndex(em => !em.sourceId && em.name.toLowerCase() === lower);
+                const lower = importNameKey(incoming.name);
+                const byName = merged.findIndex(em => !em.sourceId && importNameKey(em.name) === lower);
                 if (byName >= 0) { merged[byName] = {...merged[byName], ...incoming, sourceId: extId}; idMap[extId] = merged[byName].id; return; }
                 const nid = uid();
                 merged.push({id: nid, sourceId: extId, tags: [], groupIds: [], customFields: [], ...incoming});
@@ -805,8 +808,8 @@ export const handleRestore = (ctx: RestoreCtx) => {
               const fieldIdMap: Record<string, string> = {};
               const newDefs: CustomFieldDef[] = [];
               ocFields.forEach((f: any, i: number) => {
-                const name = String(f.name || `Field ${i + 1}`);
-                const existing = existingDefs.find(d => d.name.toLowerCase() === name.toLowerCase());
+                const name = String(f.name || t('share.fieldN', {n: i + 1}));
+                const existing = existingDefs.find(d => importNameKey(d.name) === importNameKey(name));
                 let localId: string;
                 if (existing) { localId = existing.id; } else {
                   const cfType: CustomFieldType = f.type === 'number' ? 'number' : f.type === 'boolean' ? 'toggle' : 'text';
@@ -840,7 +843,7 @@ export const handleRestore = (ctx: RestoreCtx) => {
               ocTags.forEach((tg: any) => {
                 const name = String(tg.name || 'Group');
                 const srcId = `oc:${String(tg.id)}`;
-                let g = mergedGroups.find(x => x.sourceId === srcId) || mergedGroups.find(x => !x.sourceId && x.name.toLowerCase() === name.toLowerCase());
+                let g = mergedGroups.find(x => x.sourceId === srcId) || mergedGroups.find(x => !x.sourceId && importNameKey(x.name) === importNameKey(name));
                 if (!g) { g = {id: uid(), name, color: tg.color ? ocColor(tg.color) : undefined, sourceId: srcId}; mergedGroups.push(g); }
                 else { g.name = name; g.sourceId = srcId; }
                 groupIdMap[String(tg.id)] = g.id;

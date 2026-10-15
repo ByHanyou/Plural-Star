@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Markdown ile yazın…",
     "urlPlaceholder": "URL buraya",
     "textPlaceholder": "metin",
-    "body": "Düzenleyici"
+    "body": "Düzenleyici",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Kalın",
@@ -97,7 +98,14 @@
     "unknown": "Bilinmiyor",
     "untitled": "Başlıksız",
     "ok": "Tamam",
-    "search": "Ara…"
+    "search": "Ara…",
+    "removeItem": "Kaldır: {{name}}",
+    "addItem": "Ekle: {{name}}",
+    "clearItem": "Temizle: {{name}}",
+    "editItem": "Düzenle: {{name}}",
+    "deleteItem": "Sil: {{name}}",
+    "exportItem": "Dışa aktar: {{name}}",
+    "errorCode": "Hata kodu: {{code}}"
   },
   "a11y": {
     "settings": "Ayarlar",
@@ -116,7 +124,8 @@
     "minute": "Dakika",
     "switchToAm": "PM, AM'ye geç",
     "switchToPm": "AM, PM'ye geç",
-    "image": "Görsel"
+    "image": "Görsel",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Bir şeyler ters gitti",
@@ -183,7 +192,8 @@
     "statusesDesc": "Durumlar nasıl olduğunuzu anlatır — Uyuyor, Çalışıyor veya Endişeli gibi. Durumunuzu güncellerken bunları seçin.",
     "noStatuses": "Henüz durum yok. Başlamak için bir tane ekleyin.",
     "activeStatus": "Aktif",
-    "favoriteColor": "Favori Renk"
+    "favoriteColor": "Favori Renk",
+    "statusActiveA11y": "{{name}}, aktif"
   },
   "settings": {
     "observatory": "Gözlemevi (Singlet) Arayüzü",
@@ -200,7 +210,9 @@
     "noNote": "Not yok. Eklemek için Düzenle'ye dokunun.",
     "clearFront": "Frontu Temizle",
     "clearFrontMsg": "Bu, tüm katmanları temizler ve mevcut oturumun sonunu kaydeder. Devam edilsin mi?",
-    "clearFrontTitle": "Front temizlensin mi?"
+    "clearFrontTitle": "Front temizlensin mi?",
+    "frontingForA11y": "{{name}}, front süresi {{dur}}",
+    "frontingForSince": "Front süresi <b>{{dur}}</b> · başlangıç {{time}}"
   },
   "members": {
     "fieldCount": "Üye sayısı",
@@ -280,7 +292,22 @@
     "bulkRestoreMsg": "{{count}} üye aktif olarak geri yüklensin mi?",
     "bulkDelete": "Üyeleri sil",
     "bulkDeleteMsg": "{{count}} üye kalıcı olarak silinsin mi? Bu geri alınamaz.",
-    "recentlyDeleted": "Son silinenler"
+    "recentlyDeleted": "Son silinenler",
+    "nameInTier": "{{name}}, şu an: {{tier}}",
+    "moveUpItem": "Yukarı taşı: {{name}}",
+    "moveDownItem": "Aşağı taşı: {{name}}",
+    "addToFrontName": "Fronta ekle — {{name}}",
+    "removeFromFrontName": "Fronttan çıkar — {{name}}",
+    "titleCount": "Üyeler ({{n}})",
+    "facetsCount": "Yönler ({{n}})",
+    "customFrontsCount": "Özel Frontlar ({{n}})",
+    "restoreItem": "Geri yükle: {{name}}",
+    "bulkArchiveMsg_one": "{{count}} üye arşivlensin mi? Daha sonra geri yüklenebilir.",
+    "bulkArchiveMsg_other": "{{count}} üye arşivlensin mi? Daha sonra geri yüklenebilirler.",
+    "bulkRestoreMsg_one": "{{count}} üye aktif olarak geri yüklensin mi?",
+    "bulkRestoreMsg_other": "{{count}} üye aktif olarak geri yüklensin mi?",
+    "bulkDeleteMsg_one": "{{count}} üye kalıcı olarak silinsin mi? Bu geri alınamaz.",
+    "bulkDeleteMsg_other": "{{count}} üye kalıcı olarak silinsin mi? Bu geri alınamaz."
   },
   "history": {
     "title": "Geçmiş",
@@ -324,7 +351,15 @@
     "deleteConfirm2": "Bu işlem geri alınamaz. Gerçekten silinsin mi?",
     "deleteConfirm3": "Son onay: bu girdi kalıcı olarak silinsin mi?",
     "showMore": "Daha fazla göster",
-    "showLess": "Daha az göster"
+    "showLess": "Daha az göster",
+    "moodBadge": "ruh hali <b>{{mood}}</b>",
+    "atBadge": "konum <b>{{location}}</b>",
+    "energyBadge": "Enerji <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Ruh Hali ve Konum Değişti ({{tier}})",
+    "moodChanged_tier": "Ruh Hali Değişti ({{tier}})",
+    "locationChanged_tier": "Konum Değişti ({{tier}})",
+    "noteUpdated_tier": "Not Güncellendi ({{tier}})",
+    "frontSwitch_tier": "Front Değişimi ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Bu, şablonu kalıcı olarak kaldıracak.",
@@ -359,7 +394,8 @@
     "templateName": "Şablon Adı *",
     "templateNamePlaceholder": "örn. Sabah Sayfaları",
     "templateTitle": "Girdi Başlığı (ön ayar)",
-    "templateBody": "Girdi Gövdesi (ön ayar)"
+    "templateBody": "Girdi Gövdesi (ön ayar)",
+    "openEntryHint": "Girdinin tamamını açar"
   },
   "share": {
     "jsonHint": "ZIP ve JSON, Plural Star'a yeniden içe aktarabileceğiniz tam yedeklerdir.",
@@ -569,6 +605,7 @@
     "exportReady": "Dışa Aktarım Hazır",
     "exportReadyMsg": "{{filename}} oluşturuldu ancak paylaşım sayfası otomatik olarak açılamadı.",
     "importing": "İçe aktarılıyor…",
+    "exporting": "Dışa aktarılıyor…",
     "importStopping": "Bu adım bitiriliyor, ardından durdurulacak…",
     "importStopped": "İçe aktarma durduruldu. {{count}} adım tamamlandı ve kaydedildi; kalan adımlar çalıştırılmadı.",
     "importCancelHint": "Geçerli adım bittikten sonra durur. Hâlihazırda tamamlanan adımlar korunur.",
@@ -586,7 +623,36 @@
     "progressBannersDownloadN": "Afişler indiriliyor… {{done}}/{{total}}",
     "progressChat": "Sohbet geri yükleniyor…",
     "progressChatN": "Sohbet kanalları geri yükleniyor… {{done}}/{{total}}",
-    "progressSavingMembers": "Üyeler kaydediliyor…"
+    "progressSavingMembers": "Üyeler kaydediliyor…",
+    "exportAs": "{{format}} olarak dışa aktar",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "“{{text}}”",
+    "exportMailExportedLine": "Dışa aktarıldı: {{date}}",
+    "exportMailMembersHeader": "ÜYELER ({{count}})",
+    "exportMailJournalHeader": "GÜNLÜK ({{count}})",
+    "exportMailJournalHeaderRecent": "GÜNLÜK ({{count}} — en son {{shown}} tanesi gösteriliyor)",
+    "exportMailHistoryHeader": "FRONT GEÇMİŞİ ({{count}})",
+    "exportMailHistoryHeaderRecent": "FRONT GEÇMİŞİ ({{count}} — en son {{shown}} tanesi gösteriliyor)",
+    "exportTitleLine": "Başlık: {{title}}",
+    "exportDateLine": "Tarih: {{date}}",
+    "exportAuthorsLine": "Yazarlar: {{authors}}",
+    "importStopped_one": "İçe aktarma durduruldu. {{count}} adım tamamlandı ve kaydedildi; kalan adımlar çalıştırılmadı.",
+    "importStopped_other": "İçe aktarma durduruldu. {{count}} adım tamamlandı ve kaydedildi; kalan adımlar çalıştırılmadı.",
+    "psAvatarsImported_one": "{{count}} avatar içe aktarıldı.",
+    "psAvatarsImported_other": "{{count}} avatar içe aktarıldı.",
+    "recoverConfirmMsg_one": "{{count}} yedek öğesi uygulamaya geri yüklensin mi? Bu, o kategori için mevcut verilerin üzerine yazacak.",
+    "recoverConfirmMsg_other": "{{count}} yedek öğesi uygulamaya geri yüklensin mi? Bu, o kategoriler için mevcut verilerin üzerine yazacak.",
+    "cfUnmatched_one": "{{count}} anahtar, alan kimliklerimizin/adlarımızın hiçbiriyle eşleşmedi. Eşleşmeyen anahtar: {{samples}}",
+    "cfUnmatched_other": "{{count}} anahtar, alan kimliklerimizin/adlarımızın hiçbiriyle eşleşmedi. Örnek eşleşmeyen anahtarlar: {{samples}}",
+    "unnamedMember": "Adsız üye",
+    "fieldN": "Alan {{n}}",
+    "systemN": "Sistem {{n}}",
+    "groupN": "Grup {{n}}",
+    "channelN": "Kanal {{n}}",
+    "ageField": "Yaş",
+    "errUnexpected": "Bir şeyler ters gitti. Dosyayı kontrol edip yeniden dene."
   },
   "hub": {
     "overlapMore": "+{{count}} daha",
@@ -613,11 +679,11 @@
     "statistics": "İstatistikler",
     "systemChat": "Sistem Sohbeti",
     "archive": "Arşiv",
-    "discord": "Discord",
     "credits": "Emeği Geçenler",
     "creditLogo": "Plural Star Logosu",
     "creditIos": "Plural Star iOS Portu",
-    "supportPS": "PS'yi Destekle"
+    "supportPS": "PS'yi Destekle",
+    "discord": "Discord"
   },
   "modal": {
     "read": "Görüntüle",
@@ -656,6 +722,8 @@
     "colorLock": "Renk kilidi",
     "invalidHex": "Geçersiz hex rengi",
     "customColor": "Özel renk",
+    "emoji": "Emoji",
+    "emojiPlaceholder": "örn. 🦊",
     "transparentColor": "Şeffaf",
     "removeImageMsg": "Bu görsel kaldırılsın mı?",
     "deletePaletteMsg": "Bu, paleti kalıcı olarak kaldıracak.",
@@ -729,7 +797,7 @@
     "removePfp": "Fotoğrafı Kaldır",
     "viewPfp": "Fotoğrafı Gör",
     "viewPfpOf": "{{name}} fotoğrafı",
-    "fancyPants": "Fancy Pants",
+    "fancyPants": "Görsel Düzenleyici",
     "selectedText": "metin",
     "searchAuthors": "Yazar ara…",
     "textSize": "Metin Boyutu",
@@ -738,7 +806,17 @@
     "textScaleLarge": "Büyük",
     "textScaleExtraLarge": "Çok Büyük",
     "dyslexicFont": "Disleksi Dostu Yazı Tipi",
-    "dyslexicFontDesc": "Gövde metnini OpenDyslexic'e geçirir. Başlıklar stilize yazı tiplerini korur."
+    "dyslexicFontDesc": "Gövde metnini OpenDyslexic'e geçirir. Başlıklar stilize yazı tiplerini korur.",
+    "cropArea": "Kırpma alanı",
+    "addEntryPassword": "Girdi parolası ekle",
+    "removeEntryPassword": "Girdi parolasını kaldır",
+    "addJournalPassword": "Günlük parolası ekle",
+    "removeJournalPassword": "Günlük parolasını kaldır",
+    "addAppLockPassword": "Uygulama kilidi parolası ekle",
+    "removeAppLockPassword": "Uygulama kilidi parolasını kaldır",
+    "fontDefault": "Varsayılan",
+    "paletteObsidian": "Obsidyen",
+    "paletteSteel": "Çelik"
   },
   "notification": {
     "filePermTitle": "Dosya Erişimi",
@@ -782,7 +860,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} yeni not",
     "chatPingTitle": "◆ {{speaker}} sizi #{{channel}} kanalında pingledi",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "Mesajı görmek için dokunun."
+    "chatPingBodyEmpty": "Mesajı görmek için dokunun.",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -833,11 +912,21 @@
     "removeMembers": "Üye çıkar",
     "deleteGroup": "Grubu Sil",
     "deleteGroupMsg": "Bu grup kaldırılsın mı? Üyeler silinmeyecek.",
-    "deleteWithChildrenMsg": "Bu, {{count}} iç içe öğe içeriyor. Onları bir üst düzeye taşıyarak tutalım mı, yoksa her şey silinsin mi?"
+    "deleteWithChildrenMsg": "Bu, {{count}} iç içe öğe içeriyor. Onları bir üst düzeye taşıyarak tutalım mı, yoksa her şey silinsin mi?",
+    "subgroupCount_one": "{{count}} alt grup",
+    "subgroupCount_other": "{{count}} alt grup",
+    "expandA11y": "{{name}} alt grupları, {{count}} seçili",
+    "subsystemNamed": "{{name}}, alt sistem",
+    "moveItem": "Taşı: {{name}}",
+    "addMembersTo": "Üye ekle — {{name}}",
+    "newKind": "Yeni öğe türü",
+    "deleteWithChildrenMsg_one": "Bu, {{count}} iç içe öğe içeriyor. Onu bir üst düzeye taşıyarak tutalım mı, yoksa her şey silinsin mi?",
+    "deleteWithChildrenMsg_other": "Bu, {{count}} iç içe öğe içeriyor. Onları bir üst düzeye taşıyarak tutalım mı, yoksa her şey silinsin mi?"
   },
   "stats": {
     "showMore": "Daha fazla göster",
     "showMoreN": "Daha fazla göster — {{total}} sonuçtan {{shown}} gösteriliyor",
+    "showMoreShort": "Daha fazla göster ({{shown}}/{{total}})",
     "energyByHour": "Saate Göre Enerji",
     "allTime": "Tüm Zamanlar",
     "last7": "7 Gün",
@@ -867,7 +956,13 @@
     "topCoMembers": "En Sık Birlikte Olunan Üyeler",
     "msgsSuffix": "mesaj",
     "sessionsSuffix": "oturum",
-    "totalSessions": "Toplam Oturum"
+    "totalSessions": "Toplam Oturum",
+    "sessionsCount_one": "{{count}} oturum",
+    "sessionsCount_other": "{{count}} oturum",
+    "msgsCount_one": "{{count}} mesaj",
+    "msgsCount_other": "{{count}} mesaj",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "oturum"
   },
   "chat": {
     "imageUnavailable": "[görsel kullanılamıyor]",
@@ -916,12 +1011,47 @@
     "deleteMsgConfirm": "Bu mesaj kalıcı olarak kaldırılacak.",
     "editingHeader": "Mesaj düzenleniyor",
     "editPlaceholder": "Mesajı düzenle…",
-    "imagePreview": "[görsel]"
+    "imagePreview": "[görsel]",
+    "reactionA11y_one": "{{emoji}}, {{count}} tepki",
+    "reactionA11y_other": "{{emoji}}, {{count}} tepki",
+    "replyTo": "Yanıtla: {{name}}",
+    "archiveChannelNamed": "Arşivle: {{name}}",
+    "defaultGeneral": "Genel",
+    "defaultVenting": "Dertleşme",
+    "defaultPlanning": "Planlama",
+    "attachment": "Ek"
   },
   "customFront": {
     "add": "Özel Front Ekle",
     "edit": "Özel Frontu Düzenle",
     "namePlaceholder": "Özel front adı"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Konuşkan",
+      "nonVerbal": "Sözsüz",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Bulanık",
+      "blendy": "Karışık",
+      "rapidSwitching": "Hızlı Geçişler",
+      "foggy": "Sisli",
+      "grounded": "Topraklanmış",
+      "dissociated": "Dissosiye",
+      "anxious": "Endişeli",
+      "depressed": "Depresif",
+      "cheerful": "Neşeli",
+      "happy": "Mutlu",
+      "sad": "Üzgün",
+      "crisis": "Kriz",
+      "melancholy": "Melankolik",
+      "stimming": "Kendini Uyarma",
+      "stressed": "Stresli",
+      "working": "Çalışıyor",
+      "traveling": "Seyahatte",
+      "sleeping": "Uyuyor",
+      "hyperfocus": "Hiperodak"
+    }
   },
   "lock": {
     "locked": "Kilitli",
@@ -939,7 +1069,9 @@
     "browse": "Göz at",
     "deleteSelectedMsg": "Seçilen {{count}} öğe kaldırılsın mı? Üyeler silinmeyecek.",
     "desc": "Grupları ve alt sistemleri oluşturun, düzenleyin, yeniden sıralayın ve silin. İç içe yerleştirmek için bir öğede ⇄ simgesine, sonra bir hedefe dokunun.",
-    "title": "Sistem Yöneticisi"
+    "title": "Sistem Yöneticisi",
+    "deleteSelectedMsg_one": "Seçilen {{count}} öğe kaldırılsın mı? Üyeler silinmeyecek.",
+    "deleteSelectedMsg_other": "Seçilen {{count}} öğe kaldırılsın mı? Üyeler silinmeyecek."
   },
   "customFields": {
     "title": "Özel Alanlar",
@@ -991,6 +1123,7 @@
     "cloudErrRate": "Çok fazla deneme. Bir dakika bekleyip tekrar dene.",
     "cloudErrFull": "Kasada veya düğümde yer kalmadı.",
     "cloudErrTooLarge": "Dışarıda bırakıldı, 25 MB'tan büyük: {{keys}}",
+    "cloudErrOverQuota": "Dışarıda bırakıldı, kasada yer kalmadı: {{keys}}",
     "cloudErrBadPassword": "Kasa var, ancak bu parola onu açmıyor.",
     "cloudErrCorrupt": "Kasa bu cihazda okunamadı. Bağlantıyı kaldırıp aynı parolayla yeniden bağlan.",
     "cloudUnavailable": "Bağlı olduğun düğüm Bulut Hizmetleri sunmuyor.",
@@ -1059,6 +1192,7 @@
     "deleteBucket": "Çemberi sil",
     "deleteBucketMsg": "“{{name}}” silinsin mi?",
     "cloneBucket": "Çemberi çoğalt",
+    "cloneBucketName": "Çemberi çoğalt — {{name}}",
     "viewShared": "Paylaşılanları gör",
     "mirrorNothing": "Bunu henüz seninle paylaşmadılar.",
     "mirrorOffline": "Arkadaş çevrimdışı — alınan son kopya gösteriliyor.",
@@ -1109,7 +1243,16 @@
     "syncCloneSending": "İlk kopya gönderiliyor…",
     "syncCloneReceiving": "İlk kopya alınıyor…",
     "syncCloneDone": "İlk kopya tamamlandı",
-    "publishFailed": "Kodun yayınlanamadı — bağlantını kontrol edip yeniden dene."
+    "publishFailed": "Kodun yayınlanamadı — bağlantını kontrol edip yeniden dene.",
+    "friendStatusOffline": "{{status}}. Çevrimdışı",
+    "scopeCount": "{{count}} seçili",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Bulut eşitlemesinde bir sorun oluştu. Lütfen yeniden dene.",
+    "scopeSelectTitle": "{{feature}} — Seçim",
+    "viewSharedTitle": "{{name}} — Paylaşılanları gör",
+    "deviceFallback": "Cihaz",
+    "friendFallback": "Arkadaş",
+    "androidDeviceFallback": "Android cihaz"
   },
   "terminology": {
     "fronter": "Frontta Olan",
@@ -1183,7 +1326,9 @@
     "addTime": "Saat ekle",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Planlayıcı hatırlatıcısı"
+    "notifReminder": "Planlayıcı hatırlatıcısı",
+    "todayA11y": "Bugün, {{date}}",
+    "reminderOff": "Kapalı"
   },
   "mailbox": {
     "title": "Posta Kutusu",
@@ -1206,7 +1351,13 @@
     "messageCount_other": "{{count}} mesaj",
     "unreadCount": "{{count}} okunmamış",
     "deleteTitle": "Mesajı Sil",
-    "deleteMsg": "Bu mesaj silinsin mi? Geri alınamaz."
+    "deleteMsg": "Bu mesaj silinsin mi? Geri alınamaz.",
+    "locked": "Kilitli",
+    "unlocked": "Kilitli değil",
+    "allOthersCount": "Diğer tüm Üyeler · {{count}}",
+    "unread": "Okunmamış",
+    "deleteFrom": "{{name}} adlı üyeden gelen mesajı sil",
+    "frontersHaveMail": "Okunmamış posta: {{names}}"
   },
   "whiteboard": {
     "title": "Beyaz tahta",
@@ -1261,7 +1412,9 @@
     "voPosDown": "{{n}} aşağı",
     "voPosUp": "{{n}} yukarı",
     "voEdges": "{{left}} sol kenara, {{right}} sağa, {{top}} üste, {{bottom}} alta",
-    "voRecentered": "Kalem yeniden ortalandı"
+    "voRecentered": "Kalem yeniden ortalandı",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Fırça boyutu {{n}}"
   },
   "systemMap": {
     "connections": "Bağlantılar",
@@ -1306,7 +1459,11 @@
     "zoomIn": "Yakınlaştır",
     "zoomOut": "Uzaklaştır",
     "resetView": "Görünümü sıfırla",
-    "notePlaceholder": "İsteğe bağlı not…"
+    "notePlaceholder": "İsteğe bağlı not…",
+    "mapA11y": "İlişki haritası, {{members}}, {{relationships}}",
+    "mapA11yHint": "Bir üye seçmek için eylemler menüsünü kullanın",
+    "depthN_one": "Bağlantı uzaklığı {{count}}",
+    "depthN_other": "Bağlantı uzaklığı {{count}}"
   },
   "relType": {
     "love": "Aşk",
@@ -1372,13 +1529,17 @@
     "deletePollMsg": "Bu, bu anketi kalıcı olarak kaldıracak.",
     "noPolls": "Henüz anket yok.",
     "closed": "Kapalı",
-    "votingAs": "Oy veren:"
+    "votingAs": "Oy veren:",
+    "optionN": "Seçenek {{n}}",
+    "removeOptionN": "{{n}}. seçeneği kaldır"
   },
   "energy": {
     "label": "Enerji",
     "level": "Enerji Düzeyi",
     "avgEnergy": "Ort. Enerji",
-    "outOf10": "/10 enerji"
+    "outOf10": "/10 enerji",
+    "levelN": "Enerji düzeyi {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Okuma",

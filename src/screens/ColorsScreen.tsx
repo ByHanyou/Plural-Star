@@ -4,7 +4,7 @@ import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {fontScale, ThemeColors} from '../theme';
 import {ColorPicker} from '../components/ColorPicker';
-import {PRESET_COLORS, PresetColor, presetColorName, COLOR_SETS, ColorSet, MAX_CUSTOM_COLORS, normalizeCustomColors, isValidHex, normalizeHex} from '../utils';
+import {PRESET_COLORS, PresetColor, presetColorName, COLOR_SETS, ColorSet, MAX_CUSTOM_COLORS, normalizeCustomColors, isValidHex, normalizeHex, colorName} from '../utils';
 import {store, KEYS} from '../storage';
 import {NetworkManager} from '../network/NetworkManager';
 import {logError} from '../utils/log';
@@ -75,7 +75,7 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border, gap: 8}}>
-        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 6}}>
+        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{padding: 6}}>
           <Text style={{fontSize: fs(16), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">‹</Text>
         </TouchableOpacity>
         <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: T.text}}>{t('colors.title')}</Text>
@@ -102,12 +102,12 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
             const c = customColors[i];
             return c ? (
               <TouchableOpacity key={i} onPress={() => openSlot(i)} activeOpacity={0.8}
-                accessibilityRole="button" accessibilityLabel={`${t('colors.customSlot', {n: i + 1})}, ${c}`}
-                style={{width: 36, height: 36, borderRadius: 18, backgroundColor: c, borderWidth: 1, borderColor: T.border}} />
+                accessibilityRole="button" accessibilityLabel={`${t('colors.customSlot', {n: i + 1})}, ${colorName(c, t)}`}
+                hitSlop={{top: 4, bottom: 4, left: 4, right: 4}} style={{width: 36, height: 36, borderRadius: 18, backgroundColor: c, borderWidth: 1, borderColor: T.border}} />
             ) : (
               <TouchableOpacity key={i} onPress={() => openSlot(i)} activeOpacity={0.8}
                 accessibilityRole="button" accessibilityLabel={t('colors.emptySlot', {n: i + 1})}
-                style={{width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: T.dim, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center'}}>
+                hitSlop={{top: 4, bottom: 4, left: 4, right: 4}} style={{width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: T.dim, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center'}}>
                 <Text style={{fontSize: fs(16), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">＋</Text>
               </TouchableOpacity>
             );
@@ -123,17 +123,17 @@ export const ColorsScreen = ({theme: T, onBack}: Props) => {
             <View style={{flexDirection: 'row', gap: 8, marginTop: 14}}>
               {editingFilled && (
                 <TouchableOpacity onPress={clearSlot} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('colors.clearSlot')}
-                  style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: `${T.danger}40`, backgroundColor: T.dangerBg}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: `${T.danger}40`, backgroundColor: T.dangerBg}}>
                   <Text style={{fontSize: fs(12), fontWeight: '600', color: T.danger}}>{t('colors.clearSlot')}</Text>
                 </TouchableOpacity>
               )}
               <View style={{flex: 1}} />
               <TouchableOpacity onPress={() => setEditSlot(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                 <Text style={{fontSize: fs(12), color: T.dim}}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={saveSlot} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}
-                style={{paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg}}>
+                hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg}}>
                 <Text style={{fontSize: fs(12), fontWeight: '600', color: T.accent}}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>

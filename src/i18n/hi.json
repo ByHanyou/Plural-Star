@@ -48,7 +48,8 @@
     "markdownPlaceholder": "मार्कडाउन में लिखें…",
     "urlPlaceholder": "यहाँ URL डालें",
     "textPlaceholder": "टेक्स्ट",
-    "body": "एडिटर"
+    "body": "एडिटर",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "बोल्ड",
@@ -97,7 +98,14 @@
     "unknown": "अज्ञात",
     "untitled": "बिना शीर्षक",
     "ok": "ठीक है",
-    "search": "खोजें…"
+    "search": "खोजें…",
+    "removeItem": "{{name}} निकालें",
+    "addItem": "{{name}} जोड़ें",
+    "clearItem": "{{name}} साफ़ करें",
+    "editItem": "{{name}} एडिट करें",
+    "deleteItem": "{{name}} हटाएँ",
+    "exportItem": "{{name}} एक्सपोर्ट करें",
+    "errorCode": "त्रुटि कोड: {{code}}"
   },
   "a11y": {
     "settings": "सेटिंग्स",
@@ -116,7 +124,8 @@
     "minute": "मिनट",
     "switchToAm": "PM, AM पर बदलें",
     "switchToPm": "AM, PM पर बदलें",
-    "image": "छवि"
+    "image": "छवि",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "कुछ गड़बड़ हो गई",
@@ -183,7 +192,8 @@
     "statusesDesc": "स्टेटस बताते हैं कि आप कैसे हैं — जैसे सो रहे हैं, काम पर हैं, या चिंतित। स्टेटस अपडेट करते समय इन्हें चुनें।",
     "noStatuses": "अभी कोई स्टेटस नहीं। शुरू करने के लिए एक जोड़ें।",
     "activeStatus": "सक्रिय",
-    "favoriteColor": "पसंदीदा रंग"
+    "favoriteColor": "पसंदीदा रंग",
+    "statusActiveA11y": "{{name}}, सक्रिय"
   },
   "settings": {
     "observatory": "ऑब्ज़र्वेटरी (सिंगलेट) इंटरफ़ेस",
@@ -200,7 +210,9 @@
     "noNote": "कोई नोट नहीं। जोड़ने के लिए एडिट टैप करें।",
     "clearFront": "फ्रंट खाली करें",
     "clearFrontMsg": "इससे सभी टियर खाली हो जाएँगे और मौजूदा सेशन का अंत दर्ज हो जाएगा। जारी रखें?",
-    "clearFrontTitle": "फ्रंट खाली करें?"
+    "clearFrontTitle": "फ्रंट खाली करें?",
+    "frontingForA11y": "{{name}}, {{dur}} से फ्रंट में",
+    "frontingForSince": "फ्रंट अवधि <b>{{dur}}</b> · शुरुआत {{time}}"
   },
   "members": {
     "frontingLockTitle": "अभी फ्रंट में",
@@ -280,7 +292,22 @@
     "bulkRestoreMsg": "{{count}} सदस्य वापस सक्रिय करें?",
     "bulkDelete": "सदस्य हटाएँ",
     "bulkDeleteMsg": "{{count}} सदस्य हमेशा के लिए हटाएँ? इसे वापस नहीं किया जा सकता।",
-    "recentlyDeleted": "हाल ही में हटाए गए"
+    "recentlyDeleted": "हाल ही में हटाए गए",
+    "nameInTier": "{{name}}, {{tier}} में",
+    "moveUpItem": "{{name}} को ऊपर ले जाएँ",
+    "moveDownItem": "{{name}} को नीचे ले जाएँ",
+    "addToFrontName": "फ्रंट में जोड़ें — {{name}}",
+    "removeFromFrontName": "फ्रंट से निकालें — {{name}}",
+    "titleCount": "सदस्य ({{n}})",
+    "facetsCount": "फ़ेसेट ({{n}})",
+    "customFrontsCount": "कस्टम फ्रंट ({{n}})",
+    "restoreItem": "{{name}} को बहाल करें",
+    "bulkArchiveMsg_one": "{{count}} सदस्य आर्काइव करें? इसे बाद में बहाल किया जा सकता है।",
+    "bulkArchiveMsg_other": "{{count}} सदस्य आर्काइव करें? इन्हें बाद में बहाल किया जा सकता है।",
+    "bulkRestoreMsg_one": "{{count}} सदस्य वापस सक्रिय करें?",
+    "bulkRestoreMsg_other": "{{count}} सदस्य वापस सक्रिय करें?",
+    "bulkDeleteMsg_one": "{{count}} सदस्य हमेशा के लिए हटाएँ? इसे वापस नहीं किया जा सकता।",
+    "bulkDeleteMsg_other": "{{count}} सदस्य हमेशा के लिए हटाएँ? इसे वापस नहीं किया जा सकता।"
   },
   "history": {
     "title": "इतिहास",
@@ -324,7 +351,15 @@
     "deleteConfirm2": "इसे वापस नहीं किया जा सकता। सच में हटाएँ?",
     "deleteConfirm3": "आख़िरी पुष्टि: यह एंट्री हमेशा के लिए हटाएँ?",
     "showMore": "और दिखाएँ",
-    "showLess": "कम दिखाएँ"
+    "showLess": "कम दिखाएँ",
+    "moodBadge": "मूड <b>{{mood}}</b>",
+    "atBadge": "स्थान <b>{{location}}</b>",
+    "energyBadge": "ऊर्जा <b>{{value}}</b>",
+    "moodLocationChanged_tier": "मूड और स्थान बदला ({{tier}})",
+    "moodChanged_tier": "मूड बदला ({{tier}})",
+    "locationChanged_tier": "स्थान बदला ({{tier}})",
+    "noteUpdated_tier": "नोट अपडेट हुआ ({{tier}})",
+    "frontSwitch_tier": "फ्रंट स्विच ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "यह टेम्पलेट हमेशा के लिए हट जाएगा।",
@@ -359,7 +394,8 @@
     "templateName": "टेम्पलेट का नाम *",
     "templateNamePlaceholder": "जैसे: सुबह के पन्ने",
     "templateTitle": "एंट्री शीर्षक (प्रीसेट)",
-    "templateBody": "एंट्री मुख्य भाग (प्रीसेट)"
+    "templateBody": "एंट्री मुख्य भाग (प्रीसेट)",
+    "openEntryHint": "पूरी एंट्री खोलता है"
   },
   "share": {
     "banners": "बैनर",
@@ -569,6 +605,7 @@
     "exportReady": "एक्सपोर्ट तैयार",
     "exportReadyMsg": "{{filename}} बन गई, लेकिन शेयर शीट अपने आप नहीं खुल सकी।",
     "importing": "इंपोर्ट हो रहा है…",
+    "exporting": "एक्सपोर्ट हो रहा है…",
     "importStopping": "यह चरण पूरा करके रोका जा रहा है…",
     "progressJournal": "जर्नल रीस्टोर हो रहा है…",
     "progressHistory": "फ्रंट इतिहास रीस्टोर हो रहा है…",
@@ -586,7 +623,36 @@
     "progressBannersDownloadN": "बैनर डाउनलोड हो रहे हैं… {{done}}/{{total}}",
     "progressChat": "चैट रीस्टोर हो रही है…",
     "progressChatN": "चैट चैनल रीस्टोर हो रहे हैं… {{done}}/{{total}}",
-    "progressSavingMembers": "सदस्य सहेजे जा रहे हैं…"
+    "progressSavingMembers": "सदस्य सहेजे जा रहे हैं…",
+    "exportAs": "{{format}} के रूप में एक्सपोर्ट करें",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "“{{text}}”",
+    "exportMailExportedLine": "एक्सपोर्ट: {{date}}",
+    "exportMailMembersHeader": "सदस्य ({{count}})",
+    "exportMailJournalHeader": "जर्नल ({{count}})",
+    "exportMailJournalHeaderRecent": "जर्नल ({{count}} — सबसे हाल की {{shown}} दिखाई जा रही हैं)",
+    "exportMailHistoryHeader": "फ्रंट इतिहास ({{count}})",
+    "exportMailHistoryHeaderRecent": "फ्रंट इतिहास ({{count}} — सबसे हाल के {{shown}} दिखाए जा रहे हैं)",
+    "exportTitleLine": "शीर्षक: {{title}}",
+    "exportDateLine": "तारीख: {{date}}",
+    "exportAuthorsLine": "लेखक: {{authors}}",
+    "importStopped_one": "इंपोर्ट रोका गया। {{count}} चरण पूरा होकर सहेजा गया; बाकी चरण नहीं चले।",
+    "importStopped_other": "इंपोर्ट रोका गया। {{count}} चरण पूरे होकर सहेजे गए; बाकी चरण नहीं चले।",
+    "psAvatarsImported_one": "{{count}} अवतार इंपोर्ट हुआ।",
+    "psAvatarsImported_other": "{{count}} अवतार इंपोर्ट हुए।",
+    "recoverConfirmMsg_one": "{{count}} बैकअप आइटम ऐप में रीस्टोर करें? उस श्रेणी का मौजूदा डेटा ओवरराइट हो जाएगा।",
+    "recoverConfirmMsg_other": "{{count}} बैकअप आइटम ऐप में रीस्टोर करें? इन श्रेणियों का मौजूदा डेटा ओवरराइट हो जाएगा।",
+    "cfUnmatched_one": "{{count}} कुंजी हमारे किसी फ़ील्ड ID/नाम से मेल नहीं खाई। बेमेल कुंजी: {{samples}}",
+    "cfUnmatched_other": "{{count}} कुंजियाँ हमारे किसी फ़ील्ड ID/नाम से मेल नहीं खाईं। कुछ बेमेल कुंजियाँ: {{samples}}",
+    "unnamedMember": "बिना नाम का सदस्य",
+    "fieldN": "फ़ील्ड {{n}}",
+    "systemN": "सिस्टम {{n}}",
+    "groupN": "समूह {{n}}",
+    "channelN": "चैनल {{n}}",
+    "ageField": "उम्र",
+    "errUnexpected": "कुछ गड़बड़ हो गई। फ़ाइल जाँचें और फिर कोशिश करें।"
   },
   "hub": {
     "front": "फ्रंट",
@@ -613,11 +679,11 @@
     "statistics": "आँकड़े",
     "systemChat": "सिस्टम चैट",
     "archive": "आर्काइव",
-    "discord": "Discord",
     "credits": "क्रेडिट्स",
     "creditLogo": "Plural Star लोगो",
     "creditIos": "Plural Star iOS पोर्ट",
-    "supportPS": "PS को सपोर्ट करें"
+    "supportPS": "PS को सपोर्ट करें",
+    "discord": "Discord"
   },
   "modal": {
     "linkPfp": "छवि लिंक करें",
@@ -656,6 +722,8 @@
     "colorLock": "रंग लॉक",
     "invalidHex": "अमान्य हेक्स रंग",
     "customColor": "कस्टम रंग",
+    "emoji": "इमोजी",
+    "emojiPlaceholder": "जैसे: 🦊",
     "transparentColor": "पारदर्शी",
     "removeImageMsg": "यह छवि हटाएँ?",
     "deletePaletteMsg": "यह पैलेट हमेशा के लिए हट जाएगा।",
@@ -738,7 +806,17 @@
     "textScaleLarge": "बड़ा",
     "textScaleExtraLarge": "बहुत बड़ा",
     "dyslexicFont": "डिस्लेक्सिया-अनुकूल फ़ॉन्ट",
-    "dyslexicFontDesc": "मुख्य टेक्स्ट को OpenDyslexic में बदलता है। शीर्षकों का स्टाइल वाला फ़ॉन्ट बना रहता है।"
+    "dyslexicFontDesc": "मुख्य टेक्स्ट को OpenDyslexic में बदलता है। शीर्षकों का स्टाइल वाला फ़ॉन्ट बना रहता है।",
+    "cropArea": "क्रॉप क्षेत्र",
+    "addEntryPassword": "एंट्री पासवर्ड जोड़ें",
+    "removeEntryPassword": "एंट्री पासवर्ड हटाएँ",
+    "addJournalPassword": "जर्नल पासवर्ड जोड़ें",
+    "removeJournalPassword": "जर्नल पासवर्ड हटाएँ",
+    "addAppLockPassword": "ऐप लॉक पासवर्ड जोड़ें",
+    "removeAppLockPassword": "ऐप लॉक पासवर्ड हटाएँ",
+    "fontDefault": "डिफ़ॉल्ट",
+    "paletteObsidian": "ऑब्सिडियन",
+    "paletteSteel": "स्टील"
   },
   "notification": {
     "locationPermTitle": "लोकेशन अनुमति",
@@ -782,7 +860,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} नए नोट",
     "chatPingTitle": "◆ {{speaker}} ने आपको #{{channel}} में पिंग किया",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "संदेश देखने के लिए टैप करें।"
+    "chatPingBodyEmpty": "संदेश देखने के लिए टैप करें।",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -833,11 +912,21 @@
     "removeMembers": "सदस्य निकालें",
     "deleteGroup": "समूह हटाएँ",
     "deleteGroupMsg": "यह समूह हटाएँ? सदस्य नहीं हटेंगे।",
-    "deleteWithChildrenMsg": "इसमें {{count}} नेस्टेड आइटम हैं। उन्हें रखकर एक स्तर ऊपर ले जाएँ, या सब कुछ हटाएँ?"
+    "deleteWithChildrenMsg": "इसमें {{count}} नेस्टेड आइटम हैं। उन्हें रखकर एक स्तर ऊपर ले जाएँ, या सब कुछ हटाएँ?",
+    "subgroupCount_one": "{{count}} उप-समूह",
+    "subgroupCount_other": "{{count}} उप-समूह",
+    "expandA11y": "{{name}} के उप-समूह, {{count}} चयनित",
+    "subsystemNamed": "{{name}}, उप-सिस्टम",
+    "moveItem": "{{name}} को ले जाएँ",
+    "addMembersTo": "सदस्य जोड़ें — {{name}}",
+    "newKind": "नए आइटम का प्रकार",
+    "deleteWithChildrenMsg_one": "इसमें {{count}} नेस्टेड आइटम है। उसे रखकर एक स्तर ऊपर ले जाएँ, या सब कुछ हटाएँ?",
+    "deleteWithChildrenMsg_other": "इसमें {{count}} नेस्टेड आइटम हैं। उन्हें रखकर एक स्तर ऊपर ले जाएँ, या सब कुछ हटाएँ?"
   },
   "stats": {
     "showMore": "और दिखाएँ",
     "showMoreN": "और दिखाएँ — {{total}} में से {{shown}} दिख रहे हैं",
+    "showMoreShort": "और दिखाएँ ({{shown}}/{{total}})",
     "energyByHour": "घंटे के हिसाब से ऊर्जा",
     "allTime": "अब तक",
     "last7": "7 दिन",
@@ -867,7 +956,13 @@
     "topCoMembers": "टॉप सह-सदस्य",
     "msgsSuffix": "संदेश",
     "sessionsSuffix": "सेशन",
-    "totalSessions": "कुल सेशन"
+    "totalSessions": "कुल सेशन",
+    "sessionsCount_one": "{{count}} सेशन",
+    "sessionsCount_other": "{{count}} सेशन",
+    "msgsCount_one": "{{count}} संदेश",
+    "msgsCount_other": "{{count}} संदेश",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "सेशन"
   },
   "chat": {
     "addReaction": "रिएक्शन जोड़ें",
@@ -916,12 +1011,47 @@
     "deleteMsgConfirm": "यह संदेश हमेशा के लिए हट जाएगा।",
     "editingHeader": "संदेश एडिट हो रहा है",
     "editPlaceholder": "संदेश एडिट करें…",
-    "imagePreview": "[छवि]"
+    "imagePreview": "[छवि]",
+    "reactionA11y_one": "{{emoji}}, {{count}} रिएक्शन",
+    "reactionA11y_other": "{{emoji}}, {{count}} रिएक्शन",
+    "replyTo": "{{name}} को जवाब दें",
+    "archiveChannelNamed": "{{name}} आर्काइव करें",
+    "defaultGeneral": "सामान्य",
+    "defaultVenting": "मन की भड़ास",
+    "defaultPlanning": "योजना",
+    "attachment": "अटैचमेंट"
   },
   "customFront": {
     "add": "कस्टम फ्रंट जोड़ें",
     "edit": "कस्टम फ्रंट एडिट करें",
     "namePlaceholder": "कस्टम फ्रंट का नाम"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "बातूनी",
+      "nonVerbal": "नॉन-वर्बल",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "धुंधला",
+      "blendy": "मिला-जुला",
+      "rapidSwitching": "तेज़ स्विचिंग",
+      "foggy": "धुंध में",
+      "grounded": "ग्राउंडेड",
+      "dissociated": "डिसोसिएटेड",
+      "anxious": "चिंतित",
+      "depressed": "अवसादग्रस्त",
+      "cheerful": "प्रसन्न",
+      "happy": "खुश",
+      "sad": "उदास",
+      "crisis": "संकट",
+      "melancholy": "ग़मगीन",
+      "stimming": "स्टिमिंग",
+      "stressed": "तनावग्रस्त",
+      "working": "काम पर",
+      "traveling": "यात्रा पर",
+      "sleeping": "सोते हुए",
+      "hyperfocus": "हाइपरफ़ोकस"
+    }
   },
   "lock": {
     "locked": "लॉक है",
@@ -939,7 +1069,9 @@
     "browse": "ब्राउज़ करें",
     "deleteSelectedMsg": "{{count}} चयनित आइटम हटाएँ? सदस्य नहीं हटेंगे।",
     "desc": "समूह और उप-सिस्टम बनाएँ, एडिट करें, क्रम बदलें और हटाएँ। नेस्ट करने के लिए किसी आइटम पर ⇄ टैप करें, फिर गंतव्य।",
-    "title": "सिस्टम मैनेजर"
+    "title": "सिस्टम मैनेजर",
+    "deleteSelectedMsg_one": "{{count}} चयनित आइटम हटाएँ? सदस्य नहीं हटेंगे।",
+    "deleteSelectedMsg_other": "{{count}} चयनित आइटम हटाएँ? सदस्य नहीं हटेंगे।"
   },
   "customFields": {
     "title": "कस्टम फ़ील्ड",
@@ -991,6 +1123,7 @@
     "cloudErrRate": "बहुत अधिक प्रयास। एक मिनट रुकें और फिर कोशिश करें।",
     "cloudErrFull": "वॉल्ट या नोड में जगह नहीं बची है।",
     "cloudErrTooLarge": "छोड़ा गया, 25 MB से बड़ा: {{keys}}",
+    "cloudErrOverQuota": "छोड़ा गया, वॉल्ट में जगह नहीं बची है: {{keys}}",
     "cloudErrBadPassword": "वॉल्ट मौजूद है, लेकिन यह पासवर्ड उसे नहीं खोलता।",
     "cloudErrCorrupt": "इस डिवाइस पर वॉल्ट पढ़ा नहीं जा सका। अनलिंक करें और उसी पासवर्ड से फिर से लिंक करें।",
     "cloudUnavailable": "आप जिस नोड से जुड़े हैं, वह क्लाउड सेवाएँ नहीं देता।",
@@ -1059,6 +1192,7 @@
     "deleteBucket": "बकेट हटाएँ",
     "deleteBucketMsg": "“{{name}}” हटाएँ?",
     "cloneBucket": "बकेट क्लोन करें",
+    "cloneBucketName": "बकेट क्लोन करें — {{name}}",
     "viewShared": "साझा देखें",
     "mirrorNothing": "उन्होंने अभी यह आपके साथ साझा नहीं किया है।",
     "mirrorOffline": "दोस्त ऑफ़लाइन है — आख़िरी मिली कॉपी दिखाई जा रही है।",
@@ -1109,7 +1243,16 @@
     "syncCloneSending": "पहली कॉपी भेजी जा रही है…",
     "syncCloneReceiving": "पहली कॉपी मिल रही है…",
     "syncCloneDone": "पहली कॉपी पूरी",
-    "publishFailed": "आपका कोड प्रकाशित नहीं हो सका — कनेक्शन जाँचकर फिर कोशिश करें।"
+    "publishFailed": "आपका कोड प्रकाशित नहीं हो सका — कनेक्शन जाँचकर फिर कोशिश करें।",
+    "friendStatusOffline": "{{status}}। ऑफ़लाइन",
+    "scopeCount": "{{count}} चयनित",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "क्लाउड सिंक में कुछ गड़बड़ हो गई। कृपया फिर कोशिश करें।",
+    "scopeSelectTitle": "{{feature}} — चुनें",
+    "viewSharedTitle": "{{name}} — साझा देखें",
+    "deviceFallback": "डिवाइस",
+    "friendFallback": "दोस्त",
+    "androidDeviceFallback": "Android डिवाइस"
   },
   "terminology": {
     "fronter": "फ्रंटर",
@@ -1183,7 +1326,9 @@
     "addTime": "समय जोड़ें",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "योजनाकार रिमाइंडर"
+    "notifReminder": "योजनाकार रिमाइंडर",
+    "todayA11y": "आज, {{date}}",
+    "reminderOff": "बंद"
   },
   "mailbox": {
     "title": "मेलबॉक्स",
@@ -1206,7 +1351,13 @@
     "messageCount_other": "{{count}} संदेश",
     "unreadCount": "{{count}} अपठित",
     "deleteTitle": "संदेश हटाएँ",
-    "deleteMsg": "यह संदेश हटाएँ? इसे वापस नहीं किया जा सकता।"
+    "deleteMsg": "यह संदेश हटाएँ? इसे वापस नहीं किया जा सकता।",
+    "locked": "लॉक है",
+    "unlocked": "लॉक नहीं है",
+    "allOthersCount": "अन्य सभी सदस्य · {{count}}",
+    "unread": "अपठित",
+    "deleteFrom": "{{name}} का संदेश हटाएँ",
+    "frontersHaveMail": "इनके लिए अपठित मेल: {{names}}"
   },
   "whiteboard": {
     "title": "व्हाइटबोर्ड",
@@ -1261,7 +1412,9 @@
     "voPosDown": "{{n}} नीचे",
     "voPosUp": "{{n}} ऊपर",
     "voEdges": "बाएँ किनारे तक {{left}}, दाएँ तक {{right}}, ऊपर तक {{top}}, नीचे तक {{bottom}}",
-    "voRecentered": "पेन बीच में वापस आ गया"
+    "voRecentered": "पेन बीच में वापस आ गया",
+    "voTwoParts": "{{a}}। {{b}}",
+    "brushSizeN": "ब्रश आकार {{n}}"
   },
   "systemMap": {
     "connections": "कनेक्शन",
@@ -1306,7 +1459,11 @@
     "zoomIn": "ज़ूम इन",
     "zoomOut": "ज़ूम आउट",
     "resetView": "व्यू रीसेट करें",
-    "notePlaceholder": "वैकल्पिक नोट…"
+    "notePlaceholder": "वैकल्पिक नोट…",
+    "mapA11y": "रिश्तों का मैप, {{members}}, {{relationships}}",
+    "mapA11yHint": "सदस्य चुनने के लिए एक्शन मेनू का उपयोग करें",
+    "depthN_one": "{{count}} कनेक्शन दूर",
+    "depthN_other": "{{count}} कनेक्शन दूर"
   },
   "relType": {
     "love": "प्रेम",
@@ -1372,13 +1529,17 @@
     "deletePollMsg": "यह पोल हमेशा के लिए हट जाएगा।",
     "noPolls": "अभी कोई पोल नहीं।",
     "closed": "बंद",
-    "votingAs": "इस रूप में वोट कर रहे हैं:"
+    "votingAs": "इस रूप में वोट कर रहे हैं:",
+    "optionN": "विकल्प {{n}}",
+    "removeOptionN": "विकल्प {{n}} हटाएँ"
   },
   "energy": {
     "label": "ऊर्जा",
     "level": "ऊर्जा स्तर",
     "avgEnergy": "औसत ऊर्जा",
-    "outOf10": "/10 ऊर्जा"
+    "outOf10": "/10 ऊर्जा",
+    "levelN": "ऊर्जा स्तर {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "पढ़ें",

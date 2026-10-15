@@ -49,7 +49,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
         : <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; onSave({...cur, timestamp: isNew ? Date.now() : cur.timestamp, password: showPwField && cur.password ? cur.password : undefined}); clearDraft('journal', draftId); onClose();}}>{t('common.save')}</Btn>}>
       {viewMode ? (
         <>
-          <Text style={{fontFamily: Fonts.display, fontSize: fs(20), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 4}}>{f.title || t('common.untitled')}</Text>
+          <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(20), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 4}}>{f.title || t('common.untitled')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 14}}>{fmtTime(f.timestamp)}</Text>
           {f.body ? (
             <View style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, marginBottom: 14}}>
@@ -67,7 +67,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
           )}
           {(f.authorIds || []).length > 0 && (
             <>
-              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14}}>
                 {(f.authorIds || []).map((id: string) => { const m = members.find((x: Member) => x.id === id); if (!m) return null; return (
                   <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
@@ -88,6 +88,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
           </Text>
           <TouchableOpacity onPress={() => setShowTemplatePicker(true)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityLabel={t('journal.fromTemplate')}
+            hitSlop={{top: 9, bottom: 9}}
             style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
             <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>
               {t('journal.fromTemplate')}
@@ -98,7 +99,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
       <Field label={t('modal.entryTitle')} value={f.title} onChange={(v: string) => set('title', v)} placeholder={t('modal.entryTitlePlaceholder')} T={T} />
 
       <View style={{marginBottom: 14}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.body')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.body')}</Text>
         <TouchableOpacity onPress={() => setShowBodyEditor(true)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={t('modal.body')}
           style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 100}}>
@@ -109,19 +110,20 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
         members={members}
         onSave={(html: string) => {set('body', html); setShowBodyEditor(false);}} onClose={() => setShowBodyEditor(false)} />
 
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
-      {(f.hashtags || []).length > 0 && (<View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>{(f.hashtags || []).map((tag: string) => (<TouchableOpacity key={tag} onPress={() => set('hashtags', (f.hashtags || []).filter((x: string) => x !== tag))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.remove')} ${tag}`} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}><Text style={{fontSize: fs(12), color: T.info}}>{tag}</Text><Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text></TouchableOpacity>))}</View>)}
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
+      {(f.hashtags || []).length > 0 && (<View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>{(f.hashtags || []).map((tag: string) => (<TouchableOpacity key={tag} onPress={() => set('hashtags', (f.hashtags || []).filter((x: string) => x !== tag))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: tag})} hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}><Text style={{fontSize: fs(12), color: T.info}}>{tag}</Text><Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text></TouchableOpacity>))}</View>)}
       <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 14}}>
         <TextInput value={tagInput} onChangeText={setTagInput} accessibilityLabel={t('modal.topic')} placeholder={t('modal.topic')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} onSubmitEditing={addTag} returnKeyType="done" />
         <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
       </View>
       {members.length > 0 && (<>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
         {(f.authorIds || []).length > 0 && (
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
             {(f.authorIds || []).map((id: string) => { const m = members.find((x: Member) => x.id === id); if (!m) return null; return (
               <TouchableOpacity key={id} onPress={() => togAuthor(id)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={`${m.name}, ${t('common.remove')}`}
+                accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: m.name})}
+                hitSlop={{top: 6, bottom: 6}}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
                 <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
                 <Text style={{fontSize: fs(12), color: m.color}}>{m.name}</Text>
@@ -173,7 +175,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
         )}
       </>)}
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14}}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.entryPassword')}</Text><TouchableOpacity onPress={() => {setShowPwField(!showPwField); if (showPwField) set('password', undefined);}} accessibilityRole="button" accessibilityLabel={`${showPwField ? t('common.remove') : t('common.add')} ${t('modal.entryPassword')}`}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showPwField ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.entryPassword')}</Text><TouchableOpacity onPress={() => {setShowPwField(!showPwField); if (showPwField) set('password', undefined);}} accessibilityRole="button" accessibilityLabel={t(showPwField ? 'modal.removeEntryPassword' : 'modal.addEntryPassword')} hitSlop={{top: 12, bottom: 8, left: 12, right: 12}}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showPwField ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
         {showPwField && <TextInput value={f.password || ''} onChangeText={(v: string) => set('password', v || undefined)} accessibilityLabel={t('modal.entryPasswordPlaceholder')} placeholder={t('modal.entryPasswordPlaceholder')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />}
       </View>
       {showTemplatePicker && (

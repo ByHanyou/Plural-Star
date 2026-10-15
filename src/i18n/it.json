@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Scrivi in markdown…",
     "urlPlaceholder": "URL qui",
     "textPlaceholder": "testo",
-    "body": "Editor"
+    "body": "Editor",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Grassetto",
@@ -97,7 +98,14 @@
     "unknown": "Sconosciuto",
     "untitled": "Senza titolo",
     "ok": "OK",
-    "search": "Cerca…"
+    "search": "Cerca…",
+    "removeItem": "Rimuovi {{name}}",
+    "addItem": "Aggiungi {{name}}",
+    "clearItem": "Svuota {{name}}",
+    "editItem": "Modifica {{name}}",
+    "deleteItem": "Elimina {{name}}",
+    "exportItem": "Esporta {{name}}",
+    "errorCode": "Codice errore: {{code}}"
   },
   "a11y": {
     "settings": "Impostazioni",
@@ -116,7 +124,8 @@
     "minute": "Minuto",
     "switchToAm": "PM, passa ad AM",
     "switchToPm": "AM, passa a PM",
-    "image": "Immagine"
+    "image": "Immagine",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Qualcosa è andato storto",
@@ -183,7 +192,8 @@
     "statusesDesc": "Gli stati descrivono come stai — come Dormendo, Lavorando o In ansia. Selezionali quando aggiorni il tuo stato.",
     "noStatuses": "Nessuno stato ancora. Aggiungine uno per iniziare.",
     "activeStatus": "Attivo",
-    "favoriteColor": "Colore Preferito"
+    "favoriteColor": "Colore Preferito",
+    "statusActiveA11y": "{{name}}, attivo"
   },
   "settings": {
     "observatory": "Interfaccia Osservatorio (Singlet)",
@@ -200,7 +210,9 @@
     "noNote": "Nessuna nota. Tocca Modifica per aggiungerne una.",
     "clearFront": "Svuota Front",
     "clearFrontMsg": "Questo svuoterà tutti i livelli e registrerà la fine della sessione attuale. Continuare?",
-    "clearFrontTitle": "Svuotare il Front?"
+    "clearFrontTitle": "Svuotare il Front?",
+    "frontingForA11y": "{{name}}, al front da {{dur}}",
+    "frontingForSince": "Al front da <b>{{dur}}</b> · da {{time}}"
   },
   "members": {
     "fieldCount": "Numero di membri",
@@ -281,7 +293,22 @@
     "bulkRestoreMsg": "Ripristinare {{count}} membro/i tra gli attivi?",
     "bulkDelete": "Elimina membri",
     "bulkDeleteMsg": "Eliminare definitivamente {{count}} membro/i? Questa azione non può essere annullata.",
-    "recentlyDeleted": "Eliminati di recente"
+    "recentlyDeleted": "Eliminati di recente",
+    "nameInTier": "{{name}}, in {{tier}}",
+    "moveUpItem": "Sposta su {{name}}",
+    "moveDownItem": "Sposta giù {{name}}",
+    "addToFrontName": "Aggiungi al front — {{name}}",
+    "removeFromFrontName": "Rimuovi dal front — {{name}}",
+    "titleCount": "Membri ({{n}})",
+    "facetsCount": "Sfaccettature ({{n}})",
+    "customFrontsCount": "Front Personalizzati ({{n}})",
+    "restoreItem": "Ripristina {{name}}",
+    "bulkArchiveMsg_one": "Archiviare {{count}} membro? Potrà essere ripristinato in seguito.",
+    "bulkArchiveMsg_other": "Archiviare {{count}} membri? Potranno essere ripristinati in seguito.",
+    "bulkRestoreMsg_one": "Ripristinare {{count}} membro tra gli attivi?",
+    "bulkRestoreMsg_other": "Ripristinare {{count}} membri tra gli attivi?",
+    "bulkDeleteMsg_one": "Eliminare definitivamente {{count}} membro? Questa azione non può essere annullata.",
+    "bulkDeleteMsg_other": "Eliminare definitivamente {{count}} membri? Questa azione non può essere annullata."
   },
   "history": {
     "title": "Cronologia",
@@ -325,7 +352,15 @@
     "deleteConfirm2": "Questa azione non può essere annullata. Eliminare davvero?",
     "deleteConfirm3": "Conferma finale: eliminare definitivamente questa voce?",
     "showMore": "Mostra di più",
-    "showLess": "Mostra meno"
+    "showLess": "Mostra meno",
+    "moodBadge": "umore <b>{{mood}}</b>",
+    "atBadge": "a <b>{{location}}</b>",
+    "energyBadge": "Energia <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Umore e Luogo Cambiati ({{tier}})",
+    "moodChanged_tier": "Umore Cambiato ({{tier}})",
+    "locationChanged_tier": "Luogo Cambiato ({{tier}})",
+    "noteUpdated_tier": "Nota Aggiornata ({{tier}})",
+    "frontSwitch_tier": "Cambio di Front ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Questo rimuoverà definitivamente questo modello.",
@@ -360,7 +395,8 @@
     "templateName": "Nome del Modello *",
     "templateNamePlaceholder": "es. Pagine del Mattino",
     "templateTitle": "Titolo Voce (preimpostato)",
-    "templateBody": "Corpo Voce (preimpostato)"
+    "templateBody": "Corpo Voce (preimpostato)",
+    "openEntryHint": "Apre la voce completa"
   },
   "share": {
     "jsonHint": "I file ZIP e JSON sono backup completi che puoi reimportare in Plural Star.",
@@ -570,6 +606,7 @@
     "exportReady": "Esportazione Pronta",
     "exportReadyMsg": "{{filename}} è stato generato, ma il pannello di condivisione non si è aperto automaticamente.",
     "importing": "Importazione…",
+    "exporting": "Esportazione…",
     "importStopping": "Completamento di questo passaggio, poi arresto…",
     "importStopped": "Importazione interrotta. {{count}} passaggio/i completato/i e salvato/i; i passaggi rimanenti non sono stati eseguiti.",
     "importCancelHint": "Si ferma al termine del passaggio corrente. I passaggi già eseguiti vengono mantenuti.",
@@ -587,7 +624,36 @@
     "progressBannersDownloadN": "Scaricamento banner… {{done}}/{{total}}",
     "progressChat": "Ripristino chat…",
     "progressChatN": "Ripristino canali chat… {{done}}/{{total}}",
-    "progressSavingMembers": "Salvataggio membri…"
+    "progressSavingMembers": "Salvataggio membri…",
+    "exportAs": "Esporta come {{format}}",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "“{{text}}”",
+    "exportMailExportedLine": "Esportato: {{date}}",
+    "exportMailMembersHeader": "MEMBRI ({{count}})",
+    "exportMailJournalHeader": "DIARIO ({{count}})",
+    "exportMailJournalHeaderRecent": "DIARIO ({{count}} — i {{shown}} più recenti)",
+    "exportMailHistoryHeader": "CRONOLOGIA DEL FRONT ({{count}})",
+    "exportMailHistoryHeaderRecent": "CRONOLOGIA DEL FRONT ({{count}} — i {{shown}} più recenti)",
+    "exportTitleLine": "Titolo: {{title}}",
+    "exportDateLine": "Data: {{date}}",
+    "exportAuthorsLine": "Autori: {{authors}}",
+    "importStopped_one": "Importazione interrotta. {{count}} passaggio completato e salvato; i passaggi rimanenti non sono stati eseguiti.",
+    "importStopped_other": "Importazione interrotta. {{count}} passaggi completati e salvati; i passaggi rimanenti non sono stati eseguiti.",
+    "psAvatarsImported_one": "Importato {{count}} avatar.",
+    "psAvatarsImported_other": "Importati {{count}} avatar.",
+    "recoverConfirmMsg_one": "Ripristinare {{count}} elemento di backup nell'app? Questo sovrascriverà i dati attuali per quella categoria.",
+    "recoverConfirmMsg_other": "Ripristinare {{count}} elementi di backup nell'app? Questo sovrascriverà i dati attuali per quelle categorie.",
+    "cfUnmatched_one": "{{count}} chiave non corrisponde a nessuno dei nostri ID/nomi di campo. Chiave non abbinata: {{samples}}",
+    "cfUnmatched_other": "{{count}} chiavi non corrispondono a nessuno dei nostri ID/nomi di campo. Esempi di chiavi non abbinate: {{samples}}",
+    "unnamedMember": "Membro senza nome",
+    "fieldN": "Campo {{n}}",
+    "systemN": "Sistema {{n}}",
+    "groupN": "Gruppo {{n}}",
+    "channelN": "Canale {{n}}",
+    "ageField": "Età",
+    "errUnexpected": "Qualcosa è andato storto. Controlla il file e riprova."
   },
   "hub": {
     "overlapMore": "+{{count}} altri",
@@ -614,11 +680,11 @@
     "statistics": "Statistiche",
     "systemChat": "Chat di Sistema",
     "archive": "Archivio",
-    "discord": "Discord",
     "credits": "Crediti",
     "creditLogo": "Logo di Plural Star",
     "creditIos": "Port iOS di Plural Star",
-    "supportPS": "Sostieni PS"
+    "supportPS": "Sostieni PS",
+    "discord": "Discord"
   },
   "modal": {
     "read": "Leggi",
@@ -657,6 +723,8 @@
     "colorLock": "Blocco colore",
     "invalidHex": "Colore hex non valido",
     "customColor": "Colore personalizzato",
+    "emoji": "Emoji",
+    "emojiPlaceholder": "es. 🦊",
     "transparentColor": "Trasparente",
     "removeImageMsg": "Rimuovere questa immagine?",
     "deletePaletteMsg": "Questo rimuoverà definitivamente questa palette.",
@@ -730,7 +798,7 @@
     "removePfp": "Rimuovi Foto",
     "viewPfp": "Vedi Foto",
     "viewPfpOf": "Foto di {{name}}",
-    "fancyPants": "Fancy Pants",
+    "fancyPants": "Editor visivo",
     "selectedText": "testo",
     "searchAuthors": "Cerca autori…",
     "textSize": "Dimensione del Testo",
@@ -739,7 +807,17 @@
     "textScaleLarge": "Grande",
     "textScaleExtraLarge": "Molto Grande",
     "dyslexicFont": "Font per Dislessia",
-    "dyslexicFontDesc": "Passa il testo del corpo a OpenDyslexic. I titoli mantengono il loro font stilizzato."
+    "dyslexicFontDesc": "Passa il testo del corpo a OpenDyslexic. I titoli mantengono il loro font stilizzato.",
+    "cropArea": "Area di ritaglio",
+    "addEntryPassword": "Aggiungi password della voce",
+    "removeEntryPassword": "Rimuovi password della voce",
+    "addJournalPassword": "Aggiungi password del diario",
+    "removeJournalPassword": "Rimuovi password del diario",
+    "addAppLockPassword": "Aggiungi password di blocco app",
+    "removeAppLockPassword": "Rimuovi password di blocco app",
+    "fontDefault": "Predefinito",
+    "paletteObsidian": "Ossidiana",
+    "paletteSteel": "Acciaio"
   },
   "notification": {
     "filePermTitle": "Accesso ai file",
@@ -783,7 +861,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} nuove note",
     "chatPingTitle": "◆ {{speaker}} ti ha pingato in #{{channel}}",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "Tocca per vedere il messaggio."
+    "chatPingBodyEmpty": "Tocca per vedere il messaggio.",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -834,11 +913,21 @@
     "removeMembers": "Rimuovi membri",
     "deleteGroup": "Elimina Gruppo",
     "deleteGroupMsg": "Rimuovere questo gruppo? I membri non saranno eliminati.",
-    "deleteWithChildrenMsg": "Contiene {{count}} elemento/i annidato/i. Mantenerli spostandoli di un livello in su, o eliminare tutto?"
+    "deleteWithChildrenMsg": "Contiene {{count}} elemento/i annidato/i. Mantenerli spostandoli di un livello in su, o eliminare tutto?",
+    "subgroupCount_one": "{{count}} sottogruppo",
+    "subgroupCount_other": "{{count}} sottogruppi",
+    "expandA11y": "Sottogruppi di {{name}}, {{count}} selezionati",
+    "subsystemNamed": "{{name}}, sotto-sistema",
+    "moveItem": "Sposta {{name}}",
+    "addMembersTo": "Aggiungi membri — {{name}}",
+    "newKind": "Tipo del nuovo elemento",
+    "deleteWithChildrenMsg_one": "Contiene {{count}} elemento annidato. Mantenerlo spostandolo di un livello in su, o eliminare tutto?",
+    "deleteWithChildrenMsg_other": "Contiene {{count}} elementi annidati. Mantenerli spostandoli di un livello in su, o eliminare tutto?"
   },
   "stats": {
     "showMore": "Mostra di più",
     "showMoreN": "Mostra di più — visualizzati {{shown}} di {{total}}",
+    "showMoreShort": "Mostra di più ({{shown}}/{{total}})",
     "energyByHour": "Energia per Ora",
     "allTime": "Sempre",
     "last7": "7 Giorni",
@@ -868,7 +957,13 @@
     "topCoMembers": "Top Co-Membri",
     "msgsSuffix": "msg",
     "sessionsSuffix": "sessioni",
-    "totalSessions": "Sessioni Totali"
+    "totalSessions": "Sessioni Totali",
+    "sessionsCount_one": "{{count}} sessione",
+    "sessionsCount_other": "{{count}} sessioni",
+    "msgsCount_one": "{{count}} msg",
+    "msgsCount_other": "{{count}} msg",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "sessione"
   },
   "chat": {
     "imageUnavailable": "[immagine non disponibile]",
@@ -917,12 +1012,47 @@
     "deleteMsgConfirm": "Questo messaggio sarà rimosso definitivamente.",
     "editingHeader": "Modifica messaggio",
     "editPlaceholder": "Modifica messaggio…",
-    "imagePreview": "[immagine]"
+    "imagePreview": "[immagine]",
+    "reactionA11y_one": "{{emoji}}, {{count}} reazione",
+    "reactionA11y_other": "{{emoji}}, {{count}} reazioni",
+    "replyTo": "Rispondi a {{name}}",
+    "archiveChannelNamed": "Archivia {{name}}",
+    "defaultGeneral": "Generale",
+    "defaultVenting": "Sfogo",
+    "defaultPlanning": "Pianificazione",
+    "attachment": "Allegato"
   },
   "customFront": {
     "add": "Aggiungi Front Personalizzato",
     "edit": "Modifica Front Personalizzato",
     "namePlaceholder": "Nome del front personalizzato"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Chiacchierone",
+      "nonVerbal": "Non verbale",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Sfocato",
+      "blendy": "Mescolato",
+      "rapidSwitching": "Cambi rapidi",
+      "foggy": "Annebbiato",
+      "grounded": "Radicato",
+      "dissociated": "Dissociato",
+      "anxious": "Ansioso",
+      "depressed": "Depresso",
+      "cheerful": "Allegro",
+      "happy": "Felice",
+      "sad": "Triste",
+      "crisis": "Crisi",
+      "melancholy": "Malinconico",
+      "stimming": "Autostimolazione",
+      "stressed": "Stressato",
+      "working": "Al lavoro",
+      "traveling": "In viaggio",
+      "sleeping": "Addormentato",
+      "hyperfocus": "Iperfocus"
+    }
   },
   "lock": {
     "locked": "Bloccato",
@@ -940,7 +1070,9 @@
     "browse": "Esplora",
     "deleteSelectedMsg": "Rimuovere {{count}} elemento/i selezionato/i? I membri non saranno eliminati.",
     "desc": "Crea, modifica, riordina ed elimina gruppi e sotto-sistemi. Tocca ⇄ su un elemento, poi una destinazione, per annidarlo.",
-    "title": "Gestore di Sistema"
+    "title": "Gestore di Sistema",
+    "deleteSelectedMsg_one": "Rimuovere {{count}} elemento selezionato? I membri non saranno eliminati.",
+    "deleteSelectedMsg_other": "Rimuovere {{count}} elementi selezionati? I membri non saranno eliminati."
   },
   "customFields": {
     "title": "Campi Personalizzati",
@@ -965,7 +1097,7 @@
     "typeMonth": "Mese",
     "typeYear": "Anno",
     "typeMonthYear": "Mese + Anno",
-    "typeTimestamp": "Timestamp",
+    "typeTimestamp": "Data e ora",
     "typeMonthDay": "Mese + Giorno",
     "editFieldsInfo": "Modifica info dei campi",
     "noFieldsInfo": "Nessuna info dei campi compilata per questo membro",
@@ -993,6 +1125,7 @@
     "cloudErrRate": "Troppi tentativi. Attendi un minuto e riprova.",
     "cloudErrFull": "La cassaforte o il nodo non ha più spazio.",
     "cloudErrTooLarge": "Escluso, supera i 25 MB: {{keys}}",
+    "cloudErrOverQuota": "Escluso, la cassaforte non ha più spazio: {{keys}}",
     "cloudErrBadPassword": "La cassaforte esiste, ma questa password non la apre.",
     "cloudErrCorrupt": "Impossibile leggere la cassaforte su questo dispositivo. Scollega e ricollega con la stessa password.",
     "cloudUnavailable": "Il nodo a cui sei connesso non offre i Servizi cloud.",
@@ -1061,6 +1194,7 @@
     "deleteBucket": "Elimina cerchia",
     "deleteBucketMsg": "Eliminare “{{name}}”?",
     "cloneBucket": "Duplica cerchia",
+    "cloneBucketName": "Duplica cerchia — {{name}}",
     "viewShared": "Vedi condivisi",
     "mirrorNothing": "Non hanno ancora condiviso questo con te.",
     "mirrorOffline": "Amicizia offline — viene mostrata l'ultima copia ricevuta.",
@@ -1111,7 +1245,17 @@
     "syncCloneSending": "Invio della prima copia…",
     "syncCloneReceiving": "Ricezione della prima copia…",
     "syncCloneDone": "Prima copia completata",
-    "publishFailed": "Impossibile pubblicare il tuo codice — controlla la connessione e riprova."
+    "publishFailed": "Impossibile pubblicare il tuo codice — controlla la connessione e riprova.",
+    "friendStatusOffline": "{{status}}. Offline",
+    "scopeCount": "{{count}} selezionati",
+    "scopeCount_one": "{{count}} selezionato",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Si è verificato un problema con la sincronizzazione cloud. Riprova.",
+    "scopeSelectTitle": "{{feature}} — Selezione",
+    "viewSharedTitle": "{{name}} — Vedi condivisi",
+    "deviceFallback": "Dispositivo",
+    "friendFallback": "Amico",
+    "androidDeviceFallback": "Dispositivo Android"
   },
   "terminology": {
     "fronter": "Fronter",
@@ -1185,7 +1329,9 @@
     "addTime": "Aggiungi orario",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Promemoria dell'agenda"
+    "notifReminder": "Promemoria dell'agenda",
+    "todayA11y": "Oggi, {{date}}",
+    "reminderOff": "Disattivato"
   },
   "mailbox": {
     "title": "Posta",
@@ -1209,7 +1355,13 @@
     "unreadCount": "{{count}} non letti",
     "unreadCount_one": "{{count}} non letto",
     "deleteTitle": "Elimina messaggio",
-    "deleteMsg": "Rimuovere questo messaggio? L'azione non può essere annullata."
+    "deleteMsg": "Rimuovere questo messaggio? L'azione non può essere annullata.",
+    "locked": "Bloccata",
+    "unlocked": "Non bloccata",
+    "allOthersCount": "Tutti gli altri Membri · {{count}}",
+    "unread": "Non letto",
+    "deleteFrom": "Elimina messaggio da {{name}}",
+    "frontersHaveMail": "Posta non letta per: {{names}}"
   },
   "whiteboard": {
     "title": "Lavagna",
@@ -1264,7 +1416,9 @@
     "voPosDown": "{{n}} in basso",
     "voPosUp": "{{n}} in alto",
     "voEdges": "{{left}} fino al bordo sinistro, {{right}} fino a destra, {{top}} fino in alto, {{bottom}} fino in basso",
-    "voRecentered": "Penna ricentrata al centro"
+    "voRecentered": "Penna ricentrata al centro",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Dimensione pennello {{n}}"
   },
   "systemMap": {
     "connections": "Connessioni",
@@ -1309,7 +1463,11 @@
     "zoomIn": "Ingrandisci",
     "zoomOut": "Riduci",
     "resetView": "Reimposta vista",
-    "notePlaceholder": "Nota facoltativa…"
+    "notePlaceholder": "Nota facoltativa…",
+    "mapA11y": "Mappa delle relazioni, {{members}}, {{relationships}}",
+    "mapA11yHint": "Usa il menu azioni per selezionare un membro",
+    "depthN_one": "{{count}} connessione di distanza",
+    "depthN_other": "{{count}} connessioni di distanza"
   },
   "relType": {
     "love": "Amore",
@@ -1375,13 +1533,17 @@
     "deletePollMsg": "Questo rimuoverà definitivamente questo sondaggio.",
     "noPolls": "Nessun sondaggio ancora.",
     "closed": "Chiuso",
-    "votingAs": "Voti come:"
+    "votingAs": "Voti come:",
+    "optionN": "Opzione {{n}}",
+    "removeOptionN": "Rimuovi opzione {{n}}"
   },
   "energy": {
     "label": "Energia",
     "level": "Livello di Energia",
     "avgEnergy": "Energia Media",
-    "outOf10": "/10 energia"
+    "outOf10": "/10 energia",
+    "levelN": "Livello di energia {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Lettura",

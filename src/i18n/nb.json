@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Skriv i markdown…",
     "urlPlaceholder": "URL her",
     "textPlaceholder": "tekst",
-    "body": "Redigering"
+    "body": "Redigering",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Fet",
@@ -88,7 +89,8 @@
     "minute": "Minutt",
     "switchToAm": "PM, bytt til AM",
     "switchToPm": "AM, bytt til PM",
-    "image": "Bilde"
+    "image": "Bilde",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Noe gikk galt",
@@ -99,6 +101,33 @@
     "add": "Legg til egendefinert front",
     "edit": "Rediger egendefinert front",
     "namePlaceholder": "Navn på egendefinert front"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Pratsom",
+      "nonVerbal": "Ikke-verbal",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Uklar",
+      "blendy": "Blandet",
+      "rapidSwitching": "Raske bytter",
+      "foggy": "Tåkete",
+      "grounded": "Jordet",
+      "dissociated": "Dissosiert",
+      "anxious": "Engstelig",
+      "depressed": "Deprimert",
+      "cheerful": "Munter",
+      "happy": "Glad",
+      "sad": "Trist",
+      "crisis": "Krise",
+      "melancholy": "Melankolsk",
+      "stimming": "Selvstimulering",
+      "stressed": "Stresset",
+      "working": "Jobber",
+      "traveling": "På reise",
+      "sleeping": "Sover",
+      "hyperfocus": "Hyperfokus"
+    }
   },
   "lock": {
     "locked": "Låst",
@@ -116,7 +145,9 @@
     "browse": "Bla",
     "deleteSelectedMsg": "Fjerne {{count}} valgte element(er)? Medlemmer slettes ikke.",
     "desc": "Opprett, rediger, omorganiser og slett grupper og undersystemer. Trykk ⇄ på et element og deretter et mål for å neste det.",
-    "title": "Systembehandler"
+    "title": "Systembehandler",
+    "deleteSelectedMsg_one": "Fjerne {{count}} valgt element? Medlemmer slettes ikke.",
+    "deleteSelectedMsg_other": "Fjerne {{count}} valgte elementer? Medlemmer slettes ikke."
   },
   "common": {
     "durDaysHours": "{{d}} d {{h}} t",
@@ -130,6 +161,12 @@
     "movedAbove": "Flyttet over {{name}}",
     "movedBelow": "Flyttet under {{name}}",
     "search": "Søk…",
+    "removeItem": "Fjern {{name}}",
+    "addItem": "Legg til {{name}}",
+    "clearItem": "Tøm {{name}}",
+    "editItem": "Rediger {{name}}",
+    "deleteItem": "Slett {{name}}",
+    "exportItem": "Eksporter {{name}}",
     "back": "Tilbake",
     "change": "Endre",
     "export": "Eksporter",
@@ -144,7 +181,8 @@
     "remove": "Fjern",
     "unknown": "Ukjent",
     "untitled": "Uten tittel",
-    "ok": "OK"
+    "ok": "OK",
+    "errorCode": "Feilkode: {{code}}"
   },
   "tabs": {
     "fronters": "Frontere",
@@ -206,7 +244,8 @@
     "statusesDesc": "Statuser beskriver hvordan du har det — som Sover, Jobber eller Engstelig. Velg dem når du oppdaterer statusen din.",
     "noStatuses": "Ingen statuser ennå. Legg til en for å komme i gang.",
     "activeStatus": "Aktiv",
-    "favoriteColor": "Favorittfarge"
+    "favoriteColor": "Favorittfarge",
+    "statusActiveA11y": "{{name}}, aktiv"
   },
   "settings": {
     "observatory": "Observatorium-grensesnitt (enkeltperson)",
@@ -223,7 +262,9 @@
     "noNote": "Ingen notat. Trykk Rediger for å legge til.",
     "clearFront": "Tøm front",
     "clearFrontMsg": "Dette tømmer alle nivåer og logger slutten på økten. Fortsette?",
-    "clearFrontTitle": "Tømme front?"
+    "clearFrontTitle": "Tømme front?",
+    "frontingForA11y": "{{name}}, foran i {{dur}}",
+    "frontingForSince": "Foran i <b>{{dur}}</b> · siden {{time}}"
   },
   "members": {
     "select": "Velg",
@@ -303,7 +344,22 @@
     "countFronters": "{{count}} fronter",
     "countFronters_other": "{{count}} frontere",
     "countFiltered": "{{filtered}} av {{total}} medlemmer",
-    "recentlyDeleted": "Nylig slettet"
+    "recentlyDeleted": "Nylig slettet",
+    "nameInTier": "{{name}}, i {{tier}}",
+    "moveUpItem": "Flytt {{name}} opp",
+    "moveDownItem": "Flytt {{name}} ned",
+    "addToFrontName": "Legg til i front — {{name}}",
+    "removeFromFrontName": "Fjern fra front — {{name}}",
+    "titleCount": "Medlemmer ({{n}})",
+    "facetsCount": "Fasetter ({{n}})",
+    "customFrontsCount": "Egendefinerte fronter ({{n}})",
+    "restoreItem": "Gjenopprett {{name}}",
+    "bulkArchiveMsg_one": "Arkivere {{count}} medlem? Det kan gjenopprettes senere.",
+    "bulkArchiveMsg_other": "Arkivere {{count}} medlemmer? De kan gjenopprettes senere.",
+    "bulkRestoreMsg_one": "Gjenopprette {{count}} medlem som aktivt?",
+    "bulkRestoreMsg_other": "Gjenopprette {{count}} medlemmer som aktive?",
+    "bulkDeleteMsg_one": "Slette {{count}} medlem permanent? Dette kan ikke angres.",
+    "bulkDeleteMsg_other": "Slette {{count}} medlemmer permanent? Dette kan ikke angres."
   },
   "history": {
     "editEntry": "Rediger",
@@ -347,7 +403,15 @@
     "deleteConfirm3": "Endelig bekreftelse: slette permanent?",
     "deleteEntry": "Slett oppføring",
     "showMore": "Vis mer",
-    "showLess": "Vis mindre"
+    "showLess": "Vis mindre",
+    "moodBadge": "humør <b>{{mood}}</b>",
+    "atBadge": "på <b>{{location}}</b>",
+    "energyBadge": "Energi <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Humør og Sted Endret ({{tier}})",
+    "moodChanged_tier": "Humør Endret ({{tier}})",
+    "locationChanged_tier": "Sted Endret ({{tier}})",
+    "noteUpdated_tier": "Notat Oppdatert ({{tier}})",
+    "frontSwitch_tier": "Frontbytte ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Dette fjerner malen permanent.",
@@ -382,7 +446,8 @@
     "templateName": "Malnavn *",
     "templateNamePlaceholder": "f.eks. Morgensider",
     "templateTitle": "Oppføringstittel (forhåndsdefinert)",
-    "templateBody": "Oppføringsinnhold (forhåndsdefinert)"
+    "templateBody": "Oppføringsinnhold (forhåndsdefinert)",
+    "openEntryHint": "Åpner hele innlegget"
   },
   "share": {
     "groupsCount": "{{count}} grupper",
@@ -405,6 +470,34 @@
     "progressChat": "Gjenoppretter chat…",
     "progressChatN": "Gjenoppretter chatkanaler… {{done}}/{{total}}",
     "progressSavingMembers": "Lagrer medlemmer…",
+    "exportAs": "Eksporter som {{format}}",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "«{{text}}»",
+    "exportMailExportedLine": "Eksportert: {{date}}",
+    "exportMailMembersHeader": "MEDLEMMER ({{count}})",
+    "exportMailJournalHeader": "DAGBOK ({{count}})",
+    "exportMailJournalHeaderRecent": "DAGBOK ({{count}} — viser de {{shown}} nyeste)",
+    "exportMailHistoryHeader": "FRONTHISTORIKK ({{count}})",
+    "exportMailHistoryHeaderRecent": "FRONTHISTORIKK ({{count}} — viser de {{shown}} nyeste)",
+    "exportTitleLine": "Tittel: {{title}}",
+    "exportDateLine": "Dato: {{date}}",
+    "exportAuthorsLine": "Forfattere: {{authors}}",
+    "importStopped_one": "Importen ble stoppet. {{count}} trinn ble fullført og lagret; de gjenstående trinnene ble ikke kjørt.",
+    "importStopped_other": "Importen ble stoppet. {{count}} trinn ble fullført og lagret; de gjenstående trinnene ble ikke kjørt.",
+    "psAvatarsImported_one": "Importerte {{count}} avatar.",
+    "psAvatarsImported_other": "Importerte {{count}} avatarer.",
+    "recoverConfirmMsg_one": "Gjenopprett {{count}} sikkerhetskopi-element til appen? Dette vil overskrive gjeldende data for denne kategorien.",
+    "recoverConfirmMsg_other": "Gjenopprett {{count}} sikkerhetskopi-elementer til appen? Dette vil overskrive gjeldende data for disse kategoriene.",
+    "cfUnmatched_one": "{{count}} nøkkel samsvarte ikke med noen av våre felt-ID-er/navn. Nøkkel uten treff: {{samples}}",
+    "cfUnmatched_other": "{{count}} nøkler samsvarte ikke med noen av våre felt-ID-er/navn. Eksempler på nøkler uten treff: {{samples}}",
+    "unnamedMember": "Navnløst medlem",
+    "fieldN": "Felt {{n}}",
+    "systemN": "System {{n}}",
+    "groupN": "Gruppe {{n}}",
+    "channelN": "Kanal {{n}}",
+    "ageField": "Alder",
     "bundleNotRecognized": "Denne .zip-filen er ikke en Plural Star-sikkerhetskopi.",
     "jsonHint": "ZIP og JSON er fullstendige sikkerhetskopier du kan importere på nytt til Plural Star.",
     "invalidJsonBackup": "Filen er ikke gyldig JSON. Velg en Plural Star- eller Simply Plural-sikkerhetskopi (.json).",
@@ -594,6 +687,7 @@
     "exportReady": "Eksport klar",
     "exportReadyMsg": "{{filename}} ble generert, men deling kunne ikke åpnes.",
     "importing": "Importerer…",
+    "exporting": "Eksporterer…",
     "recoverData": "Gjenopprett data",
     "recoverDataDesc": "Hvis dataene dine forsvant etter omstart (velkomstskjermen kommer tilbake, medlemmer eller grupper mangler osv.), kan Plural Star fortsatt ha sikkerhetskopier på disken som er adskilt fra appens hovedlagring. Skann for å se hva som kan gjenopprettes.",
     "scanForBackups": "Skann etter gjenopprettbare sikkerhetskopier",
@@ -609,7 +703,8 @@
     "recoverFields": "{{count}} felt",
     "recoverFields_one": "{{count}} felt",
     "recoverScanFailed": "Gjenopprettingsskanning mislyktes",
-    "exportCategories": "Eksportkategorier"
+    "exportCategories": "Eksportkategorier",
+    "errUnexpected": "Noe gikk galt. Sjekk filen og prøv igjen."
   },
   "hub": {
     "editEntry": "Rediger oppføring",
@@ -636,11 +731,11 @@
     "statistics": "Statistikk",
     "systemChat": "Systemchat",
     "archive": "Arkiv",
-    "discord": "Discord",
     "credits": "Bidragsytere",
     "creditLogo": "Plural Star-logo",
     "creditIos": "Plural Star iOS-port",
-    "supportPS": "Støtt PS"
+    "supportPS": "Støtt PS",
+    "discord": "Discord"
   },
   "modal": {
     "linkPfp": "Koble til bilde",
@@ -670,6 +765,8 @@
     "colorLock": "Fargelås",
     "invalidHex": "Ugyldig hekskode",
     "customColor": "Egendefinert farge",
+    "emoji": "Emoji",
+    "emojiPlaceholder": "f.eks. 🦊",
     "transparentColor": "Gjennomsiktig",
     "removeImageMsg": "Fjerne dette bildet?",
     "deletePaletteMsg": "Dette fjerner paletten permanent.",
@@ -761,12 +858,23 @@
     "noteOptional": "Notat (valgfritt)",
     "updateFront": "Oppdater front",
     "dyslexicFont": "Dyslektikervennlig skrift",
-    "dyslexicFontDesc": "Bytter brødteksten til OpenDyslexic. Overskrifter beholder sin egen skrift."
+    "dyslexicFontDesc": "Bytter brødteksten til OpenDyslexic. Overskrifter beholder sin egen skrift.",
+    "cropArea": "Beskjæringsområde",
+    "addEntryPassword": "Legg til innleggspassord",
+    "removeEntryPassword": "Fjern innleggspassord",
+    "addJournalPassword": "Legg til dagbokpassord",
+    "removeJournalPassword": "Fjern dagbokpassord",
+    "addAppLockPassword": "Legg til passord for applås",
+    "removeAppLockPassword": "Fjern passord for applås",
+    "fontDefault": "Standard",
+    "paletteObsidian": "Obsidian",
+    "paletteSteel": "Stål"
   },
   "notification": {
     "chatPingTitle": "◆ {{speaker}} pinget deg i #{{channel}}",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "Trykk for å se meldingen.",
+    "friendLine": "◈ {{name}}: {{fronters}}",
     "locationPermTitle": "Plassering",
     "locationPermMsg": "Tillat Plural Star å merke omtrentlig plassering når du fronter.",
     "allow": "Tillat",
@@ -856,7 +964,16 @@
     "removeMembers": "Fjern medlemmer",
     "deleteGroup": "Slett Gruppe",
     "deleteGroupMsg": "Fjerne denne gruppen? Medlemmer slettes ikke.",
-    "deleteWithChildrenMsg": "Inneholder {{count}} nestede elementer. Behold dem og flytt dem opp ett nivå, eller slett alt?"
+    "deleteWithChildrenMsg": "Inneholder {{count}} nestede elementer. Behold dem og flytt dem opp ett nivå, eller slett alt?",
+    "subgroupCount_one": "{{count}} undergruppe",
+    "subgroupCount_other": "{{count}} undergrupper",
+    "expandA11y": "Undergrupper i {{name}}, {{count}} valgt",
+    "subsystemNamed": "{{name}}, undersystem",
+    "moveItem": "Flytt {{name}}",
+    "addMembersTo": "Legg til medlemmer — {{name}}",
+    "newKind": "Type for nytt element",
+    "deleteWithChildrenMsg_one": "Inneholder {{count}} nestet element. Behold det og flytt det opp ett nivå, eller slett alt?",
+    "deleteWithChildrenMsg_other": "Inneholder {{count}} nestede elementer. Behold dem og flytt dem opp ett nivå, eller slett alt?"
   },
   "stats": {
     "rangeStart": "Startdato",
@@ -865,6 +982,7 @@
     "thisYear": "I år",
     "showMore": "Vis mer",
     "showMoreN": "Vis mer – {{shown}} av {{total}}",
+    "showMoreShort": "Vis mer ({{shown}}/{{total}})",
     "energyByHour": "Energi per time",
     "allTime": "Alle",
     "last7": "7 dager",
@@ -890,7 +1008,13 @@
     "avgEnergy": "Gj.sn. energi",
     "customRange": "Tilpasset område",
     "to": "Til",
-    "totalSessions": "Totalt antall økter"
+    "totalSessions": "Totalt antall økter",
+    "sessionsCount_one": "{{count}} økt",
+    "sessionsCount_other": "{{count}} økter",
+    "msgsCount_one": "{{count}} meld.",
+    "msgsCount_other": "{{count}} meld.",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "økt"
   },
   "chat": {
     "ping": "Ping",
@@ -901,6 +1025,14 @@
     "editingHeader": "Redigerer melding",
     "editPlaceholder": "Rediger melding…",
     "imagePreview": "[bilde]",
+    "reactionA11y_one": "{{emoji}}, {{count}} reaksjon",
+    "reactionA11y_other": "{{emoji}}, {{count}} reaksjoner",
+    "replyTo": "Svar {{name}}",
+    "archiveChannelNamed": "Arkiver {{name}}",
+    "defaultGeneral": "Generelt",
+    "defaultVenting": "Lufting",
+    "defaultPlanning": "Planlegging",
+    "attachment": "Vedlegg",
     "imageUnavailable": "[bilde utilgjengelig]",
     "addReaction": "Legg til reaksjon",
     "attachFile": "Legg ved fil",
@@ -991,6 +1123,7 @@
     "cloudErrRate": "For mange forsøk. Vent et minutt og prøv igjen.",
     "cloudErrFull": "Hvelvet eller noden har ikke mer plass.",
     "cloudErrTooLarge": "Utelatt, større enn 25 MB: {{keys}}",
+    "cloudErrOverQuota": "Utelatt, hvelvet har ikke mer plass: {{keys}}",
     "cloudErrBadPassword": "Hvelvet finnes, men dette passordet åpner det ikke.",
     "cloudErrCorrupt": "Hvelvet kunne ikke leses på denne enheten. Koble fra og koble til igjen med samme passord.",
     "cloudUnavailable": "Noden du er koblet til tilbyr ikke Skytjenester.",
@@ -1059,6 +1192,7 @@
     "deleteBucket": "Slett sirkel",
     "deleteBucketMsg": "Slette «{{name}}»?",
     "cloneBucket": "Dupliser sirkel",
+    "cloneBucketName": "Dupliser sirkel — {{name}}",
     "viewShared": "Se delt innhold",
     "mirrorNothing": "De har ikke delt dette med deg ennå.",
     "mirrorOffline": "Vennen er frakoblet — viser siste mottatte kopi.",
@@ -1109,7 +1243,16 @@
     "syncCloneSending": "Sender første kopi…",
     "syncCloneReceiving": "Mottar første kopi…",
     "syncCloneDone": "Første kopi fullført",
-    "publishFailed": "Kunne ikke publisere koden din — sjekk tilkoblingen og prøv igjen."
+    "publishFailed": "Kunne ikke publisere koden din — sjekk tilkoblingen og prøv igjen.",
+    "friendStatusOffline": "{{status}}. Frakoblet",
+    "scopeCount": "{{count}} valgt",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Noe gikk galt med skysynkroniseringen. Prøv igjen.",
+    "scopeSelectTitle": "{{feature}} — Utvalg",
+    "viewSharedTitle": "{{name}} — Se delt innhold",
+    "deviceFallback": "Enhet",
+    "friendFallback": "Venn",
+    "androidDeviceFallback": "Android-enhet"
   },
   "terminology": {
     "fronter": "Fronter",
@@ -1183,7 +1326,9 @@
     "addTime": "Legg til tidspunkt",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Planlegger-påminnelse"
+    "notifReminder": "Planlegger-påminnelse",
+    "todayA11y": "I dag, {{date}}",
+    "reminderOff": "Av"
   },
   "mailbox": {
     "title": "Postkasse",
@@ -1207,7 +1352,13 @@
     "unreadCount": "{{count}} uleste",
     "unreadCount_one": "{{count}} ulest",
     "deleteTitle": "Slett melding",
-    "deleteMsg": "Fjerne denne meldingen? Dette kan ikke angres."
+    "deleteMsg": "Fjerne denne meldingen? Dette kan ikke angres.",
+    "locked": "Låst",
+    "unlocked": "Ikke låst",
+    "allOthersCount": "Alle andre Medlemmer · {{count}}",
+    "unread": "Ulest",
+    "deleteFrom": "Slett melding fra {{name}}",
+    "frontersHaveMail": "Ulest post til: {{names}}"
   },
   "whiteboard": {
     "title": "Tavle",
@@ -1262,7 +1413,9 @@
     "voPosDown": "{{n}} ned",
     "voPosUp": "{{n}} opp",
     "voEdges": "{{left}} til venstre kant, {{right}} til høyre, {{top}} til topp, {{bottom}} til bunn",
-    "voRecentered": "Pennen sentrert på midten"
+    "voRecentered": "Pennen sentrert på midten",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Penselstørrelse {{n}}"
   },
   "systemMap": {
     "connections": "Forbindelser",
@@ -1307,7 +1460,11 @@
     "zoomIn": "Zoom inn",
     "zoomOut": "Zoom ut",
     "resetView": "Tilbakestill visning",
-    "notePlaceholder": "Valgfritt notat…"
+    "notePlaceholder": "Valgfritt notat…",
+    "mapA11y": "Relasjonskart, {{members}}, {{relationships}}",
+    "mapA11yHint": "Bruk handlingsmenyen for å velge et medlem",
+    "depthN_one": "{{count}} forbindelse unna",
+    "depthN_other": "{{count}} forbindelser unna"
   },
   "relType": {
     "love": "Kjærlighet",
@@ -1372,11 +1529,15 @@
     "votes": "{{count}} stemmer",
     "votes_one": "{{count}} stemme",
     "votingAs": "Stemmer som:",
+    "optionN": "Alternativ {{n}}",
+    "removeOptionN": "Fjern alternativ {{n}}",
     "question": "Spørsmål",
     "vote": "Stem"
   },
   "energy": {
     "outOf10": "/10 energi",
+    "levelN": "Energinivå {{n}}",
+    "outOfTen": "{{n}}/10",
     "avgEnergy": "Gj.sn. energi",
     "label": "Energi",
     "level": "Energinivå"

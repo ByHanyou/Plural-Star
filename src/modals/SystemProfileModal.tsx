@@ -144,7 +144,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
               <View style={{width: 64, height: 64, borderRadius: 14, borderWidth: 2, borderColor: T.accent, overflow: 'hidden', backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center'}}>
                 {f.avatar
                   ? <Image source={{uri: f.avatar}} accessibilityElementsHidden importantForAccessibility="no" style={{width: 64, height: 64, borderRadius: 14}} resizeMode="cover" />
-                  : <Text style={{fontSize: fs(22), color: T.dim}}>📷</Text>}
+                  : <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(22), color: T.dim}}>📷</Text>}
               </View>
             </TouchableOpacity>
             <View style={{flex: 1}}>
@@ -156,7 +156,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
                 </View>
               </TouchableOpacity>
               {f.banner ? (
-                <TouchableOpacity activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeBanner')}
+                <TouchableOpacity hitSlop={{top: 4, bottom: 12, left: 8, right: 8}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeBanner')}
                   onPress={() => Alert.alert(t('systemProfile.removeBanner'), t('modal.removeImageMsg'), [
                     {text: t('common.cancel'), style: 'cancel'},
                     {text: t('common.remove'), style: 'destructive', onPress: () => setF((x: any) => ({...x, banner: undefined}))},
@@ -168,7 +168,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
           </View>
 
           {f.avatar ? (
-            <TouchableOpacity activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeAvatar')} style={{marginBottom: 8}}
+            <TouchableOpacity activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeAvatar')} hitSlop={{top: 12, bottom: 12, left: 8, right: 8}} style={{marginBottom: 8}}
               onPress={() => Alert.alert(t('systemProfile.removeAvatar'), t('modal.removeImageMsg'), [
                 {text: t('common.cancel'), style: 'cancel'},
                 {text: t('common.remove'), style: 'destructive', onPress: () => setF((x: any) => ({...x, avatar: undefined}))},
@@ -178,7 +178,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
           ) : null}
 
           <TouchableOpacity onPress={() => setShowAvatarLink(!showAvatarLink)} activeOpacity={0.7} accessibilityRole="button"
-            accessibilityState={{expanded: showAvatarLink}} accessibilityLabel={t('modal.linkPfp')} style={{marginBottom: 8}}>
+            accessibilityState={{expanded: showAvatarLink}} accessibilityLabel={t('modal.linkPfp')} hitSlop={{top: 8, bottom: 12, left: 8, right: 8}} style={{marginBottom: 8}}>
             <Text style={{fontSize: fs(11), color: T.accent}}>🔗 {t('modal.linkPfp')}</Text>
           </TouchableOpacity>
           {showAvatarLink && (

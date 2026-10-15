@@ -10,7 +10,7 @@ import type {GestureResponderHandlers} from 'react-native';
 import {Text} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
 import {DragHandle} from '../components/DragHandle';
-import {useTranslation} from 'react-i18next';
+import {useTranslation, Trans} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
@@ -25,6 +25,7 @@ import {
   Member,
   fmtTime,
   fmtDur,
+  fmtNum,
   frontSessionStart,
   isFrontEmpty,
   translateMood,
@@ -160,8 +161,8 @@ const TierCard = ({
                     onStep={dir => onStep(fronters.map(x => x.id), m.id, dir)} />
                 )}
                 <TouchableOpacity onPress={onOpenMember ? () => onOpenMember(m.id) : undefined} activeOpacity={onOpenMember ? 0.7 : 1} disabled={!onOpenMember} accessible={!!onOpenMember}
-                  accessibilityRole={onOpenMember ? 'button' : undefined} accessibilityLabel={onOpenMember ? `${m.name}, ${t('systemMap.viewProfile')}` : undefined}
-                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                  accessibilityRole={onOpenMember ? 'button' : undefined} accessibilityLabel={onOpenMember ? [m.name, m.pronouns, m.role, t('systemMap.viewProfile')].filter(Boolean).join(', ') : undefined}
+                  hitSlop={{top: 6, bottom: 6}} style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12}}>
                   <Avatar member={m} size={isPrimary ? 48 : 40} T={T} />
                   <View style={{flex: 1}}>
                     <Text style={{fontSize: isPrimary ? fs(16) : fs(14), fontWeight: '500', color: T.text}}>
@@ -179,7 +180,7 @@ const TierCard = ({
                     ) : null}
                   </View>
                 </TouchableOpacity>
-                <Text style={{fontSize: fs(11), color: T.muted}} accessibilityLabel={`${m.name}, ${t('front.frontingFor')} ${fmtDur(front.memberSince?.[m.id] ?? front.startTime)}`}>
+                <Text style={{fontSize: fs(11), color: T.muted}} accessibilityLabel={t('front.frontingForA11y', {name: m.name, dur: fmtDur(front.memberSince?.[m.id] ?? front.startTime)})}>
                   {fmtDur(front.memberSince?.[m.id] ?? front.startTime)}
                 </Text>
                 <TouchableOpacity onPress={() => onQuickRemove(m.id)} activeOpacity={0.7}
@@ -200,9 +201,7 @@ const TierCard = ({
         {isPrimary && (
           <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8, marginBottom: 8}}>
             <Text style={{fontSize: fs(11), color: T.muted}}>
-              {t('front.frontingFor')}{' '}
-              <Text style={{color: T.accent}}>{fmtDur(frontSessionStart(front))}</Text>{' '}
-              · {t('front.since')} {fmtTime(frontSessionStart(front))}
+              <Trans i18nKey="front.frontingForSince" values={{dur: fmtDur(frontSessionStart(front)), time: fmtTime(frontSessionStart(front))}} components={{b: <Text style={{color: T.accent}} />}} />
             </Text>
           </View>
         )}
@@ -224,13 +223,13 @@ const TierCard = ({
             {tier.energyLevel ? (
               <View>
                 <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t('energy.label')}</Text>
-                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}}>{tier.energyLevel}/10</Text>
+                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}}>{t('energy.outOfTen', {n: fmtNum(tier.energyLevel, 0)})}</Text>
               </View>
             ) : null}
           </View>
         ) : null}
 
-        <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('tier.editTier', {tier: label})} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
+        <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('tier.editTier', {tier: label})}, ${note || t('front.noNote')}`} hitSlop={{top: 8, bottom: 11}} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
           <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
             <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim}}>
               {t('front.frontNote')}
@@ -319,7 +318,7 @@ export const FrontScreen = ({
         <View style={{marginBottom: 16}}>
           <Text
             accessibilityRole="header"
-            style={[s.heading, {color: T.text, marginBottom: 10}]}
+            style={[s.heading, {color: T.text, marginBottom: 10, fontSize: fs(22)}]}
             numberOfLines={1}
             maxFontSizeMultiplier={1.2}>
             {t('front.currentlyFronting')}
@@ -328,12 +327,12 @@ export const FrontScreen = ({
             onPress={onSetFront}
             accessibilityRole="button"
             accessibilityLabel={t('front.update')}
-            style={[
+            hitSlop={{top: 8, bottom: 8}} style={[
               s.btn,
               {backgroundColor: T.accentBg, borderColor: `${T.accent}40`, alignSelf: 'flex-start'},
             ]}>
             <Text
-              style={[s.btnText, {color: T.accent}]}
+              style={[s.btnText, {color: T.accent, fontSize: fs(13)}]}
               numberOfLines={1}
               maxFontSizeMultiplier={1.2}>
               {t('front.update')}
@@ -348,8 +347,8 @@ export const FrontScreen = ({
                 const sel = frontSortMode === mode;
                 return (
                   <TouchableOpacity key={mode} onPress={() => { if (!sel) saveFrontSortMode(mode).catch(() => {}); }} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={`${t('frontSort.label')}: ${t(key)}`}
-                    style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+                    accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={t('a11y.labelValue', {label: t('frontSort.label'), value: t(key)})}
+                    hitSlop={{top: 9, bottom: 9}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
                       backgroundColor: sel ? `${T.accent}20` : T.surface,
                       borderColor: sel ? `${T.accent}50` : T.border}}>
                     <Text style={{fontSize: fs(12), color: sel ? T.accent : T.dim, fontWeight: sel ? '600' : '400'}} numberOfLines={1} maxFontSizeMultiplier={1.3}>

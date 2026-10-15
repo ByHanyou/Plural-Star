@@ -48,7 +48,8 @@
     "markdownPlaceholder": "マークダウンで記述…",
     "urlPlaceholder": "URL をここに",
     "textPlaceholder": "テキスト",
-    "body": "エディター"
+    "body": "エディター",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "太字",
@@ -88,7 +89,8 @@
     "minute": "分",
     "switchToAm": "PM、AMに切り替え",
     "switchToPm": "AM、PMに切り替え",
-    "image": "画像"
+    "image": "画像",
+    "labelValue": "{{label}}：{{value}}"
   },
   "errorBoundary": {
     "title": "問題が発生しました",
@@ -99,6 +101,33 @@
     "add": "カスタムフロントを追加",
     "edit": "カスタムフロントを編集",
     "namePlaceholder": "カスタムフロント名"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "おしゃべり",
+      "nonVerbal": "非言語",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "ぼんやり",
+      "blendy": "混ざり",
+      "rapidSwitching": "頻繁なスイッチ",
+      "foggy": "もやもや",
+      "grounded": "落ち着き",
+      "dissociated": "解離",
+      "anxious": "不安",
+      "depressed": "落ち込み",
+      "cheerful": "陽気",
+      "happy": "幸せ",
+      "sad": "悲しい",
+      "crisis": "危機",
+      "melancholy": "憂うつ",
+      "stimming": "スティミング",
+      "stressed": "ストレス",
+      "working": "仕事中",
+      "traveling": "旅行中",
+      "sleeping": "睡眠中",
+      "hyperfocus": "過集中"
+    }
   },
   "lock": {
     "locked": "ロック中",
@@ -116,7 +145,8 @@
     "browse": "閲覧",
     "deleteSelectedMsg": "選択した {{count}} 件を削除しますか？メンバーは削除されません。",
     "desc": "グループとサブシステムの作成、編集、並べ替え、削除ができます。項目の ⇄ をタップしてから移動先をタップすると入れ子にできます。",
-    "title": "システムマネージャー"
+    "title": "システムマネージャー",
+    "deleteSelectedMsg_other": "選択した {{count}} 件を削除しますか？メンバーは削除されません。"
   },
   "common": {
     "durDaysHours": "{{d}}日{{h}}時間",
@@ -130,6 +160,12 @@
     "movedAbove": "{{name}} の上に移動しました",
     "movedBelow": "{{name}} の下に移動しました",
     "search": "検索…",
+    "removeItem": "{{name}} を削除",
+    "addItem": "{{name}} を追加",
+    "clearItem": "{{name}} をクリア",
+    "editItem": "{{name}} を編集",
+    "deleteItem": "{{name}} を削除",
+    "exportItem": "{{name}} をエクスポート",
     "back": "戻る",
     "change": "変更",
     "export": "エクスポート",
@@ -144,7 +180,8 @@
     "remove": "削除",
     "unknown": "不明",
     "untitled": "無題",
-    "ok": "OK"
+    "ok": "OK",
+    "errorCode": "エラーコード：{{code}}"
   },
   "tabs": {
     "fronters": "フロンター",
@@ -206,7 +243,8 @@
     "statusesDesc": "ステータスは今の自分の状態を表します — 例：睡眠中、仕事中、不安。ステータス更新時に選択できます。",
     "noStatuses": "まだステータスがありません。まず 1 つ追加しましょう。",
     "activeStatus": "適用中",
-    "favoriteColor": "好きな色"
+    "favoriteColor": "好きな色",
+    "statusActiveA11y": "{{name}}、適用中"
   },
   "settings": {
     "observatory": "天文台インターフェース（個人）",
@@ -223,6 +261,8 @@
     "noNote": "メモなし。「編集」をタップして追加。",
     "clearFront": "フロントをクリア",
     "clearFrontTitle": "フロントをクリアしますか？",
+    "frontingForA11y": "{{name}}、フロント時間 {{dur}}",
+    "frontingForSince": "フロント時間 <b>{{dur}}</b> · {{time}} から",
     "clearFrontMsg": "すべての階層がクリアされ、現在のセッションの終了が記録されます。続行しますか？"
   },
   "members": {
@@ -303,7 +343,19 @@
     "countFronters": "フロンター {{count}} 人",
     "countFronters_other": "フロンター {{count}} 人",
     "countFiltered": "{{total}} 人中 {{filtered}} 人",
-    "recentlyDeleted": "最近削除した項目"
+    "recentlyDeleted": "最近削除した項目",
+    "nameInTier": "{{name}}、{{tier}}中",
+    "moveUpItem": "{{name}} を上へ移動",
+    "moveDownItem": "{{name}} を下へ移動",
+    "addToFrontName": "フロントに追加 — {{name}}",
+    "removeFromFrontName": "フロントから外す — {{name}}",
+    "titleCount": "メンバー（{{n}}）",
+    "facetsCount": "側面（{{n}}）",
+    "customFrontsCount": "カスタムフロント（{{n}}）",
+    "restoreItem": "{{name}} を復元",
+    "bulkArchiveMsg_other": "{{count}} 人のメンバーをアーカイブしますか？後で復元できます。",
+    "bulkRestoreMsg_other": "{{count}} 人のメンバーをアクティブに復元しますか？",
+    "bulkDeleteMsg_other": "{{count}} 人のメンバーを完全に削除しますか？この操作は取り消せません。"
   },
   "history": {
     "editEntry": "編集",
@@ -347,7 +399,15 @@
     "deleteConfirm2": "この操作は取り消せません。本当に削除しますか？",
     "deleteConfirm3": "最終確認：このエントリを完全に削除しますか？",
     "showMore": "もっと見る",
-    "showLess": "折りたたむ"
+    "showLess": "折りたたむ",
+    "moodBadge": "気分 <b>{{mood}}</b>",
+    "atBadge": "場所 <b>{{location}}</b>",
+    "energyBadge": "エネルギー <b>{{value}}</b>",
+    "moodLocationChanged_tier": "気分と場所が変更されました ({{tier}})",
+    "moodChanged_tier": "気分が変更されました ({{tier}})",
+    "locationChanged_tier": "場所が変更されました ({{tier}})",
+    "noteUpdated_tier": "メモが更新されました ({{tier}})",
+    "frontSwitch_tier": "フロント切替 ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "このテンプレートは完全に削除されます。",
@@ -382,7 +442,8 @@
     "templateName": "テンプレート名 *",
     "templateNamePlaceholder": "例: モーニング・ページ",
     "templateTitle": "エントリータイトル（プリセット）",
-    "templateBody": "エントリー本文（プリセット）"
+    "templateBody": "エントリー本文（プリセット）",
+    "openEntryHint": "エントリ全体を開きます"
   },
   "share": {
     "jsonHint": "ZIP と JSON は Plural Star に再インポートできる完全なバックアップです。",
@@ -421,6 +482,30 @@
     "progressChat": "チャットを復元中…",
     "progressChatN": "チャットチャンネルを復元中… {{done}}/{{total}}",
     "progressSavingMembers": "メンバーを保存中…",
+    "exportAs": "{{format}} でエクスポート",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "「{{text}}」",
+    "exportMailExportedLine": "エクスポート日時：{{date}}",
+    "exportMailMembersHeader": "メンバー（{{count}}）",
+    "exportMailJournalHeader": "日記（{{count}}）",
+    "exportMailJournalHeaderRecent": "日記（{{count}} — 直近 {{shown}} 件を表示）",
+    "exportMailHistoryHeader": "フロント履歴（{{count}}）",
+    "exportMailHistoryHeaderRecent": "フロント履歴（{{count}} — 直近 {{shown}} 件を表示）",
+    "exportTitleLine": "タイトル：{{title}}",
+    "exportDateLine": "日付：{{date}}",
+    "exportAuthorsLine": "著者：{{authors}}",
+    "importStopped_other": "インポートを停止しました。{{count}} 個の手順が完了して保存されました。残りの手順は実行されていません。",
+    "psAvatarsImported_other": "{{count}} 件のアバターをインポートしました。",
+    "recoverConfirmMsg_other": "{{count}} 件のバックアップ項目をアプリに復元しますか？該当するカテゴリの現在のデータが上書きされます。",
+    "cfUnmatched_other": "{{count}} 個のキーがフィールドの ID や名前のいずれにも一致しませんでした。一致しなかったキーの例：{{samples}}",
+    "unnamedMember": "名称未設定のメンバー",
+    "fieldN": "フィールド {{n}}",
+    "systemN": "システム {{n}}",
+    "groupN": "グループ {{n}}",
+    "channelN": "チャンネル {{n}}",
+    "ageField": "年齢",
     "bundleNotRecognized": "この .zip は Plural Star のバックアップパッケージではありません。",
     "banners": "バナー",
     "groups": "グループ",
@@ -587,6 +672,7 @@
     "pickSPFile": "SPエクスポートファイルを選択",
     "notValidSPExport": "有効なSimply Pluralエクスポートではないようです。",
     "importing": "インポート中…",
+    "exporting": "エクスポート中…",
     "savedToDownloads": "ダウンロードに保存",
     "savedToDownloadsMsg": "{{filename}} がダウンロードフォルダに保存されました。",
     "exportReady": "エクスポート完了",
@@ -604,7 +690,8 @@
     "recoverItems": "{{count}} 件",
     "recoverFields": "{{count}} 項目",
     "recoverScanFailed": "復元スキャンに失敗しました",
-    "exportCategories": "エクスポートカテゴリ"
+    "exportCategories": "エクスポートカテゴリ",
+    "errUnexpected": "問題が発生しました。ファイルを確認して、もう一度お試しください。"
   },
   "hub": {
     "overlapMore": "+{{count}} 件",
@@ -631,11 +718,11 @@
     "statistics": "統計",
     "systemChat": "システムチャット",
     "archive": "アーカイブ",
-    "discord": "Discord",
     "credits": "クレジット",
     "creditLogo": "Plural Star ロゴ",
     "creditIos": "Plural Star iOS 移植",
-    "supportPS": "PSを応援"
+    "supportPS": "PSを応援",
+    "discord": "Discord"
   },
   "modal": {
     "read": "読む",
@@ -674,6 +761,8 @@
     "colorLock": "カラーロック",
     "invalidHex": "無効な16進数カラー",
     "customColor": "カスタムカラー",
+    "emoji": "絵文字",
+    "emojiPlaceholder": "例：🦊",
     "transparentColor": "透明",
     "removeImageMsg": "この画像を削除しますか？",
     "deletePaletteMsg": "このパレットは完全に削除されます。",
@@ -756,7 +845,17 @@
     "textScaleLarge": "大",
     "textScaleExtraLarge": "特大",
     "dyslexicFont": "ディスレクシア対応フォント",
-    "dyslexicFontDesc": "本文を OpenDyslexic に切り替えます。見出しは元のフォントのままです。"
+    "dyslexicFontDesc": "本文を OpenDyslexic に切り替えます。見出しは元のフォントのままです。",
+    "cropArea": "トリミング範囲",
+    "addEntryPassword": "エントリパスワードを追加",
+    "removeEntryPassword": "エントリパスワードを削除",
+    "addJournalPassword": "ジャーナルのパスワードを追加",
+    "removeJournalPassword": "ジャーナルのパスワードを削除",
+    "addAppLockPassword": "アプリロックのパスワードを追加",
+    "removeAppLockPassword": "アプリロックのパスワードを削除",
+    "fontDefault": "デフォルト",
+    "paletteObsidian": "黒曜石",
+    "paletteSteel": "スチール"
   },
   "notification": {
     "filePermTitle": "ファイルアクセス",
@@ -764,6 +863,7 @@
     "chatPingTitle": "◆ {{speaker}} が #{{channel}} であなたにピンしました",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "タップしてメッセージを表示します。",
+    "friendLine": "◈ {{name}}: {{fronters}}",
     "locationPermTitle": "位置情報の許可",
     "locationPermMsg": "Plural Starがフロント時におおよその位置をタグ付けします。",
     "allow": "許可",
@@ -850,7 +950,14 @@
     "removeMembers": "メンバーを外す",
     "deleteGroup": "グループを削除",
     "deleteGroupMsg": "このグループを削除しますか？メンバーは削除されません。",
-    "deleteWithChildrenMsg": "{{count}} 件の入れ子項目が含まれています。1 つ上の階層に残しますか、それともすべて削除しますか？"
+    "deleteWithChildrenMsg": "{{count}} 件の入れ子項目が含まれています。1 つ上の階層に残しますか、それともすべて削除しますか？",
+    "subgroupCount_other": "サブグループ {{count}} 件",
+    "expandA11y": "{{name}} のサブグループ、{{count}} 件選択中",
+    "subsystemNamed": "{{name}}、サブシステム",
+    "moveItem": "{{name}} を移動",
+    "addMembersTo": "メンバーを追加 — {{name}}",
+    "newKind": "新しい項目の種類",
+    "deleteWithChildrenMsg_other": "{{count}} 件の入れ子項目が含まれています。1 つ上の階層に残しますか、それともすべて削除しますか？"
   },
   "stats": {
     "rangeStart": "開始日",
@@ -859,6 +966,7 @@
     "thisYear": "今年",
     "showMore": "もっと見る",
     "showMoreN": "もっと見る — {{total}}件中{{shown}}件",
+    "showMoreShort": "もっと見る ({{shown}}/{{total}})",
     "energyByHour": "時間帯別エネルギー",
     "allTime": "全期間",
     "last7": "7日間",
@@ -878,6 +986,9 @@
     "topMoods": "最多気分",
     "topLocations": "最多場所",
     "totalSessions": "総セッション数",
+    "sessionsCount_other": "{{count}} セッション",
+    "msgsCount_other": "{{count}} 件",
+    "timesCount": "{{count}}×",
     "avgEnergy": "平均エネルギー",
     "peakHours": "ピーク時間",
     "customRange": "カスタム範囲",
@@ -896,6 +1007,13 @@
     "editingHeader": "メッセージを編集中",
     "editPlaceholder": "メッセージを編集…",
     "imagePreview": "[画像]",
+    "reactionA11y_other": "{{emoji}}、リアクション {{count}} 件",
+    "replyTo": "{{name}} に返信",
+    "archiveChannelNamed": "{{name}} をアーカイブ",
+    "defaultGeneral": "一般",
+    "defaultVenting": "吐き出し",
+    "defaultPlanning": "計画",
+    "attachment": "添付ファイル",
     "addReaction": "リアクションを追加",
     "attachFile": "ファイルを添付",
     "pasteImage": "画像を貼り付け",
@@ -985,6 +1103,7 @@
     "cloudErrRate": "試行回数が多すぎます。1分待ってからやり直してください。",
     "cloudErrFull": "保管庫またはノードの空き容量がありません。",
     "cloudErrTooLarge": "25 MBを超えるため除外: {{keys}}",
+    "cloudErrOverQuota": "保管庫の空き容量がないため除外: {{keys}}",
     "cloudErrBadPassword": "保管庫は存在しますが、このパスワードでは開けません。",
     "cloudErrCorrupt": "このデバイスで保管庫を読み取れませんでした。リンクを解除し、同じパスワードで再度リンクしてください。",
     "cloudUnavailable": "接続中のノードはクラウドサービスを提供していません。",
@@ -1053,6 +1172,7 @@
     "deleteBucket": "サークルを削除",
     "deleteBucketMsg": "「{{name}}」を削除しますか？",
     "cloneBucket": "サークルを複製",
+    "cloneBucketName": "サークルを複製 — {{name}}",
     "viewShared": "共有を見る",
     "mirrorNothing": "まだ共有されていません。",
     "mirrorOffline": "フレンドはオフラインです — 最後に受信したコピーを表示中。",
@@ -1103,7 +1223,16 @@
     "syncCloneSending": "最初のコピーを送信中…",
     "syncCloneReceiving": "最初のコピーを受信中…",
     "syncCloneDone": "最初のコピーが完了しました",
-    "publishFailed": "コードを公開できませんでした。接続を確認してもう一度お試しください。"
+    "publishFailed": "コードを公開できませんでした。接続を確認してもう一度お試しください。",
+    "friendStatusOffline": "{{status}}。オフライン",
+    "scopeCount": "{{count}} 件選択中",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "クラウド同期で問題が発生しました。もう一度お試しください。",
+    "scopeSelectTitle": "{{feature}} — 選択",
+    "viewSharedTitle": "{{name}} — 共有を見る",
+    "deviceFallback": "デバイス",
+    "friendFallback": "フレンド",
+    "androidDeviceFallback": "Android デバイス"
   },
   "terminology": {
     "fronter": "フロンター",
@@ -1176,7 +1305,9 @@
     "addTime": "時刻を追加",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "プランナーのリマインダー"
+    "notifReminder": "プランナーのリマインダー",
+    "todayA11y": "今日、{{date}}",
+    "reminderOff": "オフ"
   },
   "mailbox": {
     "title": "メールボックス",
@@ -1199,7 +1330,13 @@
     "messageCount_other": "{{count}} 件のメッセージ",
     "unreadCount": "未読 {{count}} 件",
     "deleteTitle": "メッセージを削除",
-    "deleteMsg": "このメッセージを削除しますか？元に戻せません。"
+    "deleteMsg": "このメッセージを削除しますか？元に戻せません。",
+    "locked": "ロック中",
+    "unlocked": "ロックなし",
+    "allOthersCount": "他のすべてのメンバー · {{count}}",
+    "unread": "未読",
+    "deleteFrom": "{{name}} からのメッセージを削除",
+    "frontersHaveMail": "未読メールがあります：{{names}}"
   },
   "whiteboard": {
     "title": "ホワイトボード",
@@ -1254,7 +1391,9 @@
     "voPosDown": "{{n}} 下",
     "voPosUp": "{{n}} 上",
     "voEdges": "左端まで{{left}}、右まで{{right}}、上まで{{top}}、下まで{{bottom}}",
-    "voRecentered": "ペンを中央に戻しました"
+    "voRecentered": "ペンを中央に戻しました",
+    "voTwoParts": "{{a}}。{{b}}",
+    "brushSizeN": "ブラシサイズ {{n}}"
   },
   "systemMap": {
     "connections": "つながり",
@@ -1298,7 +1437,10 @@
     "zoomIn": "拡大",
     "zoomOut": "縮小",
     "resetView": "表示をリセット",
-    "notePlaceholder": "メモ（任意）…"
+    "notePlaceholder": "メモ（任意）…",
+    "mapA11y": "関係マップ、{{members}}、{{relationships}}",
+    "mapA11yHint": "操作メニューからメンバーを選択します",
+    "depthN_other": "つながりの距離 {{count}}"
   },
   "relType": {
     "love": "恋愛",
@@ -1363,13 +1505,17 @@
     "deletePollMsg": "この投票を完全に削除します。",
     "noPolls": "まだ投票がありません。",
     "closed": "終了",
-    "votingAs": "投票者："
+    "votingAs": "投票者：",
+    "optionN": "選択肢 {{n}}",
+    "removeOptionN": "選択肢 {{n}} を削除"
   },
   "energy": {
     "label": "エネルギー",
     "level": "エネルギーレベル",
     "avgEnergy": "平均エネルギー",
-    "outOf10": "/10 エネルギー"
+    "outOf10": "/10 エネルギー",
+    "levelN": "エネルギーレベル {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "表示",

@@ -48,7 +48,8 @@
     "markdownPlaceholder": "In Markdown schreiben…",
     "urlPlaceholder": "URL hier",
     "textPlaceholder": "Text",
-    "body": "Editor"
+    "body": "Editor",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Fett",
@@ -88,7 +89,8 @@
     "minute": "Minute",
     "switchToAm": "PM, zu AM wechseln",
     "switchToPm": "AM, zu PM wechseln",
-    "image": "Bild"
+    "image": "Bild",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Etwas ist schiefgelaufen",
@@ -99,6 +101,33 @@
     "add": "Benutzerdefinierte Front hinzufügen",
     "edit": "Benutzerdefinierte Front bearbeiten",
     "namePlaceholder": "Name der benutzerdefinierten Front"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Gesprächig",
+      "nonVerbal": "Nonverbal",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Verschwommen",
+      "blendy": "Vermischt",
+      "rapidSwitching": "Schnelles Wechseln",
+      "foggy": "Benebelt",
+      "grounded": "Geerdet",
+      "dissociated": "Dissoziiert",
+      "anxious": "Ängstlich",
+      "depressed": "Deprimiert",
+      "cheerful": "Fröhlich",
+      "happy": "Glücklich",
+      "sad": "Traurig",
+      "crisis": "Krise",
+      "melancholy": "Melancholisch",
+      "stimming": "Selbststimulation",
+      "stressed": "Gestresst",
+      "working": "Bei der Arbeit",
+      "traveling": "Unterwegs",
+      "sleeping": "Schlafend",
+      "hyperfocus": "Hyperfokus"
+    }
   },
   "lock": {
     "locked": "Gesperrt",
@@ -116,7 +145,9 @@
     "browse": "Durchsuchen",
     "deleteSelectedMsg": "{{count}} ausgewählte(s) Element(e) entfernen? Mitglieder werden nicht gelöscht.",
     "desc": "Erstelle, bearbeite, ordne und lösche Gruppen und Subsysteme. Tippe auf ⇄ bei einem Element und dann auf ein Ziel, um es zu verschachteln.",
-    "title": "Systemverwaltung"
+    "title": "Systemverwaltung",
+    "deleteSelectedMsg_one": "{{count}} ausgewähltes Element entfernen? Mitglieder werden nicht gelöscht.",
+    "deleteSelectedMsg_other": "{{count}} ausgewählte Elemente entfernen? Mitglieder werden nicht gelöscht."
   },
   "common": {
     "durDaysHours": "{{d}} T. {{h}} Std.",
@@ -130,6 +161,12 @@
     "movedAbove": "Über {{name}} verschoben",
     "movedBelow": "Unter {{name}} verschoben",
     "search": "Suchen…",
+    "removeItem": "{{name}} entfernen",
+    "addItem": "{{name}} hinzufügen",
+    "clearItem": "{{name}} leeren",
+    "editItem": "{{name}} bearbeiten",
+    "deleteItem": "{{name}} löschen",
+    "exportItem": "{{name}} exportieren",
     "back": "Zurück",
     "change": "Ändern",
     "export": "Exportieren",
@@ -144,7 +181,8 @@
     "remove": "Entfernen",
     "unknown": "Unbekannt",
     "untitled": "Ohne Titel",
-    "ok": "OK"
+    "ok": "OK",
+    "errorCode": "Fehlercode: {{code}}"
   },
   "tabs": {
     "fronters": "Fronter",
@@ -206,7 +244,8 @@
     "statusesDesc": "Status beschreiben, wie es dir geht — z.B. Schlafend, Arbeitend oder Ängstlich. Wähle sie beim Aktualisieren deines Status aus.",
     "noStatuses": "Noch keine Status. Füge einen hinzu, um zu beginnen.",
     "activeStatus": "Aktiv",
-    "favoriteColor": "Lieblingsfarbe"
+    "favoriteColor": "Lieblingsfarbe",
+    "statusActiveA11y": "{{name}}, aktiv"
   },
   "settings": {
     "observatory": "Observatorium-Oberfläche (Einzelperson)",
@@ -223,7 +262,9 @@
     "noNote": "Keine Notiz. Tippe Bearbeiten, um eine hinzuzufügen.",
     "clearFront": "Front leeren",
     "clearFrontMsg": "Dies leert alle Ebenen und protokolliert das Ende der Sitzung. Fortfahren?",
-    "clearFrontTitle": "Front leeren?"
+    "clearFrontTitle": "Front leeren?",
+    "frontingForA11y": "{{name}}, im Front seit {{dur}}",
+    "frontingForSince": "Im Front seit <b>{{dur}}</b> · seit {{time}}"
   },
   "members": {
     "fieldCount": "Mitgliederzahl",
@@ -303,7 +344,22 @@
     "countFronters": "{{count}} Fronter",
     "countFronters_other": "{{count}} Fronter",
     "countFiltered": "{{filtered}} von {{total}} Mitgliedern",
-    "recentlyDeleted": "Kürzlich gelöscht"
+    "recentlyDeleted": "Kürzlich gelöscht",
+    "nameInTier": "{{name}}, in {{tier}}",
+    "moveUpItem": "{{name}} nach oben verschieben",
+    "moveDownItem": "{{name}} nach unten verschieben",
+    "addToFrontName": "Zur Front hinzufügen — {{name}}",
+    "removeFromFrontName": "Von der Front entfernen — {{name}}",
+    "titleCount": "Mitglieder ({{n}})",
+    "facetsCount": "Facetten ({{n}})",
+    "customFrontsCount": "Benutzerdefinierte Fronten ({{n}})",
+    "restoreItem": "{{name}} wiederherstellen",
+    "bulkArchiveMsg_one": "{{count}} Mitglied archivieren? Es kann später wiederhergestellt werden.",
+    "bulkArchiveMsg_other": "{{count}} Mitglieder archivieren? Sie können später wiederhergestellt werden.",
+    "bulkRestoreMsg_one": "{{count}} Mitglied wieder aktivieren?",
+    "bulkRestoreMsg_other": "{{count}} Mitglieder wieder aktivieren?",
+    "bulkDeleteMsg_one": "{{count}} Mitglied endgültig löschen? Dies kann nicht rückgängig gemacht werden.",
+    "bulkDeleteMsg_other": "{{count}} Mitglieder endgültig löschen? Dies kann nicht rückgängig gemacht werden."
   },
   "history": {
     "editEntry": "Bearbeiten",
@@ -347,7 +403,15 @@
     "deleteConfirm3": "Letzte Bestätigung: endgültig löschen?",
     "deleteEntry": "Eintrag löschen",
     "showMore": "Mehr anzeigen",
-    "showLess": "Weniger anzeigen"
+    "showLess": "Weniger anzeigen",
+    "moodBadge": "Stimmung <b>{{mood}}</b>",
+    "atBadge": "bei <b>{{location}}</b>",
+    "energyBadge": "Energie <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Stimmung & Ort Geändert ({{tier}})",
+    "moodChanged_tier": "Stimmung Geändert ({{tier}})",
+    "locationChanged_tier": "Ort Geändert ({{tier}})",
+    "noteUpdated_tier": "Notiz Aktualisiert ({{tier}})",
+    "frontSwitch_tier": "Front-Wechsel ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Dadurch wird diese Vorlage dauerhaft entfernt.",
@@ -382,7 +446,8 @@
     "templateName": "Vorlagenname *",
     "templateNamePlaceholder": "z.B. Morgenseiten",
     "templateTitle": "Eintragstitel (Voreinstellung)",
-    "templateBody": "Eintragsinhalt (Voreinstellung)"
+    "templateBody": "Eintragsinhalt (Voreinstellung)",
+    "openEntryHint": "Öffnet den vollständigen Eintrag"
   },
   "share": {
     "jsonHint": "ZIP und JSON sind vollständige Sicherungen, die du wieder in Plural Star importieren kannst.",
@@ -422,6 +487,34 @@
     "progressChat": "Chat wird wiederhergestellt…",
     "progressChatN": "Chat-Kanäle werden wiederhergestellt… {{done}}/{{total}}",
     "progressSavingMembers": "Mitglieder werden gespeichert…",
+    "exportAs": "Als {{format}} exportieren",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "„{{text}}“",
+    "exportMailExportedLine": "Exportiert: {{date}}",
+    "exportMailMembersHeader": "MITGLIEDER ({{count}})",
+    "exportMailJournalHeader": "TAGEBUCH ({{count}})",
+    "exportMailJournalHeaderRecent": "TAGEBUCH ({{count}} — die {{shown}} neuesten)",
+    "exportMailHistoryHeader": "FRONT-HISTORIE ({{count}})",
+    "exportMailHistoryHeaderRecent": "FRONT-HISTORIE ({{count}} — die {{shown}} neuesten)",
+    "exportTitleLine": "Titel: {{title}}",
+    "exportDateLine": "Datum: {{date}}",
+    "exportAuthorsLine": "Autoren: {{authors}}",
+    "importStopped_one": "Import gestoppt. {{count}} Schritt wurde abgeschlossen und gespeichert; die übrigen Schritte wurden nicht ausgeführt.",
+    "importStopped_other": "Import gestoppt. {{count}} Schritte wurden abgeschlossen und gespeichert; die übrigen Schritte wurden nicht ausgeführt.",
+    "psAvatarsImported_one": "{{count}} Avatar importiert.",
+    "psAvatarsImported_other": "{{count}} Avatare importiert.",
+    "recoverConfirmMsg_one": "{{count}} Sicherungselement in die App wiederherstellen? Dies überschreibt die aktuellen Daten für diese Kategorie.",
+    "recoverConfirmMsg_other": "{{count}} Sicherungselemente in die App wiederherstellen? Dies überschreibt die aktuellen Daten für diese Kategorien.",
+    "cfUnmatched_one": "{{count}} Schlüssel stimmte mit keiner unserer Feld-IDs/-Namen überein. Nicht zugeordneter Schlüssel: {{samples}}",
+    "cfUnmatched_other": "{{count}} Schlüssel stimmten mit keiner unserer Feld-IDs/-Namen überein. Beispiele nicht zugeordneter Schlüssel: {{samples}}",
+    "unnamedMember": "Unbenanntes Mitglied",
+    "fieldN": "Feld {{n}}",
+    "systemN": "System {{n}}",
+    "groupN": "Gruppe {{n}}",
+    "channelN": "Kanal {{n}}",
+    "ageField": "Alter",
     "bundleNotRecognized": "Diese .zip ist kein Plural Star-Backup-Paket.",
     "banners": "Banner",
     "groups": "Gruppen",
@@ -594,6 +687,7 @@
     "exportReady": "Export bereit",
     "exportReadyMsg": "{{filename}} wurde erstellt, aber der Dialog konnte nicht geöffnet werden.",
     "importing": "Importiere…",
+    "exporting": "Exportiere…",
     "recoverData": "Daten wiederherstellen",
     "recoverDataDesc": "Wenn deine Daten nach einem Neustart verschwunden sind (Willkommensbildschirm kehrt zurück, Mitglieder oder Gruppen fehlen usw.), hat Plural Star möglicherweise noch Sicherungskopien auf der Festplatte, die vom Hauptspeicher der App getrennt sind. Scanne, um zu sehen, was wiederhergestellt werden kann.",
     "scanForBackups": "Nach wiederherstellbaren Sicherungen suchen",
@@ -609,7 +703,8 @@
     "recoverFields": "{{count}} Felder",
     "recoverFields_one": "{{count}} Feld",
     "recoverScanFailed": "Wiederherstellungsscan fehlgeschlagen",
-    "exportCategories": "Exportkategorien"
+    "exportCategories": "Exportkategorien",
+    "errUnexpected": "Etwas ist schiefgelaufen. Bitte überprüfe die Datei und versuche es erneut."
   },
   "modal": {
     "read": "Lesen",
@@ -648,6 +743,8 @@
     "colorLock": "Farbsperre",
     "invalidHex": "Ungültige Hex-Farbe",
     "customColor": "Eigene Farbe",
+    "emoji": "Emoji",
+    "emojiPlaceholder": "z. B. 🦊",
     "transparentColor": "Transparent",
     "removeImageMsg": "Dieses Bild entfernen?",
     "deletePaletteMsg": "Dadurch wird diese Palette dauerhaft entfernt.",
@@ -730,7 +827,17 @@
     "textScaleLarge": "Groß",
     "textScaleExtraLarge": "Sehr Groß",
     "dyslexicFont": "Legasthenie-freundliche Schrift",
-    "dyslexicFontDesc": "Stellt den Fließtext auf OpenDyslexic um. Überschriften behalten ihre Schrift."
+    "dyslexicFontDesc": "Stellt den Fließtext auf OpenDyslexic um. Überschriften behalten ihre Schrift.",
+    "cropArea": "Zuschneidebereich",
+    "addEntryPassword": "Eintrags-Passwort hinzufügen",
+    "removeEntryPassword": "Eintrags-Passwort entfernen",
+    "addJournalPassword": "Tagebuch-Passwort hinzufügen",
+    "removeJournalPassword": "Tagebuch-Passwort entfernen",
+    "addAppLockPassword": "App-Sperrpasswort hinzufügen",
+    "removeAppLockPassword": "App-Sperrpasswort entfernen",
+    "fontDefault": "Standard",
+    "paletteObsidian": "Obsidian",
+    "paletteSteel": "Stahl"
   },
   "notification": {
     "filePermTitle": "Dateizugriff",
@@ -738,6 +845,7 @@
     "chatPingTitle": "◆ {{speaker}} hat dich in #{{channel}} angepingt",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "Tippe, um die Nachricht anzuzeigen.",
+    "friendLine": "◈ {{name}}: {{fronters}}",
     "locationPermTitle": "Standort",
     "locationPermMsg": "Plural Star erlauben, Ihren ungefähren Standort beim Fronten zu markieren.",
     "allow": "Erlauben",
@@ -825,7 +933,16 @@
     "removeMembers": "Mitglieder entfernen",
     "deleteGroup": "Gruppe Löschen",
     "deleteGroupMsg": "Diese Gruppe entfernen? Mitglieder werden nicht gelöscht.",
-    "deleteWithChildrenMsg": "Enthält {{count}} verschachtelte Elemente. Behalten und eine Ebene nach oben verschieben, oder alles löschen?"
+    "deleteWithChildrenMsg": "Enthält {{count}} verschachtelte Elemente. Behalten und eine Ebene nach oben verschieben, oder alles löschen?",
+    "subgroupCount_one": "{{count}} Untergruppe",
+    "subgroupCount_other": "{{count}} Untergruppen",
+    "expandA11y": "Untergruppen von {{name}}, {{count}} ausgewählt",
+    "subsystemNamed": "{{name}}, Subsystem",
+    "moveItem": "{{name}} verschieben",
+    "addMembersTo": "Mitglieder hinzufügen — {{name}}",
+    "newKind": "Typ des neuen Elements",
+    "deleteWithChildrenMsg_one": "Enthält {{count}} verschachteltes Element. Behalten und eine Ebene nach oben verschieben, oder alles löschen?",
+    "deleteWithChildrenMsg_other": "Enthält {{count}} verschachtelte Elemente. Behalten und eine Ebene nach oben verschieben, oder alles löschen?"
   },
   "hub": {
     "overlapMore": "+{{count}} weitere",
@@ -852,11 +969,11 @@
     "statistics": "Statistiken",
     "systemChat": "System-Chat",
     "archive": "Archiv",
-    "discord": "Discord",
     "credits": "Mitwirkende",
     "creditLogo": "Plural Star Logo",
     "creditIos": "Plural Star iOS-Portierung",
-    "supportPS": "PS Unterstützen"
+    "supportPS": "PS Unterstützen",
+    "discord": "Discord"
   },
   "stats": {
     "rangeStart": "Startdatum",
@@ -865,6 +982,7 @@
     "thisYear": "Dieses Jahr",
     "showMore": "Mehr anzeigen",
     "showMoreN": "Mehr anzeigen – {{shown}} von {{total}}",
+    "showMoreShort": "Mehr anzeigen ({{shown}}/{{total}})",
     "energyByHour": "Energie pro Stunde",
     "allTime": "Gesamt",
     "last7": "7 Tage",
@@ -890,7 +1008,13 @@
     "avgEnergy": "Durchschn. Energie",
     "customRange": "Benutzerdef. Bereich",
     "to": "Bis",
-    "totalSessions": "Sitzungen gesamt"
+    "totalSessions": "Sitzungen gesamt",
+    "sessionsCount_one": "{{count}} Sitzung",
+    "sessionsCount_other": "{{count}} Sitzungen",
+    "msgsCount_one": "{{count}} Nachr.",
+    "msgsCount_other": "{{count}} Nachr.",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "Sitzung"
   },
   "chat": {
     "imageUnavailable": "[Bild nicht verfügbar]",
@@ -902,6 +1026,14 @@
     "editingHeader": "Nachricht bearbeiten",
     "editPlaceholder": "Nachricht bearbeiten…",
     "imagePreview": "[Bild]",
+    "reactionA11y_one": "{{emoji}}, {{count}} Reaktion",
+    "reactionA11y_other": "{{emoji}}, {{count}} Reaktionen",
+    "replyTo": "{{name}} antworten",
+    "archiveChannelNamed": "{{name}} archivieren",
+    "defaultGeneral": "Allgemein",
+    "defaultVenting": "Dampf ablassen",
+    "defaultPlanning": "Planung",
+    "attachment": "Anhang",
     "addReaction": "Reaktion hinzufügen",
     "attachFile": "Datei anhängen",
     "pasteImage": "Bild einfügen",
@@ -991,6 +1123,7 @@
     "cloudErrRate": "Zu viele Versuche. Warte eine Minute und versuche es erneut.",
     "cloudErrFull": "Der Tresor oder der Node hat keinen Speicherplatz mehr.",
     "cloudErrTooLarge": "Ausgelassen, größer als 25 MB: {{keys}}",
+    "cloudErrOverQuota": "Ausgelassen, der Tresor hat keinen Speicherplatz mehr: {{keys}}",
     "cloudErrBadPassword": "Der Tresor existiert, aber dieses Passwort öffnet ihn nicht.",
     "cloudErrCorrupt": "Der Tresor konnte auf diesem Gerät nicht gelesen werden. Trenne die Verbindung und verbinde erneut mit demselben Passwort.",
     "cloudUnavailable": "Der Node, mit dem du verbunden bist, bietet keine Cloud-Dienste an.",
@@ -1059,6 +1192,7 @@
     "deleteBucket": "Kreis löschen",
     "deleteBucketMsg": "„{{name}}“ löschen?",
     "cloneBucket": "Kreis duplizieren",
+    "cloneBucketName": "Kreis duplizieren — {{name}}",
     "viewShared": "Geteiltes ansehen",
     "mirrorNothing": "Sie haben noch nichts davon mit dir geteilt.",
     "mirrorOffline": "Freund ist offline — letzte empfangene Kopie wird angezeigt.",
@@ -1109,7 +1243,16 @@
     "syncCloneSending": "Erste Kopie wird gesendet…",
     "syncCloneReceiving": "Erste Kopie wird empfangen…",
     "syncCloneDone": "Erste Kopie abgeschlossen",
-    "publishFailed": "Dein Code konnte nicht veröffentlicht werden — prüfe deine Verbindung und versuche es erneut."
+    "publishFailed": "Dein Code konnte nicht veröffentlicht werden — prüfe deine Verbindung und versuche es erneut.",
+    "friendStatusOffline": "{{status}}. Offline",
+    "scopeCount": "{{count}} ausgewählt",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Bei der Cloud-Synchronisierung ist etwas schiefgelaufen. Bitte versuche es erneut.",
+    "scopeSelectTitle": "{{feature}} — Auswahl",
+    "viewSharedTitle": "{{name}} — Geteiltes ansehen",
+    "deviceFallback": "Gerät",
+    "friendFallback": "Freund:in",
+    "androidDeviceFallback": "Android-Gerät"
   },
   "terminology": {
     "fronter": "Fronter",
@@ -1183,7 +1326,9 @@
     "addTime": "Uhrzeit hinzufügen",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Planer-Erinnerung"
+    "notifReminder": "Planer-Erinnerung",
+    "todayA11y": "Heute, {{date}}",
+    "reminderOff": "Aus"
   },
   "mailbox": {
     "title": "Postfach",
@@ -1206,7 +1351,13 @@
     "messageCount_other": "{{count}} Nachrichten",
     "unreadCount": "{{count}} ungelesen",
     "deleteTitle": "Nachricht löschen",
-    "deleteMsg": "Diese Nachricht entfernen? Das kann nicht rückgängig gemacht werden."
+    "deleteMsg": "Diese Nachricht entfernen? Das kann nicht rückgängig gemacht werden.",
+    "locked": "Gesperrt",
+    "unlocked": "Nicht gesperrt",
+    "allOthersCount": "Alle anderen Mitglieder · {{count}}",
+    "unread": "Ungelesen",
+    "deleteFrom": "Nachricht von {{name}} löschen",
+    "frontersHaveMail": "Ungelesene Post für: {{names}}"
   },
   "whiteboard": {
     "title": "Whiteboard",
@@ -1261,7 +1412,9 @@
     "voPosDown": "{{n}} unten",
     "voPosUp": "{{n}} oben",
     "voEdges": "{{left}} zum linken Rand, {{right}} zum rechten, {{top}} zum oberen, {{bottom}} zum unteren",
-    "voRecentered": "Stift wieder in der Mitte zentriert"
+    "voRecentered": "Stift wieder in der Mitte zentriert",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Pinselgröße {{n}}"
   },
   "systemMap": {
     "connections": "Verbindungen",
@@ -1306,7 +1459,11 @@
     "zoomIn": "Vergrößern",
     "zoomOut": "Verkleinern",
     "resetView": "Ansicht zurücksetzen",
-    "notePlaceholder": "Optionale Notiz…"
+    "notePlaceholder": "Optionale Notiz…",
+    "mapA11y": "Beziehungskarte, {{members}}, {{relationships}}",
+    "mapA11yHint": "Wähle über das Aktionsmenü ein Mitglied aus",
+    "depthN_one": "{{count}} Verbindung entfernt",
+    "depthN_other": "{{count}} Verbindungen entfernt"
   },
   "relType": {
     "love": "Liebe",
@@ -1371,11 +1528,15 @@
     "votes": "{{count}} Stimmen",
     "votes_one": "{{count}} Stimme",
     "votingAs": "Abstimmend als:",
+    "optionN": "Option {{n}}",
+    "removeOptionN": "Option {{n}} entfernen",
     "question": "Frage",
     "vote": "Abstimmen"
   },
   "energy": {
     "outOf10": "/10 Energie",
+    "levelN": "Energielevel {{n}}",
+    "outOfTen": "{{n}}/10",
     "avgEnergy": "Durchschn. Energie",
     "label": "Energie",
     "level": "Energielevel"

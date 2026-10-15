@@ -14,7 +14,6 @@ export const loadChatMessages = async (channels: ChatChannel[]) => {
   const {setAllChatMessages} = useAppStore.getState();
   const allMsgs: ChatMessage[] = [];
   for (const ch of channels) {
-    if (ch.archived) continue;
     try {
       const msgs = await store.get<ChatMessage[]>(`ps:chat:${ch.id}`, []);
       if (msgs) {
@@ -22,7 +21,7 @@ export const loadChatMessages = async (channels: ChatChannel[]) => {
         const {messages: rebased, changed: rebasedChanged} = rebaseChatMessageMedia(changed ? migrated : msgs);
         const finalMsgs = rebasedChanged ? rebased : (changed ? migrated : msgs);
         if (changed || rebasedChanged) await store.set(`ps:chat:${ch.id}`, finalMsgs);
-        for (const m of finalMsgs) allMsgs.push(m);
+        if (!ch.archived) for (const m of finalMsgs) allMsgs.push(m);
       }
     } catch (e) {
       console.error('[PS] chat load error:', ch.id, e);
@@ -248,7 +247,7 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
               const m = members.find(mm => mm.id === id);
               return `${m?.name || '?'} (${count})`;
             }).join(', ');
-            Alert.alert(i18n.t('mailbox.title'), `${names}`);
+            Alert.alert(i18n.t('mailbox.title'), i18n.t('mailbox.frontersHaveMail', {names}));
           }
         }
       } catch (e) { logError('front', e); }

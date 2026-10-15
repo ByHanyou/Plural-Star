@@ -8,7 +8,7 @@ import notifee, {
   RepeatFrequency,
 } from 'react-native-notify-kit';
 import {AppState, Platform} from 'react-native';
-import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime, frontSessionStart, truncateRunes} from '../utils';
+import {FrontState, Member, Medication, MedicalAppointment, PlannerData, plannerNextOccurrence, fmtDur, fmtTime, frontSessionStart, truncateRunes, translateMood} from '../utils';
 import {logError} from '../utils/log';
 import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
@@ -98,7 +98,7 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   const coConsciousNames = resolveNames(coConsciousIds, members);
 
   const titleNames = primaryNames || coFrontNames || coConsciousNames ||
-    i18n.t('common.unknown', {defaultValue: 'Unknown'});
+    i18n.t('common.unknown');
   const title = `◈ ${titleNames}`;
 
   const primaryTimed = resolveNamesWithSince(primaryIds, members, front);
@@ -107,25 +107,25 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
 
   const lines: string[] = [];
   if (primaryNames)
-    lines.push(i18n.t('notification.primary', {names: primaryTimed, defaultValue: `Primary: ${primaryTimed}`}));
+    lines.push(i18n.t('notification.primary', {names: primaryTimed}));
   if (coFrontNames)
-    lines.push(i18n.t('notification.coFront', {names: coFrontTimed, defaultValue: `Co-Front: ${coFrontTimed}`}));
+    lines.push(i18n.t('notification.coFront', {names: coFrontTimed}));
   if (coConsciousNames)
-    lines.push(i18n.t('notification.coConscious', {names: coConsciousTimed, defaultValue: `Co-Conscious: ${coConsciousTimed}`}));
+    lines.push(i18n.t('notification.coConscious', {names: coConsciousTimed}));
 
   const primaryMood = getTierField(front, 'primary', 'mood');
   const primaryLocation = getTierField(front, 'primary', 'location');
   const primaryNote = getTierField(front, 'primary', 'note');
 
   if (primaryMood)
-    lines.push(i18n.t('notification.mood', {mood: primaryMood, defaultValue: `Mood: ${primaryMood}`}));
+    lines.push(i18n.t('notification.mood', {mood: translateMood(primaryMood, i18n.t)}));
   if (primaryLocation)
-    lines.push(i18n.t('notification.at', {location: primaryLocation, defaultValue: `At: ${primaryLocation}`}));
+    lines.push(i18n.t('notification.at', {location: primaryLocation}));
   if (primaryNote)
-    lines.push(i18n.t('notification.note', {note: primaryNote, defaultValue: `Note: ${primaryNote}`}));
+    lines.push(i18n.t('notification.note', {note: primaryNote}));
   const since = frontSessionStart(front, id => !!members.find(m => m.id === id)?.name);
   const sinceTime = fmtTime(since);
-  const sinceLabel = i18n.t('notification.since', {time: sinceTime, defaultValue: `Since ${sinceTime}`});
+  const sinceLabel = i18n.t('notification.since', {time: sinceTime});
   lines.push(sinceLabel);
 
   if (emergencyLine) lines.push(emergencyLine);
@@ -133,11 +133,11 @@ const buildFrontContent = (front: FrontState, members: Member[]): {title: string
   const summaryParts: string[] = [];
   if (emergencyLine) summaryParts.push(emergencyLine);
   if (coFrontNames)
-    summaryParts.push(i18n.t('notification.cfShort', {names: coFrontNames, defaultValue: `CF: ${coFrontNames}`}));
+    summaryParts.push(i18n.t('notification.cfShort', {names: coFrontNames}));
   if (coConsciousNames)
-    summaryParts.push(i18n.t('notification.ccShort', {names: coConsciousNames, defaultValue: `CC: ${coConsciousNames}`}));
+    summaryParts.push(i18n.t('notification.ccShort', {names: coConsciousNames}));
   if (primaryMood)
-    summaryParts.push(i18n.t('notification.mood', {mood: primaryMood, defaultValue: `Mood: ${primaryMood}`}));
+    summaryParts.push(i18n.t('notification.mood', {mood: translateMood(primaryMood, i18n.t)}));
   if (summaryParts.length === 0) summaryParts.push(sinceLabel);
 
   return {title, body: summaryParts.join('  ·  '), bigText: lines.join('\n'), since};
@@ -184,18 +184,34 @@ const frontAndroidConfig = (
 
 let fgsBound = false;
 let frontDismissGuard: string | null = null;
+let lastFrontSig = '';
+let lastFrontPostedAt = 0;
 
 export const clearFrontDismissGuard = () => {
   frontDismissGuard = null;
 };
 
-export const noteFrontNotifDismissed = async () => {
+export const noteFrontNotifDismissed = async (notification?: {data?: Record<string, unknown>} | null) => {
   if (Platform.OS !== 'android') return;
-  frontDismissGuard = lastFrontSig || '';
+  const postedAt = Number(notification?.data?.postedAt) || 0;
+  if (postedAt && lastFrontPostedAt && postedAt < lastFrontPostedAt) return;
+  try {
+    const displayed = await notifee.getDisplayedNotifications();
+    if (displayed.some((d: any) => (d?.notification?.id || d?.id) === NOTIF_ID)) return;
+  } catch (e) { logError('notif', e); }
+  let sig = lastFrontSig;
+  if (!sig) {
+    try {
+      const {store, KEYS} = require('../storage');
+      sig = frontStructureSig(await store.get(KEYS.front, null));
+    } catch (e) {
+      logError('notif', e);
+      sig = '';
+    }
+  }
+  frontDismissGuard = sig;
   try { await notifee.cancelTriggerNotification(NOTIF_ID); } catch (e) { logError('notif', e); }
 };
-
-let lastFrontSig = '';
 
 const frontStructureSig = (front: FrontState | null): string => {
   if (!front) return 'none';
@@ -221,7 +237,7 @@ const buildFriendLines = (): string[] => {
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const dur = s.startTime ? fmtDur(s.startTime) : '';
-    lines.push(`◈ ${f.displayName}: ${s.fronters}${dur ? `  ·  ${dur}` : ''}`);
+    lines.push(`${i18n.t('notification.friendLine', {name: f.displayName, fronters: s.fronters})}${dur ? `  ·  ${dur}` : ''}`);
   }
   return lines;
 };
@@ -229,35 +245,36 @@ const buildFriendLines = (): string[] => {
 const friendStatusLines = (s: FrontShare): string[] => {
   const lines: string[] = [];
   if (s.primary || s.coFront || s.coConscious) {
-    if (s.primary) lines.push(i18n.t('notification.primary', {names: s.primary, defaultValue: `Primary: ${s.primary}`}));
-    if (s.coFront) lines.push(i18n.t('notification.coFront', {names: s.coFront, defaultValue: `Co-Front: ${s.coFront}`}));
-    if (s.coConscious) lines.push(i18n.t('notification.coConscious', {names: s.coConscious, defaultValue: `Co-Conscious: ${s.coConscious}`}));
+    if (s.primary) lines.push(i18n.t('notification.primary', {names: s.primary}));
+    if (s.coFront) lines.push(i18n.t('notification.coFront', {names: s.coFront}));
+    if (s.coConscious) lines.push(i18n.t('notification.coConscious', {names: s.coConscious}));
   } else {
     lines.push(s.fronters);
   }
-  if (s.mood) lines.push(i18n.t('notification.mood', {mood: s.mood, defaultValue: `Mood: ${s.mood}`}));
-  if (s.location) lines.push(i18n.t('notification.at', {location: s.location, defaultValue: `At: ${s.location}`}));
-  if (s.note) lines.push(i18n.t('notification.note', {note: s.note, defaultValue: `Note: ${s.note}`}));
-  if (s.startTime) lines.push(i18n.t('notification.since', {time: fmtTime(s.startTime), defaultValue: `Since ${fmtTime(s.startTime)}`}));
+  if (s.mood) lines.push(i18n.t('notification.mood', {mood: translateMood(s.mood, i18n.t)}));
+  if (s.location) lines.push(i18n.t('notification.at', {location: s.location}));
+  if (s.note) lines.push(i18n.t('notification.note', {note: s.note}));
+  if (s.startTime) lines.push(`${i18n.t('notification.since', {time: fmtTime(s.startTime)})}  ·  ${fmtDur(s.startTime)}`);
   return lines;
 };
 
-const buildFriendNotifs = (): {id: string; title: string; body: string; big: string; sinceTs: number}[] => {
+const buildFriendNotifs = (): {id: string; title: string; body: string; big: string}[] => {
   const st = NetworkManager.getState();
   if (!st.enabled) return [];
-  const out: {id: string; title: string; body: string; big: string; sinceTs: number}[] = [];
+  const out: {id: string; title: string; body: string; big: string}[] = [];
   for (const f of st.friends) {
     if (out.length >= MAX_NOTIF_FRIENDS) break;
     if (friendNotifyLevel(f) !== 'full' || f.status !== 'accepted') continue;
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const lines = friendStatusLines(s);
+    // The time fronting is text that is rebuilt on every refresh (the 5-minute timer and each front change), not a running clock.
+    const dur = typeof s.startTime === 'number' && s.startTime > 0 ? fmtDur(s.startTime) : '';
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
       title: f.displayName,
-      body: s.fronters,
+      body: `${s.fronters}${dur ? `  ·  ${dur}` : ''}`,
       big: lines.join('\n'),
-      sinceTs: typeof s.startTime === 'number' && s.startTime > 0 ? s.startTime : 0,
     });
   }
   return out;
@@ -280,12 +297,16 @@ export const showFriendUpdateAlert = async (f: Friend) => {
     return;
   }
   await setupFriendAlertChannel();
+  // A new alert replaces the previous one as a fresh post stamped now, so it lands at the top of the tray.
+  try { await notifee.cancelNotification(`${FRIEND_ALERT_PREFIX}${f.peerId}`); } catch (e) { logError('notif', e); }
   await notifee.displayNotification({
     id: `${FRIEND_ALERT_PREFIX}${f.peerId}`,
     title: f.displayName,
     body: `${s.fronters}${dur ? `  ·  ${dur}` : ''}`,
     android: {
       channelId: FRIEND_ALERT_CHANNEL_ID,
+      timestamp: Date.now(),
+      showTimestamp: true,
       ongoing: false,
       autoCancel: true,
       onlyAlertOnce: false,
@@ -330,9 +351,8 @@ const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
         pressAction: {id: 'default'},
         color: '#DAA520',
         sortKey: `1${String(i).padStart(4, '0')}`,
-        ...(d.sinceTs > 0
-          ? {timestamp: d.sinceTs, showTimestamp: true, showChronometer: true}
-          : {}),
+        // Posted as new on every refresh (the 5-minute timer, the scheduled refresh and each front change), so the card never sinks. The front start is in the text.
+        timestamp: Date.now(),
         style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
     });
@@ -359,19 +379,12 @@ export const showFrontNotification = async (
       return;
     }
 
-    await setupNotificationChannel();
-
-    if (!netOn && fgsBound) {
+    const canBindFgs =
+      netOn && (fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31);
+    if (fgsBound && !canBindFgs) {
       await notifee.stopForegroundService();
       fgsBound = false;
     }
-
-    const onlineLabel = i18n.t('network.status.online', {defaultValue: 'Online'});
-    const title = content ? content.title : systemName;
-    const body = content ? content.body : (emergencyLine || onlineLabel);
-    const ownBig = content ? content.bigText : (emergencyLine || '');
-
-    try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
 
     const sig = frontStructureSig(front);
     if (frontDismissGuard !== null && sig === frontDismissGuard) {
@@ -379,8 +392,16 @@ export const showFrontNotification = async (
       return;
     }
 
-    const canBindFgs =
-      fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
+    await setupNotificationChannel();
+
+    const onlineLabel = i18n.t('network.status.online');
+    const title = content ? content.title : systemName;
+    const body = content ? content.body : (emergencyLine || onlineLabel);
+    const ownBig = content ? content.bigText : (emergencyLine || '');
+
+    try { await notifee.cancelNotification(FRONT_SUMMARY_ID); } catch (e) { logError('notif', e); }
+
+    const postedAt = Date.now();
     const cfg = frontAndroidConfig(ownBig, [], onlineLabel, content?.since);
     let bound = canBindFgs;
     try {
@@ -388,17 +409,19 @@ export const showFrontNotification = async (
         id: NOTIF_ID,
         title,
         body,
+        data: {postedAt: String(postedAt)},
         android: {...cfg, ...(canBindFgs ? {asForegroundService: true} : {})},
       });
     } catch (e) {
       if (!canBindFgs) throw e;
       logError('notif', e);
       bound = false;
-      await notifee.displayNotification({id: NOTIF_ID, title, body, android: cfg});
+      await notifee.displayNotification({id: NOTIF_ID, title, body, data: {postedAt: String(postedAt)}, android: cfg});
     }
     await syncFriendNotifications();
     fgsBound = bound;
     lastFrontSig = sig;
+    lastFrontPostedAt = Math.max(lastFrontPostedAt, postedAt);
     frontDismissGuard = null;
   } catch (e) {
     console.error('[PluralSpace] Notification error:', e);
@@ -432,6 +455,7 @@ export const scheduleFrontNotificationRefresh = async (
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
+        data: {postedAt: String(trigger.timestamp)},
         android: frontAndroidConfig(content.bigText, [], content.body, content.since),
       },
       trigger,
@@ -468,7 +492,6 @@ export const reassertFrontNotification = async () => {
     if (Platform.OS !== 'android') return;
     const now = Date.now();
     if (now - lastReassert < 60000) return;
-    if (frontDismissGuard !== null) return;
     lastReassert = now;
     const {store, KEYS} = require('../storage');
     const settings = await store.get(KEYS.settings, null);
@@ -479,28 +502,46 @@ export const reassertFrontNotification = async () => {
     setTierNameOverrides(settings?.tierNames);
     const front = await store.get(KEYS.front, null);
     if (!front) return;
+    const sig = frontStructureSig(front);
+    if (frontDismissGuard !== null && frontDismissGuard === sig) return;
     const members = await store.get(KEYS.members, []);
     const content = buildFrontContent(front, members || []);
     if (!content) return;
     await setupNotificationChannel();
+    const postedAt = Date.now();
     const cfg = frontAndroidConfig(content.bigText, [], content.body, content.since);
+    let netOn = false;
+    try {
+      const net = await store.get('ps:networkSettings', null);
+      netOn = !!(net && net.enabled);
+    } catch (e) { logError('notif', e); }
     const canBindFgs =
-      fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
+      netOn && (fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31);
+    if (fgsBound && !canBindFgs) {
+      try { await notifee.stopForegroundService(); } catch (e) { logError('notif', e); }
+      fgsBound = false;
+    }
     let bound = canBindFgs;
     try {
       await notifee.displayNotification({
         id: NOTIF_ID,
         title: content.title,
         body: content.body,
+        data: {postedAt: String(postedAt)},
         android: {...cfg, ...(canBindFgs ? {asForegroundService: true} : {})},
       });
     } catch (e) {
       if (!canBindFgs) throw e;
       logError('notif', e);
       bound = false;
-      await notifee.displayNotification({id: NOTIF_ID, title: content.title, body: content.body, android: cfg});
+      await notifee.displayNotification({id: NOTIF_ID, title: content.title, body: content.body, data: {postedAt: String(postedAt)}, android: cfg});
     }
+    // The scheduled refresh re-posts the friend cards too, so they stay near the top. Skipped when the friend network is not loaded in this process, which would otherwise clear them.
+    if (NetworkManager.getState().enabled) await syncFriendNotifications();
     fgsBound = bound;
+    lastFrontSig = sig;
+    lastFrontPostedAt = Math.max(lastFrontPostedAt, postedAt);
+    frontDismissGuard = null;
   } catch (e) {
     logError('notif', e);
   }
@@ -524,7 +565,7 @@ export const clearFrontNotification = async () => {
     await notifee.cancelNotification(NOTIF_ID);
     await notifee.cancelNotification(FRONT_SUMMARY_ID);
     await cancelStaleFriendNotifs(new Set());
-    try { await notifee.stopForegroundService(); } catch (e) { logError('notif', e); }
+    if (fgsBound) { try { await notifee.stopForegroundService(); } catch (e) { logError('notif', e); } }
     fgsBound = false;
   } catch (e) {
     console.error('[PluralSpace] Clear notification error:', e);
@@ -536,11 +577,11 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
     await cancelFrontCheckReminder();
     if (!intervalHours || intervalHours <= 0) return;
     const title = singlet
-      ? `◈ ${i18n.t('notification.statusCheck', {defaultValue: 'Status Check'})}`
-      : `◈ ${i18n.t('notification.frontCheck', {defaultValue: 'Front Check'})}`;
+      ? `◈ ${i18n.t('notification.statusCheck')}`
+      : `◈ ${i18n.t('notification.frontCheck')}`;
     const body = singlet
-      ? i18n.t('notification.whatsYourStatus', {defaultValue: "What's your status right now?"})
-      : i18n.t('notification.whosFronting', {defaultValue: "Who's fronting right now?"});
+      ? i18n.t('notification.whatsYourStatus')
+      : i18n.t('notification.whosFronting');
     const androidConfig = {
       channelId: REMINDER_CHANNEL_ID,
       smallIcon: 'ic_stat_notification',
@@ -618,16 +659,12 @@ export const showNoteboardNotification = async (
     const totalNotes = entries.reduce((sum, e) => sum + e.unreadCount, 0);
     const title = i18n.t('notification.noteboardUnreadTitle', {
       count: totalNotes,
-      defaultValue: totalNotes === 1 ? '◇ 1 unread note' : `◇ ${totalNotes} unread notes`,
     });
     const summary = entries.map(e => `${e.memberName} (${e.unreadCount})`).join(', ');
     const bigLines = entries.map(e => {
       const label = i18n.t('notification.noteboardUnreadLine', {
         name: e.memberName,
         count: e.unreadCount,
-        defaultValue: e.unreadCount === 1
-          ? `${e.memberName}: 1 new note`
-          : `${e.memberName}: ${e.unreadCount} new notes`,
       });
       return label;
     }).join('\n');
@@ -783,8 +820,8 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
           id: `${PLAN_APPT_ID_PREFIX}${appt.id}${k > 0 ? `-${k}` : ''}`,
           title: `🗓 ${appt.title}`,
           body: appt.location
-            ? i18n.t('planner.notifApptAt', {time: fmtTime(occurrence), location: appt.location, defaultValue: `${fmtTime(occurrence)} · ${appt.location}`})
-            : i18n.t('planner.notifAppt', {time: fmtTime(occurrence), defaultValue: fmtTime(occurrence)}),
+            ? i18n.t('planner.notifApptAt', {time: fmtTime(occurrence), location: appt.location})
+            : i18n.t('planner.notifAppt', {time: fmtTime(occurrence)}),
           android: plannerAndroidConfig(),
         },
         trigger,
@@ -817,7 +854,7 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
             {
               id: `${PLAN_REM_ID_PREFIX}${rem.id}-${i}${k > 0 ? `-${k}` : ''}`,
               title: `⏰ ${rem.title}`,
-              body: rem.notes || i18n.t('planner.notifReminder', {defaultValue: 'Planner reminder'}),
+              body: rem.notes || i18n.t('planner.notifReminder'),
               android: plannerAndroidConfig(),
             },
             trigger,
@@ -841,11 +878,10 @@ export const showChatPingNotification = async (
     const title = i18n.t('notification.chatPingTitle', {
       speaker: speakerName,
       channel: channelName,
-      defaultValue: `◆ ${speakerName} pinged you in #${channelName}`,
     });
     const body = safePreview
-      ? i18n.t('notification.chatPingBody', {preview: safePreview, defaultValue: safePreview})
-      : i18n.t('notification.chatPingBodyEmpty', {defaultValue: 'Tap to view the message.'});
+      ? i18n.t('notification.chatPingBody', {preview: safePreview})
+      : i18n.t('notification.chatPingBodyEmpty');
     await notifee.displayNotification({
       id: `ps-chat-ping-${Date.now()}`,
       title,
