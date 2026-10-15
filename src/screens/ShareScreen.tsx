@@ -1,28 +1,26 @@
 import React, {useState, useRef, useEffect} from 'react';
-import {View, TouchableOpacity, Alert, StyleSheet, ActivityIndicator} from 'react-native';
+import {importErrorText} from '../import/importError';
+import {View, TouchableOpacity, Alert, StyleSheet, ActivityIndicator, Modal} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
 import {readFileText} from '../utils/fileBytes';
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, importZipBundle, base64FromU8, zipTextOf} from '../export/exportUtils';
-import {store, KEYS, chatMsgKey, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
-import {SystemInfo, Member, MemberGroup, FrontState, HistoryEntry, JournalEntry, ShareSettings, AppSettings, ExportPayload, CustomFieldDef, CustomFieldType, CustomFieldValue, ChatChannel, ChatMessage, MemberPoll, uid, allFrontMemberIds, findOpenFrontInHistory, fmtTime, fmtNum} from '../utils';
+import {exportJSON, exportPluralKit, exportZipBundle, exportEmail, exportAllJournalJSON, exportAllJournalTxt, exportAllJournalMd, ExportCategories, readZipBundle, zipTextOf} from '../export/exportUtils';
+import {KEYS, listRecoverableBackups, restoreFromBackup, RecoverableEntry} from '../storage';
+import {Member, JournalEntry, ShareSettings, uid, fmtTime, fmtNum} from '../utils';
 
 type Section = 'export' | 'import' | 'shareview';
 type ImportSource = 'backup' | 'journal' | 'pluralkit' | 'spfile' | 'ampersand' | 'tupperbox' | 'pluralspace' | 'plurallog' | 'parallax';
 
-import {saveAvatarFromUrl, saveAvatar, saveBannerFromBase64, saveBannerFromUrl, migrateInlineChatMedia} from '../utils/mediaUtils';
-import {parallelMap} from '../utils/concurrency';
 import {fontScale, ThemeColors} from '../theme';
 import {ImportWaitOverlay} from '../components/ImportWaitOverlay';
 import {ImportProgress, ImportControl} from '../import/progress';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useAppStore} from '../store/appStore';
 import {saveShareSettings} from '../store/actions';
-import {normalizeSpAvatarUrl, spAvatarCandidates, downloadFirstAvatar, spGet} from '../import/spApi';
-import {convertSPSwitches, convertPKSwitches, normHex, mergeForeignMember, finalizeMemberReplace, mergeHistoryEntries, getStoredMembers, mergeMediaIntoMembers, psTime, convertPluralSpaceFronts, ImportMode} from '../import/convert';
+import type {ImportMode} from '../import/convert';
 import {handleRestore, findOurcanaJsonEntry} from '../import/restore';
 import {handlePluralKitFetch} from '../import/pluralkit';
 import {handleExtImport} from '../import/extApply';
@@ -49,6 +47,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const onSettingsChange = saveShareSettings;
   const getMember = (id: string) => members.find(m => m.id === id);
   const fs = fontScale(T);
+  const paraScale = {fontSize: fs(13), lineHeight: fs(19)};
+  const hintScale = {fontSize: fs(11), lineHeight: fs(16)};
   const {t} = useTranslation();
   const [section, setSection] = useState<Section>('export');
   const [emailAddr, setEmailAddr] = useState('');
@@ -64,6 +64,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   const [recoverSel, setRecoverSel] = useState<Record<string, boolean>>({});
   const [recoverDone, setRecoverDone] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [restoreProgressText, setRestoreProgressText] = useState<string>('');
   const [importProgress, setImportProgress] = useState<ImportProgress | null>(null);
   const importControlRef = useRef<ImportControl | null>(null);
@@ -137,17 +138,23 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   });
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
 
-  const handleJSON = async () => {try {await exportZipBundle(system, members, history, journal, exportSel);} catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}};
-  const handleJSONFile = async () => {try {await exportJSON(system, members, history, journal, exportSel);} catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}};
-  const handlePluralKitExport = async () => {try {await exportPluralKit(system, members, exportSel.frontHistory ? history : []);} catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}};
+  // One export at a time: a second tap while one is still writing is ignored.
+  const exportingRef = useRef(false);
+  const runExport = async (fn: () => Promise<void>) => {
+    if (exportingRef.current) return;
+    exportingRef.current = true; setExporting(true);
+    try { await fn(); } catch (e: any) { Alert.alert(t('share.exportFailed'), String(e?.message || e)); } finally { exportingRef.current = false; setExporting(false); }
+  };
+  const handleJSON = () => runExport(() => exportZipBundle(system, members, history, journal, exportSel));
+  const handleJSONFile = () => runExport(() => exportJSON(system, members, history, journal, exportSel));
+  const handlePluralKitExport = () => runExport(() => exportPluralKit(system, members, exportSel.frontHistory ? history : []));
   const handleEmail = () => {
     if (!emailAddr.trim() || !emailAddr.includes('@')) {Alert.alert(t('share.invalidEmail'), t('share.invalidEmailMsg')); return;}
     try { exportEmail(system, members, history, journal, emailAddr); } catch (e: any) { Alert.alert(t('share.exportFailed'), String(e?.message || e)); }
   };
-  const handleJournalExport = async (fmt: 'json' | 'txt' | 'md') => {
-    try { if (fmt === 'json') await exportAllJournalJSON(journal, system.name); else if (fmt === 'txt') await exportAllJournalTxt(journal, members, system.name); else await exportAllJournalMd(journal, members, system.name);
-    } catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}
-  };
+  const handleJournalExport = (fmt: 'json' | 'txt' | 'md') => runExport(async () => {
+    if (fmt === 'json') await exportAllJournalJSON(journal, system.name); else if (fmt === 'txt') await exportAllJournalTxt(journal, members, system.name); else await exportAllJournalMd(journal, members, system.name);
+  });
 
   const handleImportJournalFile = async () => {
     setImportStatus('idle'); setImportMsg('');
@@ -165,7 +172,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
       } else {setImportStatus('error'); setImportMsg(t('share.unsupportedFormat', {ext})); return;}
       onAddJournalEntry({id: uid(), title: titleBase, body, authorIds: [], hashtags: [], timestamp: Date.now()});
       setImportStatus('success'); setImportMsg(t('share.importedAsEntry', {title: titleBase}));
-    } catch (e: any) {if (!isPickerCancel(e)) {setImportStatus('error'); setImportMsg(e.message || t('share.couldNotImportFile'));}}
+    } catch (e: any) {if (!isPickerCancel(e)) {setImportStatus('error'); setImportMsg(importErrorText(e, t));}}
   };
 
   const handlePickBackup = async () => {
@@ -260,7 +267,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
       }
       setRestoreFile(res.name || 'backup.json');
       setRestorePreview(true);
-    } catch (e: any) {if (!isPickerCancel(e)) setRestoreError(e.message || t('share.couldNotReadFile'));}
+    } catch (e: any) {if (!isPickerCancel(e)) setRestoreError(importErrorText(e, t));}
   };
 
   const handlePickZipBackup = () => {
@@ -353,6 +360,14 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
       theme={T}
       onCancel={importControlRef.current ? () => importControlRef.current?.requestStop() : undefined}
     />
+    <Modal visible={exporting} transparent animationType="fade" onRequestClose={() => {}}>
+      <View style={{flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, backgroundColor: `${T.bg}E6`}}>
+        <View accessibilityViewIsModal accessibilityLiveRegion="polite" style={{width: '100%', maxWidth: 420, borderRadius: 16, borderWidth: 1, padding: 22, alignItems: 'center', backgroundColor: T.card, borderColor: T.border}}>
+          <ActivityIndicator color={T.accent} size="large" />
+          <Text accessibilityRole="header" style={{fontSize: fs(16), fontWeight: '600', color: T.text, marginTop: 12}}>{t('share.exporting')}</Text>
+        </View>
+      </View>
+    </Modal>
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', gap: 6, marginBottom: 4}}>
         <SectionBtn selected={section} onSelect={setSection} T={T} id="export" label={t('share.export')} />
@@ -363,9 +378,9 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
       {section === 'export' && (
         <View>
           <Divider T={T} label={t('share.fullSystemExport')} />
-          <Text style={[s.para, {color: T.dim}]}>{t('share.downloadsDirectly')}</Text>
+          <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.downloadsDirectly')}</Text>
 
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8, marginTop: 4}}>{t('share.exportCategories')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8, marginTop: 4}}>{t('share.exportCategories')}</Text>
           <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
             {([
               ['system', catSystemLabel],
@@ -393,30 +408,30 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
 
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ ZIP', handleJSON, T.accentBg, T.accent, `${T.accent}40`], ['↓ JSON', handleJSONFile, T.infoBg, T.info, `${T.info}40`]].map(([label, fn, bg, color, border]: any) => (
-              <TouchableOpacity key={label} onPress={fn} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
+              <TouchableOpacity key={label} onPress={fn} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.exportAs', {format: String(label).replace(/^↓ /, '')})} hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color}}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={[s.hint, {color: T.muted}]}>{t('share.jsonHint')}</Text>
-          <TouchableOpacity onPress={handlePluralKitExport} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.exportPluralKit')} style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`, marginTop: 4}}>
+          <Text style={[s.hint, hintScale, {color: T.muted}]}>{t('share.jsonHint')}</Text>
+          <TouchableOpacity onPress={handlePluralKitExport} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.exportPluralKit')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`, marginTop: 4}}>
             <Text style={{fontSize: fs(14), fontWeight: '500', color: T.info}}>{t('share.exportPluralKit')}</Text>
           </TouchableOpacity>
-          <Text style={[s.hint, {color: T.muted}]}>{t('share.pkExportHint')}</Text>
+          <Text style={[s.hint, hintScale, {color: T.muted}]}>{t('share.pkExportHint')}</Text>
           <Divider T={T} label={t('share.journalExport')} />
-          <Text style={[s.para, {color: T.dim}]}>{t('share.exportJournalOnly')}</Text>
+          <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.exportJournalOnly')}</Text>
           <View style={{flexDirection: 'row', gap: 8, marginBottom: 6}}>
             {[['↓ .txt', 'txt', T.accentBg, T.accent, `${T.accent}40`], ['↓ .md', 'md', T.infoBg, T.info, `${T.info}40`], ['↓ .json', 'json', 'transparent', T.dim, T.border]].map(([label, fmt, bg, color, border]: any) => (
-              <TouchableOpacity key={fmt} onPress={() => handleJournalExport(fmt)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={label} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
+              <TouchableOpacity key={fmt} onPress={() => handleJournalExport(fmt)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.exportAs', {format: String(label).replace(/^↓ /, '')})} hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: bg, borderColor: border}}>
                 <Text style={{fontSize: fs(13), fontWeight: '500', color}}>{label}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          <Text style={[s.hint, {color: T.muted}]}>{t('share.perEntryHint')}</Text>
+          <Text style={[s.hint, hintScale, {color: T.muted}]}>{t('share.perEntryHint')}</Text>
           <Divider T={T} label={t('share.sendEmail')} />
           <TextInput value={emailAddr} onChangeText={setEmailAddr} accessibilityLabel={t('share.sendEmail')} placeholder={t('share.emailPlaceholder')} placeholderTextColor={T.muted} keyboardType="email-address" autoCapitalize="none"
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10}} />
-          <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.openInMail')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+          <TouchableOpacity onPress={handleEmail} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.openInMail')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
             <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.openInMail')}</Text>
           </TouchableOpacity>
         </View>
@@ -443,11 +458,11 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
             <SourceBtn selected={importSource} onSelect={selectSource} T={T} id="parallax" label={t('share.parallax')} />
           </View>
           <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 10, marginBottom: 10}}>
-            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.importMode')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.importMode')}</Text>
             <View style={{flexDirection: 'row', gap: 6}}>
               {(['overwrite', 'update'] as ImportMode[]).map(m => (
                 <TouchableOpacity key={m} onPress={() => setImportMode(m)} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{selected: importMode === m}} accessibilityLabel={t(m === 'overwrite' ? 'share.importModeOverwrite' : 'share.importModeUpdate')}
-                  style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: importMode === m ? T.accentBg : 'transparent', borderColor: importMode === m ? `${T.accent}60` : T.border}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: importMode === m ? T.accentBg : 'transparent', borderColor: importMode === m ? `${T.accent}60` : T.border}}>
                   <Text style={{fontSize: fs(13), fontWeight: '500', color: importMode === m ? T.accent : T.dim}}>{t(m === 'overwrite' ? 'share.importModeOverwrite' : 'share.importModeUpdate')}</Text>
                 </TouchableOpacity>
               ))}
@@ -457,19 +472,19 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'journal' && (
             <View>
               <Divider T={T} label={t('share.importJournalEntry')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.importJournalDesc')}</Text>
-              <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickFile')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.importJournalDesc')}</Text>
+              <TouchableOpacity onPress={handleImportJournalFile} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickFile')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickFile')}</Text>
               </TouchableOpacity>
-              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
-              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {importStatus === 'success' && <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}} accessibilityLabel={importMsg}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}} accessibilityLabel={importMsg}>⚠ {importMsg}</Text></View>}
             </View>
           )}
           {importSource === 'backup' && (
             <View>
               <Divider T={T} label={t('share.restoreBackup')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.restoreBackupDesc')}</Text>
-              <Text style={[s.para, {color: T.muted, fontSize: fs(11)}]}>{t('share.importFormatsNote')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.restoreBackupDesc')}</Text>
+              <Text style={[s.para, paraScale, {color: T.muted, fontSize: fs(11)}]}>{t('share.importFormatsNote')}</Text>
               <View style={{flexDirection: 'row', gap: 10, marginBottom: 8}}>
                 <TouchableOpacity onPress={handlePickZipBackup} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importZipBtn')} style={{flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 8, borderWidth: 1.5, backgroundColor: T.accentBg, borderColor: `${T.accent}80`}}>
                   <Text style={{fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">📦</Text>
@@ -480,17 +495,17 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                   <Text style={{fontSize: fs(14), fontWeight: '600', color: T.info}}>{t('share.importJsonBtn')}</Text>
                 </TouchableOpacity>
               </View>
-              <Text style={[s.para, {color: T.muted, fontSize: fs(11), marginBottom: 12}]}>{t('share.importZipHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.muted, fontSize: fs(11), marginBottom: 12}]}>{t('share.importZipHint')}</Text>
               {restoreFile ? (
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: T.success, backgroundColor: T.successBg, marginBottom: 12}}>
                   <Text style={{fontSize: fs(14), color: T.success}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>
                   <Text style={{fontSize: fs(13), color: T.success, flex: 1}} numberOfLines={1}>{restoreFile}</Text>
                 </View>
               ) : null}
-              {restoreError ? <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {restoreError}</Text></View> : null}
+              {restoreError ? <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}} accessibilityLabel={restoreError}>⚠ {restoreError}</Text></View> : null}
               {restorePreview && (
                 <>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.restoreCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.restoreCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     {([
                       ['system', catSystemLabel],
@@ -516,7 +531,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow T={T} key={k} label={label} value={restoreSel[k as keyof typeof restoreSel]} onToggle={() => togR(k)} />
                     ))}
                   </View>
-                  {restoreDone ? <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
+                  {restoreDone ? <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center'}}><Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.restoreComplete')}</Text></View>
                     : restoring ? <View style={{alignItems: 'center', paddingVertical: 16}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress || t('share.importing')}</Text></View>
                     : <TouchableOpacity onPress={() => confirmOverwrite(t('share.restoreSelectedData'), () => {
                       const control = new ImportControl(setRestoreProgress);
@@ -530,19 +545,19 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                         setRestoring(v);
                       };
                       handleRestore({restorePath, restorePreview, restoreIsBundle, restoreSel, importMode, setRestoring: setRestoringArmed, setRestoreDone, setRestoreProgress, setRestoreError, t, onDataImported, history, control});
-                    })} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
+                    })} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.restoreSelectedData')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}><Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.restoreSelectedData')}</Text></TouchableOpacity>}
                 </>
               )}
               <Divider T={T} label={t('share.recoverData')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.recoverDataDesc')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.recoverDataDesc')}</Text>
               {!recoverEntries ? (
-                <TouchableOpacity onPress={handleScanRecovery} disabled={recoverScanning} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.scanForBackups')} accessibilityState={{disabled: recoverScanning}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 14, opacity: recoverScanning ? 0.5 : 1}}>
+                <TouchableOpacity onPress={handleScanRecovery} disabled={recoverScanning} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.scanForBackups')} accessibilityState={{disabled: recoverScanning}} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border, marginBottom: 14, opacity: recoverScanning ? 0.5 : 1}}>
                   {recoverScanning ? <ActivityIndicator color={T.accent} size="small" /> : <Text style={{fontSize: fs(14), fontWeight: '500', color: T.text}}>{t('share.scanForBackups')}</Text>}
                 </TouchableOpacity>
               ) : recoverEntries.length === 0 ? (
                 <View style={{padding: 14, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 14}}>
                   <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>{t('share.noBackupsFound')}</Text>
-                  <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverDone(false);}} activeOpacity={0.7} accessibilityRole="button" style={{alignSelf: 'center', marginTop: 8}}>
+                  <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverDone(false);}} activeOpacity={0.7} accessibilityRole="button" hitSlop={{top: 15, bottom: 15}} style={{alignSelf: 'center', marginTop: 8}}>
                     <Text style={{fontSize: fs(12), color: T.accent}}>{t('share.scanAgain')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -550,20 +565,20 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                 <>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     {recoverEntries.map(entry => {
-                      const sizeLabel = entry.sizeBytes > 1024 * 1024 ? `${fmtNum(entry.sizeBytes / 1024 / 1024, 1, 1)} MB` : entry.sizeBytes > 1024 ? `${fmtNum(entry.sizeBytes / 1024, 0)} KB` : `${fmtNum(entry.sizeBytes, 0)} B`;
+                      const sizeLabel = entry.sizeBytes > 1024 * 1024 ? t('share.sizeMB', {n: fmtNum(entry.sizeBytes / 1024 / 1024, 1, 1)}) : entry.sizeBytes > 1024 ? t('share.sizeKB', {n: fmtNum(entry.sizeBytes / 1024, 0)}) : t('share.sizeB', {n: fmtNum(entry.sizeBytes, 0)});
                       const dateLabel = entry.mtime ? fmtTime(entry.mtime) : '';
                       const previewLabel = entry.items !== undefined
                         ? t('share.recoverItems', {count: entry.items})
                         : entry.fields !== undefined
                           ? t('share.recoverFields', {count: entry.fields})
-                          : entry.name !== undefined ? `"${entry.name}"` : (entry.text || '');
+                          : entry.name !== undefined ? t('share.quoted', {text: entry.name}) : (entry.text || '');
                       const checked = !!recoverSel[entry.key];
                       return (
                         <TouchableOpacity key={entry.key} onPress={() => setRecoverSel(s => ({...s, [entry.key]: !s[entry.key]}))} activeOpacity={0.7}
                           accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={friendlyKeyName(entry.key)}
                           style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: T.border, gap: 12}}>
                           <View style={{width: 18, height: 18, borderRadius: 4, borderWidth: 1.5, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}}>
-                            {checked ? <Text style={{fontSize: fs(11), color: '#fff', fontWeight: '700'}}>✓</Text> : null}
+                            {checked ? <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(11), color: '#fff', fontWeight: '700'}}>✓</Text> : null}
                           </View>
                           <View style={{flex: 1}}>
                             <Text style={{fontSize: fs(14), color: T.text, fontWeight: '500'}}>{friendlyKeyName(entry.key)}</Text>
@@ -574,15 +589,15 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     })}
                   </View>
                   {recoverDone ? (
-                    <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 14}}>
+                    <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 14}}>
                       <Text style={{fontSize: fs(13), color: T.success, fontWeight: '500'}}>{t('share.recoverComplete')}</Text>
                     </View>
                   ) : (
                     <View style={{flexDirection: 'row', gap: 8, marginBottom: 14}}>
-                      <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverSel({}); setRecoverDone(false);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+                      <TouchableOpacity onPress={() => {setRecoverEntries(null); setRecoverSel({}); setRecoverDone(false);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
                         <Text style={{fontSize: fs(13), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={handleApplyRecovery} activeOpacity={0.7} disabled={Object.values(recoverSel).every(v => !v)} accessibilityRole="button" accessibilityLabel={t('share.recoverSelected')} accessibilityState={{disabled: Object.values(recoverSel).every(v => !v)}} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: Object.values(recoverSel).every(v => !v) ? 0.4 : 1}}>
+                      <TouchableOpacity onPress={handleApplyRecovery} activeOpacity={0.7} disabled={Object.values(recoverSel).every(v => !v)} accessibilityRole="button" accessibilityLabel={t('share.recoverSelected')} accessibilityState={{disabled: Object.values(recoverSel).every(v => !v)}} hitSlop={{top: 6, bottom: 6}} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: Object.values(recoverSel).every(v => !v) ? 0.4 : 1}}>
                         <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.recoverSelected')}</Text>
                       </TouchableOpacity>
                     </View>
@@ -590,8 +605,8 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                 </>
               )}
               <Divider T={T} label={t('share.deleteAccount')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.deleteAccountDesc')}</Text>
-              <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.deleteAllData')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.deleteAccountDesc')}</Text>
+              <TouchableOpacity onPress={handleDeleteAccount} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.deleteAllData')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('share.deleteAllData')}</Text>
               </TouchableOpacity>
             </View>
@@ -599,12 +614,12 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'pluralkit' && (
             <View>
               <Divider T={T} label={t('share.pkImport')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.pkTokenHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.pkTokenHint')}</Text>
               <TextInput value={extToken} onChangeText={setExtToken} accessibilityLabel={t('share.pkTokenPlaceholder')} placeholder={t('share.pkTokenPlaceholder')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14), marginBottom: 10, fontFamily: 'monospace'}} />
               <TouchableOpacity onPress={() => handlePluralKitFetch({extToken, t, setExtLoading, setExtPreview})} disabled={extLoading} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityLabel={t('share.fetchData')} accessibilityState={{disabled: extLoading}}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10, opacity: extLoading ? 0.5 : 1}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10, opacity: extLoading ? 0.5 : 1}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{extLoading ? t('share.fetching') : t('share.fetchData')}</Text>
               </TouchableOpacity>
               {extLoading && <ActivityIndicator color={T.accent} style={{marginTop: 12}} />}
@@ -614,7 +629,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>{extPreview.system?.content?.username || extPreview.system?.name || extPreview.system?.username || t('share.system')}</Text>
                     <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: extPreview.members.length})} · {t('share.frontEntries', {count: extPreview.switches.length})}</Text>
                   </View>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
                     <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
@@ -633,7 +648,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleExtImport({extPreview, importSource, extSel, importMode, system, members, history, t, setRestoreProgress, setExtPreview, setExtToken, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleExtImport({extPreview, importSource, extSel, importMode, system, members, history, t, setRestoreProgress, setExtPreview, setExtToken, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -643,9 +658,9 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'spfile' && (
             <View>
               <Divider T={T} label={t('share.spFileImport')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.spFileHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.spFileHint')}</Text>
               <TouchableOpacity onPress={() => handleSPFileImport({extPreview, extSel, importMode, system, members, history, t, setExtPreview, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickSPFile')}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickSPFile')}</Text>
               </TouchableOpacity>
               {extPreview && (
@@ -654,7 +669,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>{extPreview.system?.content?.username || extPreview.system?.username || t('share.system')}</Text>
                     <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: extPreview.members.length})} · {t('share.frontEntries', {count: extPreview.switches.length})}</Text>
                   </View>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
                     <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
@@ -664,7 +679,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: extPreview.groups.length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleSPFileConfirmImport({extPreview, extSel, importMode, system, members, history, t, setExtPreview, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleSPFileConfirmImport({extPreview, extSel, importMode, system, members, history, t, setExtPreview, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -674,27 +689,27 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'ampersand' && (
             <View>
               <Divider T={T} label={t('share.ampersandImport')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.ampersandHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.ampersandHint')}</Text>
               <TouchableOpacity onPress={() => handleAmpersandPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickAmparFile')}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickAmparFile')}</Text>
               </TouchableOpacity>
-              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
-              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {importStatus === 'success' && <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}} accessibilityLabel={importMsg}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}} accessibilityLabel={importMsg}>⚠ {importMsg}</Text></View>}
               {extPreview && (
                 <View>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 14}}>
                     <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>{extPreview.system?.name || t('share.system')}</Text>
                     <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: extPreview.members.length})} · {t('share.frontEntries', {count: extPreview.switches.length})}</Text>
                   </View>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
                     <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
                     <SectionRow T={T} label={t('customFields.title')} value={extSel.customFields} onToggle={() => togE('customFields')} />
                     <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: extPreview.switches.length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
                   </View>
-                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleAmpersandConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleAmpersandConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -704,27 +719,27 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'tupperbox' && (
             <View>
               <Divider T={T} label={t('share.tupperboxImport')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.tupperboxHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.tupperboxHint')}</Text>
               <TouchableOpacity onPress={() => handleTupperboxPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickTbFile')}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickTbFile')}</Text>
               </TouchableOpacity>
-              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
-              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {importStatus === 'success' && <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}} accessibilityLabel={importMsg}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}} accessibilityLabel={importMsg}>⚠ {importMsg}</Text></View>}
               {extPreview && importSource === 'tupperbox' && (
                 <View>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 14, marginBottom: 14}}>
                     <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>Tupperbox</Text>
                     <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: (extPreview.tuppers || []).length})}{(extPreview.groups || []).length > 0 ? ` · ${t('share.groupsCount', {count: (extPreview.groups || []).length})}` : ''}</Text>
                   </View>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.tuppers || []).length})} value={extSel.members} onToggle={() => togE('members')} />
                     {(extPreview.groups || []).length > 0 && (
                       <SectionRow T={T} label={t('share.groups')} sublabel={t('share.groupsCount', {count: (extPreview.groups || []).length})} value={extSel.groups} onToggle={() => togE('groups')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleTupperboxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleTupperboxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -734,19 +749,19 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'pluralspace' && (
             <View>
               <Divider T={T} label={t('share.psImport')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.psHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.psHint')}</Text>
               <TouchableOpacity onPress={() => handlePluralSpacePick({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.pickPsFile')}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.pickPsFile')}</Text>
               </TouchableOpacity>
-              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
-              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {importStatus === 'success' && <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}} accessibilityLabel={importMsg}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}} accessibilityLabel={importMsg}>⚠ {importMsg}</Text></View>}
               {restoreProgress ? <View style={{alignItems: 'center', paddingVertical: 12}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress}</Text></View> : null}
               {psAvatarIndex && !extPreview && (
                 <View style={{marginBottom: 10}}>
-                  <Text style={[s.para, {color: T.dim}]}>{t('share.psAvatarsHint')}</Text>
+                  <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.psAvatarsHint')}</Text>
                   <TouchableOpacity onPress={() => handlePluralSpaceAvatarsPick({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.psPickAvatars')}
-                    style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`}}>
+                    hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.infoBg, borderColor: `${T.info}40`}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.info}}>{t('share.psPickAvatars')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -757,7 +772,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>{extPreview.system?.name || t('share.system')}</Text>
                     <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: extPreview.members.length})} · {t('share.frontEntries', {count: extPreview.switches.length})}</Text>
                   </View>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
                     <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: extPreview.members.length})} value={extSel.members} onToggle={() => togE('members')} />
@@ -777,7 +792,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow T={T} label={t('polls.title')} value={extSel.polls} onToggle={() => togE('polls')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralSpaceConfirm({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralSpaceConfirm({extPreview, extSel, importMode, system, history, psZipFiles, psAvatarIndex, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setPsAvatarIndex, setPsZipFiles, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -787,13 +802,13 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'plurallog' && (
             <View>
               <Divider T={T} label={t('share.pluralLog')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.plurallogHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.plurallogHint')}</Text>
               <TouchableOpacity onPress={() => handlePluralLogPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.plurallogPick')}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.plurallogPick')}</Text>
               </TouchableOpacity>
-              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
-              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {importStatus === 'success' && <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}} accessibilityLabel={importMsg}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}} accessibilityLabel={importMsg}>⚠ {importMsg}</Text></View>}
               {restoreProgress ? <View style={{alignItems: 'center', paddingVertical: 12}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress}</Text></View> : null}
               {extPreview && extPreview.source === 'plurallog' && (
                 <View>
@@ -801,7 +816,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>{String(extPreview.db?.config?.systemName || 'PluralLog')}</Text>
                     <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: (extPreview.db?.members || []).length})} · {t('share.frontEntries', {count: (extPreview.db?.switchEvents || []).length})}</Text>
                   </View>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow T={T} label={catSystemLabel} value={extSel.system} onToggle={() => togE('system')} />
                     <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.db?.members || []).length})} value={extSel.members} onToggle={() => togE('members')} />
@@ -820,7 +835,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow T={T} label={t('mailbox.title')} value={extSel.mailbox} onToggle={() => togE('mailbox')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralLogConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handlePluralLogConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -830,13 +845,13 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           {importSource === 'parallax' && (
             <View>
               <Divider T={T} label={t('share.parallax')} />
-              <Text style={[s.para, {color: T.dim}]}>{t('share.parallaxHint')}</Text>
+              <Text style={[s.para, paraScale, {color: T.dim}]}>{t('share.parallaxHint')}</Text>
               <TouchableOpacity onPress={() => handleParallaxPick({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported})} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.parallaxPick')}
-                style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                 <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.parallaxPick')}</Text>
               </TouchableOpacity>
-              {importStatus === 'success' && <View style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}}>✓ {importMsg}</Text></View>}
-              {importStatus === 'error' && <View style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}}>⚠ {importMsg}</Text></View>}
+              {importStatus === 'success' && <View accessibilityLiveRegion="polite" style={{backgroundColor: T.successBg, borderWidth: 1, borderColor: `${T.success}30`, borderRadius: 8, padding: 12, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.success}} accessibilityLabel={importMsg}>✓ {importMsg}</Text></View>}
+              {importStatus === 'error' && <View accessibilityLiveRegion="polite" accessibilityRole="alert" style={{backgroundColor: T.dangerBg, borderWidth: 1, borderColor: `${T.danger}30`, borderRadius: 7, padding: 10, marginBottom: 12}}><Text style={{fontSize: fs(13), color: T.danger}} accessibilityLabel={importMsg}>⚠ {importMsg}</Text></View>}
               {restoreProgress ? <View style={{alignItems: 'center', paddingVertical: 12}}><ActivityIndicator color={T.accent} /><Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}} numberOfLines={2}>{restoreProgress}</Text></View> : null}
               {extPreview && extPreview.source === 'parallax' && (
                 <View>
@@ -844,7 +859,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                     <Text style={{fontSize: fs(16), fontWeight: '600', color: T.accent}}>Parallax</Text>
                     <Text style={{fontSize: fs(12), color: T.dim, marginTop: 2}}>{t('share.membersCount', {count: (extPreview.db?.members || []).length})} · {t('share.frontEntries', {count: (extPreview.db?.fronting_log || []).length})}</Text>
                   </View>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('share.importCategories')}</Text>
                   <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 14}}>
                     <SectionRow T={T} label={catMembersLabel} sublabel={t('share.membersCount', {count: (extPreview.db?.members || []).length})} value={extSel.members} onToggle={() => togE('members')} />
                     <SectionRow T={T} label={catFrontLabel} sublabel={t('share.frontEntries', {count: (extPreview.db?.fronting_log || []).length})} value={extSel.frontHistory} onToggle={() => togE('frontHistory')} />
@@ -852,7 +867,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
                       <SectionRow T={T} label={t('share.chatData')} value={extSel.chat} onToggle={() => togE('chat')} />
                     )}
                   </View>
-                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleParallaxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
+                  <TouchableOpacity onPress={() => confirmOverwrite(t('share.importSelected'), () => handleParallaxConfirm({extPreview, extSel, importMode, system, history, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setImportSource, setRestoreProgress, onDataImported}))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('share.importSelected')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginBottom: 10}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('share.importSelected')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -866,7 +881,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
 
       {section === 'shareview' && (
         <View>
-          <Text style={[s.para, {color: T.dim, marginTop: 8}]}>{t('share.controlVisibility')}</Text>
+          <Text style={[s.para, paraScale, {color: T.dim, marginTop: 8}]}>{t('share.controlVisibility')}</Text>
           <View style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 4}}>
             <SectionRow T={T} label={singlet ? t('share.showCurrentStatus') : t('share.showCurrentFront')} value={shareSettings.showFront} onToggle={() => tog('showFront')} />
             {!singlet && <SectionRow T={T} label={t('share.showMemberList')} value={shareSettings.showMembers} onToggle={() => tog('showMembers')} />}
@@ -875,7 +890,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
           <Divider T={T} label={t('share.preview')} />
           <View style={{backgroundColor: T.surface, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
             <Text style={{fontFamily: 'OpenDyslexic', fontSize: fs(20), color: T.accent, marginBottom: 4, fontStyle: 'italic'}}>{system.name}</Text>
-            {system.description ? <Text style={{fontSize: fs(12), color: T.dim, lineHeight: 18, marginBottom: 12}}>{system.description}</Text> : null}
+            {system.description ? <Text style={{fontSize: fs(12), color: T.dim, lineHeight: fs(18), marginBottom: 12}}>{system.description}</Text> : null}
             {shareSettings.showFront && (
               <View>
                 {primaryFronters.length === 0 && coFronters.length === 0 && coConsciousFronters.length === 0
@@ -887,7 +902,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
             )}
             {!singlet && shareSettings.showMembers && previewMembers.length > 0 && (
               <View style={{marginTop: 10}}>
-                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.membersLabel', {count: previewMembers.length})}</Text>
+                <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 6}}>{t('share.membersLabel', {count: previewMembers.length})}</Text>
                 {previewMembers.slice(0, 4).map(m => (
                   <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 5}}>
                     <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
@@ -918,7 +933,7 @@ function SectionBtn({id, label, selected, onSelect, T}: {id: Section; label: str
   return (
   <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.7}
     accessibilityRole="tab" accessibilityState={{selected: selected === id}} accessibilityLabel={label}
-    style={{flex: 1, paddingVertical: 8, borderRadius: 7, borderWidth: 1, alignItems: 'center',
+    hitSlop={{top: 7, bottom: 7}} style={{flex: 1, paddingVertical: 8, borderRadius: 7, borderWidth: 1, alignItems: 'center',
       backgroundColor: selected === id ? T.accentBg : 'transparent', borderColor: selected === id ? `${T.accent}40` : T.border}}>
     <Text style={{fontSize: fs(12), color: selected === id ? T.accent : T.dim, fontWeight: selected === id ? '600' : '400'}}>{label}</Text>
   </TouchableOpacity>
@@ -930,7 +945,7 @@ function SourceBtn({id, label, selected, onSelect, T}: {id: ImportSource; label:
   return (
   <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.7}
     accessibilityRole="tab" accessibilityState={{selected: selected === id}} accessibilityLabel={label}
-    style={{paddingVertical: 7, paddingHorizontal: 12, borderRadius: 7, borderWidth: 1,
+    hitSlop={{top: 6, bottom: 8}} style={{paddingVertical: 7, paddingHorizontal: 12, borderRadius: 7, borderWidth: 1,
       backgroundColor: selected === id ? T.accentBg : 'transparent', borderColor: selected === id ? `${T.accent}40` : T.border}}>
     <Text style={{fontSize: fs(12), color: selected === id ? T.accent : T.dim, fontWeight: selected === id ? '600' : '400'}}>{label}</Text>
   </TouchableOpacity>
@@ -942,7 +957,7 @@ function Divider({label, T}: {label: string; T: ThemeColors}) {
   return (
   <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 18}}>
     <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
-    <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, fontWeight: '600'}}>{label}</Text>
+    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, fontWeight: '600'}}>{label}</Text>
     <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
   </View>
   );
@@ -963,7 +978,7 @@ function PreviewTier({label, fronters, color, T}: {label: string; fronters: Memb
   if (fronters.length === 0) return null;
   return (
     <View style={{marginTop: 8}}>
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '600', marginBottom: 5}}>{label}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color, fontWeight: '600', marginBottom: 5}}>{label}</Text>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
         {fronters.map(m => (
           <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: `${m.color}18`, borderColor: `${m.color}30`}}>

@@ -46,14 +46,3 @@ export const withTimeout = <T>(
       e => { if (settled) return; settled = true; clearTimeout(timer); reject(e); },
     );
   });
-
-export const safeAwait = async <T>(
-  promise: Promise<T>,
-): Promise<{ok: true; value: T} | {ok: false; error: any}> => {
-  try {
-    const value = await promise;
-    return {ok: true, value};
-  } catch (error) {
-    return {ok: false, error};
-  }
-};

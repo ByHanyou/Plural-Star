@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useMemo, useRef} from 'react';
 import {AppState} from 'react-native';
 import {FrontState, Member, AppSettings} from '../utils';
 import {showFrontNotification, clearFrontNotification, showFriendUpdateAlert, scheduleFrontCheckReminder, cancelFrontCheckReminder, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh, clearFrontDismissGuard} from '../services/NotificationService';
@@ -7,13 +7,24 @@ import {endFriendsActivity} from '../services/LiveActivityService';
 import {friendNotifyLevel} from '../network/types';
 import {logError} from '../utils/log';
 
-export const useFrontNotifications = (front: FrontState | null, members: Member[], systemName: string, appSettings: AppSettings) => {
+export const useFrontNotifications = (front: FrontState | null, members: Member[], systemName: string, appSettings: AppSettings, loaded: boolean) => {
   const persistent = appSettings.persistentFrontNotif !== false;
+  const membersRef = useRef(members);
+  membersRef.current = members;
+  const namesSig = useMemo(() => members.map(m => `${m.id}|${m.name}`).join('\n'), [members]);
 
   useEffect(() => {
-    if (appSettings.notificationsEnabled && persistent) { showFrontNotification(front, members, systemName).catch(e => console.error('[PS] notif error:', e)); }
+    clearFrontDismissGuard();
+    if (!appSettings.notificationsEnabled || !persistent) endFriendsActivity().catch(e => logError('notif', e));
+    NetworkManager.refreshGatewayRegistration();
+  }, [appSettings.notificationsEnabled, persistent]);
+
+  useEffect(() => {
+    // Before the data is loaded the front is still null; clearing then would stop the foreground service just as the real post starts it.
+    if (!loaded) return;
+    if (appSettings.notificationsEnabled && persistent) { showFrontNotification(front, membersRef.current, systemName).catch(e => console.error('[PS] notif error:', e)); }
     else { clearFrontNotification().catch(e => console.error('[PS] clear notif error:', e)); }
-  }, [front, members, appSettings.notificationsEnabled, persistent, systemName]);
+  }, [loaded, front, namesSig, appSettings.notificationsEnabled, persistent, systemName]);
 
   useEffect(() => {
     let last: string | null = null;
@@ -22,12 +33,12 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
       const sig = `${s.enabled}|${s.friends.filter(f => friendNotifyLevel(f) === 'full' && f.status === 'accepted').map(f => `${f.peerId}:${f.statusUpdatedAt || 0}`).join(',')}`;
       if (last !== null && sig !== last && appSettings.notificationsEnabled && persistent) {
         if (debounce) clearTimeout(debounce);
-        debounce = setTimeout(() => { showFrontNotification(front, members, systemName).catch(e => logError('notif', e)); }, 2000);
+        debounce = setTimeout(() => { showFrontNotification(front, membersRef.current, systemName).catch(e => logError('notif', e)); }, 2000);
       }
       last = sig;
     });
     return () => { if (debounce) clearTimeout(debounce); unsub(); };
-  }, [front, members, appSettings.notificationsEnabled, persistent, systemName]);
+  }, [front, namesSig, appSettings.notificationsEnabled, persistent, systemName]);
 
   useEffect(() => {
     const lastSeen = new Map<string, string>();
@@ -55,15 +66,9 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
 
   useEffect(() => {
     if (!front || !appSettings.notificationsEnabled || !persistent) return;
-    const interval = setInterval(() => { showFrontNotification(front, members, systemName).catch(e => console.error('[PS] notif refresh error:', e)); }, 5 * 60 * 1000);
+    const interval = setInterval(() => { showFrontNotification(front, membersRef.current, systemName).catch(e => console.error('[PS] notif refresh error:', e)); }, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [front, members, appSettings.notificationsEnabled, persistent, systemName]);
-
-  useEffect(() => {
-    clearFrontDismissGuard();
-    if (!appSettings.notificationsEnabled || !persistent) endFriendsActivity().catch(e => logError('notif', e));
-    NetworkManager.refreshGatewayRegistration();
-  }, [appSettings.notificationsEnabled, persistent]);
+  }, [front, namesSig, appSettings.notificationsEnabled, persistent, systemName]);
 
   const frontNotifRef = useRef({front, members, systemName, enabled: appSettings.notificationsEnabled && persistent, refreshMins: appSettings.notificationRefreshMinutes || 30});
   frontNotifRef.current = {front, members, systemName, enabled: appSettings.notificationsEnabled && persistent, refreshMins: appSettings.notificationRefreshMinutes || 30};

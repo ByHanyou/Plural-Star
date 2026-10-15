@@ -1,6 +1,7 @@
 import {NativeModules, Platform} from 'react-native';
 import type {FrontState, Member} from '../utils';
-import {fmtDur, frontSessionStart} from '../utils';
+import {fmtDur, frontSessionStart, translateMood} from '../utils';
+import i18n from '../i18n/i18n';
 
 type LiveActivityModule = {
   startOrUpdate(payload: Record<string, unknown>): Promise<unknown>;
@@ -16,8 +17,6 @@ const nativeModule: LiveActivityModule | null =
 
 const resolveNames = (ids: string[], members: Member[]): string =>
   ids.map(id => members.find(m => m.id === id)?.name || '?').join(', ');
-
-export const liveActivitiesSupported = Platform.OS === 'ios' && !!nativeModule;
 
 export const getFriendsPushToken = async (): Promise<string | null> => {
   if (!nativeModule || typeof nativeModule.getFriendsPushToken !== 'function') return null;
@@ -86,7 +85,7 @@ export const updateFrontLiveActivity = async (
     primaryText,
     coFrontText: coFrontIds.length > 0 ? resolveNames(coFrontIds, members) : undefined,
     coConsciousText: coConsciousIds.length > 0 ? resolveNames(coConsciousIds, members) : undefined,
-    mood: front.primary.mood,
+    mood: front.primary.mood ? translateMood(front.primary.mood, i18n.t) : front.primary.mood,
     location: front.primary.location,
     note: front.primary.note || undefined,
     startTime: since,

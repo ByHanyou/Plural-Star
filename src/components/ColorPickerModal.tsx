@@ -38,11 +38,11 @@ const PickerCard = ({title, value, onSave, onClose, T}: Omit<Props, 'visible'>) 
         <ColorPicker value={draft} onChange={setDraft} T={T} />
         <View style={{flexDirection: 'row', gap: 8, marginTop: 14}}>
           <View style={{flex: 1}} />
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} hitSlop={{top: 6, bottom: 6}}
             style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
             <Text style={{fontSize: fs(12), color: T.dim}}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={save} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}
+          <TouchableOpacity onPress={save} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')} hitSlop={{top: 6, bottom: 6}}
             style={{paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg}}>
             <Text style={{fontSize: fs(12), fontWeight: '600', color: T.accent}}>{t('common.save')}</Text>
           </TouchableOpacity>

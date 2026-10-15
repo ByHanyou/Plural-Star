@@ -71,6 +71,7 @@ const ColorCarouselInner = ({value, onChange, T, size = 30}: {value: string; onC
           accessibilityRole="button"
           accessibilityState={{selected}}
           accessibilityLabel={item.label}
+          hitSlop={{top: 4, bottom: 4}}
           style={{width: itemW, height: size + 10, alignItems: 'center', justifyContent: 'center'}}>
           <View style={{width: size, height: size, borderRadius: size / 2, backgroundColor: item.hex, borderWidth: 2, borderColor: selected ? '#fff' : T.border}} />
         </TouchableOpacity>

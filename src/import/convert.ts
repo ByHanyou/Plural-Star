@@ -1,4 +1,5 @@
 import {Member, HistoryEntry, uid} from '../utils';
+import {importNameKey} from './importNames';
 import {store, KEYS} from '../storage';
 
 export const convertSPSwitches = (switches: any[], idMap: Record<string, string>): HistoryEntry[] => {
@@ -58,9 +59,9 @@ export const reviveIfTombstoned = (em: Member, incoming: Partial<Member>): Parti
   em.deleted ? { deleted: false, archived: incoming.archived ?? false } : {};
 
 export const findClaimableByName = (merged: Member[], claimed: Set<string>, name: string): number => {
-  const lower = String(name || '').toLowerCase();
+  const lower = importNameKey(name);
   if (!lower) return -1;
-  const eligible = (em: Member) => !claimed.has(em.id) && !em.isCustomFront && !em.isFacet && em.name.toLowerCase() === lower;
+  const eligible = (em: Member) => !claimed.has(em.id) && !em.isCustomFront && !em.isFacet && importNameKey(em.name) === lower;
   const unsourced = merged.findIndex(em => !em.sourceId && eligible(em));
   if (unsourced >= 0) return unsourced;
   return merged.findIndex(em => eligible(em));
@@ -87,7 +88,7 @@ export const finalizeMemberReplace = (merged: Member[], idMap: Record<string, st
   });
 };
 
-export const historySig = (e: HistoryEntry): string =>
+const historySig = (e: HistoryEntry): string =>
   `${e.startTime}|${[...(e.memberIds || [])].sort().join(',')}|${[...(e.coFrontIds || [])].sort().join(',')}|${[...(e.coConsciousIds || [])].sort().join(',')}|${e.changeType || 'front'}|${e.changeTime ?? ''}`;
 
 export const mergeHistoryEntries = (incoming: HistoryEntry[], existing: HistoryEntry[]): HistoryEntry[] => {

@@ -1,4 +1,6 @@
 import {Alert} from 'react-native';
+import {importNameKey} from './importNames';
+import {ImportUserError, importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, ChatChannel, ChatMessage, NoteboardEntry, uid, truncateRunes} from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
@@ -61,11 +63,11 @@ export const handlePluralLogPick = async (ctx: PluralLogCtx) => {
       try { db = JSON.parse(zipTextOf(files[dbName])); } catch {}
     }
     if (!isPluralLogDb(db)) {
-      throw new Error(t('share.plurallogNeedsZip', {defaultValue: "That isn't a PluralLog export. In PluralLog, use Export and pick the .zip bundle it saves."}));
+      throw new ImportUserError(t('share.plurallogNeedsZip'));
     }
     setExtPreview({source: 'plurallog', db, files});
     setImportSource('plurallog');
-  } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || ''); }
+  } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), importErrorText(e, t)); }
 };
 
 export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
@@ -90,7 +92,7 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
           plMembers.forEach((m: any) => {
             if (!m || !m.id) return;
             mergeForeignMember(merged, idMap, 'pl:' + String(m.id), {
-              name: (m.name && String(m.name).trim()) || 'Unnamed member',
+              name: (m.name && String(m.name).trim()) || t('share.unnamedMember'),
               pronouns: String(m.pronouns || ''),
               role: String(m.role || ''),
               color: argbToHex(m.color),
@@ -125,8 +127,8 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
             const groups = [...existingGroups];
             const folderIdMap: Record<string, string> = {};
             db.folders.forEach((f: any, i: number) => {
-              const name = (f?.name && String(f.name).trim()) || `Group ${i + 1}`;
-              const found = groups.find(g => g.name.toLowerCase() === name.toLowerCase());
+              const name = (f?.name && String(f.name).trim()) || t('share.groupN', {n: i + 1});
+              const found = groups.find(g => importNameKey(g.name) === importNameKey(name));
               const localId = found ? found.id : uid();
               if (!found) groups.push({id: localId, name, color: argbToHex(f.colorValue), sortOrder: f.sortOrder ?? i});
               folderIdMap[String(f.id)] = localId;
@@ -206,8 +208,8 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
           const channels = [...existing];
           const chMap: Record<string, string> = {};
           db.channels.forEach((c: any, i: number) => {
-            const name = (c?.name && String(c.name).trim()) || `Channel ${i + 1}`;
-            const found = channels.find(x => x.name.toLowerCase() === name.toLowerCase());
+            const name = (c?.name && String(c.name).trim()) || t('share.channelN', {n: i + 1});
+            const found = channels.find(x => importNameKey(x.name) === importNameKey(name));
             const localId = found ? found.id : uid();
             if (!found) channels.push({id: localId, name, createdAt: Date.now()});
             chMap[String(c.id)] = localId;
@@ -254,7 +256,7 @@ export const handlePluralLogConfirm = (ctx: PluralLogCtx) => {
       } catch (e: any) {
         setRestoreProgress('');
         setImportStatus('error');
-        setImportMsg(e.message || t('share.importFailed'));
+        setImportMsg(importErrorText(e, t));
       }
     }},
   ]);

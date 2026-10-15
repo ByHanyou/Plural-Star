@@ -48,7 +48,8 @@
     "markdownPlaceholder": "เขียนด้วย markdown…",
     "urlPlaceholder": "URL ที่นี่",
     "textPlaceholder": "ข้อความ",
-    "body": "ตัวแก้ไข"
+    "body": "ตัวแก้ไข",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "ตัวหนา",
@@ -97,7 +98,14 @@
     "unknown": "ไม่ทราบ",
     "untitled": "ไม่มีชื่อ",
     "ok": "ตกลง",
-    "search": "ค้นหา…"
+    "search": "ค้นหา…",
+    "removeItem": "นำ {{name}} ออก",
+    "addItem": "เพิ่ม {{name}}",
+    "clearItem": "ล้าง {{name}}",
+    "editItem": "แก้ไข {{name}}",
+    "deleteItem": "ลบ {{name}}",
+    "exportItem": "ส่งออก {{name}}",
+    "errorCode": "รหัสข้อผิดพลาด: {{code}}"
   },
   "a11y": {
     "settings": "การตั้งค่า",
@@ -116,7 +124,8 @@
     "minute": "นาที",
     "switchToAm": "PM สลับเป็น AM",
     "switchToPm": "AM สลับเป็น PM",
-    "image": "รูปภาพ"
+    "image": "รูปภาพ",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "เกิดข้อผิดพลาด",
@@ -183,7 +192,8 @@
     "statusesDesc": "สถานะบอกว่าคุณเป็นอย่างไร — เช่น กำลังนอน กำลังทำงาน หรือกังวล เลือกใช้เมื่ออัปเดตสถานะของคุณ",
     "noStatuses": "ยังไม่มีสถานะ เพิ่มหนึ่งรายการเพื่อเริ่มต้น",
     "activeStatus": "ใช้งานอยู่",
-    "favoriteColor": "สีโปรด"
+    "favoriteColor": "สีโปรด",
+    "statusActiveA11y": "{{name}}, ใช้งานอยู่"
   },
   "settings": {
     "observatory": "อินเทอร์เฟซหอสังเกตการณ์ (ซิงเล็ต)",
@@ -200,7 +210,9 @@
     "noNote": "ไม่มีโน้ต แตะแก้ไขเพื่อเพิ่ม",
     "clearFront": "ล้างฟรอนต์",
     "clearFrontMsg": "การดำเนินการนี้จะล้างทุกระดับและบันทึกการสิ้นสุดของเซสชันปัจจุบัน ดำเนินการต่อ?",
-    "clearFrontTitle": "ล้างฟรอนต์?"
+    "clearFrontTitle": "ล้างฟรอนต์?",
+    "frontingForA11y": "{{name}}, ฟรอนต์มาแล้ว {{dur}}",
+    "frontingForSince": "ฟรอนต์มาแล้ว <b>{{dur}}</b> · ตั้งแต่ {{time}}"
   },
   "members": {
     "fieldCount": "จำนวนสมาชิก",
@@ -280,7 +292,19 @@
     "bulkRestoreMsg": "กู้คืน {{count}} สมาชิกเป็นใช้งานอยู่?",
     "bulkDelete": "ลบสมาชิก",
     "bulkDeleteMsg": "ลบ {{count}} สมาชิกถาวร? ไม่สามารถย้อนกลับได้",
-    "recentlyDeleted": "ลบล่าสุด"
+    "recentlyDeleted": "ลบล่าสุด",
+    "nameInTier": "{{name}}, อยู่ใน {{tier}}",
+    "moveUpItem": "เลื่อน {{name}} ขึ้น",
+    "moveDownItem": "เลื่อน {{name}} ลง",
+    "addToFrontName": "เพิ่มเข้าฟรอนต์ — {{name}}",
+    "removeFromFrontName": "นำออกจากฟรอนต์ — {{name}}",
+    "titleCount": "สมาชิก ({{n}})",
+    "facetsCount": "แง่มุม ({{n}})",
+    "customFrontsCount": "ฟรอนต์กำหนดเอง ({{n}})",
+    "restoreItem": "กู้คืน {{name}}",
+    "bulkArchiveMsg_other": "เก็บถาวร {{count}} สมาชิก? สามารถกู้คืนภายหลังได้",
+    "bulkRestoreMsg_other": "กู้คืน {{count}} สมาชิกเป็นใช้งานอยู่?",
+    "bulkDeleteMsg_other": "ลบ {{count}} สมาชิกถาวร? ไม่สามารถย้อนกลับได้"
   },
   "history": {
     "title": "ประวัติ",
@@ -324,7 +348,15 @@
     "deleteConfirm2": "ไม่สามารถย้อนกลับได้ ลบจริงหรือ?",
     "deleteConfirm3": "ยืนยันครั้งสุดท้าย: ลบรายการนี้อย่างถาวร?",
     "showMore": "แสดงเพิ่มเติม",
-    "showLess": "แสดงน้อยลง"
+    "showLess": "แสดงน้อยลง",
+    "moodBadge": "อารมณ์ <b>{{mood}}</b>",
+    "atBadge": "ที่ <b>{{location}}</b>",
+    "energyBadge": "พลังงาน <b>{{value}}</b>",
+    "moodLocationChanged_tier": "เปลี่ยนอารมณ์และสถานที่ ({{tier}})",
+    "moodChanged_tier": "เปลี่ยนอารมณ์ ({{tier}})",
+    "locationChanged_tier": "เปลี่ยนสถานที่ ({{tier}})",
+    "noteUpdated_tier": "อัปเดตโน้ต ({{tier}})",
+    "frontSwitch_tier": "สลับฟรอนต์ ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "เทมเพลตนี้จะถูกนำออกอย่างถาวร",
@@ -359,7 +391,8 @@
     "templateName": "ชื่อเทมเพลต *",
     "templateNamePlaceholder": "เช่น หน้าบันทึกยามเช้า",
     "templateTitle": "ชื่อบันทึก (ตั้งล่วงหน้า)",
-    "templateBody": "เนื้อหาบันทึก (ตั้งล่วงหน้า)"
+    "templateBody": "เนื้อหาบันทึก (ตั้งล่วงหน้า)",
+    "openEntryHint": "เปิดบันทึกฉบับเต็ม"
   },
   "share": {
     "jsonHint": "ZIP และ JSON เป็นข้อมูลสำรองแบบเต็มที่คุณสามารถนำเข้ากลับสู่ Plural Star ได้",
@@ -564,6 +597,7 @@
     "exportReady": "การส่งออกพร้อมแล้ว",
     "exportReadyMsg": "สร้าง {{filename}} แล้ว แต่ไม่สามารถเปิดหน้าต่างแชร์โดยอัตโนมัติได้",
     "importing": "กำลังนำเข้า…",
+    "exporting": "กำลังส่งออก…",
     "importStopping": "กำลังทำขั้นตอนนี้ให้เสร็จ แล้วจะหยุด…",
     "importStopped": "หยุดการนำเข้าแล้ว {{count}} ขั้นตอนเสร็จและบันทึกไว้แล้ว ขั้นตอนที่เหลือยังไม่ได้ทำ",
     "importCancelHint": "จะหยุดเมื่อขั้นตอนปัจจุบันเสร็จ ขั้นตอนที่ทำไปแล้วจะยังคงอยู่",
@@ -581,7 +615,32 @@
     "progressBannersDownloadN": "กำลังดาวน์โหลดแบนเนอร์… {{done}}/{{total}}",
     "progressChat": "กำลังกู้คืนแชท…",
     "progressChatN": "กำลังกู้คืนช่องแชท… {{done}}/{{total}}",
-    "progressSavingMembers": "กำลังบันทึกสมาชิก…"
+    "progressSavingMembers": "กำลังบันทึกสมาชิก…",
+    "exportAs": "ส่งออกเป็น {{format}}",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "“{{text}}”",
+    "exportMailExportedLine": "ส่งออกเมื่อ: {{date}}",
+    "exportMailMembersHeader": "สมาชิก ({{count}})",
+    "exportMailJournalHeader": "บันทึกประจำวัน ({{count}})",
+    "exportMailJournalHeaderRecent": "บันทึกประจำวัน ({{count}} — แสดง {{shown}} รายการล่าสุด)",
+    "exportMailHistoryHeader": "ประวัติฟรอนต์ ({{count}})",
+    "exportMailHistoryHeaderRecent": "ประวัติฟรอนต์ ({{count}} — แสดง {{shown}} รายการล่าสุด)",
+    "exportTitleLine": "ชื่อเรื่อง: {{title}}",
+    "exportDateLine": "วันที่: {{date}}",
+    "exportAuthorsLine": "ผู้เขียน: {{authors}}",
+    "importStopped_other": "หยุดการนำเข้าแล้ว {{count}} ขั้นตอนเสร็จและบันทึกไว้แล้ว ขั้นตอนที่เหลือยังไม่ได้ทำ",
+    "psAvatarsImported_other": "นำเข้ารูปประจำตัวแล้ว {{count}} รูป",
+    "recoverConfirmMsg_other": "กู้คืน {{count}} รายการสำรองเข้าแอป? การดำเนินการนี้จะเขียนทับข้อมูลปัจจุบันของหมวดเหล่านั้น",
+    "cfUnmatched_other": "{{count}} คีย์ไม่ตรงกับ ID/ชื่อฟิลด์ของเราเลย ตัวอย่างคีย์ที่ไม่ตรงกัน: {{samples}}",
+    "unnamedMember": "สมาชิกที่ยังไม่มีชื่อ",
+    "fieldN": "ฟิลด์ {{n}}",
+    "systemN": "ระบบ {{n}}",
+    "groupN": "กลุ่ม {{n}}",
+    "channelN": "ช่อง {{n}}",
+    "ageField": "อายุ",
+    "errUnexpected": "เกิดข้อผิดพลาด โปรดตรวจสอบไฟล์แล้วลองอีกครั้ง"
   },
   "hub": {
     "overlapMore": "+{{count}} เพิ่มเติม",
@@ -608,11 +667,11 @@
     "statistics": "สถิติ",
     "systemChat": "แชทระบบ",
     "archive": "เก็บถาวร",
-    "discord": "Discord",
     "credits": "เครดิต",
     "creditLogo": "โลโก้ Plural Star",
     "creditIos": "พอร์ต iOS ของ Plural Star",
-    "supportPS": "สนับสนุน PS"
+    "supportPS": "สนับสนุน PS",
+    "discord": "Discord"
   },
   "modal": {
     "read": "ดู",
@@ -651,6 +710,8 @@
     "colorLock": "ล็อกสี",
     "invalidHex": "รหัสสี hex ไม่ถูกต้อง",
     "customColor": "สีกำหนดเอง",
+    "emoji": "อีโมจิ",
+    "emojiPlaceholder": "เช่น 🦊",
     "transparentColor": "โปร่งใส",
     "removeImageMsg": "นำรูปภาพนี้ออก?",
     "deletePaletteMsg": "ชุดสีนี้จะถูกนำออกอย่างถาวร",
@@ -733,7 +794,17 @@
     "textScaleLarge": "ใหญ่",
     "textScaleExtraLarge": "ใหญ่พิเศษ",
     "dyslexicFont": "ฟอนต์เป็นมิตรกับผู้มีภาวะดิสเล็กเซีย",
-    "dyslexicFontDesc": "เปลี่ยนข้อความเนื้อหาเป็น OpenDyslexic หัวเรื่องยังใช้ฟอนต์ตามสไตล์เดิม"
+    "dyslexicFontDesc": "เปลี่ยนข้อความเนื้อหาเป็น OpenDyslexic หัวเรื่องยังใช้ฟอนต์ตามสไตล์เดิม",
+    "cropArea": "พื้นที่ครอบตัด",
+    "addEntryPassword": "เพิ่มรหัสผ่านบันทึก",
+    "removeEntryPassword": "นำรหัสผ่านบันทึกออก",
+    "addJournalPassword": "เพิ่มรหัสผ่านบันทึกส่วนกลาง",
+    "removeJournalPassword": "นำรหัสผ่านบันทึกส่วนกลางออก",
+    "addAppLockPassword": "เพิ่มรหัสผ่านล็อกแอป",
+    "removeAppLockPassword": "นำรหัสผ่านล็อกแอปออก",
+    "fontDefault": "ค่าเริ่มต้น",
+    "paletteObsidian": "ออบซิเดียน",
+    "paletteSteel": "เหล็กกล้า"
   },
   "notification": {
     "filePermTitle": "การเข้าถึงไฟล์",
@@ -776,7 +847,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} โน้ตใหม่",
     "chatPingTitle": "◆ {{speaker}} ปิงคุณใน #{{channel}}",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "แตะเพื่อดูข้อความ"
+    "chatPingBodyEmpty": "แตะเพื่อดูข้อความ",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -827,11 +899,19 @@
     "removeMembers": "นำสมาชิกออก",
     "deleteGroup": "ลบกลุ่ม",
     "deleteGroupMsg": "นำกลุ่มนี้ออก? สมาชิกจะไม่ถูกลบ",
-    "deleteWithChildrenMsg": "กลุ่มนี้มี {{count}} รายการซ้อนอยู่ เก็บไว้แล้วย้ายขึ้นหนึ่งระดับ หรือลบทั้งหมด?"
+    "deleteWithChildrenMsg": "กลุ่มนี้มี {{count}} รายการซ้อนอยู่ เก็บไว้แล้วย้ายขึ้นหนึ่งระดับ หรือลบทั้งหมด?",
+    "subgroupCount_other": "{{count}} กลุ่มย่อย",
+    "expandA11y": "กลุ่มย่อยของ {{name}}, เลือกแล้ว {{count}}",
+    "subsystemNamed": "{{name}}, ระบบย่อย",
+    "moveItem": "ย้าย {{name}}",
+    "addMembersTo": "เพิ่มสมาชิก — {{name}}",
+    "newKind": "ประเภทรายการใหม่",
+    "deleteWithChildrenMsg_other": "กลุ่มนี้มี {{count}} รายการซ้อนอยู่ เก็บไว้แล้วย้ายขึ้นหนึ่งระดับ หรือลบทั้งหมด?"
   },
   "stats": {
     "showMore": "แสดงเพิ่มเติม",
     "showMoreN": "แสดงเพิ่มเติม — แสดง {{shown}} จาก {{total}}",
+    "showMoreShort": "แสดงเพิ่มเติม ({{shown}}/{{total}})",
     "energyByHour": "พลังงานรายชั่วโมง",
     "allTime": "ตลอดเวลา",
     "last7": "7 วัน",
@@ -861,7 +941,10 @@
     "topCoMembers": "สมาชิกที่อยู่ด้วยบ่อยที่สุด",
     "msgsSuffix": "ข้อความ",
     "sessionsSuffix": "เซสชัน",
-    "totalSessions": "เซสชันรวม"
+    "totalSessions": "เซสชันรวม",
+    "sessionsCount_other": "{{count}} เซสชัน",
+    "msgsCount_other": "{{count}} ข้อความ",
+    "timesCount": "{{count}}×"
   },
   "chat": {
     "imageUnavailable": "[รูปภาพไม่พร้อมใช้งาน]",
@@ -910,12 +993,46 @@
     "deleteMsgConfirm": "ข้อความนี้จะถูกลบถาวร",
     "editingHeader": "กำลังแก้ไขข้อความ",
     "editPlaceholder": "แก้ไขข้อความ…",
-    "imagePreview": "[รูปภาพ]"
+    "imagePreview": "[รูปภาพ]",
+    "reactionA11y_other": "{{emoji}}, {{count}} รีแอคชัน",
+    "replyTo": "ตอบกลับ {{name}}",
+    "archiveChannelNamed": "เก็บถาวร {{name}}",
+    "defaultGeneral": "ทั่วไป",
+    "defaultVenting": "ระบาย",
+    "defaultPlanning": "วางแผน",
+    "attachment": "ไฟล์แนบ"
   },
   "customFront": {
     "add": "เพิ่มฟรอนต์กำหนดเอง",
     "edit": "แก้ไขฟรอนต์กำหนดเอง",
     "namePlaceholder": "ชื่อฟรอนต์กำหนดเอง"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "ช่างพูด",
+      "nonVerbal": "ไม่ใช้คำพูด",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "พร่ามัว",
+      "blendy": "ผสมกัน",
+      "rapidSwitching": "สลับเร็ว",
+      "foggy": "มึนงง",
+      "grounded": "มั่นคง",
+      "dissociated": "รู้สึกแยกตัว",
+      "anxious": "กังวล",
+      "depressed": "ซึมเศร้า",
+      "cheerful": "ร่าเริง",
+      "happy": "มีความสุข",
+      "sad": "เศร้า",
+      "crisis": "วิกฤต",
+      "melancholy": "หม่นหมอง",
+      "stimming": "สติมมิ่ง",
+      "stressed": "เครียด",
+      "working": "กำลังทำงาน",
+      "traveling": "กำลังเดินทาง",
+      "sleeping": "กำลังนอน",
+      "hyperfocus": "จดจ่อมากเกินไป"
+    }
   },
   "lock": {
     "locked": "ล็อกอยู่",
@@ -933,7 +1050,8 @@
     "browse": "เรียกดู",
     "deleteSelectedMsg": "นำ {{count}} รายการที่เลือกออก? สมาชิกจะไม่ถูกลบ",
     "desc": "สร้าง แก้ไข จัดเรียง และลบกลุ่มกับระบบย่อย แตะ ⇄ บนรายการ แล้วแตะปลายทาง เพื่อซ้อนเข้าไป",
-    "title": "ตัวจัดการระบบ"
+    "title": "ตัวจัดการระบบ",
+    "deleteSelectedMsg_other": "นำ {{count}} รายการที่เลือกออก? สมาชิกจะไม่ถูกลบ"
   },
   "customFields": {
     "title": "ฟิลด์กำหนดเอง",
@@ -985,6 +1103,7 @@
     "cloudErrRate": "พยายามมากเกินไป รอหนึ่งนาทีแล้วลองใหม่",
     "cloudErrFull": "ห้องนิรภัยหรือโหนดไม่มีพื้นที่เหลือ",
     "cloudErrTooLarge": "ถูกละไว้ เกิน 25 MB: {{keys}}",
+    "cloudErrOverQuota": "ถูกละไว้ ห้องนิรภัยไม่มีพื้นที่เหลือ: {{keys}}",
     "cloudErrBadPassword": "มีห้องนิรภัยนี้อยู่แล้ว แต่รหัสผ่านนี้เปิดไม่ได้",
     "cloudErrCorrupt": "ไม่สามารถอ่านห้องนิรภัยบนอุปกรณ์นี้ได้ ยกเลิกการเชื่อมและเชื่อมใหม่ด้วยรหัสผ่านเดิม",
     "cloudUnavailable": "โหนดที่คุณเชื่อมต่ออยู่ไม่ได้ให้บริการคลาวด์",
@@ -1053,6 +1172,7 @@
     "deleteBucket": "ลบวง",
     "deleteBucketMsg": "ลบ “{{name}}”?",
     "cloneBucket": "ทำสำเนาวง",
+    "cloneBucketName": "ทำสำเนาวง — {{name}}",
     "viewShared": "ดูที่แชร์",
     "mirrorNothing": "พวกเขายังไม่ได้แชร์สิ่งนี้กับคุณ",
     "mirrorOffline": "เพื่อนออฟไลน์ — แสดงสำเนาล่าสุดที่ได้รับ",
@@ -1103,7 +1223,16 @@
     "syncCloneSending": "กำลังส่งการคัดลอกครั้งแรก…",
     "syncCloneReceiving": "กำลังรับการคัดลอกครั้งแรก…",
     "syncCloneDone": "คัดลอกครั้งแรกเสร็จสมบูรณ์",
-    "publishFailed": "ไม่สามารถเผยแพร่รหัสของคุณได้ — ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง"
+    "publishFailed": "ไม่สามารถเผยแพร่รหัสของคุณได้ — ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง",
+    "friendStatusOffline": "{{status}} ออฟไลน์",
+    "scopeCount": "เลือกแล้ว {{count}}",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "เกิดข้อผิดพลาดกับการซิงค์คลาวด์ โปรดลองอีกครั้ง",
+    "scopeSelectTitle": "{{feature}} — เลือก",
+    "viewSharedTitle": "{{name}} — ดูที่แชร์",
+    "deviceFallback": "อุปกรณ์",
+    "friendFallback": "เพื่อน",
+    "androidDeviceFallback": "อุปกรณ์ Android"
   },
   "terminology": {
     "fronter": "ผู้ฟรอนต์",
@@ -1176,7 +1305,9 @@
     "addTime": "เพิ่มเวลา",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "การเตือนจากตัววางแผน"
+    "notifReminder": "การเตือนจากตัววางแผน",
+    "todayA11y": "วันนี้, {{date}}",
+    "reminderOff": "ปิด"
   },
   "mailbox": {
     "title": "กล่องจดหมาย",
@@ -1199,7 +1330,13 @@
     "messageCount_other": "{{count}} ข้อความ",
     "unreadCount": "ยังไม่อ่าน {{count}}",
     "deleteTitle": "ลบข้อความ",
-    "deleteMsg": "ลบข้อความนี้หรือไม่? ไม่สามารถย้อนกลับได้"
+    "deleteMsg": "ลบข้อความนี้หรือไม่? ไม่สามารถย้อนกลับได้",
+    "locked": "ล็อกอยู่",
+    "unlocked": "ไม่ได้ล็อก",
+    "allOthersCount": "สมาชิกคนอื่นทั้งหมด · {{count}}",
+    "unread": "ยังไม่อ่าน",
+    "deleteFrom": "ลบข้อความจาก {{name}}",
+    "frontersHaveMail": "มีจดหมายที่ยังไม่อ่านสำหรับ: {{names}}"
   },
   "whiteboard": {
     "title": "ไวท์บอร์ด",
@@ -1254,7 +1391,9 @@
     "voPosDown": "{{n}} ลง",
     "voPosUp": "{{n}} ขึ้น",
     "voEdges": "{{left}} ถึงขอบซ้าย, {{right}} ถึงขวา, {{top}} ถึงบน, {{bottom}} ถึงล่าง",
-    "voRecentered": "ปากกากลับมาอยู่ตรงกลางแล้ว"
+    "voRecentered": "ปากกากลับมาอยู่ตรงกลางแล้ว",
+    "voTwoParts": "{{a}} {{b}}",
+    "brushSizeN": "ขนาดพู่กัน {{n}}"
   },
   "systemMap": {
     "connections": "การเชื่อมต่อ",
@@ -1298,7 +1437,10 @@
     "zoomIn": "ซูมเข้า",
     "zoomOut": "ซูมออก",
     "resetView": "รีเซ็ตมุมมอง",
-    "notePlaceholder": "โน้ตเพิ่มเติม (ไม่บังคับ)…"
+    "notePlaceholder": "โน้ตเพิ่มเติม (ไม่บังคับ)…",
+    "mapA11y": "แผนที่ความสัมพันธ์, {{members}}, {{relationships}}",
+    "mapA11yHint": "ใช้เมนูการทำงานเพื่อเลือกสมาชิก",
+    "depthN_other": "ระยะการเชื่อมต่อ {{count}}"
   },
   "relType": {
     "love": "ความรัก",
@@ -1363,13 +1505,17 @@
     "deletePollMsg": "การดำเนินการนี้จะลบโพลนี้ถาวร",
     "noPolls": "ยังไม่มีโพล",
     "closed": "ปิดแล้ว",
-    "votingAs": "โหวตในนาม:"
+    "votingAs": "โหวตในนาม:",
+    "optionN": "ตัวเลือก {{n}}",
+    "removeOptionN": "นำตัวเลือก {{n}} ออก"
   },
   "energy": {
     "label": "พลังงาน",
     "level": "ระดับพลังงาน",
     "avgEnergy": "พลังงานเฉลี่ย",
-    "outOf10": "/10 พลังงาน"
+    "outOf10": "/10 พลังงาน",
+    "levelN": "ระดับพลังงาน {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "อ่าน",

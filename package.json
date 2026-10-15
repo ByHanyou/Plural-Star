@@ -1,11 +1,12 @@
 {
   "name": "PluralStar",
-  "version": "1.22.1",
+  "version": "1.23.0",
   "private": true,
   "scripts": {
     "android": "node scripts/run-android.js",
     "ios": "react-native run-ios",
     "start": "react-native start",
+    "typecheck": "tsc --noEmit -p tsconfig.check.json",
     "build-android-release": "cd android && bash ./gradlew bundleRelease",
     "build-android-apk": "cd android && bash ./gradlew assembleRelease",
     "postinstall": "patch-package"

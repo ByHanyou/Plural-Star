@@ -10,19 +10,19 @@ import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {ColorPickerModal} from '../components/ColorPickerModal';
 import {PALETTE, fontScale, ensureReadable, initialOn, inkOn, profileTheme} from '../theme';
-import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, groupKind, groupParent, nameCompare, childrenOf, descendantsOf, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, isValidHex, tagKey, linkedSubsystemsOf, setSubsystemLinks} from '../utils';
+import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, groupKind, groupParent, nameCompare, childrenOf, descendantsOf, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, isValidHex, tagKey, linkedSubsystemsOf, setSubsystemLinks, normalizeMemberEmoji} from '../utils';
 import {store, KEYS} from '../storage';
 import {useAppStore} from '../store/appStore';
 import {saveGroups} from '../store/actions';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
 import {DateTimeEditor} from '../components/DateTimeEditor';
-import {deleteAvatar, saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl, avatarFullUri} from '../utils/mediaUtils';
+import {saveBannerImage, saveAvatarFromUri, saveBioImageFromUri, saveAvatarFromUrl, avatarFullUri} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
-export const MemberModal = ({visible, theme: baseT, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, onRequestEdit, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
+export const MemberModal = ({visible, theme: baseT, member, members, groups, settings, onSave, onDelete, onClose, readOnly: readOnlyProp = false, onMentionPress, isFronting = false, profileMode = false, onShowOnMap, fieldDefsOverride, connectionsOverride, lockRead = false, facetMode = false}: any) => {
   const {t} = useTranslation();
   const fs = fontScale(baseT);
   const isNew = !member;
@@ -103,7 +103,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
     const q = tagKey(tagInput.trim().replace(/^#/, ''));
     return [...seen.values()]
       .filter(tag => !q || tagKey(tag).includes(q))
-      .sort((a, b) => { const ka = tagKey(a), kb = tagKey(b); return ka < kb ? -1 : ka > kb ? 1 : 0; })
+      .sort((a, b) => nameCompare(tagKey(a), tagKey(b)))
       .slice(0, 30);
   }, [members, f.tags, tagInput]);
   const togGroup = (gid: string) => { const cur = f.groupIds || []; set('groupIds', cur.includes(gid) ? cur.filter(id => id !== gid) : [...cur, gid]); };
@@ -131,6 +131,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
       pronouns: cloneSel.pronouns ? (f.pronouns || '') : '',
       role: cloneSel.role ? (f.role || '') : '',
       color: cloneSel.color ? f.color : PALETTE[0],
+      emoji: cloneSel.color ? f.emoji : undefined,
       description: cloneSel.description ? (f.description || '') : '',
       tags: [],
       groupIds: [],
@@ -249,8 +250,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
     } theme={T} onClose={onClose}
       headerAction={!isNew && !lockRead ? (
         <TouchableOpacity onPress={() => setReadMode(m => !m)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={readMode ? t('common.edit') : t('modal.read')} accessibilityState={{selected: readMode}}
-          style={{paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginRight: 10}}>
-          <Text style={{fontSize: 13, fontWeight: '500', color: T.accent}}>{readMode ? t('common.edit') : t('modal.read')}</Text>
+          hitSlop={{top: 9, bottom: 9}} style={{paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, marginRight: 10}}>
+          <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{readMode ? t('common.edit') : t('modal.read')}</Text>
         </TouchableOpacity>
       ) : undefined}
       footer={readOnly ? (
@@ -268,7 +269,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           {(['main', 'fields', 'connections'] as MemberTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setMemberTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
-              style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
+              hitSlop={{top: 6, bottom: 6}} style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
               <Text numberOfLines={1} maxFontSizeMultiplier={1.3} style={{fontSize: fs(12), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}}>
                 {tab === 'main' ? (readOnly ? t('modal.profile') : t('modal.editMember')) : tab === 'fields' ? t('customFields.title') : t('systemMap.connections')}
               </Text>
@@ -286,14 +287,14 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel={f.isFacet
-            ? t('members.makeMember', {defaultValue: 'Move to Members'})
-            : t('members.makeFacet', {defaultValue: 'Move to Facets'})}
-          accessibilityHint={t('members.moveCategoryHint', {defaultValue: 'Keeps everything else about this profile. Facets are not counted as members.'})}
-          style={{alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 14}}>
+            ? t('members.makeMember')
+            : t('members.makeFacet')}
+          accessibilityHint={t('members.moveCategoryHint')}
+          hitSlop={{top: 8, bottom: 8}} style={{alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 14}}>
           <Text style={{fontSize: fs(12), color: T.dim, fontWeight: '600'}}>
             {f.isFacet
-              ? `↩ ${t('members.makeMember', {defaultValue: 'Move to Members'})}`
-              : `◈ ${t('members.makeFacet', {defaultValue: 'Move to Facets'})}`}
+              ? `↩ ${t('members.makeMember')}`
+              : `◈ ${t('members.makeFacet')}`}
           </Text>
         </TouchableOpacity>
       )}
@@ -323,16 +324,21 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           </View>
         </View>
         {f.avatar && (
-          <TouchableOpacity onPress={openViewPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} style={{alignSelf: 'flex-start', marginBottom: 8}}>
+          <TouchableOpacity onPress={openViewPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} hitSlop={{top: 8, bottom: 8}} style={{alignSelf: 'flex-start', marginBottom: 8}}>
             <Text style={{fontSize: fs(11), color: mc}}>🔍 {t('modal.viewPfp')}</Text>
           </TouchableOpacity>
         )}
 
         <View style={{flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginBottom: 10}}>
-          <View accessibilityLabel={`${profileMode ? t('profile.favoriteColor') : t('modal.color')}: ${f.color}`} style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: edge, backgroundColor: T.surface}}>
+          <View accessible accessibilityLabel={t('a11y.labelValue', {label: profileMode ? t('profile.favoriteColor') : t('modal.color'), value: f.color})} style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: edge, backgroundColor: T.surface}}>
             <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: f.color, borderWidth: 1, borderColor: bgOn ? T.border : 'rgba(255,255,255,0.2)'}} />
             <Text style={{fontSize: fs(11), color: T.dim, fontFamily: 'monospace'}} accessibilityElementsHidden importantForAccessibility="no">{f.color}</Text>
           </View>
+          {f.emoji ? (
+            <View accessible accessibilityLabel={t('a11y.labelValue', {label: t('modal.emoji'), value: f.emoji})} style={{paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, borderWidth: 1, borderColor: edge, backgroundColor: T.surface}}>
+              <Text style={{fontSize: fs(14)}} accessibilityElementsHidden importantForAccessibility="no">{f.emoji}</Text>
+            </View>
+          ) : null}
         </View>
 
         {!profileMode && (f.tags || []).length > 0 && (
@@ -351,8 +357,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 12}}>
               {activeGroups.map((g: MemberGroup) => (
                 <TouchableOpacity key={g.id} onPress={g.description ? () => setGroupInfo(g) : undefined} activeOpacity={g.description ? 0.7 : 1}
-                  accessibilityRole="button" accessibilityLabel={g.name}
-                  style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
+                  accessibilityRole={g.description ? 'button' : undefined} accessibilityLabel={g.name}
+                  hitSlop={{top: 7, bottom: 7}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
                     backgroundColor: bgOn ? T.surface : `${g.color || T.accent}20`, borderColor: bgOn ? T.border : `${g.color || T.accent}50`}}>
                   <View style={{width: 7, height: 7, borderRadius: groupKind(g) === 'subsystem' ? 1.5 : 3.5, backgroundColor: g.color || T.accent}} />
                   <Text style={{fontSize: fs(11), color: bgOn ? ensureReadable(g.color || T.accent, T.surface, 4.5) : (g.color || T.accent)}}>{g.name}</Text>
@@ -367,12 +373,12 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           if (linkedSubs.length === 0) return null;
           return (
             <View style={{marginBottom: 12}}>
-              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 6, fontWeight: '600'}}>{t('memberGroups.linkedSubsystems')}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 6, fontWeight: '600'}}>{t('memberGroups.linkedSubsystems')}</Text>
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7}}>
                 {linkedSubs.map((g: MemberGroup) => (
                   <TouchableOpacity key={g.id} onPress={g.description ? () => setGroupInfo(g) : undefined} activeOpacity={g.description ? 0.7 : 1}
                     accessibilityRole={g.description ? 'button' : undefined} accessibilityLabel={g.name}
-                    style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
+                    hitSlop={{top: 7, bottom: 7}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
                       backgroundColor: bgOn ? T.surface : `${g.color || T.accent}20`, borderColor: bgOn ? T.border : `${g.color || T.accent}50`}}>
                     <View style={{width: 7, height: 7, borderRadius: 1.5, backgroundColor: g.color || T.accent}} />
                     <Text style={{fontSize: fs(11), color: bgOn ? ensureReadable(g.color || T.accent, T.surface, 4.5) : (g.color || T.accent)}}>{g.name}</Text>
@@ -385,7 +391,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
 
         {f.description ? (
           <View style={{marginBottom: 14}}>
-            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: mc, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
             <View style={{backgroundColor: T.surface, borderWidth: 1, borderColor: edge, borderRadius: 8, padding: 12, minHeight: 80}}>
               <RichDescription text={f.description} T={T} members={members} onMentionPress={onMentionPress} />
             </View>
@@ -410,17 +416,17 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
             )}
           </TouchableOpacity>
           {f.avatar && (
-            <TouchableOpacity onPress={openViewPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} style={{marginTop: 6}}>
+            <TouchableOpacity onPress={openViewPfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.viewPfp')} hitSlop={{top: 6, bottom: 6}} style={{marginTop: 6}}>
               <Text style={{fontSize: fs(11), color: T.accent}}>🔍 {t('modal.viewPfp')}</Text>
             </TouchableOpacity>
           )}
           {f.avatar && !readOnly && (
-            <TouchableOpacity onPress={removeAvatar} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.removePfp')} style={{marginTop: 6}}>
+            <TouchableOpacity onPress={removeAvatar} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.removePfp')} hitSlop={{top: 6, bottom: 6}} style={{marginTop: 6}}>
               <Text style={{fontSize: fs(11), color: T.danger}}>{t('modal.removePfp')}</Text>
             </TouchableOpacity>
           )}
           {!readOnly && (
-            <TouchableOpacity onPress={() => setShowLink(!showLink)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.linkPfp')} style={{marginTop: 6}}>
+            <TouchableOpacity onPress={() => setShowLink(!showLink)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.linkPfp')} hitSlop={{top: 6, bottom: 8}} style={{marginTop: 6}}>
               <Text style={{fontSize: fs(11), color: T.accent}}>🔗 {t('modal.linkPfp')}</Text>
             </TouchableOpacity>
           )}
@@ -450,7 +456,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
             </View>
           </TouchableOpacity>
         )}
-        {f.banner && !readOnly && <TouchableOpacity onPress={() => Alert.alert(t('memberProfile.removeBanner'), t('modal.removeImageMsg'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.remove'), style: 'destructive', onPress: () => set('banner', undefined)}])} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberProfile.removeBanner')} style={{marginBottom: 8}}><Text style={{fontSize: fs(10), color: T.danger}}>{t('memberProfile.removeBanner')}</Text></TouchableOpacity>}
+        {f.banner && !readOnly && <TouchableOpacity onPress={() => Alert.alert(t('memberProfile.removeBanner'), t('modal.removeImageMsg'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.remove'), style: 'destructive', onPress: () => set('banner', undefined)}])} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberProfile.removeBanner')} hitSlop={{top: 10, bottom: 8}} style={{marginBottom: 8}}><Text style={{fontSize: fs(10), color: T.danger}}>{t('memberProfile.removeBanner')}</Text></TouchableOpacity>}
 
         <Field label={t('modal.name')} value={f.name} onChange={(v: string) => set('name', v)} placeholder={facetMode ? t('modal.facetName') : t('modal.headmateName')} readOnly={readOnly} T={T} />
         {!readOnly && (
@@ -458,8 +464,9 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
         )}
         <Field label={t('modal.pronouns')} value={f.pronouns} onChange={(v: string) => set('pronouns', v)} placeholder={t('modal.pronounsPlaceholder')} readOnly={readOnly} T={T} />
         {!profileMode && <Field label={t('modal.role')} value={f.role} onChange={(v: string) => set('role', v)} placeholder={t('modal.rolePlaceholder')} readOnly={readOnly} T={T} />}
+        <Field label={t('modal.emoji')} value={f.emoji || ''} onChange={(v: string) => set('emoji', normalizeMemberEmoji(v))} placeholder={t('modal.emojiPlaceholder')} readOnly={readOnly} T={T} />
 
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{profileMode ? t('profile.favoriteColor') : t('modal.color')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{profileMode ? t('profile.favoriteColor') : t('modal.color')}</Text>
         {!readOnly ? (
           <View style={{marginBottom: 14}}>
             <ColorCarousel value={f.color} onChange={(v: string) => set('color', v)} T={T} />
@@ -508,8 +515,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
             const active = selected.has(g.id);
             return (
               <TouchableOpacity key={g.id} onPress={readOnly ? (g.description ? () => setGroupInfo(g) : undefined) : () => togGroup(g.id)} activeOpacity={readOnly && !g.description ? 1 : 0.7}
-                accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={g.name}
-                style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                accessibilityRole={readOnly && !g.description ? undefined : 'button'} accessibilityState={{selected: active}} accessibilityLabel={g.name}
+                hitSlop={{top: 7, bottom: 7}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                   backgroundColor: active ? `${g.color || T.accent}20` : T.surface, borderColor: active ? `${g.color || T.accent}50` : T.border}}>
                 <View style={{width: 7, height: 7, borderRadius: groupKind(g) === 'subsystem' ? 1.5 : 3.5, backgroundColor: g.color || T.accent}} />
                 <Text style={{fontSize: fs(12), color: active ? (g.color || T.accent) : T.dim}}>{g.name}</Text>
@@ -521,7 +528,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           if (readOnly) {
             return (
               <>
-                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
+                <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
                 <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14}}>{visibleGroups.map((g: MemberGroup) => chip(g))}</View>
               </>
             );
@@ -556,7 +563,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                       <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                         {chip(g)}
                         <TouchableOpacity onPress={() => toggleOpen(g)} activeOpacity={0.7} hitSlop={{top: 6, bottom: 6, left: 6, right: 6}}
-                          accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={g.name}
+                          accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={t('memberGroups.expandA11y', {name: g.name, count: activeKids})}
                           style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}>
                           {!open && activeKids > 0 && <Text style={{fontSize: fs(10), fontWeight: '600', color: g.color || T.accent}}>{activeKids}</Text>}
                           <Text style={{fontSize: fs(10), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{open ? '▽' : '▷'}</Text>
@@ -571,7 +578,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           };
           return (
             <>
-              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
               <View style={{marginBottom: 14, gap: 7}}>
                 {renderLevel(null, 0)}
                 {unreached.length > 0 && (
@@ -587,7 +594,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           if (subs.length === 0) return null;
           return (
             <>
-              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.linkedSubsystems')}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.linkedSubsystems')}</Text>
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14}}>
                 {subs.map((g: MemberGroup) => {
                   const on = linkedIds.includes(g.id);
@@ -597,8 +604,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                   return (
                     <TouchableOpacity key={g.id} onPress={() => toggleLink(g.id)} activeOpacity={0.7}
                       accessibilityRole="checkbox" accessibilityState={{checked: on}}
-                      accessibilityLabel={other ? `${g.name}, ${t('memberGroups.linkedFronter')}: ${other.name}` : g.name}
-                      style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                      accessibilityLabel={other ? `${g.name}, ${t('a11y.labelValue', {label: t('memberGroups.linkedFronter'), value: other.name})}` : g.name}
+                      hitSlop={{top: 7, bottom: 7}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                         backgroundColor: on ? `${g.color || T.accent}20` : T.surface, borderColor: on ? `${g.color || T.accent}50` : T.border}}>
                       <View style={{width: 7, height: 7, borderRadius: 1.5, backgroundColor: g.color || T.accent}} />
                       <Text style={{fontSize: fs(12), color: on ? (g.color || T.accent) : T.dim}}>{g.name}{other ? `  ·  ${other.name}` : ''}</Text>
@@ -613,14 +620,14 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
 
         {!profileMode && (<>
         {(!readOnly || (f.tags || []).length > 0) && (
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.memberTags')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.memberTags')}</Text>
         )}
         {(f.tags || []).length > 0 && (
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: readOnly ? 14 : 8}}>
             {(f.tags || []).map((tag: string) => (
               <TouchableOpacity key={tag} onPress={readOnly ? undefined : () => set('tags', (f.tags || []).filter(x => x !== tag))} activeOpacity={readOnly ? 1 : 0.7}
-                accessibilityRole={readOnly ? undefined : 'button'} accessibilityLabel={readOnly ? undefined : `${t('common.remove')} ${tag}`}
-                style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
+                accessibilityRole={readOnly ? undefined : 'button'} accessibilityLabel={readOnly ? undefined : t('common.removeItem', {name: tag})}
+                hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
                 <Text style={{fontSize: fs(12), color: T.info}}>{tag}</Text>
                 {!readOnly && <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>}
               </TouchableOpacity>))}
@@ -637,8 +644,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           <View accessibilityRole="list" accessibilityLabel={t('members.allTags')} style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: -6, marginBottom: 14}}>
             {tagSuggestions.map(tag => (
               <TouchableOpacity key={tagKey(tag)} onPress={() => applyTag(tag)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={`${t('common.add')} ${tag}`}
-                style={{paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', backgroundColor: T.surface, borderColor: T.border}}>
+                accessibilityRole="button" accessibilityLabel={t('common.addItem', {name: tag})}
+                hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', backgroundColor: T.surface, borderColor: T.border}}>
                 <Text style={{fontSize: fs(12), color: T.dim}}>{tag}</Text>
               </TouchableOpacity>
             ))}
@@ -648,7 +655,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
 
         {(!readOnly || f.description) && (
           <View style={{marginBottom: 14}}>
-            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
             <TouchableOpacity onPress={readOnly ? undefined : () => setShowDescEditor(true)} activeOpacity={readOnly ? 1 : 0.7}
               accessibilityRole={readOnly ? undefined : 'button'} accessibilityLabel={readOnly ? undefined : t('modal.descriptionBio')}
               style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 80}}>
@@ -664,8 +671,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4, marginBottom: isNew ? 0 : 14}}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
               <View style={{flex: 1}}>
-                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.private')}</Text>
-                <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.privateDesc')}</Text>
+                <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.private')}</Text>
+                <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.privateDesc')}</Text>
               </View>
               <ToggleSwitch value={!!f.private} onToggle={() => set('private', !f.private)} label={t('modal.private')} T={T} style={{marginLeft: 12}} />
             </View>
@@ -676,8 +683,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
               <View style={{flex: 1}}>
-                <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.archiveMember')}</Text>
-                <Text style={{fontSize: fs(11), color: isFronting ? T.danger : T.muted, lineHeight: 15}}>{isFronting ? t('members.frontingLockMsg') : t('modal.archiveDesc')}</Text>
+                <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.archiveMember')}</Text>
+                <Text style={{fontSize: fs(11), color: isFronting ? T.danger : T.muted, lineHeight: fs(15)}}>{isFronting ? t('members.frontingLockMsg') : t('modal.archiveDesc')}</Text>
               </View>
               <ToggleSwitch value={!!f.archived} onToggle={() => set('archived', !f.archived)} label={t('modal.archiveMember')} T={T} disabled={isFronting} style={{marginLeft: 12}} />
             </View>
@@ -743,8 +750,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                   />
                   {val !== '' && !readOnly && (
                     <TouchableOpacity onPress={() => setFieldVal(fd.id, null)} activeOpacity={0.7}
-                      accessibilityRole="button" accessibilityLabel={`${t('common.clear')} ${fd.name}`}
-                      style={{alignSelf: 'flex-end', marginTop: -8, paddingVertical: 4, paddingHorizontal: 6}}>
+                      accessibilityRole="button" accessibilityLabel={t('common.clearItem', {name: fd.name})}
+                      hitSlop={{top: 6, bottom: 11}} style={{alignSelf: 'flex-end', marginTop: -8, paddingVertical: 4, paddingHorizontal: 6}}>
                       <Text style={{fontSize: fs(11), color: T.muted}}>{t('common.clear')}</Text>
                     </TouchableOpacity>
                   )}
@@ -765,7 +772,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
               };
               return (
                 <View key={fd.id} style={{marginBottom: 14, borderTopWidth: fdIndex > 0 ? 1 : 0, borderTopColor: T.border, paddingTop: fdIndex > 0 ? 14 : 0}}>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
                   <DateTimeEditor
                     date={startD}
                     onChange={readOnly ? () => {} : d => writeRange({start: d.getTime()})}
@@ -795,7 +802,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                   </View>
                 ) : fd.type === 'color' ? (
                   <View>
-                    <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
+                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
                     {readOnly ? (
                       <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                         <View style={{width: 32, height: 32, borderRadius: 8, backgroundColor: String(val || '#333'), borderWidth: 1, borderColor: T.border}} />
@@ -807,14 +814,14 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                   </View>
                 ) : fd.type === 'image' ? (
                   <View>
-                    <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
+                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{fd.name}</Text>
                     {val ? (
                       <View>
                         <Image source={{uri: String(val)}} accessibilityRole="image" accessibilityLabel={t('a11y.image')} style={{width: '100%', height: 180, borderRadius: 8, backgroundColor: T.surface}} resizeMode="cover" />
                         {!readOnly && (
                           <View style={{flexDirection: 'row', gap: 16, marginTop: 6}}>
-                            <TouchableOpacity onPress={() => pickCfImage(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.change')}><Text style={{fontSize: fs(12), color: T.accent}}>{t('common.change')}</Text></TouchableOpacity>
-                            <TouchableOpacity onPress={() => setFieldVal(fd.id, null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.clear')}><Text style={{fontSize: fs(12), color: T.danger}}>{t('common.clear')}</Text></TouchableOpacity>
+                            <TouchableOpacity hitSlop={{top: 15, bottom: 15}} onPress={() => pickCfImage(fd.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.change')}><Text style={{fontSize: fs(12), color: T.accent}}>{t('common.change')}</Text></TouchableOpacity>
+                            <TouchableOpacity hitSlop={{top: 15, bottom: 15}} onPress={() => setFieldVal(fd.id, null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.clear')}><Text style={{fontSize: fs(12), color: T.danger}}>{t('common.clear')}</Text></TouchableOpacity>
                           </View>
                         )}
                       </View>
@@ -861,7 +868,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                         backgroundColor: T.surface, color: T.text,
                         borderWidth: 1, borderColor: T.border, borderRadius: 8,
                         paddingHorizontal: 12, paddingVertical: 10,
-                        fontSize: fs(14), lineHeight: 20, minHeight: 72,
+                        fontSize: fs(14), lineHeight: fs(20), minHeight: 72,
                       }}
                     />
                   </View>
@@ -907,7 +914,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           )}
           {onShowOnMap && (
             <TouchableOpacity onPress={() => onShowOnMap(f.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.showOnMap')}
-              style={{alignSelf: 'flex-start', borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14}}>
+              hitSlop={{top: 6, bottom: 6}} style={{alignSelf: 'flex-start', borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14}}>
               <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('systemMap.showOnMap')}</Text>
             </TouchableOpacity>
           )}
@@ -915,7 +922,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
             !readOnly && <Text style={{fontSize: fs(12), color: T.dim, paddingVertical: 8}}>{t('systemMap.noneForMember')}</Text>
           ) : connRows.map(row => (
             <TouchableOpacity key={row.key} onPress={() => onMentionPress && onMentionPress(row.otherId)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={`${row.label}: ${row.name}`}
+              accessibilityRole="button" accessibilityLabel={[t('a11y.labelValue', {label: row.label, value: row.name}), row.note].filter(Boolean).join(', ')}
               style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
               <Avatar member={row.other} size={32} T={T} />
               <View style={{flex: 1}}>
@@ -949,10 +956,10 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(15), fontWeight: '600', color: T.text}} numberOfLines={1}>{groupInfo?.name}</Text>
             </View>
             <ScrollView style={{maxHeight: 260}}>
-              <Text style={{fontSize: fs(13), color: T.dim, lineHeight: 19}}>{groupInfo?.description}</Text>
+              <Text style={{fontSize: fs(13), color: T.dim, lineHeight: fs(19)}}>{groupInfo?.description}</Text>
             </ScrollView>
             <TouchableOpacity onPress={() => setGroupInfo(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
-              style={{alignItems: 'center', paddingVertical: 11, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+              hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 11, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.close')}</Text>
             </TouchableOpacity>
           </View>

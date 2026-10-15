@@ -11,7 +11,7 @@ export interface ImportProgress {
 
 export type ProgressSetter = (p: ImportProgress | string) => void;
 
-export class ImportStopped extends Error {
+class ImportStopped extends Error {
   readonly completedCount: number;
   constructor(completedCount = 0) {
     super('import stopped by user');
@@ -97,7 +97,5 @@ export const progressFraction = (p: ImportProgress | null): number | null => {
 
 export const stoppedSummary = (control: ImportControl, t: TFunction): string =>
   t('share.importStopped', {
-    defaultValue:
-      'Import stopped. {{count}} step(s) finished and were saved; the remaining steps were not run.',
     count: control.completed.length,
   });

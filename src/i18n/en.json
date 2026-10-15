@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Write in markdown…",
     "urlPlaceholder": "URL Here",
     "textPlaceholder": "text",
-    "body": "Editor"
+    "body": "Editor",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Bold",
@@ -97,7 +98,14 @@
     "unknown": "Unknown",
     "untitled": "Untitled",
     "ok": "OK",
-    "search": "Search…"
+    "search": "Search…",
+    "removeItem": "Remove {{name}}",
+    "addItem": "Add {{name}}",
+    "clearItem": "Clear {{name}}",
+    "editItem": "Edit {{name}}",
+    "deleteItem": "Delete {{name}}",
+    "exportItem": "Export {{name}}",
+    "errorCode": "Error code: {{code}}"
   },
   "a11y": {
     "settings": "Settings",
@@ -116,7 +124,8 @@
     "minute": "Minute",
     "switchToAm": "PM, switch to AM",
     "switchToPm": "AM, switch to PM",
-    "image": "Image"
+    "image": "Image",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Something went wrong",
@@ -183,7 +192,8 @@
     "statusesDesc": "Statuses describe how you're doing — like Sleeping, Working, or Anxious. Select them when updating your status.",
     "noStatuses": "No statuses yet. Add one to get started.",
     "activeStatus": "Active",
-    "favoriteColor": "Favorite Color"
+    "favoriteColor": "Favorite Color",
+    "statusActiveA11y": "{{name}}, active"
   },
   "settings": {
     "observatory": "Observatory (Singlet) Interface",
@@ -200,7 +210,9 @@
     "noNote": "No note. Tap Edit to add one.",
     "clearFront": "Clear Front",
     "clearFrontMsg": "This will clear all tiers and log the end of the current session. Continue?",
-    "clearFrontTitle": "Clear Front?"
+    "clearFrontTitle": "Clear Front?",
+    "frontingForA11y": "{{name}}, fronting for {{dur}}",
+    "frontingForSince": "Fronting for <b>{{dur}}</b> · since {{time}}"
   },
   "members": {
     "frontingLockTitle": "Currently fronting",
@@ -280,7 +292,22 @@
     "bulkRestoreMsg": "Restore {{count}} member(s) to active?",
     "bulkDelete": "Delete members",
     "bulkDeleteMsg": "Permanently delete {{count}} member(s)? This cannot be undone.",
-    "recentlyDeleted": "Recently Deleted"
+    "recentlyDeleted": "Recently Deleted",
+    "nameInTier": "{{name}}, in {{tier}}",
+    "moveUpItem": "Move {{name}} up",
+    "moveDownItem": "Move {{name}} down",
+    "addToFrontName": "Add to front — {{name}}",
+    "removeFromFrontName": "Remove from front — {{name}}",
+    "titleCount": "Members ({{n}})",
+    "facetsCount": "Facets ({{n}})",
+    "customFrontsCount": "Custom Fronts ({{n}})",
+    "restoreItem": "Restore {{name}}",
+    "bulkArchiveMsg_one": "Archive {{count}} member? They can be restored later.",
+    "bulkArchiveMsg_other": "Archive {{count}} members? They can be restored later.",
+    "bulkRestoreMsg_one": "Restore {{count}} member to active?",
+    "bulkRestoreMsg_other": "Restore {{count}} members to active?",
+    "bulkDeleteMsg_one": "Permanently delete {{count}} member? This cannot be undone.",
+    "bulkDeleteMsg_other": "Permanently delete {{count}} members? This cannot be undone."
   },
   "history": {
     "title": "History",
@@ -324,7 +351,15 @@
     "deleteConfirm2": "This action cannot be undone. Really delete?",
     "deleteConfirm3": "Final confirmation: permanently delete this entry?",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "moodBadge": "mood <b>{{mood}}</b>",
+    "atBadge": "at <b>{{location}}</b>",
+    "energyBadge": "Energy <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Mood & Location Changed ({{tier}})",
+    "moodChanged_tier": "Mood Changed ({{tier}})",
+    "locationChanged_tier": "Location Changed ({{tier}})",
+    "noteUpdated_tier": "Note Updated ({{tier}})",
+    "frontSwitch_tier": "Front Switch ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "This will permanently remove this template.",
@@ -359,7 +394,8 @@
     "templateName": "Template Name *",
     "templateNamePlaceholder": "e.g. Morning Pages",
     "templateTitle": "Entry Title (preset)",
-    "templateBody": "Entry Body (preset)"
+    "templateBody": "Entry Body (preset)",
+    "openEntryHint": "Opens the full entry"
   },
   "share": {
     "banners": "Banners",
@@ -569,6 +605,7 @@
     "exportReady": "Export Ready",
     "exportReadyMsg": "{{filename}} was generated, but the share sheet could not be opened automatically.",
     "importing": "Importing…",
+    "exporting": "Exporting…",
     "importStopping": "Finishing this step, then stopping…",
     "progressJournal": "Restoring journal…",
     "progressHistory": "Restoring front history…",
@@ -586,7 +623,36 @@
     "progressBannersDownloadN": "Downloading banners… {{done}}/{{total}}",
     "progressChat": "Restoring chat…",
     "progressChatN": "Restoring chat channels… {{done}}/{{total}}",
-    "progressSavingMembers": "Saving members…"
+    "progressSavingMembers": "Saving members…",
+    "exportAs": "Export as {{format}}",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "“{{text}}”",
+    "exportMailExportedLine": "Exported: {{date}}",
+    "exportMailMembersHeader": "MEMBERS ({{count}})",
+    "exportMailJournalHeader": "JOURNAL ({{count}})",
+    "exportMailJournalHeaderRecent": "JOURNAL ({{count}} — showing {{shown}} most recent)",
+    "exportMailHistoryHeader": "FRONT HISTORY ({{count}})",
+    "exportMailHistoryHeaderRecent": "FRONT HISTORY ({{count}} — showing {{shown}} most recent)",
+    "exportTitleLine": "Title: {{title}}",
+    "exportDateLine": "Date: {{date}}",
+    "exportAuthorsLine": "Authors: {{authors}}",
+    "importStopped_one": "Import stopped. {{count}} step finished and was saved; the remaining steps were not run.",
+    "importStopped_other": "Import stopped. {{count}} steps finished and were saved; the remaining steps were not run.",
+    "psAvatarsImported_one": "Imported {{count}} avatar.",
+    "psAvatarsImported_other": "Imported {{count}} avatars.",
+    "recoverConfirmMsg_one": "Restore {{count}} backup item into the app? This will overwrite current data for that category.",
+    "recoverConfirmMsg_other": "Restore {{count}} backup items into the app? This will overwrite current data for those categories.",
+    "cfUnmatched_one": "{{count}} key did not match any of our field IDs/names. Sample unmatched key: {{samples}}",
+    "cfUnmatched_other": "{{count}} keys did not match any of our field IDs/names. Sample unmatched keys: {{samples}}",
+    "unnamedMember": "Unnamed member",
+    "fieldN": "Field {{n}}",
+    "systemN": "System {{n}}",
+    "groupN": "Group {{n}}",
+    "channelN": "Channel {{n}}",
+    "ageField": "Age",
+    "errUnexpected": "Something went wrong. Please check the file and try again."
   },
   "hub": {
     "front": "Front",
@@ -613,11 +679,11 @@
     "statistics": "Statistics",
     "systemChat": "System Chat",
     "archive": "Archive",
-    "discord": "Discord",
     "credits": "Credits",
     "creditLogo": "Plural Star Logo",
     "creditIos": "Plural Star iOS Port",
-    "supportPS": "Support PS"
+    "supportPS": "Support PS",
+    "discord": "Discord"
   },
   "modal": {
     "linkPfp": "Link image",
@@ -656,6 +722,8 @@
     "colorLock": "Color lock",
     "invalidHex": "Invalid hex color",
     "customColor": "Custom Color",
+    "emoji": "Emoji",
+    "emojiPlaceholder": "e.g. 🦊",
     "transparentColor": "Transparent",
     "removeImageMsg": "Remove this image?",
     "deletePaletteMsg": "This will permanently remove this palette.",
@@ -738,7 +806,17 @@
     "textScaleLarge": "Large",
     "textScaleExtraLarge": "Extra Large",
     "dyslexicFont": "Dyslexia-Friendly Font",
-    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font."
+    "dyslexicFontDesc": "Switches body text to OpenDyslexic. Headings keep their styled font.",
+    "cropArea": "Crop area",
+    "addEntryPassword": "Add entry password",
+    "removeEntryPassword": "Remove entry password",
+    "addJournalPassword": "Add journal password",
+    "removeJournalPassword": "Remove journal password",
+    "addAppLockPassword": "Add app lock password",
+    "removeAppLockPassword": "Remove app lock password",
+    "fontDefault": "Default",
+    "paletteObsidian": "Obsidian",
+    "paletteSteel": "Steel"
   },
   "notification": {
     "locationPermTitle": "Location Permission",
@@ -782,7 +860,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} new notes",
     "chatPingTitle": "◆ {{speaker}} pinged you in #{{channel}}",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "Tap to view the message."
+    "chatPingBodyEmpty": "Tap to view the message.",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -833,11 +912,21 @@
     "removeMembers": "Remove members",
     "deleteGroup": "Delete Group",
     "deleteGroupMsg": "Remove this group? Members won't be deleted.",
-    "deleteWithChildrenMsg": "This contains {{count}} nested item(s). Keep them and move them up one level, or delete everything?"
+    "deleteWithChildrenMsg": "This contains {{count}} nested item(s). Keep them and move them up one level, or delete everything?",
+    "subgroupCount_one": "{{count}} subgroup",
+    "subgroupCount_other": "{{count}} subgroups",
+    "expandA11y": "{{name}} subgroups, {{count}} selected",
+    "subsystemNamed": "{{name}}, subsystem",
+    "moveItem": "Move {{name}}",
+    "addMembersTo": "Add members — {{name}}",
+    "newKind": "New item type",
+    "deleteWithChildrenMsg_one": "This contains {{count}} nested item. Keep it and move it up one level, or delete everything?",
+    "deleteWithChildrenMsg_other": "This contains {{count}} nested items. Keep them and move them up one level, or delete everything?"
   },
   "stats": {
     "showMore": "Show more",
     "showMoreN": "Show more — showing {{shown}} of {{total}}",
+    "showMoreShort": "Show more ({{shown}}/{{total}})",
     "energyByHour": "Energy by Hour",
     "allTime": "All Time",
     "last7": "7 Days",
@@ -867,7 +956,13 @@
     "topCoMembers": "Top Co-Members",
     "msgsSuffix": "msgs",
     "sessionsSuffix": "sessions",
-    "totalSessions": "Total Sessions"
+    "totalSessions": "Total Sessions",
+    "sessionsCount_one": "{{count}} session",
+    "sessionsCount_other": "{{count}} sessions",
+    "msgsCount_one": "{{count}} msg",
+    "msgsCount_other": "{{count}} msgs",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "session"
   },
   "chat": {
     "addReaction": "Add reaction",
@@ -916,12 +1011,47 @@
     "deleteMsgConfirm": "This message will be removed permanently.",
     "editingHeader": "Editing message",
     "editPlaceholder": "Edit message…",
-    "imagePreview": "[image]"
+    "imagePreview": "[image]",
+    "reactionA11y_one": "{{emoji}}, {{count}} reaction",
+    "reactionA11y_other": "{{emoji}}, {{count}} reactions",
+    "replyTo": "Reply to {{name}}",
+    "archiveChannelNamed": "Archive {{name}}",
+    "defaultGeneral": "General",
+    "defaultVenting": "Venting",
+    "defaultPlanning": "Planning",
+    "attachment": "Attachment"
   },
   "customFront": {
     "add": "Add Custom Front",
     "edit": "Edit Custom Front",
     "namePlaceholder": "Custom front name"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Chatty",
+      "nonVerbal": "Non-Verbal",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Blurry",
+      "blendy": "Blendy",
+      "rapidSwitching": "Rapid Switching",
+      "foggy": "Foggy",
+      "grounded": "Grounded",
+      "dissociated": "Dissociated",
+      "anxious": "Anxious",
+      "depressed": "Depressed",
+      "cheerful": "Cheerful",
+      "happy": "Happy",
+      "sad": "Sad",
+      "crisis": "Crisis",
+      "melancholy": "Melancholy",
+      "stimming": "Stimming",
+      "stressed": "Stressed",
+      "working": "Working",
+      "traveling": "Traveling",
+      "sleeping": "Sleeping",
+      "hyperfocus": "Hyperfocus"
+    }
   },
   "lock": {
     "locked": "Locked",
@@ -939,7 +1069,9 @@
     "browse": "Browse",
     "deleteSelectedMsg": "Remove {{count}} selected item(s)? Members won't be deleted.",
     "desc": "Create, edit, rearrange, and delete groups and sub-systems. Tap ⇄ on an item, then a destination, to nest it.",
-    "title": "System Manager"
+    "title": "System Manager",
+    "deleteSelectedMsg_one": "Remove {{count}} selected item? Members won't be deleted.",
+    "deleteSelectedMsg_other": "Remove {{count}} selected items? Members won't be deleted."
   },
   "customFields": {
     "title": "Custom Fields",
@@ -991,6 +1123,7 @@
     "cloudErrRate": "Too many attempts. Wait a minute and try again.",
     "cloudErrFull": "The vault or the node is out of space.",
     "cloudErrTooLarge": "Left out, over 25 MB: {{keys}}",
+    "cloudErrOverQuota": "Left out, the vault is out of space: {{keys}}",
     "cloudErrCorrupt": "The vault could not be read on this device. Unlink and link again with the same password.",
     "cloudErrBadPassword": "The vault exists but this password does not open it.",
     "cloudUnavailable": "The node you are connected to does not offer Cloud Services.",
@@ -1059,6 +1192,7 @@
     "deleteBucket": "Delete bucket",
     "deleteBucketMsg": "Delete “{{name}}”?",
     "cloneBucket": "Clone bucket",
+    "cloneBucketName": "Clone bucket — {{name}}",
     "viewShared": "View shared",
     "mirrorNothing": "They haven't shared this with you yet.",
     "mirrorOffline": "Friend is offline — showing the last received copy.",
@@ -1109,7 +1243,16 @@
     "syncCloneSending": "Sending first copy…",
     "syncCloneReceiving": "Receiving first copy…",
     "syncCloneDone": "First copy complete",
-    "publishFailed": "Couldn't publish your code — check your connection and try again."
+    "publishFailed": "Couldn't publish your code — check your connection and try again.",
+    "friendStatusOffline": "{{status}}. Offline",
+    "scopeCount": "{{count}} selected",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Something went wrong with cloud sync. Please try again.",
+    "scopeSelectTitle": "{{feature}} — Select",
+    "viewSharedTitle": "{{name}} — View shared",
+    "deviceFallback": "Device",
+    "friendFallback": "Friend",
+    "androidDeviceFallback": "Android device"
   },
   "terminology": {
     "fronter": "Fronter",
@@ -1183,7 +1326,9 @@
     "addTime": "Add time",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Planner reminder"
+    "notifReminder": "Planner reminder",
+    "todayA11y": "Today, {{date}}",
+    "reminderOff": "Off"
   },
   "mailbox": {
     "title": "Mailbox",
@@ -1206,7 +1351,13 @@
     "messageCount_other": "{{count}} messages",
     "unreadCount": "{{count}} unread",
     "deleteTitle": "Delete Message",
-    "deleteMsg": "Remove this message? This cannot be undone."
+    "deleteMsg": "Remove this message? This cannot be undone.",
+    "locked": "Locked",
+    "unlocked": "Not locked",
+    "allOthersCount": "All other Members · {{count}}",
+    "unread": "Unread",
+    "deleteFrom": "Delete message from {{name}}",
+    "frontersHaveMail": "Unread mail for: {{names}}"
   },
   "whiteboard": {
     "title": "Whiteboard",
@@ -1261,7 +1412,9 @@
     "voPosDown": "{{n}} down",
     "voPosUp": "{{n}} up",
     "voEdges": "{{left}} to left edge, {{right}} to right, {{top}} to top, {{bottom}} to bottom",
-    "voRecentered": "Pen recentered in the middle"
+    "voRecentered": "Pen recentered in the middle",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Brush size {{n}}"
   },
   "systemMap": {
     "connections": "Connections",
@@ -1306,7 +1459,11 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "resetView": "Reset view",
-    "notePlaceholder": "Optional note…"
+    "notePlaceholder": "Optional note…",
+    "mapA11y": "Relationship map, {{members}}, {{relationships}}",
+    "mapA11yHint": "Use the actions menu to select a member",
+    "depthN_one": "{{count}} connection out",
+    "depthN_other": "{{count}} connections out"
   },
   "relType": {
     "love": "Love",
@@ -1372,13 +1529,17 @@
     "deletePollMsg": "This will permanently remove this poll.",
     "noPolls": "No polls yet.",
     "closed": "Closed",
-    "votingAs": "Voting as:"
+    "votingAs": "Voting as:",
+    "optionN": "Option {{n}}",
+    "removeOptionN": "Remove option {{n}}"
   },
   "energy": {
     "label": "Energy",
     "level": "Energy Level",
     "avgEnergy": "Avg Energy",
-    "outOf10": "/10 energy"
+    "outOf10": "/10 energy",
+    "levelN": "Energy level {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Read",

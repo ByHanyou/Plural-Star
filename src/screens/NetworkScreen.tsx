@@ -4,7 +4,7 @@ import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {fmtDur, fmtTime, fmtPercent, uid, Member, MemberGroup, JournalEntry, CustomFieldDef, Relationship, RelationshipTypeDef, PRESET_RELATIONSHIP_TYPES, memberMatchesSearch} from '../utils';
+import {fmtDur, fmtTime, fmtPercent, uid, CustomFieldDef, Relationship, RelationshipTypeDef, PRESET_RELATIONSHIP_TYPES, memberMatchesSearch, translateMood} from '../utils';
 import {fontScale, ThemeColors, initialOn} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
@@ -16,6 +16,7 @@ import {Friend, MAX_NOTIF_FRIENDS, PrivacyBucket, PrivacyScope, PrivacyScopeMode
 import {MirrorScreen} from './MirrorScreen';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {CloudServices} from '../cloud/cloudPlatform';
+import {cloudErrorCode} from '../cloud/cloudTypes';
 import {useCloud} from '../cloud/useCloud';
 import {passwordRuleFailing} from '../cloud/cloudCrypto';
 
@@ -157,7 +158,10 @@ export const NetworkScreen = ({theme: T}: Props) => {
     try {
       await fn();
     } catch (e: any) {
-      Alert.alert(t('network.errorTitle'), String(e?.message || e));
+      const raw = String(e?.message || e);
+      const msg = raw.toLowerCase();
+      const offline = msg.includes('timed out') || msg.includes('timeout') || msg.includes('network request failed') || msg.includes('not connected');
+      Alert.alert(t('network.errorTitle'), offline ? t('network.status.error') : raw);
     } finally {
       setBusy(false);
     }
@@ -225,13 +229,13 @@ export const NetworkScreen = ({theme: T}: Props) => {
             {text: t('network.cloudImport'), style: 'destructive', onPress: () => {
               CloudServices.importExisting(cloudMedia)
                 .then(() => setCloudPw(''))
-                .catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e))));
+                .catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e), cloudErrorCode(e))));
             }},
           ]);
         }},
       ]);
     } catch (e: any) {
-      Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e)));
+      Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e), cloudErrorCode(e)));
     }
   };
   const onCloudUnlink = () => {
@@ -241,7 +245,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
         Alert.alert(t('network.cloudUnlink'), t('network.cloudUnlinkConfirm2'), [
           {text: t('common.cancel'), style: 'cancel'},
           {text: t('network.cloudUnlink'), style: 'destructive', onPress: () => {
-            CloudServices.unlink().then(() => setCloudOn(false)).catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e))));
+            CloudServices.unlink().then(() => setCloudOn(false)).catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e), cloudErrorCode(e))));
           }},
         ]);
       }},
@@ -253,17 +257,20 @@ export const NetworkScreen = ({theme: T}: Props) => {
     Alert.alert(t('network.cloudTitle'), t('network.cloudBlocksSync'));
     return true;
   };
-  const cloudErrorText = (raw: string): string => {
+  const cloudErrorText = (raw: string, code: string): string => {
     const s = raw.toLowerCase();
     const m = raw.match(/^Left out, larger than \d+ MB: (.*)$/);
     if (m) return t('network.cloudErrTooLarge', {keys: m[1]});
+    const q = raw.match(/^Left out, over the vault's space: (.*)$/);
+    if (q) return t('network.cloudErrOverQuota', {keys: q[1]});
     if (s.includes('object too large')) return t('network.cloudErrTooLarge', {keys: ''});
     if (s.includes('rate limited') || s.includes('429')) return t('network.cloudErrRate');
     if (s.includes('quota') || s.includes('watermark') || s.includes('507')) return t('network.cloudErrFull');
     if (s.includes('does not open it') || s.includes('bad password') || s.includes('bad auth')) return t('network.cloudErrBadPassword');
     if (s.includes('undecryptable') || s.includes('malformed') || s.includes('hash mismatch') || s.includes('did not match its id') || s.includes('could not be decrypted')) return t('network.cloudErrCorrupt');
     if (s.includes('kept changing the vault') || s.includes('conflict') || s.includes('network') || s.includes('timed out') || s.includes('failed') || s.includes('fetch') || s.includes('not connected') || s.includes('unreach') || /http 5\d\d/.test(s)) return t('network.cloudErrNetwork');
-    return raw;
+    if (__DEV__) console.warn('[cloud]', raw);
+    return `${t('network.cloudErrGeneric')} ${t('common.errorCode', {code})}`;
   };
   const onGenerate = (kind: Kind) => {
     if (cloudBlocksSync(kind)) return;
@@ -367,7 +374,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
           onPress={() => onCopy(kind, code)}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel={`${t('network.yourCode')}: ${code}`}
+          accessibilityLabel={t('a11y.labelValue', {label: t('network.yourCode'), value: code})}
           accessibilityHint={t('network.tapToCopy')}
           style={{backgroundColor: T.bg, borderColor: T.accent, borderWidth: 1, borderRadius: 8, paddingVertical: 12, alignItems: 'center'}}>
           <Text style={{fontSize: fs(kind === 'device' ? 17 : 20), fontWeight: '700', letterSpacing: 2, color: T.text}}>{code}</Text>
@@ -376,7 +383,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
           </Text>
         </TouchableOpacity>
       ) : (
-        <TouchableOpacity onPress={() => onGenerate(kind)} disabled={busy} activeOpacity={0.8} style={primaryBtn} accessibilityRole="button" accessibilityState={{disabled: busy}}>
+        <TouchableOpacity onPress={() => onGenerate(kind)} disabled={busy} activeOpacity={0.8} hitSlop={{top: 4, bottom: 4}} style={primaryBtn} accessibilityRole="button" accessibilityState={{disabled: busy}}>
           <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(14)}}>{t('network.generateCode')}</Text>
         </TouchableOpacity>
       )}
@@ -390,9 +397,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
     const s = f.lastStatus;
     if (!s) return online ? t('network.online') : t('network.offline');
     const bits = [s.fronters];
-    if (s.mood) bits.push(s.mood);
+    if (s.mood) bits.push(translateMood(s.mood, t));
     if (s.location) bits.push(s.location);
-    return `${bits.join(', ')}${online ? '' : '. ' + t('network.offline')}`;
+    return online ? bits.join(', ') : t('network.friendStatusOffline', {status: bits.join(', ')});
   };
 
   const renderFriendStatus = (f: Friend) => {
@@ -409,13 +416,13 @@ export const NetworkScreen = ({theme: T}: Props) => {
     return (
       <View style={{marginTop: 2}}>
         <Text style={{fontSize: fs(12), fontWeight: '600', color: head}}>◈ {s.fronters}{dur ? `  ·  ${dur}` : ''}</Text>
-        {s.primary ? line(t('notification.primary', {names: s.primary, defaultValue: `Primary: ${s.primary}`}), 'p') : null}
-        {s.coFront ? line(t('notification.coFront', {names: s.coFront, defaultValue: `Co-Front: ${s.coFront}`}), 'cf') : null}
-        {s.coConscious ? line(t('notification.coConscious', {names: s.coConscious, defaultValue: `Co-Conscious: ${s.coConscious}`}), 'cc') : null}
-        {s.mood ? line(t('notification.mood', {mood: s.mood, defaultValue: `Mood: ${s.mood}`}), 'm') : null}
-        {s.location ? line(t('notification.at', {location: s.location, defaultValue: `At: ${s.location}`}), 'l') : null}
-        {s.note ? line(t('notification.note', {note: s.note, defaultValue: `Note: ${s.note}`}), 'n') : null}
-        {s.startTime ? line(t('notification.since', {time: fmtTime(s.startTime), defaultValue: `Since ${fmtTime(s.startTime)}`}), 's') : null}
+        {s.primary ? line(t('notification.primary', {names: s.primary}), 'p') : null}
+        {s.coFront ? line(t('notification.coFront', {names: s.coFront}), 'cf') : null}
+        {s.coConscious ? line(t('notification.coConscious', {names: s.coConscious}), 'cc') : null}
+        {s.mood ? line(t('notification.mood', {mood: translateMood(s.mood, t)}), 'm') : null}
+        {s.location ? line(t('notification.at', {location: s.location}), 'l') : null}
+        {s.note ? line(t('notification.note', {note: s.note}), 'n') : null}
+        {s.startTime ? line(t('notification.since', {time: fmtTime(s.startTime)}), 's') : null}
         {!online ? <Text style={{fontSize: fs(10), color: T.muted, marginTop: 2, fontStyle: 'italic'}}>{t('network.offline')}</Text> : null}
       </View>
     );
@@ -423,11 +430,11 @@ export const NetworkScreen = ({theme: T}: Props) => {
 
   const featureLabel = (f: BucketFeature): string =>
     f === 'front' ? t('tabs.front') : f === 'members' ? t('tabs.members') : f === 'facets' ? t('members.facets') : f === 'customFronts' ? t('members.customFronts') : f === 'groups' ? t('members.fieldGroups') : f === 'journal' ? t('tabs.journal') : f === 'history' ? t('tabs.history') : f === 'customFields' ? t('customFields.title') : f === 'systemProfile' ? t('systemProfile.title') : f === 'whiteboard' ? t('whiteboard.title') : f === 'planner' ? t('planner.title') : t('systemMap.title');
-  const scopeSummary = (s: PrivacyScope): string =>
-    s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : `${s.ids.length}`;
+  const scopeSummary = (s: PrivacyScope, short?: boolean): string =>
+    s.mode === 'all' ? t('network.scopeAll') : s.mode === 'none' ? t('network.scopeNone') : short ? `${s.ids.length}` : t('network.scopeCount', {count: s.ids.length});
   const effectiveShare = (peerId: string, f: BucketFeature): PrivacyScope => {
     const mine = buckets.filter(b => (b.friendPeerIds || []).includes(peerId));
-    if (mine.length === 0) return {mode: 'all', ids: []};
+    if (mine.length === 0) return {mode: f === 'front' || f === 'facets' || f === 'customFronts' ? 'all' : 'none', ids: []};
     const ids = new Set<string>();
     let all = false;
     for (const b of mine) {
@@ -463,7 +470,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const cloneBucket = (b: Bucket) => {
     setEditBucket({
       id: uid(),
-      name: `${b.name} 2`,
+      name: t('network.bucketCopyName', {name: b.name}),
       front: {mode: b.front.mode, ids: []},
       frontMood: b.frontMood,
       frontLocation: b.frontLocation,
@@ -508,7 +515,8 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const relLabel = (r: Relationship): string => {
     const rt = relTypes.find(x => x.id === r.typeId) || PRESET_RELATIONSHIP_TYPES.find(x => x.id === r.typeId);
     const arrow = rt?.directional ? '→' : '↔';
-    return `${memberName(r.fromId)} ${arrow} ${memberName(r.toId)}${rt ? `  ·  ${rt.name}` : ''}`;
+    const rtName = rt ? ((rt.preset && !rt.overridden) ? t(`relType.${rt.id}`, {defaultValue: rt.name}) : rt.name) : '';
+    return `${memberName(r.fromId)} ${arrow} ${memberName(r.toId)}${rt ? `  ·  ${rtName}` : ''}`;
   };
 
   const pickerItems: {id: string; name: string}[] = !pickerFeature ? [] : (pickerFeature === 'groups'
@@ -578,7 +586,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
         ))}
         {f.kind !== 'device' && f.status === 'accepted' && (
           <TouchableOpacity onPress={() => setMirrorMenuFor(f)} activeOpacity={0.7} accessibilityRole="button"
-            accessibilityLabel={`${t('network.viewShared')}, ${f.displayName}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            accessibilityLabel={t('network.viewSharedTitle', {name: f.displayName})} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
             <Text style={{color: T.dim, fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no">⋯</Text>
           </TouchableOpacity>
         )}
@@ -597,7 +605,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
             </TouchableOpacity>
           );
         })()}
-        <TouchableOpacity onPress={() => onRemove(f)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.remove')}, ${f.displayName}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+        <TouchableOpacity onPress={() => onRemove(f)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: f.displayName})} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
           <Text style={{color: T.dim, fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
         </TouchableOpacity>
       </View>
@@ -635,7 +643,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
             <View style={card}>
               <Text accessibilityRole="header" style={labelStyle}>{t('network.tabPrivacy')}</Text>
               <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 12}}>{t('network.privacyDesc')}</Text>
-              <TouchableOpacity onPress={() => setEditBucket(newBucket(''))} activeOpacity={0.8} style={primaryBtn} accessibilityRole="button" accessibilityLabel={t('network.newBucket')}>
+              <TouchableOpacity onPress={() => setEditBucket(newBucket(''))} activeOpacity={0.8} hitSlop={{top: 4, bottom: 4}} style={primaryBtn} accessibilityRole="button" accessibilityLabel={t('network.newBucket')}>
                 <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.newBucket')}</Text>
               </TouchableOpacity>
             </View>
@@ -646,18 +654,18 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 <Text style={{fontSize: fs(12), color: T.dim}}>{t('network.noBuckets')}</Text>
               ) : buckets.map(b => (
                 <View key={b.id} style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
-                  <TouchableOpacity style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket(splitKinds({...b}))} activeOpacity={0.7}
+                  <TouchableOpacity hitSlop={{top: 10, bottom: 10}} style={{flex: 1, marginRight: 8}} onPress={() => setEditBucket(splitKinds({...b}))} activeOpacity={0.7}
                     accessibilityRole="button"
-                    accessibilityLabel={`${b.name}. ${BUCKET_ROWS.map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join(', ')}`}>
+                    accessibilityLabel={[b.name, ...BUCKET_ROWS.map(f => t('a11y.labelValue', {label: featureLabel(f), value: scopeSummary(b[f])}))].join(', ')}>
                     <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{b.name}</Text>
                     <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2} accessibilityElementsHidden importantForAccessibility="no">
-                      {BUCKET_ROWS.map(f => `${featureLabel(f)}: ${scopeSummary(b[f])}`).join('  ·  ')}
+                      {BUCKET_ROWS.map(f => t('a11y.labelValue', {label: featureLabel(f), value: scopeSummary(b[f], true)})).join('  ·  ')}
                     </Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => cloneBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.cloneBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                  <TouchableOpacity onPress={() => cloneBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('network.cloneBucketName', {name: b.name})} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                     <Text style={{color: T.dim, fontSize: fs(15)}} accessibilityElementsHidden importantForAccessibility="no">⧉</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => confirmDeleteBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('network.deleteBucket')}, ${b.name}`} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+                  <TouchableOpacity onPress={() => confirmDeleteBucket(b)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: b.name})} style={{padding: 10}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
                     <Text style={{color: T.dim, fontSize: fs(16)}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
                   </TouchableOpacity>
                 </View>
@@ -672,7 +680,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 <Switch value={net.enabled} disabled={busy} onValueChange={onToggle} accessibilityRole="switch" accessibilityLabel={t('network.enable')} accessibilityState={{checked: net.enabled, disabled: busy}} />
               </View>
               <Text style={{fontSize: fs(12), color: T.dim, marginTop: 8}}>{t('network.enableDesc')}</Text>
-              <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 12}} accessible accessibilityRole="text" accessibilityLabel={`${t('network.enable')} — ${statusLabel()}`}>
+              <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 12}} accessible accessibilityRole="text" accessibilityLabel={t('a11y.labelValue', {label: t('network.enable'), value: statusLabel()})}>
                 <View style={{width: 9, height: 9, borderRadius: 5, backgroundColor: statusColor(), marginRight: 8}} importantForAccessibility="no" accessibilityElementsHidden />
                 <Text style={{fontSize: fs(12), color: T.text}} accessibilityElementsHidden importantForAccessibility="no">{statusLabel()}</Text>
               </View>
@@ -720,7 +728,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                     </Text>
                   )}
                   {cloud.lastError ? (
-                    <Text style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '')})}</Text>
+                    <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '', cloud.lastErrorCode || 'CLOUD-APP')})}</Text>
                   ) : null}
                   <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14}}>
                     <View style={{flex: 1, marginRight: 12}}>
@@ -731,7 +739,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                       accessibilityRole="switch" accessibilityLabel={t('network.cloudMediaTier')} accessibilityState={{checked: cloud.mediaTier, disabled: cloudBusy}} />
                   </View>
                   <TouchableOpacity onPress={onCloudUnlink} disabled={cloudBusy} activeOpacity={0.8}
-                    style={{marginTop: 14, borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: `${T.danger}60`, backgroundColor: `${T.danger}12`}}
+                    hitSlop={{top: 6, bottom: 6}} style={{marginTop: 14, borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: `${T.danger}60`, backgroundColor: `${T.danger}12`}}
                     accessibilityRole="button" accessibilityLabel={t('network.cloudUnlink')} accessibilityState={{disabled: cloudBusy}}>
                     <Text style={{color: T.danger, fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudUnlink')}</Text>
                   </TouchableOpacity>
@@ -765,7 +773,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                           accessibilityRole="switch" accessibilityLabel={t('network.cloudMediaTier')} accessibilityState={{checked: cloudMedia, disabled: cloudBusy}} />
                       </View>
                       <TouchableOpacity onPress={onCloudSubmit} disabled={!!cloudRule || cloudBusy} activeOpacity={0.8}
-                        style={[primaryBtn, {marginTop: 12, opacity: !!cloudRule || cloudBusy ? 0.45 : 1}]}
+                        hitSlop={{top: 4, bottom: 4}} style={[primaryBtn, {marginTop: 12, opacity: !!cloudRule || cloudBusy ? 0.45 : 1}]}
                         accessibilityRole="button" accessibilityLabel={t('network.cloudSubmit')} accessibilityState={{disabled: !!cloudRule || cloudBusy}}>
                         <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudSubmit')}</Text>
                       </TouchableOpacity>
@@ -775,7 +783,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                         </Text>
                       )}
                       {cloud.lastError ? (
-                        <Text style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '')})}</Text>
+                        <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '', cloud.lastErrorCode || 'CLOUD-APP')})}</Text>
                       ) : null}
                     </View>
                   )}
@@ -791,7 +799,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <Text style={[labelStyle, {marginTop: 12}]} nativeID="lblRelayToken">{t('network.relayToken')}</Text>
               <TextInput value={relayToken} onChangeText={setRelayToken} placeholder="—" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={inputStyle} accessibilityLabel={t('network.relayToken')} accessibilityLabelledBy="lblRelayToken" />
               <Text style={{fontSize: fs(11), color: T.dim, marginTop: 8, marginBottom: 12}}>{t('network.relayHint')}</Text>
-              <TouchableOpacity onPress={onSaveRelay} disabled={busy} activeOpacity={0.8} style={primaryBtn} accessibilityRole="button" accessibilityState={{disabled: busy}}>
+              <TouchableOpacity onPress={onSaveRelay} disabled={busy} activeOpacity={0.8} hitSlop={{top: 4, bottom: 4}} style={primaryBtn} accessibilityRole="button" accessibilityState={{disabled: busy}}>
                 <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.saveRelay')}</Text>
               </TouchableOpacity>
             </View>
@@ -821,8 +829,8 @@ export const NetworkScreen = ({theme: T}: Props) => {
                     const label = mode === 'all' ? t('network.scopeAll') : mode === 'select' ? t('network.scopeSelect') : t('network.scopeNone');
                     return (
                       <TouchableOpacity key={mode} onPress={() => setScopeMode(f, mode)} activeOpacity={0.7}
-                        accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={`${featureLabel(f)}: ${label}`}
-                        style={{marginLeft: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                        accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={t('a11y.labelValue', {label: featureLabel(f), value: label})}
+                        hitSlop={{top: 8, bottom: 10}} style={{marginLeft: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                           backgroundColor: sel ? T.accentBg : 'transparent', borderColor: sel ? T.accent : T.border}}>
                         <Text style={{fontSize: fs(11), color: sel ? T.accent : T.dim}} accessibilityElementsHidden importantForAccessibility="no">{label}</Text>
                       </TouchableOpacity>
@@ -831,8 +839,8 @@ export const NetworkScreen = ({theme: T}: Props) => {
                 </View>
                 {editBucket[f].mode === 'select' && (
                   <TouchableOpacity onPress={() => { setPickerSearch(''); setPickerFeature(f); }} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityLabel={`${featureLabel(f)}: ${t('network.scopeSelect')}, ${editBucket[f].ids.length}`}
-                    style={{marginTop: 6, alignSelf: 'flex-start'}}>
+                    accessibilityRole="button" accessibilityLabel={`${t('a11y.labelValue', {label: featureLabel(f), value: t('network.scopeSelect')})}, ${t('network.scopeCount', {count: editBucket[f].ids.length})}`}
+                    hitSlop={{top: 6, bottom: 15}} style={{marginTop: 6, alignSelf: 'flex-start'}}>
                     <Text style={{fontSize: fs(11), color: T.accent}}>{`${editBucket[f].ids.length} ✎`}</Text>
                   </TouchableOpacity>
                 )}
@@ -843,7 +851,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                       return (
                         <TouchableOpacity key={key} onPress={() => setEditBucket({...editBucket, [key]: !on})} activeOpacity={0.7}
                           accessibilityRole="checkbox" accessibilityState={{checked: on}} accessibilityLabel={label}
-                          style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+                          hitSlop={{top: 6, bottom: 10}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                             backgroundColor: on ? T.accentBg : 'transparent', borderColor: on ? T.accent : T.border}}>
                           <Text style={{fontSize: fs(11), color: on ? T.accent : T.dim}} accessibilityElementsHidden importantForAccessibility="no">{on ? '✓ ' : ''}{label}</Text>
                         </TouchableOpacity>
@@ -873,7 +881,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                           accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={f.displayName}
                           style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7}}>
                           <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} accessibilityElementsHidden importantForAccessibility="no">
-                            {checked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
+                            {checked && <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
                           </View>
                           <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{f.displayName}</Text>
                         </TouchableOpacity>
@@ -886,12 +894,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
             </ScrollView>
             <View style={{flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: T.border}}>
               <TouchableOpacity onPress={() => setEditBucket(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                 <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={commitBucket} disabled={!editBucket?.name.trim()} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityState={{disabled: !editBucket?.name.trim()}} accessibilityLabel={t('common.save')}
-                style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: editBucket?.name.trim() ? 1 : 0.4}}>
+                hitSlop={{top: 6, bottom: 6}} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: editBucket?.name.trim() ? 1 : 0.4}}>
                 <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
@@ -903,7 +911,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
         <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}}>
           <View accessibilityViewIsModal onAccessibilityEscape={() => setPickerFeature(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, maxHeight: '75%', overflow: 'hidden'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}}>
-              {pickerFeature ? featureLabel(pickerFeature) : ''} — {t('network.scopeSelect')}
+              {t('network.scopeSelectTitle', {feature: pickerFeature ? featureLabel(pickerFeature) : ''})}
             </Text>
             {pickerFeature !== 'groups' && (
               <View style={{paddingHorizontal: 16, paddingBottom: 8}}>
@@ -913,9 +921,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
             {pickerItems.length > 0 && (
               <TouchableOpacity onPress={toggleSelectAllPicked} activeOpacity={0.7} accessibilityRole="checkbox"
                 accessibilityState={{checked: allPickedChecked}} accessibilityLabel={allPickedChecked ? t('network.deselectAll') : t('network.selectAll')}
-                style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
+                hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
                 <View style={{width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: T.accent, backgroundColor: allPickedChecked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} accessibilityElementsHidden importantForAccessibility="no">
-                  {allPickedChecked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
+                  {allPickedChecked && <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
                 </View>
                 <Text style={{flex: 1, fontSize: fs(13), fontWeight: '600', color: T.accent}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">
                   {allPickedChecked ? t('network.deselectAll') : t('network.selectAll')}
@@ -930,7 +938,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
                     accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={item.name}
                     style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border}}>
                     <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: checked ? T.accent : T.border, backgroundColor: checked ? T.accent : 'transparent', alignItems: 'center', justifyContent: 'center'}} accessibilityElementsHidden importantForAccessibility="no">
-                      {checked && <Text style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
+                      {checked && <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(11), fontWeight: '700', color: T.bg}}>✓</Text>}
                     </View>
                     <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1} accessibilityElementsHidden importantForAccessibility="no">{item.name}</Text>
                   </TouchableOpacity>
@@ -949,12 +957,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
         <TouchableOpacity style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24}} activeOpacity={1} onPress={() => setMirrorMenuFor(null)} accessible={false} importantForAccessibility="no">
           <View accessibilityViewIsModal onAccessibilityEscape={() => setMirrorMenuFor(null)} style={{backgroundColor: T.card, borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
             <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, padding: 16, paddingBottom: 8}} numberOfLines={1}>
-              {mirrorMenuFor?.displayName} — {t('network.viewShared')}
+              {t('network.viewSharedTitle', {name: mirrorMenuFor?.displayName || ''})}
             </Text>
             {mirrorMenuFor && (
               <Text style={{fontSize: fs(11), color: T.dim, paddingHorizontal: 16, paddingBottom: 12}}>
                 {BUCKET_ROWS
-                  .map(f => `${featureLabel(f)}: ${scopeSummary(effectiveShare(mirrorMenuFor.peerId, f))}`)
+                  .map(f => t('a11y.labelValue', {label: featureLabel(f), value: scopeSummary(effectiveShare(mirrorMenuFor.peerId, f), true)}))
                   .join('  ·  ')}
               </Text>
             )}
@@ -1004,7 +1012,7 @@ function TabBtn({id, label, selected, onSelect, T}: {id: NetTab; label: string; 
   const fs = fontScale(T);
   return (
   <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.8} accessibilityRole="tab" accessibilityState={{selected: selected === id}}
-    style={{flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: selected === id ? T.accent : 'transparent'}}>
+    hitSlop={{top: 6, bottom: 6}} style={{flex: 1, paddingVertical: 10, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: selected === id ? T.accent : 'transparent'}}>
     <Text style={{fontSize: fs(13), fontWeight: '600', color: selected === id ? T.accent : T.dim}}>{label}</Text>
   </TouchableOpacity>
   );

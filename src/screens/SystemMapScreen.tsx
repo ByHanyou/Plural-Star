@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useMemo, useCallback, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, StyleSheet, useWindowDimensions} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Alert, Animated, PanResponder, useWindowDimensions} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 import {useTranslation} from 'react-i18next';
@@ -154,10 +154,10 @@ const MemberPickerField = ({label, value, onChange, members, facets = [], T}: {
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
       <TouchableOpacity onPress={() => {setOpen(!open); setSearch('');}} activeOpacity={0.7}
         accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={label} accessibilityValue={{text: sel?.name || t('systemMap.selectMember')}}
-        style={{flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8}}>
+        hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8}}>
         {sel ? <Avatar member={sel} size={22} T={T} /> : null}
         <Text style={{flex: 1, fontSize: fs(13), color: sel ? T.text : T.muted}}>{sel?.name || t('systemMap.selectMember')}</Text>
-        <Text style={{fontSize: fs(12), color: T.dim}}>▾</Text>
+        <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(12), color: T.dim}}>▾</Text>
       </TouchableOpacity>
       {open && (
         <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
@@ -212,10 +212,10 @@ const MemberMultiPickerField = ({label, values, onToggle, members, facets = [], 
       <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
       <TouchableOpacity onPress={() => {setOpen(!open); setSearch('');}} activeOpacity={0.7}
         accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={label} accessibilityValue={{text: summary || t('systemMap.selectMember')}}
-        style={{flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8}}>
+        hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8}}>
         {selected.length === 1 ? <Avatar member={selected[0]} size={22} T={T} /> : null}
         <Text style={{flex: 1, fontSize: fs(13), color: selected.length ? T.text : T.muted}} numberOfLines={1}>{summary || t('systemMap.selectMember')}</Text>
-        <Text style={{fontSize: fs(12), color: T.dim}}>▾</Text>
+        <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(12), color: T.dim}}>▾</Text>
       </TouchableOpacity>
       {open && (
         <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, marginTop: 4, overflow: 'hidden'}}>
@@ -275,7 +275,7 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
         style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginBottom: 8}} />
       <TouchableOpacity onPress={() => setDirectional(!directional)} activeOpacity={0.7}
         accessibilityRole="switch" accessibilityState={{checked: directional}} accessibilityLabel={t('systemMap.directional')}
-        style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8}}>
+        hitSlop={{top: 8, bottom: 15}} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8}}>
         <TogglePill on={directional} T={T} />
         <Text style={{fontSize: fs(12), color: T.dim}}>{t('systemMap.directional')}</Text>
       </TouchableOpacity>
@@ -283,12 +283,13 @@ const TypeForm = ({T, initial, saveLabel, onSave}: {
         <TextInput value={inverse} onChangeText={setInverse} accessibilityLabel={t('systemMap.inverseName')} placeholder={t('systemMap.inverseName')} placeholderTextColor={T.muted}
           style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: fs(13), marginBottom: 8}} />
       )}
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.typeColor')}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.typeColor')}</Text>
       <ColorCarousel value={color} onChange={setColor} T={T} />
       <View style={{height: 12}} />
       <TouchableOpacity onPress={() => { if (name.trim()) onSave({name: name.trim(), directional, inverseName: directional ? (inverse.trim() || name.trim()) : undefined, color}); }} activeOpacity={0.7}
-        accessibilityRole="button" accessibilityLabel={saveLabel}
-        style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingVertical: 9, alignItems: 'center', opacity: name.trim() ? 1 : 0.45}}>
+        disabled={!name.trim()}
+        accessibilityRole="button" accessibilityLabel={saveLabel} accessibilityState={{disabled: !name.trim()}}
+        hitSlop={{top: 6, bottom: 6}} style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingVertical: 9, alignItems: 'center', opacity: name.trim() ? 1 : 0.45}}>
         <Text style={{fontSize: fs(12), fontWeight: '600', color: T.accent}}>{saveLabel}</Text>
       </TouchableOpacity>
     </View>
@@ -624,7 +625,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
         animTy.setValue(p.ty);
       }
     },
-    onPanResponderRelease: (evt, gs) => {
+    onPanResponderRelease: (_evt, gs) => {
       const drag = dragRef.current;
       dragRef.current = null;
       if (!panRef.current.moved) {
@@ -765,39 +766,39 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
         <TouchableOpacity onPress={() => {setShowMemberPicker(true); setMemberPickerSearch(''); measureHost();}} activeOpacity={0.7}
           disabled={addableCount === 0}
-          accessibilityRole="button" accessibilityLabel={t('members.addMember')}
+          accessibilityRole="button" accessibilityLabel={t('systemMap.addMember')}
           accessibilityState={{disabled: addableCount === 0}}
-          style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, opacity: addableCount === 0 ? 0.45 : 1}}>
+          hitSlop={{top: 7, bottom: 7}} style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, opacity: addableCount === 0 ? 0.45 : 1}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}}>{t('systemMap.addMember')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => {setShowConnections(true); setShowAddType(false); setEditTypeId(null);}} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={t('systemMap.connections')}
-          style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          hitSlop={{top: 7, bottom: 7}} style={{borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: T.text}}>{t('systemMap.connections')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => openEditor(null, selectedId || undefined)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={t('systemMap.addRelationship')}
-          style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8}}>
+          hitSlop={{top: 7, bottom: 7}} style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: T.accent}}>{t('systemMap.addRelationship')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={toggleShowArchived} activeOpacity={0.7}
           accessibilityRole="switch" accessibilityState={{checked: showArchived}} accessibilityLabel={t('members.archived')}
-          style={{borderWidth: 1, borderColor: showArchived ? `${T.accent}40` : T.border, backgroundColor: showArchived ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          hitSlop={{top: 7, bottom: 7}} style={{borderWidth: 1, borderColor: showArchived ? `${T.accent}40` : T.border, backgroundColor: showArchived ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: showArchived ? T.accent : T.dim}}>{t('members.archived')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={toggleShowFacets} activeOpacity={0.7}
           accessibilityRole="switch" accessibilityState={{checked: showFacets}} accessibilityLabel={t('members.facets')}
-          style={{borderWidth: 1, borderColor: showFacets ? `${T.accent}40` : T.border, backgroundColor: showFacets ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          hitSlop={{top: 7, bottom: 7}} style={{borderWidth: 1, borderColor: showFacets ? `${T.accent}40` : T.border, backgroundColor: showFacets ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: showFacets ? T.accent : T.dim}}>{t('members.facets')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={toggleColorAll} activeOpacity={0.7}
           accessibilityRole="switch" accessibilityState={{checked: colorAll}} accessibilityLabel={t('systemMap.showColors')}
-          style={{borderWidth: 1, borderColor: colorAll ? `${T.accent}40` : T.border, backgroundColor: colorAll ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          hitSlop={{top: 7, bottom: 7}} style={{borderWidth: 1, borderColor: colorAll ? `${T.accent}40` : T.border, backgroundColor: colorAll ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: colorAll ? T.accent : T.dim}}>{t('systemMap.showColors')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={toggleLockPositions} activeOpacity={0.7}
           accessibilityRole="switch" accessibilityState={{checked: lockPositions}} accessibilityLabel={t('systemMap.lockPositions')}
-          style={{flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: lockPositions ? `${T.accent}40` : T.border, backgroundColor: lockPositions ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
+          hitSlop={{top: 7, bottom: 7}} style={{flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: lockPositions ? `${T.accent}40` : T.border, backgroundColor: lockPositions ? T.accentBg : T.surface, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8}}>
           <Text style={{fontSize: fs(12)}} accessibilityElementsHidden importantForAccessibility="no">{lockPositions ? '🔒' : '🔓'}</Text>
           <Text style={{fontSize: fs(12), fontWeight: '600', color: lockPositions ? T.accent : T.dim}}>{t('systemMap.lockPositions')}</Text>
         </TouchableOpacity>
@@ -896,6 +897,19 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             })}
           </Animated.View>
         </View>
+        <View
+          pointerEvents="none"
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel={t('systemMap.mapA11y', {members: t('members.count', {count: nodes.length}), relationships: t('systemMap.relationships', {count: visibleRels.length})})}
+          accessibilityHint={nodes.length > 0 ? t('systemMap.mapA11yHint') : undefined}
+          accessibilityActions={nodes.filter(n => memberById.has(n.id)).map(n => ({name: `select:${n.id}`, label: memberById.get(n.id)?.name || '?'}))}
+          onAccessibilityAction={e => {
+            const name = e.nativeEvent.actionName;
+            if (name.startsWith('select:')) setSelectedId(name.slice(7));
+          }}
+          style={ABS_FILL}
+        />
 
         {(mapMembers.length === 0 || relationships.length === 0) && !selectedId && (
           <View pointerEvents="none" style={{position: 'absolute', left: 16, right: 16, bottom: 16, alignItems: 'center'}}>
@@ -912,8 +926,8 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             {icon: '－', label: t('systemMap.zoomOut'), onPress: () => zoomBy(1 / 1.3)},
             {icon: '⟲', label: t('systemMap.resetView'), onPress: applyFit}].map((b, i) => (
             <TouchableOpacity key={i} onPress={b.onPress} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={b.label}
-              style={{width: 36, height: 36, borderRadius: 18, backgroundColor: T.card, borderWidth: 1, borderColor: T.border, alignItems: 'center', justifyContent: 'center'}}>
-              <Text style={{fontSize: fs(15), color: T.accent}}>{b.icon}</Text>
+              hitSlop={{top: 4, bottom: 4, left: 4, right: 4}} style={{width: 36, height: 36, borderRadius: 18, backgroundColor: T.card, borderWidth: 1, borderColor: T.border, alignItems: 'center', justifyContent: 'center'}}>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(15), color: T.accent}}>{b.icon}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -925,7 +939,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             <View style={{flexDirection: 'row', gap: 4}}>
               {([1, 2, 3] as const).map(d => (
                 <TouchableOpacity key={d} onPress={() => setDepth(d)} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityState={{selected: depth === d}} accessibilityLabel={`${t('systemMap.depth')} ${d}`}
+                  accessibilityRole="button" accessibilityState={{selected: depth === d}} accessibilityLabel={t('systemMap.depthN', {count: d})}
                   hitSlop={{top: 9, bottom: 9, left: 2, right: 2}}
                   style={{width: 26, height: 26, borderRadius: 13, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
                     backgroundColor: depth === d ? `${T.accent}25` : T.surface, borderColor: depth === d ? T.accent : T.border}}>
@@ -936,15 +950,15 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             <View style={{flex: 1}} />
             {onViewMember && (
               <TouchableOpacity onPress={() => onViewMember(selectedMember.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.viewProfile')}
-                style={{borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginRight: 4}}>
+                hitSlop={{top: 9, bottom: 9}} style={{borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginRight: 4}}>
                 <Text style={{fontSize: fs(11), color: T.accent}}>{t('systemMap.viewProfile')}</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => removeFromMap(selectedMember.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.removeFromMap')} style={{padding: 4}}>
-              <Text style={{fontSize: fs(14), color: T.danger}}>⊖</Text>
+            <TouchableOpacity onPress={() => removeFromMap(selectedMember.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.removeFromMap')} hitSlop={{top: 9, bottom: 9, left: 4, right: 9}} style={{padding: 4}}>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.danger}}>⊖</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => setSelectedId(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{padding: 4}}>
-              <Text style={{fontSize: fs(14), color: T.dim}}>✕</Text>
+            <TouchableOpacity onPress={() => setSelectedId(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={{top: 9, bottom: 9, left: 0, right: 9}} style={{padding: 4}}>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.dim}}>✕</Text>
             </TouchableOpacity>
           </View>
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8}}>
@@ -952,7 +966,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
             <View style={{flex: 1}}>
               <Text style={{fontSize: fs(15), fontWeight: '600', color: selectedMember.color}} numberOfLines={1}>{selectedMember.name}</Text>
               <Text style={{fontSize: fs(10), color: T.muted}} numberOfLines={1}>
-                {(degrees[selectedMember.id] || 0) === 1 ? t('systemMap.relationshipOne') : t('systemMap.relationships', {count: degrees[selectedMember.id] || 0})}
+                {t('systemMap.relationships', {count: degrees[selectedMember.id] || 0})}
               </Text>
             </View>
           </View>
@@ -967,7 +981,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 <View key={r.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
                   <TouchableOpacity onPress={() => openEditor(r)} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityLabel={`${roleOfOther(r, selectedMember.id)}: ${other.name}`}
-                    style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                    hitSlop={{top: 8, bottom: 10}} style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
                     <Avatar member={other} size={24} T={T} />
                     <View style={{flex: 1}}>
                       <Text style={{fontSize: fs(13), color: T.text}} numberOfLines={1}>{other.name}</Text>
@@ -989,7 +1003,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
       {showEditor && (
         <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
-          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => {setShowEditor(false); setEditRel(null);}} style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <ScrollView ref={editorScrollRef} contentContainerStyle={{padding: 16, paddingBottom: 28}} keyboardShouldPersistTaps="handled">
               <Text accessibilityRole="header" style={{fontSize: fs(17), fontWeight: '600', color: T.text, marginBottom: 14}}>
                 {editRel ? t('systemMap.editRelationship') : t('systemMap.addRelationship')}
@@ -997,7 +1011,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
               <MemberPickerField label={t('systemMap.from')} value={fromId} onChange={setFromId} members={rosterEligible} facets={facetEligible} T={T} />
 
-              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.type')}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('systemMap.type')}</Text>
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6}}>
                 {types.map(td => {
                   const sel = td.id === typeId;
@@ -1006,7 +1020,9 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                     <TouchableOpacity key={td.id} onPress={() => setTypeId(td.id)} onLongPress={() => { if (!td.preset) deleteCustomType(td); }} activeOpacity={0.7}
                       accessibilityRole="button" accessibilityState={{selected: sel}}
                       accessibilityLabel={td.directional ? `${typeLabel(td)} → ${typeInverseLabel(td)}` : typeLabel(td)}
-                      style={{flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6,
+                      accessibilityActions={td.preset ? undefined : [{name: 'longpress', label: t('systemMap.deleteType')}]}
+                      onAccessibilityAction={e => { if (e.nativeEvent.actionName === 'longpress' && !td.preset) deleteCustomType(td); }}
+                      hitSlop={{top: 6, bottom: 9}} style={{flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6,
                         backgroundColor: sel ? `${tc}25` : T.surface, borderColor: sel ? tc : T.border}}>
                       <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: tc}} />
                       <Text style={{fontSize: fs(12), color: sel ? tc : T.text}}>
@@ -1017,7 +1033,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 })}
                 <TouchableOpacity onPress={() => setShowNewType(!showNewType)} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityState={{expanded: showNewType}} accessibilityLabel={t('systemMap.newType')}
-                  style={{borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'transparent', borderColor: T.dim}}>
+                  hitSlop={{top: 6, bottom: 9}} style={{borderRadius: 999, borderWidth: 1, borderStyle: 'dashed', paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'transparent', borderColor: T.dim}}>
                   <Text style={{fontSize: fs(12), color: T.dim}}>{t('systemMap.newType')}</Text>
                 </TouchableOpacity>
               </View>
@@ -1057,16 +1073,16 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               <View style={{flexDirection: 'row', gap: 10}}>
                 {editRel && (
                   <TouchableOpacity onPress={() => deleteRelationship(editRel)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.delete')}
-                    style={{flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: 'transparent', borderColor: `${T.danger}60`}}>
+                    hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: 'transparent', borderColor: `${T.danger}60`}}>
                     <Text style={{fontSize: fs(14), fontWeight: '500', color: T.danger}}>{t('common.delete')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity onPress={() => {setShowEditor(false); setEditRel(null);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                  style={{flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: 'transparent', borderColor: T.border}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: 'transparent', borderColor: T.border}}>
                   <Text style={{fontSize: fs(14), fontWeight: '500', color: T.dim}}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={saveRelationship} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')}
-                  style={{flex: 2, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{flex: 2, alignItems: 'center', paddingVertical: 12, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
                   <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('common.save')}</Text>
                 </TouchableOpacity>
               </View>
@@ -1077,11 +1093,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
       {showConnections && (
         <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
-          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => {setShowConnections(false); setShowAddType(false); setEditTypeId(null);}} style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, maxHeight: Math.min(hostH * 0.88, hostH - kbIn - 16)}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('systemMap.connections')}</Text>
-              <TouchableOpacity onPress={() => {setShowConnections(false); setShowAddType(false); setEditTypeId(null);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{padding: 4}}>
-                <Text style={{fontSize: fs(15), color: T.dim}}>✕</Text>
+              <TouchableOpacity onPress={() => {setShowConnections(false); setShowAddType(false); setEditTypeId(null);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4}}>
+                <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(15), color: T.dim}}>✕</Text>
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={{padding: 16, paddingTop: 8, paddingBottom: 28}} keyboardShouldPersistTaps="handled">
@@ -1093,12 +1109,12 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
               ) : (
                 <TouchableOpacity onPress={() => {setShowAddType(true); setEditTypeId(null);}} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityLabel={t('systemMap.newType')}
-                  style={{borderWidth: 1, borderStyle: 'dashed', borderColor: T.dim, borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginBottom: 14}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{borderWidth: 1, borderStyle: 'dashed', borderColor: T.dim, borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginBottom: 14}}>
                   <Text style={{fontSize: fs(13), color: T.dim}}>{t('systemMap.newType')}</Text>
                 </TouchableOpacity>
               )}
 
-              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('systemMap.customTypes')}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('systemMap.customTypes')}</Text>
               {userTypes.length === 0 ? (
                 <Text style={{fontSize: fs(12), color: T.muted, marginBottom: 14}}>{t('systemMap.noCustomTypes')}</Text>
               ) : (
@@ -1115,11 +1131,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                         </View>
                         <TouchableOpacity onPress={() => {setEditTypeId(editTypeId === td.id ? null : td.id); setShowAddType(false);}} activeOpacity={0.7}
                           accessibilityRole="button" accessibilityState={{expanded: editTypeId === td.id}} accessibilityLabel={t('systemMap.editType')}
-                          style={{borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5}}>
+                          hitSlop={{top: 10, bottom: 10}} style={{borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5}}>
                           <Text style={{fontSize: fs(11), color: T.accent}}>{t('common.edit')}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => deleteCustomType(td)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.deleteType')} style={{padding: 4}}>
-                          <Text style={{fontSize: fs(13), color: T.danger}}>✕</Text>
+                        <TouchableOpacity onPress={() => deleteCustomType(td)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.deleteType')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4}}>
+                          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(13), color: T.danger}}>✕</Text>
                         </TouchableOpacity>
                       </View>
                       {editTypeId === td.id && (
@@ -1135,7 +1151,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                 </View>
               )}
 
-              <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('systemMap.presetTypes')}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('systemMap.presetTypes')}</Text>
               <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, overflow: 'hidden'}}>
                 {presetTypes.map(td => (
                   <View key={td.id} style={{borderBottomWidth: 1, borderBottomColor: T.border}}>
@@ -1149,11 +1165,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                       </View>
                       <TouchableOpacity onPress={() => {setEditTypeId(editTypeId === td.id ? null : td.id); setShowAddType(false);}} activeOpacity={0.7}
                         accessibilityRole="button" accessibilityState={{expanded: editTypeId === td.id}} accessibilityLabel={t('systemMap.editType')}
-                        style={{borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5}}>
+                        hitSlop={{top: 10, bottom: 10}} style={{borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5}}>
                         <Text style={{fontSize: fs(11), color: T.accent}}>{t('common.edit')}</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => deletePresetType(td)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.deleteType')} style={{padding: 4}}>
-                        <Text style={{fontSize: fs(13), color: T.danger}}>✕</Text>
+                      <TouchableOpacity onPress={() => deletePresetType(td)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.deleteType')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4}}>
+                        <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(13), color: T.danger}}>✕</Text>
                       </TouchableOpacity>
                     </View>
                     {editTypeId === td.id && (
@@ -1174,11 +1190,11 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
 
       {showMemberPicker && (
         <View style={{...ABS_FILL, backgroundColor: '#00000088', justifyContent: 'flex-end', paddingBottom: kbIn}}>
-          <View style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(hostH * 0.75, hostH - kbIn - 16))}}>
+          <View accessibilityViewIsModal onAccessibilityEscape={() => setShowMemberPicker(false)} style={{backgroundColor: T.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: 1, borderColor: T.border, height: Math.max(240, Math.min(hostH * 0.75, hostH - kbIn - 16))}}>
             <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8}}>
               <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(17), fontWeight: '600', color: T.text}}>{t('members.addMember')}</Text>
-              <TouchableOpacity onPress={() => setShowMemberPicker(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{padding: 4}}>
-                <Text style={{fontSize: fs(15), color: T.dim}}>✕</Text>
+              <TouchableOpacity onPress={() => setShowMemberPicker(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4}}>
+                <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(15), color: T.dim}}>✕</Text>
               </TouchableOpacity>
             </View>
             <View style={{paddingHorizontal: 16, paddingBottom: 8}}>
@@ -1203,7 +1219,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
                     style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: T.border}}>
                     <Avatar member={m} size={26} T={T} />
                     <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                    <Text style={{fontSize: fs(14), lineHeight: fs(14), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}}>＋</Text>
+                    <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), lineHeight: fs(14), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center', color: T.accent}}>＋</Text>
                   </TouchableOpacity>
                 );
                 return (

@@ -13,17 +13,18 @@ import {ToggleSwitch} from '../components/ToggleSwitch';
 import {ColorPickerModal} from '../components/ColorPickerModal';
 
 const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => {
+  const fs = fontScale(T);
   const [open, setOpen] = useState(false);
   const valid = isValidHex(normalizeHex(value));
   return (
     <View style={{flex: 1}}>
-      <Text style={{fontSize: 9, letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
+      <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
       <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.7}
         accessibilityRole="button" accessibilityLabel={label} accessibilityValue={{text: value}}
-        style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+        hitSlop={{top: 15, bottom: 15}} style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
         <View style={{width: 20, height: 20, borderRadius: 4, backgroundColor: valid ? normalizeHex(value) : '#333', borderWidth: 1, borderColor: T.border}} />
         <View style={{flex: 1, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5}}>
-          <Text style={{fontSize: 12, fontFamily: 'monospace', color: T.text}} numberOfLines={1}>{value}</Text>
+          <Text style={{fontSize: fs(12), fontFamily: 'monospace', color: T.text}} numberOfLines={1}>{value}</Text>
         </View>
       </TouchableOpacity>
       <ColorPickerModal visible={open} title={label} value={value} T={T}
@@ -74,6 +75,8 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
   const [themesOpen, setThemesOpen] = useState(false);
   React.useEffect(() => { if (visible) setThemesOpen(false); }, [visible]);
   const activePalette = allPalettes.find(p => p.id === activePaletteId) || BUILTIN_PALETTES[0];
+  const paletteLabel = (p: {id: string; name: string}): string =>
+    p.id === '__dark__' ? t('modal.paletteObsidian') : p.id === '__light__' ? t('modal.paletteSteel') : p.name;
 
   const startNewPalette = () => {
     const p: CustomPalette = {id: uid(), name: '', bg: '#0A1F2E', accent: '#DAA520', text: '#C0C0C0', mid: '#7A8A99'};
@@ -120,15 +123,15 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       )}
 
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.palette')}</Text>
-        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 10}}>{t('modal.paletteDesc')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.palette')}</Text>
+        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15), marginBottom: 10}}>{t('modal.paletteDesc')}</Text>
         <TouchableOpacity onPress={() => setThemesOpen(o => !o)} activeOpacity={0.7}
-          accessibilityRole="button" accessibilityState={{expanded: themesOpen}} accessibilityLabel={t('modal.palette')} accessibilityValue={{text: activePalette.name}}
-          style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: themesOpen ? `${T.accent}60` : T.border, marginBottom: themesOpen ? 8 : 0}}>
+          accessibilityRole="button" accessibilityState={{expanded: themesOpen}} accessibilityLabel={t('modal.palette')} accessibilityValue={{text: paletteLabel(activePalette)}}
+          hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: themesOpen ? `${T.accent}60` : T.border, marginBottom: themesOpen ? 8 : 0}}>
           <View style={{flexDirection: 'row', gap: 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {[activePalette.bg, activePalette.accent, activePalette.text, activePalette.mid].map((c, i) => (<View key={i} style={{width: 14, height: 14, borderRadius: 4, backgroundColor: c, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'}} />))}
           </View>
-          <Text style={{flex: 1, fontSize: fs(14), color: T.text}} numberOfLines={1}>{activePalette.name}</Text>
+          <Text style={{flex: 1, fontSize: fs(14), color: T.text}} numberOfLines={1}>{paletteLabel(activePalette)}</Text>
           <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{themesOpen ? '▲' : '▼'}</Text>
         </TouchableOpacity>
         {themesOpen && (<>
@@ -141,18 +144,18 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, borderWidth: 1,
                   backgroundColor: isActive ? `${p.accent}15` : T.surface, borderColor: isActive ? `${p.accent}50` : T.border}}>
                 <TouchableOpacity onPress={() => onSelectPalette(p.id)} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityState={{selected: isActive}} accessibilityLabel={p.name}
-                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                  accessibilityRole="button" accessibilityState={{selected: isActive}} accessibilityLabel={paletteLabel(p)}
+                  hitSlop={{top: 14, bottom: 14}} style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
                   <View style={{flexDirection: 'row', gap: 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                     {[p.bg, p.accent, p.text, p.mid].map((c, i) => (<View key={i} style={{width: 16, height: 16, borderRadius: 4, backgroundColor: c, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'}} />))}
                   </View>
-                  <Text style={{flex: 1, fontSize: fs(13), color: isActive ? p.accent : T.text, fontWeight: isActive ? '600' : '400'}}>{p.name}</Text>
+                  <Text style={{flex: 1, fontSize: fs(13), color: isActive ? p.accent : T.text, fontWeight: isActive ? '600' : '400'}}>{paletteLabel(p)}</Text>
                   {isActive && <Text style={{fontSize: fs(12), color: p.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
                 </TouchableOpacity>
                 {!isBuiltIn && (
                   <View style={{flexDirection: 'row', gap: 8}}>
-                    <TouchableOpacity onPress={() => startEditPalette(p)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${p.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => deletePalette(p.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${p.name}`} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}><Text style={{fontSize: fs(12), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no">✕</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => startEditPalette(p)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.editItem', {name: p.name})} hitSlop={{top: 10, bottom: 10, left: 4, right: 4}} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => deletePalette(p.id)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: p.name})} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}><Text style={{fontSize: fs(12), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no">✕</Text></TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -160,7 +163,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           })}
         </View>
         {canAdd && !editPalette && (
-          <TouchableOpacity onPress={startNewPalette} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.newPalette')} style={{alignItems: 'center', paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: T.border}}>
+          <TouchableOpacity onPress={startNewPalette} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.newPalette')} hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: T.border}}>
             <Text style={{fontSize: fs(12), color: T.dim}}>+ {t('modal.newPalette')}</Text>
           </TouchableOpacity>
         )}
@@ -190,10 +193,10 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
               </View>
             )}
             <View style={{flexDirection: 'row', gap: 8}}>
-              <TouchableOpacity onPress={() => setEditPalette(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+              <TouchableOpacity onPress={() => setEditPalette(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                 <Text style={{fontSize: fs(12), color: T.dim}}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={savePalette} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+              <TouchableOpacity onPress={savePalette} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.save')} hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
                 <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
@@ -204,13 +207,13 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
 
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.globalJournalPassword')}</Text><TouchableOpacity onPress={() => {setShowJournalPw(!showJournalPw); if (showJournalPw) setJournalPw('');}} accessibilityRole="button" accessibilityLabel={`${showJournalPw ? t('common.remove') : t('common.add')} ${t('modal.globalJournalPassword')}`}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showJournalPw ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.globalJournalPassword')}</Text><TouchableOpacity hitSlop={{top: 12, bottom: 12, left: 12, right: 12}} onPress={() => {setShowJournalPw(!showJournalPw); if (showJournalPw) setJournalPw('');}} accessibilityRole="button" accessibilityLabel={t(showJournalPw ? 'modal.removeJournalPassword' : 'modal.addJournalPassword')}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showJournalPw ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
         {showJournalPw && <TextInput value={journalPw} onChangeText={setJournalPw} accessibilityLabel={t('modal.lockJournal')} placeholder={t('modal.lockJournal')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />}
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.appLockPassword')}</Text>
-          <TouchableOpacity onPress={() => { setShowAppLockPw(!showAppLockPw); if (showAppLockPw) setAppLockPw(''); }} accessibilityRole="button" accessibilityLabel={`${showAppLockPw ? t('common.remove') : t('common.add')} ${t('modal.appLockPassword')}`}>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.appLockPassword')}</Text>
+          <TouchableOpacity hitSlop={{top: 12, bottom: 12, left: 12, right: 12}} onPress={() => { setShowAppLockPw(!showAppLockPw); if (showAppLockPw) setAppLockPw(''); }} accessibilityRole="button" accessibilityLabel={t(showAppLockPw ? 'modal.removeAppLockPassword' : 'modal.addAppLockPassword')}>
             <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showAppLockPw ? t('common.remove') : t('common.add')}</Text>
           </TouchableOpacity>
         </View>
@@ -218,30 +221,30 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
           <TextInput value={appLockPw} onChangeText={setAppLockPw} accessibilityLabel={t('modal.appLockPasswordPlaceholder')} placeholder={t('modal.appLockPasswordPlaceholder')} placeholderTextColor={T.muted} secureTextEntry
             style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />
         )}
-        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginTop: 6}}>{t('modal.appLockPasswordDesc')}</Text>
+        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15), marginTop: 6}}>{t('modal.appLockPasswordDesc')}</Text>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.gpsDesc')}</Text></View>
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.gpsLocation')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.gpsDesc')}</Text></View>
           <ToggleSwitch value={gpsEnabled} onToggle={() => setGpsEnabled(!gpsEnabled)} label={t('modal.gpsLocation')} T={T} style={{marginLeft: 12}} /></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.fileAccess')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.fileAccessDesc')}</Text></View>
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.fileAccess')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.fileAccessDesc')}</Text></View>
           <ToggleSwitch value={filesEnabled} onToggle={() => setFilesEnabled(!filesEnabled)} label={t('modal.fileAccess')} T={T} style={{marginLeft: 12}} /></View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.notifications')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.notificationsDesc')}</Text></View>
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.notifications')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.notificationsDesc')}</Text></View>
           <ToggleSwitch value={notifEnabled} onToggle={() => setNotifEnabled(!notifEnabled)} label={t('modal.notifications')} T={T} style={{marginLeft: 12}} /></View>
         {notifEnabled && (
-          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.persistentFrontNotif')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.persistentFrontNotifDesc')}</Text></View>
+          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10}}><View style={{flex: 1}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.persistentFrontNotif')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.persistentFrontNotifDesc')}</Text></View>
             <ToggleSwitch value={persistFront} onToggle={() => setPersistFront(!persistFront)} label={t('modal.persistentFrontNotif')} T={T} style={{marginLeft: 12}} /></View>
         )}
 
         <View style={{marginTop: 12}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{singletMode ? t('notification.statusCheck') : t('notification.frontCheck')}</Text>
-          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 8}}>{singletMode ? t('notification.statusCheckDesc') : t('notification.frontCheckDesc')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{singletMode ? t('notification.statusCheck') : t('notification.frontCheck')}</Text>
+          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15), marginBottom: 8}}>{singletMode ? t('notification.statusCheckDesc') : t('notification.frontCheckDesc')}</Text>
           <TouchableOpacity onPress={() => setShowFrontCheckPicker(!showFrontCheckPicker)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{expanded: showFrontCheckPicker}} accessibilityLabel={singletMode ? t('notification.statusCheck') : t('notification.frontCheck')} accessibilityValue={{text: frontCheckInterval === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: frontCheckInterval})}}
-            style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showFrontCheckPicker ? `${T.accent}60` : T.border}}>
+            hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showFrontCheckPicker ? `${T.accent}60` : T.border}}>
             <Text style={{fontSize: fs(14), color: T.text}}>{frontCheckInterval === 0 ? t('notification.frontCheckOff') : t('notification.everyNHours', {count: frontCheckInterval})}</Text>
             <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{showFrontCheckPicker ? '▲' : '▼'}</Text>
           </TouchableOpacity>
@@ -262,11 +265,11 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
         </View>
 
         <View style={{marginTop: 12}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.refreshTitle')}</Text>
-          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 8}}>{t('notification.refreshDesc')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.refreshTitle')}</Text>
+          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15), marginBottom: 8}}>{t('notification.refreshDesc')}</Text>
           <TouchableOpacity onPress={() => setShowNotifRefreshPicker(!showNotifRefreshPicker)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{expanded: showNotifRefreshPicker}} accessibilityLabel={t('notification.refreshTitle')} accessibilityValue={{text: notifRefreshMins === 0 ? t('notification.refreshAuto') : notifRefreshMins < 60 ? t('notification.everyNMinutes', {count: notifRefreshMins}) : t('notification.everyNHours', {count: notifRefreshMins / 60})}}
-            style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showNotifRefreshPicker ? `${T.accent}60` : T.border}}>
+            hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showNotifRefreshPicker ? `${T.accent}60` : T.border}}>
             <Text style={{fontSize: fs(14), color: T.text}}>{notifRefreshMins === 0 ? t('notification.refreshAuto') : notifRefreshMins < 60 ? t('notification.everyNMinutes', {count: notifRefreshMins}) : t('notification.everyNHours', {count: notifRefreshMins / 60})}</Text>
             <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{showNotifRefreshPicker ? '▲' : '▼'}</Text>
           </TouchableOpacity>
@@ -292,8 +295,8 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
         {!singletMode && (
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14}}>
           <View style={{flex: 1}}>
-            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.noteboard')}</Text>
-            <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('notification.noteboardDesc')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('notification.noteboard')}</Text>
+            <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('notification.noteboardDesc')}</Text>
           </View>
           <ToggleSwitch value={noteboardNotifs} onToggle={() => setNoteboardNotifs(!noteboardNotifs)} label={t('notification.noteboard')} T={T} style={{marginLeft: 12}} />
         </View>
@@ -302,7 +305,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{marginBottom: 8}}>
           <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('terminology.title')}</Text>
-          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('terminology.hint')}</Text>
+          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('terminology.hint')}</Text>
         </View>
         {([['member', 'members'], ['fronter', 'fronters'], ['group', 'groups'], ['facet', 'facets'], ['front', 'fronting'], ['system', 'hub'], ['journal', 'history'], ['archive']] as const).map(pair => (
           <View key={pair[0]} style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
@@ -322,7 +325,7 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             ))}
           </View>
         ))}
-        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginTop: 6, marginBottom: 8}}>{t('terminology.tierHint')}</Text>
+        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15), marginTop: 6, marginBottom: 8}}>{t('terminology.tierHint')}</Text>
         {([['primary', 'tierPrimary'], ['coFront', 'tierCoFront'], ['coConscious', 'tierCoConscious']] as const).map(([tier, labelKey]) => (
           <View key={tier} style={{marginBottom: 8}}>
             <Text style={{fontSize: fs(10), color: T.dim, marginBottom: 3}}>{t(`terminology.${labelKey}`)}</Text>
@@ -339,10 +342,10 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
         ))}
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.language')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.languageDesc')}</Text></View>
+        <View style={{marginBottom: 8}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.language')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.languageDesc')}</Text></View>
         <TouchableOpacity onPress={() => setShowLangPicker(!showLangPicker)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityState={{expanded: showLangPicker}} accessibilityLabel={t('modal.language')} accessibilityValue={{text: t(`language.${selectedLang}`)}}
-          style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showLangPicker ? `${T.accent}60` : T.border}}>
+          hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: showLangPicker ? `${T.accent}60` : T.border}}>
           <Text style={{fontSize: fs(14), color: T.text}}>{t(`language.${selectedLang}`)}</Text>
           <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{showLangPicker ? '▲' : '▼'}</Text>
         </TouchableOpacity>
@@ -360,21 +363,21 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
         )}
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{marginBottom: 8}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.textSize')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.textSizeDesc')}</Text></View>
+        <View style={{marginBottom: 8}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.textSize')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.textSizeDesc')}</Text></View>
         <View style={{flexDirection: 'row', gap: 7}}>{TEXT_SCALE_OPTIONS.map((opt) => (
           <TouchableOpacity key={opt.value} onPress={() => setTextScale(opt.value)} activeOpacity={0.7}
             accessibilityRole="radio" accessibilityState={{selected: textScale === opt.value, checked: textScale === opt.value}} accessibilityLabel={t(`modal.textScale${opt.label.replace(/\s/g, '')}`)}
-            style={{flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, alignItems: 'center',
+            hitSlop={{top: 6, bottom: 6}} style={{flex: 1, paddingVertical: 10, borderRadius: 8, borderWidth: 1, alignItems: 'center',
               backgroundColor: textScale === opt.value ? `${T.accent}20` : T.surface, borderColor: textScale === opt.value ? `${T.accent}60` : T.border}}>
             <Text style={{fontSize: fs(13), color: textScale === opt.value ? T.accent : T.dim, fontWeight: textScale === opt.value ? '600' : '400'}}>{t(`modal.textScale${opt.label.replace(/\s/g, '')}`)}</Text>
           </TouchableOpacity>
         ))}</View>
       </View>
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>
           {t('modal.appFont')}
         </Text>
-        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15, marginBottom: 8}}>
+        <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15), marginBottom: 8}}>
           {t('modal.appFontDesc')}
         </Text>
         <View style={{borderWidth: 1, borderColor: T.border, borderRadius: 10, overflow: 'hidden'}}>
@@ -382,9 +385,9 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
             const sel = fontChoice === opt.value;
             return (
               <TouchableOpacity key={opt.value} onPress={() => setFontChoice(opt.value)} activeOpacity={0.7}
-                accessibilityRole="radio" accessibilityState={{selected: sel, checked: sel}} accessibilityLabel={opt.label}
+                accessibilityRole="radio" accessibilityState={{selected: sel, checked: sel}} accessibilityLabel={opt.value === 'default' ? t('modal.fontDefault') : opt.label}
                 style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 11, backgroundColor: sel ? `${T.accent}18` : T.surface, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: T.border}}>
-                <RawText style={{fontSize: fs(14), color: sel ? T.accent : T.text, fontFamily: opt.family || undefined, fontWeight: sel && !opt.family ? '600' : '400'}}>{opt.label}</RawText>
+                <RawText style={{fontSize: fs(14), color: sel ? T.accent : T.text, fontFamily: opt.family || undefined, fontWeight: sel && !opt.family ? '600' : '400'}}>{opt.value === 'default' ? t('modal.fontDefault') : opt.label}</RawText>
                 {sel ? <Text style={{fontSize: fs(14), color: T.accent}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text> : null}
               </TouchableOpacity>
             );
@@ -393,12 +396,12 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
       </View>
       {[[t('modal.locations'), locs, setLocs, newLocation, setNewLocation, addLoc, t('modal.addLocationPlaceholder')], [t('modal.customMoods'), moods, setMoods, newMood, setNewMood, addMood, t('modal.addMoodPlaceholder')]].map(([label, items, setItems, val, setVal, add, placeholder]: any) => (
         <View key={label} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{label}</Text>
-          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 8}}>{items.map((l: string) => (<TouchableOpacity key={l} onPress={() => setItems(items.filter((x: string) => x !== l))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.remove')} ${l}`} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}><Text style={{fontSize: fs(12), color: T.dim}}>{l}</Text><Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text></TouchableOpacity>))}</View>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{label}</Text>
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 8}}>{items.map((l: string) => (<TouchableOpacity key={l} onPress={() => setItems(items.filter((x: string) => x !== l))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: l})} hitSlop={{top: 7, bottom: 10}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}><Text style={{fontSize: fs(12), color: T.dim}}>{l}</Text><Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text></TouchableOpacity>))}</View>
           <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}><TextInput value={val} onChangeText={setVal} accessibilityLabel={label || placeholder} placeholder={placeholder} placeholderTextColor={T.muted} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} onSubmitEditing={add} returnKeyType="done" /><Btn T={T} onPress={add} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn></View>
         </View>))}
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('settings.observatory')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('settings.observatoryDesc')}</Text></View>
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}><View style={{flex: 1}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('settings.observatory')}</Text><Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('settings.observatoryDesc')}</Text></View>
           <ToggleSwitch value={singletMode} onToggle={() => setSingletMode(!singletMode)} label={t('settings.observatory')} T={T} style={{marginLeft: 12}} /></View>
       </View>
     </Sheet>

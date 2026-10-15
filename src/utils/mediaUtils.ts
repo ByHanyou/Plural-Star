@@ -43,7 +43,7 @@ export const mirrorThumbDataUri = async (sourceUri: string, maxDim: number = MIR
     return sourceUri.length <= 200 * 1024 ? sourceUri : null;
   }
   if (!sourceUri.startsWith('file://')) return null;
-  const path = sourceUri.replace('file://', '').split('#')[0].split('?')[0];
+  const path = (rebaseDocumentUri(sourceUri) || sourceUri).replace('file://', '').split('#')[0].split('?')[0];
   try {
     const resized = await ImageResizer.createResizedImage(`file://${path}`, maxDim, maxDim, 'JPEG', 70, 0);
     const resizedPath = resized.uri.replace('file://', '');
@@ -202,7 +202,7 @@ const downloadViaFetchFallback = async (
     await ReactNativeBlobUtil.fs.writeFile(finalPath, raw, 'base64');
     return `file://${finalPath}?t=${Date.now()}`;
   } catch (e) {
-    console.error('[PS] avatar fetch fallback error:', e);
+    if (__DEV__) console.error('[PS] avatar fetch fallback error:', e);
     return undefined;
   }
 };
@@ -261,11 +261,11 @@ export const deleteChatMediaFile = async (uri: string): Promise<void> => {
 };
 
 export const getChatMediaFileName = (uri: string): string => {
-  if (!uri) return 'Attachment';
+  if (!uri) return i18n.t('chat.attachment');
   const noProto = uri.replace(/^file:\/\//, '');
   const noQuery = noProto.split('?')[0];
   const basename = noQuery.split('/').pop() || '';
-  return basename || 'Attachment';
+  return basename || i18n.t('chat.attachment');
 };
 
 export const saveBioImage = async (
@@ -443,18 +443,61 @@ export const rebaseChatMessageMedia = (messages: any[]): {messages: any[]; chang
   return {messages: out, changed};
 };
 
+const inlineImageExt = (dataUri: string): string => {
+  const m = dataUri.match(/^data:image\/([a-zA-Z0-9]+)/);
+  const t = (m ? m[1] : 'png').toLowerCase();
+  return t === 'jpeg' ? 'jpg' : t;
+};
+
+const isInlineData = (v: unknown): v is string => typeof v === 'string' && v.startsWith('data:');
+
+const needsInlineMigration = (m: any): boolean =>
+  !!m && (isInlineData(m.avatar) || isInlineData(m.banner)
+    || (Array.isArray(m.customFields) && m.customFields.some((c: any) => c && c.fieldId && isInlineData(c.value) && c.value.startsWith('data:image/'))));
+
 export const migrateInlineAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
+  if (!members.some(needsInlineMigration)) return {members, changed: false};
   let changed = false;
   await ensureDir(AVATAR_DIR);
   const updated = await parallelMap(members, async (m: any) => {
-    if (!m?.avatar || !String(m.avatar).startsWith('data:')) return m;
-    changed = true;
-    try {
-      const uri = await saveAvatar(m.id, m.avatar);
-      return {...m, avatar: uri};
-    } catch {
-      return {...m, avatar: undefined};
+    if (!needsInlineMigration(m)) return m;
+    let next = m;
+    let moved = false;
+    if (isInlineData(m.avatar)) {
+      try {
+        next = {...next, avatar: await saveAvatar(m.id, m.avatar)};
+        moved = true;
+      } catch (e) {
+        logError('media', e);
+      }
     }
+    if (isInlineData(m.banner)) {
+      try {
+        next = {...next, banner: await saveBannerFromBase64(m.id, m.banner)};
+        moved = true;
+      } catch (e) {
+        logError('media', e);
+      }
+    }
+    if (Array.isArray(m.customFields)) {
+      const fields: any[] = [];
+      for (const c of m.customFields) {
+        if (c && c.fieldId && isInlineData(c.value) && c.value.startsWith('data:image/')) {
+          try {
+            fields.push({...c, value: await saveBioImage(`cf-${m.id}-${c.fieldId}`, c.value, inlineImageExt(c.value))});
+            moved = true;
+          } catch (e) {
+            logError('media', e);
+            fields.push(c);
+          }
+        } else {
+          fields.push(c);
+        }
+      }
+      if (moved) next = {...next, customFields: fields};
+    }
+    if (moved) changed = true;
+    return moved ? next : m;
   }, 4);
   return {members: updated, changed};
 };
@@ -551,7 +594,10 @@ export const mirrorGifProbe = async (src: string): Promise<string | null> => {
       ReactNativeBlobUtil.fs.unlink(head).catch(() => {});
     }
     const h = isGif ? await ReactNativeBlobUtil.fs.hash(path, 'md5') : null;
-    if (gifProbeCache.size >= 256) gifProbeCache.clear();
+    if (gifProbeCache.size >= 2048) {
+      const oldest = gifProbeCache.keys().next().value;
+      if (oldest !== undefined) gifProbeCache.delete(oldest);
+    }
     gifProbeCache.set(path, {size, mtime, h});
     return h;
   } catch {

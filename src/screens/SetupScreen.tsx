@@ -36,7 +36,7 @@ export const SetupScreen = ({theme: T, onSave}: Props) => {
             placeholderTextColor={T.muted} multiline numberOfLines={4}
             style={[s.input, s.textarea, {backgroundColor: T.surface, color: T.text, borderColor: T.border}]} />
           <TouchableOpacity onPress={() => name.trim() && onSave({name: name.trim(), description: desc.trim(), singlet})}
-            activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('setup.enter')} style={[s.btn, {backgroundColor: T.accent}]}>
+            activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('setup.enter')} accessibilityState={{disabled: !name.trim()}} style={[s.btn, {backgroundColor: T.accent}]}>
             <Text style={[s.btnText, {color: initialOn(T.accent)}]}>{t('setup.enter')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setSinglet(!singlet)} activeOpacity={0.7}

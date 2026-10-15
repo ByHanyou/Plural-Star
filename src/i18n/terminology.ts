@@ -4,7 +4,7 @@ export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
 
 type TermFormsMap = Partial<Record<TerminologyTerm, string | string[]>>;
 
-export const TERM_FORMS: Record<string, TermFormsMap> = {
+const TERM_FORMS: Record<string, TermFormsMap> = {
   en: {
     journal: 'Journal', hub: 'Hub', history: 'History', archive: 'Archive',
     member: ['Member', 'Headmate'],
@@ -303,7 +303,7 @@ export const setTerminologyOverrides = (map?: TerminologyMap | null): void => {
   pairCache = new Map();
 };
 
-export const hasTerminologyOverrides = (): boolean => Object.keys(overrides).length > 0;
+const hasTerminologyOverrides = (): boolean => Object.keys(overrides).length > 0;
 
 export type TierNameKey = 'primary' | 'coFront' | 'coConscious';
 export type TierNameMap = Partial<Record<TierNameKey, string>>;
@@ -319,7 +319,7 @@ export const setTierNameOverrides = (map?: TierNameMap | null): void => {
   tierNames = clean;
 };
 
-export const hasTierNameOverrides = (): boolean => Object.keys(tierNames).length > 0;
+const hasTierNameOverrides = (): boolean => Object.keys(tierNames).length > 0;
 export const getTierNameOverride = (k: TierNameKey): string | undefined => tierNames[k];
 
 const TIER_LABEL_KEYS: Record<string, TierNameKey> = {
@@ -343,7 +343,7 @@ const TIER_LINE_KEYS: Record<string, TierNameKey> = {
   'notification.ccShort': 'coConscious',
 };
 
-export const applyTierNames = (value: string, key: string, options: unknown): string => {
+const applyTierNames = (value: string, key: string, options: unknown): string => {
   if (!hasTierNameOverrides()) return value;
   const label = TIER_LABEL_KEYS[key];
   if (label && tierNames[label]) return tierNames[label]!;
@@ -422,7 +422,7 @@ const pairsFor = (language: string): [TerminologyTerm, string, string][] => {
   return pairs;
 };
 
-export const applyTerminology = (value: string, language: string): string => {
+const applyTerminology = (value: string, language: string): string => {
   if (!hasTerminologyOverrides()) return value;
   const pairs = pairsFor(language);
   if (pairs.length === 0) return value;

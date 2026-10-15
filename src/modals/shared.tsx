@@ -10,7 +10,7 @@ export const Btn = ({children, onPress, variant = 'primary', disabled = false, s
   const variants: any = {primary: {bg: T.accentBg, color: T.accent, border: `${T.accent}40`}, ghost: {bg: 'transparent', color: T.dim, border: T.border}, danger: {bg: T.dangerBg, color: T.danger, border: `${T.danger}40`}, solid: {bg: T.accent, color: initialOn(T.accent), border: T.accent}, info: {bg: T.infoBg, color: T.info, border: `${T.info}40`}};
   const v = variants[variant] || variants.primary;
   const useInstant = instant && Platform.OS === 'ios';
-  return (<TouchableOpacity onPress={useInstant ? undefined : onPress} onPressIn={useInstant ? onPress : undefined} disabled={disabled} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{disabled}} style={[{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1}, style]}><Text style={{fontSize: fontScale(T)(14), fontWeight: '500', color: v.color}}>{children}</Text></TouchableOpacity>);
+  return (<TouchableOpacity onPress={useInstant ? undefined : onPress} onPressIn={useInstant ? onPress : undefined} disabled={disabled} activeOpacity={0.7} accessibilityRole="button" accessibilityState={{disabled}} hitSlop={{top: 6, bottom: 6}} style={[{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: v.bg, borderColor: v.border, opacity: disabled ? 0.5 : 1}, style]}><Text style={{fontSize: fontScale(T)(14), fontWeight: '500', color: v.color}}>{children}</Text></TouchableOpacity>);
 };
 
 export const Field = ({label, value, onChange, placeholder, multiline = false, numberOfLines = 4, readOnly = false, T}: any) => {
@@ -42,8 +42,8 @@ export const EnergyRow = ({value, onChange, color, T, t, style}: {value: number 
     <View style={[{flexDirection: 'row', gap: 3, marginBottom: 8, alignItems: 'center'}, style]}>
       {[1,2,3,4,5,6,7,8,9,10].map(n => (
         <TouchableOpacity key={n} onPress={() => onChange(value === n ? undefined : n)} activeOpacity={0.7}
-          accessibilityRole="button" accessibilityState={{selected: value === n}} accessibilityLabel={`${t('energy.level')} ${n}`}
-          style={{flex: 1, paddingVertical: 6, borderRadius: 6, borderWidth: 1, alignItems: 'center',
+          accessibilityRole="button" accessibilityState={{selected: value === n}} accessibilityLabel={t('energy.levelN', {n})}
+          hitSlop={{top: 10, bottom: 10}} style={{flex: 1, paddingVertical: 6, borderRadius: 6, borderWidth: 1, alignItems: 'center',
             backgroundColor: value === n ? `${color}30` : T.surface,
             borderColor: value !== undefined && n <= value ? color : T.border}}>
           <Text style={{fontSize: fs(10), color: value !== undefined && n <= value ? color : T.dim, fontWeight: '600'}}>{n}</Text>
@@ -59,14 +59,14 @@ export const LocationPicker = ({location, setLocation, allLocations, color, T, t
   const list: string[] = allLocations || [];
   return (
     <>
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.location')}</Text>
       {list.length > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}>
           <View style={{flexDirection: 'row', gap: 5}}>
             {list.map((l: string) => (
               <TouchableOpacity key={l} onPress={() => setLocation(location === l ? '' : l)} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityState={{selected: location === l}} accessibilityLabel={l}
-                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0,
+                hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0,
                   backgroundColor: location === l ? `${accent}20` : T.surface, borderColor: location === l ? `${accent}60` : T.border}}>
                 <Text style={{fontSize: fs(11), color: location === l ? accent : T.dim, fontWeight: location === l ? '600' : '400'}}>{l}</Text>
               </TouchableOpacity>
@@ -88,18 +88,18 @@ export const MoodPicker = ({mood, setMood, customMood, setCustomMood, showCustom
   const chipMoods = [...allMoods, ...selected.filter((m: string) => !allMoods.includes(m))];
   return (
     <>
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('modal.mood')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 4}}>
         <View style={{flexDirection: 'row', gap: 5}}>
           {chipMoods.map((m: string) => (
             <TouchableOpacity key={m} onPress={() => setMood(toggleMoodInList(mood, m))} activeOpacity={0.7}
               accessibilityRole="button" accessibilityState={{selected: isSel(m)}} accessibilityLabel={translateMood(m, t)}
-              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0, backgroundColor: isSel(m) ? `${T.accent}20` : T.surface, borderColor: isSel(m) ? `${T.accent}60` : T.border}}>
+              hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0, backgroundColor: isSel(m) ? `${T.accent}20` : T.surface, borderColor: isSel(m) ? `${T.accent}60` : T.border}}>
               <Text style={{fontSize: fs(11), color: isSel(m) ? T.accent : T.dim, fontWeight: isSel(m) ? '600' : '400'}}>{translateMood(m, t)}</Text>
             </TouchableOpacity>))}
           <TouchableOpacity onPress={() => setShowCustom(!showCustom)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{expanded: showCustom}} accessibilityLabel={t('modal.custom')}
-            style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0, backgroundColor: showCustom ? `${T.accent}20` : T.surface, borderColor: showCustom ? `${T.accent}60` : T.border}}>
+            hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1, flexShrink: 0, backgroundColor: showCustom ? `${T.accent}20` : T.surface, borderColor: showCustom ? `${T.accent}60` : T.border}}>
             <Text style={{fontSize: fs(11), color: showCustom ? T.accent : T.dim, fontWeight: showCustom ? '600' : '400'}}>{showCustom ? `− ${t('modal.custom')}` : `+ ${t('modal.custom')}`}</Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,6 @@
 import {Alert} from 'react-native';
+import {importNameKey} from './importNames';
+import {importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, CustomFieldDef, CustomFieldType, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
@@ -43,7 +45,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
           extPreview.members.forEach((m: any) => {
             const extId: string = isPK ? (m.uuid || m.id) : m._id || m.id;
             const incoming: Partial<Member> = {
-              name: isPK ? ((extSel.displayNames ? (m.display_name || m.name) : (m.name || m.display_name)) || 'Unknown') : (m.content?.name || m.name || 'Unknown'),
+              name: isPK ? ((extSel.displayNames ? (m.display_name || m.name) : (m.name || m.display_name)) || t('common.unknown')) : (m.content?.name || m.name || t('common.unknown')),
               pronouns: isPK ? (m.pronouns || '') : (m.content?.pronouns || ''),
               color: isPK ? (m.color ? `#${m.color}` : '#DAA520') : (m.content?.color || '#DAA520'),
               description: isPK ? (m.description || '') : (m.content?.desc || ''),
@@ -170,9 +172,9 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
                 String(i),
               ];
               const spIds = candidates.map(normId).filter(Boolean);
-              const spName = cf.content?.name || cf.name || `Field ${i + 1}`;
+              const spName = cf.content?.name || cf.name || t('share.fieldN', {n: i + 1});
               const spType = cf.content?.type ?? cf.type;
-              const existing = existingDefs.find(d => d.name.toLowerCase() === String(spName).toLowerCase());
+              const existing = existingDefs.find(d => importNameKey(d.name) === importNameKey(spName));
               let localId: string;
               if (existing) {
                 localId = existing.id;
@@ -270,7 +272,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               if (!gName || !externalId) return;
               const srcId = `${isPK ? 'pk' : 'ext'}:${externalId}`;
               const bySource = mergedGroups.findIndex(eg => eg.sourceId === srcId);
-              const byName = bySource < 0 ? mergedGroups.findIndex(eg => !eg.sourceId && eg.name.toLowerCase() === gName.toLowerCase()) : -1;
+              const byName = bySource < 0 ? mergedGroups.findIndex(eg => !eg.sourceId && importNameKey(eg.name) === importNameKey(gName)) : -1;
               const idx = bySource >= 0 ? bySource : byName;
               let localId: string;
               if (idx >= 0) {
@@ -323,7 +325,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
               return;
             }
             const name = isPK ? (m.name || m.display_name || '') : (m.content?.name || m.name || '');
-            const lm = members.find(l => l.name.toLowerCase() === String(name).toLowerCase());
+            const lm = members.find(l => importNameKey(l.name) === importNameKey(name));
             if (lm) {
               existingIdMap[eid] = lm.id;
               if (isPK && m.id && m.id !== eid) existingIdMap[m.id] = lm.id;
@@ -341,8 +343,8 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
             Alert.alert(t('share.importStopped', {count: e?.completedCount ?? 0}));
             return;
           }
-          console.error('[EXT-IMPORT] failed:', e);
-          Alert.alert(t('share.importFailed'), t('share.importPartialError', {error: e?.message || String(e)}));
+          if (__DEV__) console.error('[EXT-IMPORT] failed:', e);
+          Alert.alert(t('share.importFailed'), t('share.importPartialError', {error: importErrorText(e, t)}));
         }
       }},
     ]);

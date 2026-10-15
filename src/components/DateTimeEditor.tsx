@@ -6,7 +6,7 @@ import type {ThemeColors} from '../theme';
 import i18n from '../i18n/i18n';
 import {getLocale, uses12HourClock, dayPeriodLabel} from '../utils';
 
-export type DateTimeEditorMode =
+type DateTimeEditorMode =
   | 'datetime'
   | 'date'
   | 'time'
@@ -19,6 +19,7 @@ interface Props {
   date: Date;
   onChange: (d: Date) => void;
   label?: string;
+  a11yLabel?: string;
   T: ThemeColors;
   mode?: DateTimeEditorMode;
   collapsible?: boolean;
@@ -65,7 +66,7 @@ const EditableCell = ({
 
   return (
     <View style={{alignItems: 'center', width}}>
-      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={a11yLabel ? `${i18n.t('a11y.increase')}, ${a11yLabel}` : i18n.t('a11y.increase')} hitSlop={{top: 4, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
+      <TouchableOpacity onPress={() => onStep(1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={a11yLabel ? `${i18n.t('a11y.increase')}, ${a11yLabel}` : i18n.t('a11y.increase')} hitSlop={{top: 10, bottom: 0, left: 6, right: 6}} style={{padding: 4}}>
         <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▲</Text>
       </TouchableOpacity>
       <TextInput
@@ -87,7 +88,7 @@ const EditableCell = ({
         maxLength={Math.max(pad, String(max).length)}
         style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 4, paddingVertical: 4, minWidth: width, textAlign: 'center', fontSize: fs(14), color: T.text, fontWeight: '500', fontFamily: 'monospace'}}
       />
-      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={a11yLabel ? `${i18n.t('a11y.decrease')}, ${a11yLabel}` : i18n.t('a11y.decrease')} hitSlop={{top: 0, bottom: 4, left: 6, right: 6}} style={{padding: 4}}>
+      <TouchableOpacity onPress={() => onStep(-1)} activeOpacity={0.6} accessibilityRole="button" accessibilityLabel={a11yLabel ? `${i18n.t('a11y.decrease')}, ${a11yLabel}` : i18n.t('a11y.decrease')} hitSlop={{top: 0, bottom: 10, left: 6, right: 6}} style={{padding: 4}}>
         <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">▼</Text>
       </TouchableOpacity>
       {label ? <Text style={{fontSize: fs(9), color: T.muted, marginTop: 2, letterSpacing: 0.5}} accessibilityElementsHidden importantForAccessibility="no">{label}</Text> : null}
@@ -95,7 +96,7 @@ const EditableCell = ({
   );
 };
 
-export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', collapsible = true, readOnly = false}: Props) => {
+export const DateTimeEditor = ({date, onChange, label, a11yLabel, T, mode = 'datetime', collapsible = true, readOnly = false}: Props) => {
   const fs = fontScale(T);
   const [expanded, setExpanded] = useState(!collapsible && !readOnly);
 
@@ -176,25 +177,24 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
     if (mode === 'monthYear') return date.toLocaleDateString(loc, {month: 'short', year: 'numeric'});
     if (mode === 'monthDay') return date.toLocaleDateString(loc, {month: 'short', day: 'numeric'});
     if (mode === 'date') return date.toLocaleDateString(loc, {month: 'short', day: 'numeric', year: 'numeric'});
-    const datePart = date.toLocaleDateString(loc, {month: 'short', day: 'numeric', year: 'numeric'});
-    const timePart = date.toLocaleTimeString(loc, {hour: 'numeric', minute: '2-digit'});
-    return `${datePart}  ${timePart}`;
+    return date.toLocaleString(loc, {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'});
   };
 
   const canExpand = collapsible && !readOnly;
   const headerToggle = (
     <TouchableOpacity onPress={() => canExpand && setExpanded(!expanded)} activeOpacity={canExpand ? 0.7 : 1}
-      accessibilityRole={canExpand ? 'button' : undefined} accessibilityState={canExpand ? {expanded} : undefined} accessibilityLabel={fmtSummary()}
+      accessibilityRole={canExpand ? 'button' : undefined} accessibilityState={canExpand ? {expanded} : undefined} accessibilityLabel={label || a11yLabel ? i18n.t('a11y.labelValue', {label: label || a11yLabel, value: fmtSummary()}) : fmtSummary()}
+      hitSlop={{top: 6, bottom: 6}}
       style={{flexDirection: 'row', gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: expanded ? `${T.accent}50` : T.border}}>
       <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{fmtSummary()}</Text>
-      {canExpand && <Text style={{fontSize: fs(12), color: T.dim}}>{expanded ? '▲' : '▼'}</Text>}
+      {canExpand && <Text style={{fontSize: fs(12), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{expanded ? '▲' : '▼'}</Text>}
     </TouchableOpacity>
   );
 
   return (
     <View style={{marginBottom: 14}}>
       {label ? (
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
+        <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
       ) : null}
       {headerToggle}
       {expanded && !readOnly && (
@@ -238,6 +238,7 @@ export const DateTimeEditor = ({date, onChange, label, T, mode = 'datetime', col
                 {twelveHour && (
                   <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}
                     accessibilityRole="button" accessibilityLabel={isPM ? i18n.t('a11y.switchToAm') : i18n.t('a11y.switchToPm')}
+                    hitSlop={{top: 8, bottom: 8, left: 4, right: 8}}
                     style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 6, marginLeft: 4}}>
                     <Text style={{fontSize: fs(13), color: T.accent, fontWeight: '600'}}>{dayPeriodLabel(isPM)}</Text>
                   </TouchableOpacity>

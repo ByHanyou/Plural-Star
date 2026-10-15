@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Skrifaðu í markdown…",
     "urlPlaceholder": "URL hér",
     "textPlaceholder": "texti",
-    "body": "Ritill"
+    "body": "Ritill",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Feitletrað",
@@ -97,7 +98,14 @@
     "unknown": "Óþekkt",
     "untitled": "Án titils",
     "ok": "Í lagi",
-    "search": "Leita…"
+    "search": "Leita…",
+    "removeItem": "Fjarlægja {{name}}",
+    "addItem": "Bæta við {{name}}",
+    "clearItem": "Hreinsa {{name}}",
+    "editItem": "Breyta {{name}}",
+    "deleteItem": "Eyða {{name}}",
+    "exportItem": "Flytja út {{name}}",
+    "errorCode": "Villukóði: {{code}}"
   },
   "a11y": {
     "settings": "Stillingar",
@@ -116,7 +124,8 @@
     "minute": "Mínúta",
     "switchToAm": "PM, skipta í AM",
     "switchToPm": "AM, skipta í PM",
-    "image": "Mynd"
+    "image": "Mynd",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Eitthvað fór úrskeiðis",
@@ -183,7 +192,8 @@
     "statusesDesc": "Stöður lýsa því hvernig þér líður — eins og Sofandi, Að vinna eða Kvíðin. Veldu þær þegar þú uppfærir stöðuna þína.",
     "noStatuses": "Engar stöður enn. Bættu einni við til að byrja.",
     "activeStatus": "Virk",
-    "favoriteColor": "Uppáhaldslitur"
+    "favoriteColor": "Uppáhaldslitur",
+    "statusActiveA11y": "{{name}}, virk"
   },
   "settings": {
     "observatory": "Athugunarstöðvar-viðmót (singlet)",
@@ -200,7 +210,9 @@
     "noNote": "Engin athugasemd. Ýttu á Breyta til að bæta við.",
     "clearFront": "Hreinsa front",
     "clearFrontMsg": "Þetta hreinsar öll stig og skráir lok núverandi lotu. Halda áfram?",
-    "clearFrontTitle": "Hreinsa front?"
+    "clearFrontTitle": "Hreinsa front?",
+    "frontingForA11y": "{{name}}, frontar í {{dur}}",
+    "frontingForSince": "Frontar í <b>{{dur}}</b> · síðan {{time}}"
   },
   "members": {
     "frontingLockTitle": "Núna að fronta",
@@ -281,7 +293,22 @@
     "bulkRestoreMsg": "Endurheimta {{count}} meðlim(i) sem virka?",
     "bulkDelete": "Eyða meðlimum",
     "bulkDeleteMsg": "Eyða {{count}} meðlim(um) varanlega? Þetta er ekki hægt að afturkalla.",
-    "recentlyDeleted": "Nýlega eytt"
+    "recentlyDeleted": "Nýlega eytt",
+    "nameInTier": "{{name}}, í {{tier}}",
+    "moveUpItem": "Færa {{name}} upp",
+    "moveDownItem": "Færa {{name}} niður",
+    "addToFrontName": "Bæta í front — {{name}}",
+    "removeFromFrontName": "Taka úr fronti — {{name}}",
+    "titleCount": "Meðlimir ({{n}})",
+    "facetsCount": "Hliðar ({{n}})",
+    "customFrontsCount": "Sérsniðin front ({{n}})",
+    "restoreItem": "Endurheimta {{name}}",
+    "bulkArchiveMsg_one": "Setja {{count}} meðlim í safn? Hægt er að endurheimta hann síðar.",
+    "bulkArchiveMsg_other": "Setja {{count}} meðlimi í safn? Hægt er að endurheimta þá síðar.",
+    "bulkRestoreMsg_one": "Endurheimta {{count}} meðlim sem virkan?",
+    "bulkRestoreMsg_other": "Endurheimta {{count}} meðlimi sem virka?",
+    "bulkDeleteMsg_one": "Eyða {{count}} meðlimi varanlega? Þetta er ekki hægt að afturkalla.",
+    "bulkDeleteMsg_other": "Eyða {{count}} meðlimum varanlega? Þetta er ekki hægt að afturkalla."
   },
   "history": {
     "title": "Saga",
@@ -325,7 +352,15 @@
     "deleteConfirm2": "Þetta er ekki hægt að afturkalla. Eyða í alvöru?",
     "deleteConfirm3": "Lokastaðfesting: eyða þessari færslu varanlega?",
     "showMore": "Sýna meira",
-    "showLess": "Sýna minna"
+    "showLess": "Sýna minna",
+    "moodBadge": "líðan <b>{{mood}}</b>",
+    "atBadge": "á <b>{{location}}</b>",
+    "energyBadge": "Orka <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Líðan og staðsetningu breytt ({{tier}})",
+    "moodChanged_tier": "Líðan breytt ({{tier}})",
+    "locationChanged_tier": "Staðsetningu breytt ({{tier}})",
+    "noteUpdated_tier": "Athugasemd uppfærð ({{tier}})",
+    "frontSwitch_tier": "Frontskipti ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Þetta fjarlægir þetta sniðmát varanlega.",
@@ -360,7 +395,8 @@
     "templateName": "Nafn sniðmáts *",
     "templateNamePlaceholder": "t.d. Morgunsíður",
     "templateTitle": "Titill færslu (forstilltur)",
-    "templateBody": "Meginmál færslu (forstillt)"
+    "templateBody": "Meginmál færslu (forstillt)",
+    "openEntryHint": "Opnar alla færsluna"
   },
   "share": {
     "banners": "Borðar",
@@ -570,6 +606,7 @@
     "exportReady": "Útflutningur tilbúinn",
     "exportReadyMsg": "{{filename}} varð til, en ekki tókst að opna deiligluggan sjálfkrafa.",
     "importing": "Flyt inn…",
+    "exporting": "Flyt út…",
     "importStopping": "Lýk þessu skrefi, stöðva svo…",
     "progressJournal": "Endurheimti dagbók…",
     "progressHistory": "Endurheimti frontsögu…",
@@ -587,7 +624,36 @@
     "progressBannersDownloadN": "Sæki borða… {{done}}/{{total}}",
     "progressChat": "Endurheimti spjall…",
     "progressChatN": "Endurheimti spjallrásir… {{done}}/{{total}}",
-    "progressSavingMembers": "Vista meðlimi…"
+    "progressSavingMembers": "Vista meðlimi…",
+    "exportAs": "Flytja út sem {{format}}",
+    "sizeMB": "{{n}} MB",
+    "sizeKB": "{{n}} KB",
+    "sizeB": "{{n}} B",
+    "quoted": "„{{text}}“",
+    "exportMailExportedLine": "Flutt út: {{date}}",
+    "exportMailMembersHeader": "MEÐLIMIR ({{count}})",
+    "exportMailJournalHeader": "DAGBÓK ({{count}})",
+    "exportMailJournalHeaderRecent": "DAGBÓK ({{count}} — sýni {{shown}} nýjustu)",
+    "exportMailHistoryHeader": "FRONTSAGA ({{count}})",
+    "exportMailHistoryHeaderRecent": "FRONTSAGA ({{count}} — sýni {{shown}} nýjustu)",
+    "exportTitleLine": "Titill: {{title}}",
+    "exportDateLine": "Dagsetning: {{date}}",
+    "exportAuthorsLine": "Höfundar: {{authors}}",
+    "importStopped_one": "Innflutningur stöðvaður. {{count}} skrefi lokið og það vistað; eftirstandandi skref voru ekki keyrð.",
+    "importStopped_other": "Innflutningur stöðvaður. {{count}} skrefum lokið og þau vistuð; eftirstandandi skref voru ekki keyrð.",
+    "psAvatarsImported_one": "Flutti inn {{count}} prófílmynd.",
+    "psAvatarsImported_other": "Flutti inn {{count}} prófílmyndir.",
+    "recoverConfirmMsg_one": "Endurheimta {{count}} afritshlut í forritið? Þetta yfirskrifar núverandi gögn fyrir þann flokk.",
+    "recoverConfirmMsg_other": "Endurheimta {{count}} afritshluti í forritið? Þetta yfirskrifar núverandi gögn fyrir þá flokka.",
+    "cfUnmatched_one": "{{count}} lykill passaði ekki við nein auðkenni/nöfn reita okkar. Óparaður lykill: {{samples}}",
+    "cfUnmatched_other": "{{count}} lyklar pössuðu ekki við nein auðkenni/nöfn reita okkar. Dæmi um óparaða lykla: {{samples}}",
+    "unnamedMember": "Nafnlaus meðlimur",
+    "fieldN": "Reitur {{n}}",
+    "systemN": "Kerfi {{n}}",
+    "groupN": "Hópur {{n}}",
+    "channelN": "Rás {{n}}",
+    "ageField": "Aldur",
+    "errUnexpected": "Eitthvað fór úrskeiðis. Athugaðu skrána og reyndu aftur."
   },
   "hub": {
     "front": "Front",
@@ -614,11 +680,11 @@
     "statistics": "Tölfræði",
     "systemChat": "Kerfisspjall",
     "archive": "Safn",
-    "discord": "Discord",
     "credits": "Þakkir",
     "creditLogo": "Plural Star-merki",
     "creditIos": "Plural Star iOS-útgáfa",
-    "supportPS": "Styðja PS"
+    "supportPS": "Styðja PS",
+    "discord": "Discord"
   },
   "modal": {
     "linkPfp": "Tengja mynd",
@@ -657,6 +723,8 @@
     "colorLock": "Litalás",
     "invalidHex": "Ógildur hex-litur",
     "customColor": "Sérsniðinn litur",
+    "emoji": "Tjákn",
+    "emojiPlaceholder": "t.d. 🦊",
     "transparentColor": "Gegnsætt",
     "removeImageMsg": "Fjarlægja þessa mynd?",
     "deletePaletteMsg": "Þetta fjarlægir þetta litasett varanlega.",
@@ -730,7 +798,7 @@
     "removePfp": "Fjarlægja mynd",
     "viewPfp": "Skoða mynd",
     "viewPfpOf": "Mynd af {{name}}",
-    "fancyPants": "Fancy Pants",
+    "fancyPants": "Myndrænn ritill",
     "selectedText": "texti",
     "searchAuthors": "Leita að höfundum…",
     "textSize": "Textastærð",
@@ -739,7 +807,17 @@
     "textScaleLarge": "Stór",
     "textScaleExtraLarge": "Mjög stór",
     "dyslexicFont": "Lesblinduvænt letur",
-    "dyslexicFontDesc": "Skiptir meginmálstexta yfir í OpenDyslexic. Fyrirsagnir halda sínu letri."
+    "dyslexicFontDesc": "Skiptir meginmálstexta yfir í OpenDyslexic. Fyrirsagnir halda sínu letri.",
+    "cropArea": "Sniðsvæði",
+    "addEntryPassword": "Bæta við lykilorði færslu",
+    "removeEntryPassword": "Fjarlægja lykilorð færslu",
+    "addJournalPassword": "Bæta við dagbókarlykilorði",
+    "removeJournalPassword": "Fjarlægja dagbókarlykilorð",
+    "addAppLockPassword": "Bæta við lykilorði forritslæsingar",
+    "removeAppLockPassword": "Fjarlægja lykilorð forritslæsingar",
+    "fontDefault": "Sjálfgefið",
+    "paletteObsidian": "Hrafntinna",
+    "paletteSteel": "Stál"
   },
   "notification": {
     "locationPermTitle": "Staðsetningarheimild",
@@ -783,7 +861,8 @@
     "noteboardUnreadLine_other": "{{name}}: {{count}} nýjar athugasemdir",
     "chatPingTitle": "◆ {{speaker}} pingaði þig í #{{channel}}",
     "chatPingBody": "{{preview}}",
-    "chatPingBodyEmpty": "Ýttu til að sjá skilaboðin."
+    "chatPingBodyEmpty": "Ýttu til að sjá skilaboðin.",
+    "friendLine": "◈ {{name}}: {{fronters}}"
   },
   "language": {
     "en": "English",
@@ -834,11 +913,21 @@
     "removeMembers": "Fjarlægja meðlimi",
     "deleteGroup": "Eyða hóp",
     "deleteGroupMsg": "Fjarlægja þennan hóp? Meðlimum verður ekki eytt.",
-    "deleteWithChildrenMsg": "Þetta inniheldur {{count}} undirlið(i). Halda þeim og færa upp um eitt stig, eða eyða öllu?"
+    "deleteWithChildrenMsg": "Þetta inniheldur {{count}} undirlið(i). Halda þeim og færa upp um eitt stig, eða eyða öllu?",
+    "subgroupCount_one": "{{count}} undirhópur",
+    "subgroupCount_other": "{{count}} undirhópar",
+    "expandA11y": "Undirhópar {{name}}, {{count}} valin",
+    "subsystemNamed": "{{name}}, undirkerfi",
+    "moveItem": "Færa {{name}}",
+    "addMembersTo": "Bæta við meðlimum — {{name}}",
+    "newKind": "Tegund nýs atriðis",
+    "deleteWithChildrenMsg_one": "Þetta inniheldur {{count}} undirlið. Halda honum og færa upp um eitt stig, eða eyða öllu?",
+    "deleteWithChildrenMsg_other": "Þetta inniheldur {{count}} undirliði. Halda þeim og færa upp um eitt stig, eða eyða öllu?"
   },
   "stats": {
     "showMore": "Sýna meira",
     "showMoreN": "Sýna meira — sýni {{shown}} af {{total}}",
+    "showMoreShort": "Sýna meira ({{shown}}/{{total}})",
     "energyByHour": "Orka eftir klukkustund",
     "allTime": "Allur tíminn",
     "last7": "7 dagar",
@@ -868,7 +957,13 @@
     "topCoMembers": "Efstu sam-meðlimir",
     "msgsSuffix": "skilaboð",
     "sessionsSuffix": "lotur",
-    "totalSessions": "Heildarlotur"
+    "totalSessions": "Heildarlotur",
+    "sessionsCount_one": "{{count}} lota",
+    "sessionsCount_other": "{{count}} lotur",
+    "msgsCount_one": "{{count}} skilaboð",
+    "msgsCount_other": "{{count}} skilaboð",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "lota"
   },
   "chat": {
     "addReaction": "Bæta við viðbragði",
@@ -917,12 +1012,47 @@
     "deleteMsgConfirm": "Þessi skilaboð verða fjarlægð varanlega.",
     "editingHeader": "Breyti skilaboðum",
     "editPlaceholder": "Breyta skilaboðum…",
-    "imagePreview": "[mynd]"
+    "imagePreview": "[mynd]",
+    "reactionA11y_one": "{{emoji}}, {{count}} viðbragð",
+    "reactionA11y_other": "{{emoji}}, {{count}} viðbrögð",
+    "replyTo": "Svara {{name}}",
+    "archiveChannelNamed": "Setja {{name}} í safn",
+    "defaultGeneral": "Almennt",
+    "defaultVenting": "Útrás",
+    "defaultPlanning": "Skipulag",
+    "attachment": "Viðhengi"
   },
   "customFront": {
     "add": "Bæta við sérsniðnu fronti",
     "edit": "Breyta sérsniðnu fronti",
     "namePlaceholder": "Nafn sérsniðins fronts"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Málglöð/Málglaður",
+      "nonVerbal": "Án tals",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Óskýr",
+      "blendy": "Blönduð/Blandaður",
+      "rapidSwitching": "Hröð skipti",
+      "foggy": "Þokukennd(ur)",
+      "grounded": "Jarðtengd(ur)",
+      "dissociated": "Aftengd(ur)",
+      "anxious": "Kvíðin(n)",
+      "depressed": "Þunglynd(ur)",
+      "cheerful": "Kát(ur)",
+      "happy": "Glöð/Glaður",
+      "sad": "Döpur/Dapur",
+      "crisis": "Krísa",
+      "melancholy": "Angurvær",
+      "stimming": "Sjálfsörvun",
+      "stressed": "Stressuð/Stressaður",
+      "working": "Í vinnu",
+      "traveling": "Á ferðalagi",
+      "sleeping": "Sofandi",
+      "hyperfocus": "Ofureinbeiting"
+    }
   },
   "lock": {
     "locked": "Læst",
@@ -940,7 +1070,9 @@
     "browse": "Vafra",
     "deleteSelectedMsg": "Fjarlægja {{count}} valda(n) hlut(i)? Meðlimum verður ekki eytt.",
     "desc": "Búðu til, breyttu, endurraðaðu og eyddu hópum og undirkerfum. Ýttu á ⇄ á hlut og svo á áfangastað til að fella hann inn.",
-    "title": "Kerfisstjóri"
+    "title": "Kerfisstjóri",
+    "deleteSelectedMsg_one": "Fjarlægja {{count}} valinn hlut? Meðlimum verður ekki eytt.",
+    "deleteSelectedMsg_other": "Fjarlægja {{count}} valda hluti? Meðlimum verður ekki eytt."
   },
   "customFields": {
     "title": "Sérsniðnir reitir",
@@ -993,6 +1125,7 @@
     "cloudErrRate": "Of margar tilraunir. Bíddu í mínútu og reyndu aftur.",
     "cloudErrFull": "Hvelfingin eða hnúturinn er uppiskroppa með pláss.",
     "cloudErrTooLarge": "Sleppt, stærra en 25 MB: {{keys}}",
+    "cloudErrOverQuota": "Sleppt, hvelfingin er uppiskroppa með pláss: {{keys}}",
     "cloudErrBadPassword": "Hvelfingin er til, en þetta lykilorð opnar hana ekki.",
     "cloudErrCorrupt": "Ekki tókst að lesa hvelfinguna á þessu tæki. Aftengdu og tengdu aftur með sama lykilorði.",
     "cloudUnavailable": "Hnúturinn sem þú ert tengdur við býður ekki upp á Skýjaþjónustur.",
@@ -1061,6 +1194,7 @@
     "deleteBucket": "Eyða fötu",
     "deleteBucketMsg": "Eyða „{{name}}“?",
     "cloneBucket": "Afrita fötu",
+    "cloneBucketName": "Afrita fötu — {{name}}",
     "viewShared": "Skoða deilt",
     "mirrorNothing": "Viðkomandi hefur ekki deilt þessu með þér enn.",
     "mirrorOffline": "Vinur er ónettengdur — sýni síðasta móttekna eintak.",
@@ -1111,7 +1245,17 @@
     "syncCloneSending": "Sendi fyrsta afrit…",
     "syncCloneReceiving": "Tek á móti fyrsta afriti…",
     "syncCloneDone": "Fyrsta afriti lokið",
-    "publishFailed": "Gat ekki birt kóðann þinn — athugaðu tenginguna og reyndu aftur."
+    "publishFailed": "Gat ekki birt kóðann þinn — athugaðu tenginguna og reyndu aftur.",
+    "friendStatusOffline": "{{status}}. Ónettengd(ur)",
+    "scopeCount": "{{count}} valin",
+    "scopeCount_one": "{{count}} valið",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Eitthvað fór úrskeiðis í skýjasamstillingu. Reyndu aftur.",
+    "scopeSelectTitle": "{{feature}} — Úrval",
+    "viewSharedTitle": "{{name}} — Skoða deilt",
+    "deviceFallback": "Tæki",
+    "friendFallback": "Vinur",
+    "androidDeviceFallback": "Android-tæki"
   },
   "terminology": {
     "fronter": "Frontari",
@@ -1185,7 +1329,9 @@
     "addTime": "Bæta við tíma",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Áminning skipuleggjara"
+    "notifReminder": "Áminning skipuleggjara",
+    "todayA11y": "Í dag, {{date}}",
+    "reminderOff": "Slökkt"
   },
   "mailbox": {
     "title": "Pósthólf",
@@ -1209,7 +1355,13 @@
     "unreadCount": "{{count}} ólesin",
     "unreadCount_one": "{{count}} ólesið",
     "deleteTitle": "Eyða skilaboðum",
-    "deleteMsg": "Fjarlægja þessi skilaboð? Þetta er ekki hægt að afturkalla."
+    "deleteMsg": "Fjarlægja þessi skilaboð? Þetta er ekki hægt að afturkalla.",
+    "locked": "Læst",
+    "unlocked": "Ekki læst",
+    "allOthersCount": "Allir aðrir Meðlimir · {{count}}",
+    "unread": "Ólesið",
+    "deleteFrom": "Eyða skilaboðum frá {{name}}",
+    "frontersHaveMail": "Ólesinn póstur fyrir: {{names}}"
   },
   "whiteboard": {
     "title": "Tafla",
@@ -1264,7 +1416,9 @@
     "voPosDown": "{{n}} niður",
     "voPosUp": "{{n}} upp",
     "voEdges": "{{left}} að vinstri brún, {{right}} að hægri, {{top}} að efri, {{bottom}} að neðri",
-    "voRecentered": "Penni miðjaður á töflunni"
+    "voRecentered": "Penni miðjaður á töflunni",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Pensilstærð {{n}}"
   },
   "systemMap": {
     "connections": "Tengsl",
@@ -1309,7 +1463,11 @@
     "zoomIn": "Þysja inn",
     "zoomOut": "Þysja út",
     "resetView": "Endurstilla sýn",
-    "notePlaceholder": "Valfrjáls athugasemd…"
+    "notePlaceholder": "Valfrjáls athugasemd…",
+    "mapA11y": "Tengslakort, {{members}}, {{relationships}}",
+    "mapA11yHint": "Notaðu aðgerðavalmyndina til að velja meðlim",
+    "depthN_one": "{{count}} tengsl út",
+    "depthN_other": "{{count}} tengsl út"
   },
   "relType": {
     "love": "Ást",
@@ -1375,13 +1533,17 @@
     "deletePollMsg": "Þetta fjarlægir þessa könnun varanlega.",
     "noPolls": "Engar kannanir enn.",
     "closed": "Lokað",
-    "votingAs": "Kýs sem:"
+    "votingAs": "Kýs sem:",
+    "optionN": "Valkostur {{n}}",
+    "removeOptionN": "Fjarlægja valkost {{n}}"
   },
   "energy": {
     "label": "Orka",
     "level": "Orkustig",
     "avgEnergy": "Meðalorka",
-    "outOf10": "/10 orka"
+    "outOf10": "/10 orka",
+    "levelN": "Orkustig {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Lestur",

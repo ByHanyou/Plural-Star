@@ -1,4 +1,6 @@
 import {Alert} from 'react-native';
+import {importNameKey} from './importNames';
+import {ImportUserError, importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {strFromU8} from 'fflate';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, ChatChannel, ChatMessage, MemberPoll, CustomFieldDef, CustomFieldType, CustomFieldValue, uid} from '../utils';
@@ -53,15 +55,15 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
             } catch { parsed = null; }
           }
         }
-        if (!parsed) throw new Error(t('share.psNotExport'));
+        if (!parsed) throw new ImportUserError(t('share.psNotExport'));
         setPsZipFiles(bundle!.files);
       } else {
         const raw: string = await readFileText(path, res.uri);
-        try { parsed = JSON.parse(raw); } catch { throw new Error(t('share.psNotExport')); }
+        try { parsed = JSON.parse(raw); } catch { throw new ImportUserError(t('share.psNotExport')); }
         if (isOpenPluralSystem(parsed)) parsed = normalizeOpenPlural(parsed);
       }
       const ok = !parsed?._meta && parsed?.system && typeof parsed.system === 'object' && Array.isArray(parsed.members) && Array.isArray(parsed.fronts);
-      if (!ok) throw new Error(t('share.psNotExport'));
+      if (!ok) throw new ImportUserError(t('share.psNotExport'));
       setExtPreview({
         system: parsed.system,
         members: parsed.members,
@@ -72,7 +74,7 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
         chat: Array.isArray(parsed.chat_channels) ? parsed.chat_channels : [],
         polls: Array.isArray(parsed.polls) ? parsed.polls : [],
       });
-    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || t('share.couldNotReadFile')); }
+    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), importErrorText(e, t)); }
   };
 
 export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
@@ -100,7 +102,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
             const merged: Member[] = [...existing];
             psMembers.forEach((m: any) => {
               mergeForeignMember(merged, idMap, 'ps:' + String(m.id), {
-                name: (m.name && String(m.name).trim()) || (m.display_name && String(m.display_name).trim()) || 'Unnamed member',
+                name: (m.name && String(m.name).trim()) || (m.display_name && String(m.display_name).trim()) || t('share.unnamedMember'),
                 pronouns: String(m.pronouns || ''),
                 role: Array.isArray(m.role) ? m.role.join(', ') : String(m.role || ''),
                 color: normHex(m.color),
@@ -134,10 +136,10 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
             const fieldIdByName: Record<string, string> = {};
             const PS_TYPE_MAP: Record<string, CustomFieldType> = {text: 'text', number: 'number', boolean: 'toggle', toggle: 'toggle', date: 'date', color: 'color', markdown: 'markdown'};
             psFieldDefs.forEach((f: any, i: number) => {
-              const name = String(f.name || `Field ${i + 1}`).trim();
-              const key = name.toLowerCase();
+              const name = String(f.name || t('share.fieldN', {n: i + 1})).trim();
+              const key = importNameKey(name);
               if (fieldIdByName[key]) return;
-              const existing = existingDefs.find(d => d.name.toLowerCase() === key);
+              const existing = existingDefs.find(d => importNameKey(d.name) === key);
               if (existing) { fieldIdByName[key] = existing.id; return; }
               const localId = uid();
               newDefs.push({id: localId, name, type: PS_TYPE_MAP[String(f.field_type)] || 'text', sortOrder: i});
@@ -146,9 +148,9 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
             psMembers.forEach((m: any) => (Array.isArray(m.custom_field_values) ? m.custom_field_values : []).forEach((cv: any) => {
               const name = String(cv.field_name || '').trim();
               if (!name) return;
-              const key = name.toLowerCase();
+              const key = importNameKey(name);
               if (fieldIdByName[key]) return;
-              const existing = existingDefs.find(d => d.name.toLowerCase() === key);
+              const existing = existingDefs.find(d => importNameKey(d.name) === key);
               if (existing) { fieldIdByName[key] = existing.id; return; }
               const localId = uid();
               newDefs.push({id: localId, name, type: 'text', sortOrder: psFieldDefs.length + newDefs.length});
@@ -161,7 +163,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
               if (!ps || !Array.isArray(ps.custom_field_values) || ps.custom_field_values.length === 0) return lm;
               const grouped: Record<string, string[]> = {};
               ps.custom_field_values.forEach((cv: any) => {
-                const key = String(cv.field_name || '').trim().toLowerCase();
+                const key = importNameKey(String(cv.field_name || '').trim());
                 if (!key || cv.value == null) return;
                 (grouped[key] = grouped[key] || []).push(String(cv.value));
               });
@@ -186,7 +188,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
             psGroups.forEach((g: any) => {
               const name = String(g?.name || 'Group');
               const srcId = g?.id != null ? `sp:${String(g.id)}` : null;
-              let lg = (srcId ? mergedGroups.find(x => x.sourceId === srcId) : undefined) || mergedGroups.find(x => !x.sourceId && x.name.toLowerCase() === name.toLowerCase());
+              let lg = (srcId ? mergedGroups.find(x => x.sourceId === srcId) : undefined) || mergedGroups.find(x => !x.sourceId && importNameKey(x.name) === importNameKey(name));
               if (!lg) { lg = {id: uid(), name, color: g?.color ? normHex(g.color) : undefined, sourceId: srcId || undefined}; mergedGroups.push(lg); }
               else if (srcId) { lg.name = name; lg.sourceId = srcId; }
               groupIdMap[String(g?.id)] = lg.id;
@@ -233,7 +235,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
             const mergedCh: ChatChannel[] = [...existingCh];
             for (const ch of psChat) {
               const chName = String(ch?.name || '').trim() || 'Imported';
-              let local = mergedCh.find(c => c.name.toLowerCase() === chName.toLowerCase());
+              let local = mergedCh.find(c => importNameKey(c.name) === importNameKey(chName));
               if (!local) { local = {id: uid(), name: chName, createdAt: psTime(ch?.created_at) || Date.now()}; mergedCh.push(local); }
               const msgs: any[] = Array.isArray(ch?.messages) ? ch.messages : [];
               if (msgs.length > 0) {
@@ -319,7 +321,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
           setTimeout(() => onDataImported(), 800);
         } catch (e: any) {
           if (isImportStopped(e)) { setRestoreProgress(''); setImportStatus('success'); setImportMsg(t('share.importStopped', {count: e?.completedCount ?? 0})); setExtPreview(null); setTimeout(() => onDataImported(), 800); return; }
-          setRestoreProgress(''); setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric'));
+          setRestoreProgress(''); setImportStatus('error'); setImportMsg(importErrorText(e, t));
         }
       }},
     ]);

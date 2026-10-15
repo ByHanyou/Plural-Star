@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Пишіть у markdown…",
     "urlPlaceholder": "URL тут",
     "textPlaceholder": "текст",
-    "body": "Редактор"
+    "body": "Редактор",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Жирний",
@@ -88,7 +89,8 @@
     "minute": "Хвилина",
     "switchToAm": "PM, переключити на AM",
     "switchToPm": "AM, переключити на PM",
-    "image": "Зображення"
+    "image": "Зображення",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Щось пішло не так",
@@ -99,6 +101,33 @@
     "add": "Додати користувацький фронт",
     "edit": "Редагувати користувацький фронт",
     "namePlaceholder": "Назва користувацького фронту"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Балакучість",
+      "nonVerbal": "Невербальність",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Розмитість",
+      "blendy": "Змішування",
+      "rapidSwitching": "Часті перемикання",
+      "foggy": "Туман",
+      "grounded": "Заземлення",
+      "dissociated": "Дисоціація",
+      "anxious": "Тривога",
+      "depressed": "Пригніченість",
+      "cheerful": "Веселість",
+      "happy": "Радість",
+      "sad": "Сум",
+      "crisis": "Криза",
+      "melancholy": "Меланхолія",
+      "stimming": "Стімінг",
+      "stressed": "Стрес",
+      "working": "Робота",
+      "traveling": "Подорож",
+      "sleeping": "Сон",
+      "hyperfocus": "Гіперфокус"
+    }
   },
   "lock": {
     "locked": "Заблоковано",
@@ -116,7 +145,11 @@
     "browse": "Огляд",
     "deleteSelectedMsg": "Видалити вибрані елементи ({{count}})? Учасників не буде видалено.",
     "desc": "Створюйте, редагуйте, упорядковуйте та видаляйте групи й підсистеми. Торкніться ⇄ на елементі, а потім місця призначення, щоб вкласти його.",
-    "title": "Менеджер системи"
+    "title": "Менеджер системи",
+    "deleteSelectedMsg_one": "Видалити {{count}} вибраний елемент? Учасників не буде видалено.",
+    "deleteSelectedMsg_few": "Видалити {{count}} вибрані елементи? Учасників не буде видалено.",
+    "deleteSelectedMsg_many": "Видалити {{count}} вибраних елементів? Учасників не буде видалено.",
+    "deleteSelectedMsg_other": "Видалити вибрані елементи ({{count}})? Учасників не буде видалено."
   },
   "common": {
     "durDaysHours": "{{d}} д {{h}} год",
@@ -130,6 +163,12 @@
     "movedAbove": "Переміщено над {{name}}",
     "movedBelow": "Переміщено під {{name}}",
     "search": "Пошук…",
+    "removeItem": "Прибрати {{name}}",
+    "addItem": "Додати {{name}}",
+    "clearItem": "Очистити {{name}}",
+    "editItem": "Редагувати {{name}}",
+    "deleteItem": "Видалити {{name}}",
+    "exportItem": "Експортувати {{name}}",
     "back": "Назад",
     "change": "Змінити",
     "export": "Експорт",
@@ -144,7 +183,8 @@
     "remove": "Прибрати",
     "unknown": "Невідомо",
     "untitled": "Без назви",
-    "ok": "OK"
+    "ok": "OK",
+    "errorCode": "Код помилки: {{code}}"
   },
   "tabs": {
     "fronters": "Фронтери",
@@ -206,7 +246,8 @@
     "statusesDesc": "Статуси описують ваш стан — наприклад, Сон, Робота чи Тривога. Вибирайте їх під час оновлення статусу.",
     "noStatuses": "Статусів поки немає. Додайте один, щоб почати.",
     "activeStatus": "Активний",
-    "favoriteColor": "Улюблений колір"
+    "favoriteColor": "Улюблений колір",
+    "statusActiveA11y": "{{name}}, активний"
   },
   "settings": {
     "observatory": "Інтерфейс «Обсерваторія» (індивідуальний)",
@@ -223,7 +264,9 @@
     "noNote": "Нотатки немає. Натисніть Редагувати, щоб додати.",
     "clearFront": "Очистити фронт",
     "clearFrontMsg": "Це очистить усі рівні та зафіксує кінець поточної сесії. Продовжити?",
-    "clearFrontTitle": "Очистити фронт?"
+    "clearFrontTitle": "Очистити фронт?",
+    "frontingForA11y": "{{name}}, фронтить {{dur}}",
+    "frontingForSince": "Фронтить <b>{{dur}}</b> · з {{time}}"
   },
   "members": {
     "fieldCount": "Кількість учасників",
@@ -260,8 +303,14 @@
     "makeMember": "Перенести до учасників",
     "moveCategoryHint": "Усе інше в цьому профілі зберігається. Грані не рахуються як учасники.",
     "countFacet": "Граней: {{count}}",
+    "countFacet_one": "Граней: {{count}}",
+    "countFacet_few": "Граней: {{count}}",
+    "countFacet_many": "Граней: {{count}}",
     "countFilteredFacet": "{{filtered}} з {{total}} граней",
     "countCustomFront": "Власних фронтів: {{count}}",
+    "countCustomFront_one": "Власних фронтів: {{count}}",
+    "countCustomFront_few": "Власних фронтів: {{count}}",
+    "countCustomFront_many": "Власних фронтів: {{count}}",
     "countFacet_other": "Граней: {{count}}",
     "countCustomFront_other": "Власних фронтів: {{count}}",
     "countFilteredCustomFront": "{{filtered}} з {{total}} власних фронтів",
@@ -299,15 +348,38 @@
     "noArchivedFacets": "Немає архівних граней.",
     "noArchivedCustomFronts": "Немає архівних користувацьких фронтів.",
     "count": "{{count}} учасник",
+    "count_one": "{{count}} учасник",
     "count_few": "{{count}} учасники",
     "count_many": "{{count}} учасників",
     "count_other": "{{count}} учасників",
     "countFronters": "{{count}} фронтер",
+    "countFronters_one": "{{count}} фронтер",
     "countFronters_few": "{{count}} фронтери",
     "countFronters_many": "{{count}} фронтерів",
     "countFronters_other": "{{count}} фронтерів",
     "countFiltered": "{{filtered}} з {{total}} учасників",
-    "recentlyDeleted": "Недавно видалені"
+    "recentlyDeleted": "Недавно видалені",
+    "nameInTier": "{{name}}, зараз: {{tier}}",
+    "moveUpItem": "Перемістити {{name}} вгору",
+    "moveDownItem": "Перемістити {{name}} вниз",
+    "addToFrontName": "Додати у фронт — {{name}}",
+    "removeFromFrontName": "Прибрати з фронту — {{name}}",
+    "titleCount": "Учасники ({{n}})",
+    "facetsCount": "Грані ({{n}})",
+    "customFrontsCount": "Користувацькі фронти ({{n}})",
+    "restoreItem": "Відновити {{name}}",
+    "bulkArchiveMsg_one": "Архівувати {{count}} учасника? Його можна відновити пізніше.",
+    "bulkArchiveMsg_few": "Архівувати {{count}} учасники? Їх можна відновити пізніше.",
+    "bulkArchiveMsg_many": "Архівувати {{count}} учасників? Їх можна відновити пізніше.",
+    "bulkArchiveMsg_other": "Архівувати {{count}} учасника? Їх можна відновити пізніше.",
+    "bulkRestoreMsg_one": "Відновити {{count}} учасника як активного?",
+    "bulkRestoreMsg_few": "Відновити {{count}} учасники як активних?",
+    "bulkRestoreMsg_many": "Відновити {{count}} учасників як активних?",
+    "bulkRestoreMsg_other": "Відновити {{count}} учасника як активних?",
+    "bulkDeleteMsg_one": "Видалити {{count}} учасника назавжди? Цю дію не можна скасувати.",
+    "bulkDeleteMsg_few": "Видалити {{count}} учасники назавжди? Цю дію не можна скасувати.",
+    "bulkDeleteMsg_many": "Видалити {{count}} учасників назавжди? Цю дію не можна скасувати.",
+    "bulkDeleteMsg_other": "Видалити {{count}} учасника назавжди? Цю дію не можна скасувати."
   },
   "history": {
     "editEntry": "Редагувати",
@@ -351,7 +423,15 @@
     "deleteConfirm2": "Цю дію не можна скасувати. Видалити?",
     "deleteConfirm3": "Остаточне підтвердження: видалити назавжди?",
     "showMore": "Показати більше",
-    "showLess": "Показати менше"
+    "showLess": "Показати менше",
+    "moodBadge": "настрій <b>{{mood}}</b>",
+    "atBadge": "в <b>{{location}}</b>",
+    "energyBadge": "Енергія <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Настрій та місце змінилися ({{tier}})",
+    "moodChanged_tier": "Настрій змінився ({{tier}})",
+    "locationChanged_tier": "Місце змінилося ({{tier}})",
+    "noteUpdated_tier": "Нотатку оновлено ({{tier}})",
+    "frontSwitch_tier": "Зміна фронту ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Цей шаблон буде видалено назавжди.",
@@ -386,7 +466,8 @@
     "templateName": "Назва Шаблону *",
     "templateNamePlaceholder": "напр. Ранкові сторінки",
     "templateTitle": "Заголовок Запису (попередньо встановлений)",
-    "templateBody": "Текст Запису (попередньо встановлений)"
+    "templateBody": "Текст Запису (попередньо встановлений)",
+    "openEntryHint": "Відкриває запис повністю"
   },
   "share": {
     "jsonHint": "ZIP і JSON — це повні резервні копії, які можна повторно імпортувати в Plural Star.",
@@ -428,6 +509,42 @@
     "progressChat": "Відновлення чату…",
     "progressChatN": "Відновлення каналів чату… {{done}}/{{total}}",
     "progressSavingMembers": "Збереження учасників…",
+    "exportAs": "Експортувати як {{format}}",
+    "sizeMB": "{{n}} МБ",
+    "sizeKB": "{{n}} КБ",
+    "sizeB": "{{n}} Б",
+    "quoted": "«{{text}}»",
+    "exportMailExportedLine": "Експортовано: {{date}}",
+    "exportMailMembersHeader": "УЧАСНИКИ ({{count}})",
+    "exportMailJournalHeader": "ЩОДЕННИК ({{count}})",
+    "exportMailJournalHeaderRecent": "ЩОДЕННИК ({{count}} — показано {{shown}} останніх)",
+    "exportMailHistoryHeader": "ІСТОРІЯ ФРОНТУ ({{count}})",
+    "exportMailHistoryHeaderRecent": "ІСТОРІЯ ФРОНТУ ({{count}} — показано {{shown}} останніх)",
+    "exportTitleLine": "Назва: {{title}}",
+    "exportDateLine": "Дата: {{date}}",
+    "exportAuthorsLine": "Автори: {{authors}}",
+    "importStopped_one": "Імпорт зупинено. {{count}} крок завершено та збережено; решту кроків не виконано.",
+    "importStopped_few": "Імпорт зупинено. {{count}} кроки завершено та збережено; решту кроків не виконано.",
+    "importStopped_many": "Імпорт зупинено. {{count}} кроків завершено та збережено; решту кроків не виконано.",
+    "importStopped_other": "Імпорт зупинено. Кроків завершено та збережено: {{count}}; решту кроків не виконано.",
+    "psAvatarsImported_one": "Імпортовано {{count}} аватар.",
+    "psAvatarsImported_few": "Імпортовано {{count}} аватари.",
+    "psAvatarsImported_many": "Імпортовано {{count}} аватарів.",
+    "psAvatarsImported_other": "Імпортовано аватарів: {{count}}.",
+    "recoverConfirmMsg_one": "Відновити {{count}} елемент у додаток? Поточні дані в цій категорії буде перезаписано.",
+    "recoverConfirmMsg_few": "Відновити {{count}} елементи у додаток? Поточні дані в цих категоріях буде перезаписано.",
+    "recoverConfirmMsg_many": "Відновити {{count}} елементів у додаток? Поточні дані в цих категоріях буде перезаписано.",
+    "recoverConfirmMsg_other": "Відновити {{count}} елемента у додаток? Поточні дані в цих категоріях буде перезаписано.",
+    "cfUnmatched_one": "{{count}} ключ не збігся з жодним нашим ID/назвою поля. Незіставлений ключ: {{samples}}",
+    "cfUnmatched_few": "{{count}} ключі не збіглися з жодним нашим ID/назвою поля. Приклади незіставлених ключів: {{samples}}",
+    "cfUnmatched_many": "{{count}} ключів не збіглися з жодним нашим ID/назвою поля. Приклади незіставлених ключів: {{samples}}",
+    "cfUnmatched_other": "{{count}} ключа не збіглися з жодним нашим ID/назвою поля. Приклади незіставлених ключів: {{samples}}",
+    "unnamedMember": "Учасник без імені",
+    "fieldN": "Поле {{n}}",
+    "systemN": "Система {{n}}",
+    "groupN": "Група {{n}}",
+    "channelN": "Канал {{n}}",
+    "ageField": "Вік",
     "bundleNotRecognized": "Цей .zip не є резервною копією Plural Star.",
     "banners": "Банери",
     "groups": "Групи",
@@ -623,7 +740,9 @@
     "savedToDownloadsMsg": "{{filename}} збережено в папці «Завантаження».",
     "exportReady": "Експорт готовий",
     "exportReadyMsg": "{{filename}} створено, але вікно «Поділитися» не відкрилось автоматично.",
-    "importing": "Імпорт…"
+    "importing": "Імпорт…",
+    "exporting": "Експорт…",
+    "errUnexpected": "Щось пішло не так. Перевірте файл і спробуйте ще раз."
   },
   "hub": {
     "overlapMore": "+{{count}} ще",
@@ -650,11 +769,11 @@
     "statistics": "Статистика",
     "systemChat": "Чат системи",
     "archive": "Архів",
-    "discord": "Discord",
     "credits": "Подяки",
     "creditLogo": "Логотип Plural Star",
     "creditIos": "iOS-порт Plural Star",
-    "supportPS": "Підтримати PS"
+    "supportPS": "Підтримати PS",
+    "discord": "Discord"
   },
   "modal": {
     "read": "Перегляд",
@@ -693,6 +812,8 @@
     "colorLock": "Блокування кольору",
     "invalidHex": "Невірний hex-колір",
     "customColor": "Власний колір",
+    "emoji": "Емодзі",
+    "emojiPlaceholder": "наприклад, 🦊",
     "transparentColor": "Прозорий",
     "removeImageMsg": "Видалити це зображення?",
     "deletePaletteMsg": "Цю палітру буде видалено назавжди.",
@@ -775,7 +896,17 @@
     "textScaleLarge": "Великий",
     "textScaleExtraLarge": "Величезний",
     "dyslexicFont": "Шрифт для дислексії",
-    "dyslexicFontDesc": "Перемикає основний текст на OpenDyslexic. Заголовки зберігають свій шрифт."
+    "dyslexicFontDesc": "Перемикає основний текст на OpenDyslexic. Заголовки зберігають свій шрифт.",
+    "cropArea": "Область обрізання",
+    "addEntryPassword": "Додати пароль запису",
+    "removeEntryPassword": "Прибрати пароль запису",
+    "addJournalPassword": "Додати пароль щоденника",
+    "removeJournalPassword": "Прибрати пароль щоденника",
+    "addAppLockPassword": "Додати пароль блокування застосунку",
+    "removeAppLockPassword": "Прибрати пароль блокування застосунку",
+    "fontDefault": "Типовий",
+    "paletteObsidian": "Обсидіан",
+    "paletteSteel": "Сталь"
   },
   "notification": {
     "filePermTitle": "Доступ до файлів",
@@ -783,6 +914,7 @@
     "chatPingTitle": "◆ {{speaker}} пінгнув(ла) вас у #{{channel}}",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "Торкніться, щоб переглянути повідомлення.",
+    "friendLine": "◈ {{name}}: {{fronters}}",
     "locationPermTitle": "Дозвіл на геолокацію",
     "locationPermMsg": "Plural Star хоче позначати приблизне місцезнаходження при фронті.",
     "allow": "Дозволити",
@@ -819,10 +951,12 @@
     "noteboard": "Сповіщення Поштової скриньки",
     "noteboardDesc": "Сповіщати, коли у фронтуючого учасника є непрочитана пошта.",
     "noteboardUnreadTitle": "◇ {{count}} непрочитана нотатка",
+    "noteboardUnreadTitle_one": "◇ {{count}} непрочитана нотатка",
     "noteboardUnreadTitle_few": "◇ {{count}} непрочитані нотатки",
     "noteboardUnreadTitle_many": "◇ {{count}} непрочитаних нотаток",
     "noteboardUnreadTitle_other": "◇ {{count}} непрочитаних нотаток",
     "noteboardUnreadLine": "{{name}}: {{count}} нова нотатка",
+    "noteboardUnreadLine_one": "{{name}}: {{count}} нова нотатка",
     "noteboardUnreadLine_few": "{{name}}: {{count}} нові нотатки",
     "noteboardUnreadLine_many": "{{name}}: {{count}} нових нотаток",
     "noteboardUnreadLine_other": "{{name}}: {{count}} нових нотаток"
@@ -876,7 +1010,20 @@
     "removeMembers": "Прибрати учасників",
     "deleteGroup": "Видалити групу",
     "deleteGroupMsg": "Видалити цю групу? Учасники залишаться.",
-    "deleteWithChildrenMsg": "Містить вкладених елементів: {{count}}. Зберегти їх, піднявши на рівень вище, чи видалити все?"
+    "deleteWithChildrenMsg": "Містить вкладених елементів: {{count}}. Зберегти їх, піднявши на рівень вище, чи видалити все?",
+    "subgroupCount_one": "{{count}} підгрупа",
+    "subgroupCount_few": "{{count}} підгрупи",
+    "subgroupCount_many": "{{count}} підгруп",
+    "subgroupCount_other": "{{count}} підгрупи",
+    "expandA11y": "Підгрупи {{name}}, вибрано: {{count}}",
+    "subsystemNamed": "{{name}}, підсистема",
+    "moveItem": "Перемістити {{name}}",
+    "addMembersTo": "Додати учасників — {{name}}",
+    "newKind": "Тип нового елемента",
+    "deleteWithChildrenMsg_one": "Містить {{count}} вкладений елемент. Зберегти його, піднявши на рівень вище, чи видалити все?",
+    "deleteWithChildrenMsg_few": "Містить {{count}} вкладені елементи. Зберегти їх, піднявши на рівень вище, чи видалити все?",
+    "deleteWithChildrenMsg_many": "Містить {{count}} вкладених елементів. Зберегти їх, піднявши на рівень вище, чи видалити все?",
+    "deleteWithChildrenMsg_other": "Містить вкладених елементів: {{count}}. Зберегти їх, піднявши на рівень вище, чи видалити все?"
   },
   "stats": {
     "rangeStart": "Дата початку",
@@ -885,6 +1032,7 @@
     "thisYear": "Цей рік",
     "showMore": "Показати більше",
     "showMoreN": "Показати більше — {{shown}} з {{total}}",
+    "showMoreShort": "Показати більше ({{shown}}/{{total}})",
     "energyByHour": "Енергія за годинами",
     "allTime": "Увесь час",
     "last7": "7 днів",
@@ -910,7 +1058,19 @@
     "topCoMembers": "Топ спів-учасники",
     "msgsSuffix": "повід.",
     "sessionsSuffix": "сесій",
-    "totalSessions": "Усього сесій"
+    "totalSessions": "Усього сесій",
+    "sessionsCount_one": "{{count}} сесія",
+    "sessionsCount_few": "{{count}} сесії",
+    "sessionsCount_many": "{{count}} сесій",
+    "sessionsCount_other": "{{count}} сесії",
+    "msgsCount_one": "{{count}} повід.",
+    "msgsCount_few": "{{count}} повід.",
+    "msgsCount_many": "{{count}} повід.",
+    "msgsCount_other": "{{count}} повід.",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "сесія",
+    "sessionsSuffix_few": "сесії",
+    "sessionsSuffix_many": "сесій"
   },
   "chat": {
     "imageUnavailable": "[зображення недоступне]",
@@ -922,6 +1082,16 @@
     "editingHeader": "Редагування повідомлення",
     "editPlaceholder": "Редагувати повідомлення…",
     "imagePreview": "[зображення]",
+    "reactionA11y_one": "{{emoji}}, {{count}} реакція",
+    "reactionA11y_few": "{{emoji}}, {{count}} реакції",
+    "reactionA11y_many": "{{emoji}}, {{count}} реакцій",
+    "reactionA11y_other": "{{emoji}}, {{count}} реакції",
+    "replyTo": "Відповісти {{name}}",
+    "archiveChannelNamed": "Архівувати {{name}}",
+    "defaultGeneral": "Загальний",
+    "defaultVenting": "Виговоритися",
+    "defaultPlanning": "Планування",
+    "attachment": "Вкладення",
     "addReaction": "Додати реакцію",
     "attachFile": "Прикріпити файл",
     "pasteImage": "Вставити зображення",
@@ -1011,6 +1181,7 @@
     "cloudErrRate": "Забагато спроб. Зачекайте хвилину та спробуйте знову.",
     "cloudErrFull": "У сховищі або на вузлі немає місця.",
     "cloudErrTooLarge": "Пропущено, понад 25 МБ: {{keys}}",
+    "cloudErrOverQuota": "Пропущено, у сховищі немає місця: {{keys}}",
     "cloudErrBadPassword": "Сховище існує, але цей пароль його не відкриває.",
     "cloudErrCorrupt": "Не вдалося прочитати сховище на цьому пристрої. Відв'яжіть і прив'яжіть знову з тим самим паролем.",
     "cloudUnavailable": "Вузол, до якого ви під'єднані, не надає Хмарних сервісів.",
@@ -1079,6 +1250,7 @@
     "deleteBucket": "Видалити коло",
     "deleteBucketMsg": "Видалити «{{name}}»?",
     "cloneBucket": "Дублювати коло",
+    "cloneBucketName": "Дублювати коло — {{name}}",
     "viewShared": "Переглянути надане",
     "mirrorNothing": "Вони ще не поділилися цим з вами.",
     "mirrorOffline": "Друг офлайн — показано останню отриману копію.",
@@ -1129,7 +1301,16 @@
     "syncCloneSending": "Надсилання першої копії…",
     "syncCloneReceiving": "Отримання першої копії…",
     "syncCloneDone": "Першу копію завершено",
-    "publishFailed": "Не вдалося опублікувати код — перевірте з'єднання та спробуйте ще раз."
+    "publishFailed": "Не вдалося опублікувати код — перевірте з'єднання та спробуйте ще раз.",
+    "friendStatusOffline": "{{status}}. Не в мережі",
+    "scopeCount": "Вибрано: {{count}}",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Щось пішло не так під час синхронізації з хмарою. Спробуйте ще раз.",
+    "scopeSelectTitle": "{{feature}} — Вибір",
+    "viewSharedTitle": "{{name}} — Переглянути надане",
+    "deviceFallback": "Пристрій",
+    "friendFallback": "Друг",
+    "androidDeviceFallback": "Android-пристрій"
   },
   "terminology": {
     "fronter": "Фронтер",
@@ -1205,7 +1386,9 @@
     "addTime": "Додати час",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Нагадування планувальника"
+    "notifReminder": "Нагадування планувальника",
+    "todayA11y": "Сьогодні, {{date}}",
+    "reminderOff": "Вимк."
   },
   "mailbox": {
     "title": "Поштова скринька",
@@ -1225,6 +1408,7 @@
     "inboxOf": "Скринька {{name}}",
     "replyFrom": "Надіслати {{name}} від імені:",
     "messageCount": "{{count}} повідомлення",
+    "messageCount_one": "{{count}} повідомлення",
     "messageCount_few": "{{count}} повідомлення",
     "messageCount_many": "{{count}} повідомлень",
     "messageCount_other": "{{count}} повідомлень",
@@ -1232,7 +1416,13 @@
     "unreadCount_one": "{{count}} непрочитане",
     "unreadCount_few": "{{count}} непрочитані",
     "deleteTitle": "Видалити повідомлення",
-    "deleteMsg": "Видалити це повідомлення? Цю дію не можна скасувати."
+    "deleteMsg": "Видалити це повідомлення? Цю дію не можна скасувати.",
+    "locked": "Заблоковано",
+    "unlocked": "Не заблоковано",
+    "allOthersCount": "Усі інші Учасники · {{count}}",
+    "unread": "Непрочитане",
+    "deleteFrom": "Видалити повідомлення від {{name}}",
+    "frontersHaveMail": "Непрочитана пошта для: {{names}}"
   },
   "whiteboard": {
     "title": "Дошка",
@@ -1287,7 +1477,9 @@
     "voPosDown": "{{n}} вниз",
     "voPosUp": "{{n}} вгору",
     "voEdges": "{{left}} до лівого краю, {{right}} до правого, {{top}} до верху, {{bottom}} до низу",
-    "voRecentered": "Перо повернуто в центр"
+    "voRecentered": "Перо повернуто в центр",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Розмір пензля {{n}}"
   },
   "systemMap": {
     "connections": "З'єднання",
@@ -1334,7 +1526,13 @@
     "zoomIn": "Збільшити",
     "zoomOut": "Зменшити",
     "resetView": "Скинути вигляд",
-    "notePlaceholder": "Необов'язкова нотатка…"
+    "notePlaceholder": "Необов'язкова нотатка…",
+    "mapA11y": "Карта зв'язків, {{members}}, {{relationships}}",
+    "mapA11yHint": "Виберіть учасника через меню дій",
+    "depthN_one": "{{count}} зв'язок від вибраного",
+    "depthN_few": "{{count}} зв'язки від вибраного",
+    "depthN_many": "{{count}} зв'язків від вибраного",
+    "depthN_other": "{{count}} зв'язку від вибраного"
   },
   "relType": {
     "love": "Кохання",
@@ -1402,13 +1600,17 @@
     "deletePollMsg": "Це безповоротно видалить опитування.",
     "noPolls": "Опитувань ще немає.",
     "closed": "Закрито",
-    "votingAs": "Голосує:"
+    "votingAs": "Голосує:",
+    "optionN": "Варіант {{n}}",
+    "removeOptionN": "Видалити варіант {{n}}"
   },
   "energy": {
     "label": "Енергія",
     "level": "Рівень енергії",
     "avgEnergy": "Середня енергія",
-    "outOf10": "/10 енергії"
+    "outOf10": "/10 енергії",
+    "levelN": "Рівень енергії {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Перегляд",

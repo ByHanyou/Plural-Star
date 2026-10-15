@@ -46,13 +46,6 @@ export interface FrontShare {
   startTime?: number;
 }
 
-export interface RendezvousRecord {
-  peerId: string;
-  edPublicKey: string;
-  boxPublicKey: string;
-  sig: string;
-}
-
 export const FRIENDS_STORAGE_KEY = 'ps:networkFriends';
 export const NETWORK_SETTINGS_KEY = 'ps:networkSettings';
 
@@ -85,9 +78,11 @@ export type NetMessage =
   | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean; resolved?: boolean }
   | { t: 'sync_req'; hashes: Record<string, string> }
   | { t: 'dm'; body: string; ts: number }
-  | { t: 'mirror_req'; feature: MirrorFeature }
+  | { t: 'mirror_req'; feature: MirrorFeature; v?: number }
   | { t: 'mirror'; feature: MirrorFeature; seq: number; total: number; data: string; none?: boolean }
   | { t: 'mirror_media'; feature: MirrorFeature; memberId: string; data: string }
+  | { t: 'mirror_media_req'; feature: MirrorFeature; ids: string[] }
+  | { t: 'mirror_media_done'; feature: MirrorFeature }
   | { t: 'mirror_gif_req'; feature: MirrorFeature; items: MirrorGifAsk[] }
   | { t: 'mirror_gif'; feature: MirrorFeature; memberId: string; h: string; seq: number; total: number; data: string };
 
@@ -104,6 +99,7 @@ export interface MirrorMember {
   color?: string;
   description?: string;
   archived?: boolean;
+  hasAvatar?: boolean;
   hasBanner?: boolean;
   bannerGif?: string;
   customFields?: {name: string; value: string | number | boolean | null; type?: string; markdown?: boolean; fieldId?: string; gif?: string}[];
@@ -124,6 +120,7 @@ export const MIRROR_SYSTEM_BANNER_ID = '__systemBanner__';
 export const MIRROR_GIF_MAX_BYTES = 8 * 1024 * 1024;
 export const MIRROR_GIF_MAX_B64 = Math.ceil(MIRROR_GIF_MAX_BYTES / 3) * 4;
 export const MIRROR_GIF_PART = 384 * 1024;
+export const MIRROR_GIF_MIN_PART = 96 * 1024;
 export const MIRROR_GIF_MAX_PARTS = Math.ceil(MIRROR_GIF_MAX_B64 / MIRROR_GIF_PART);
 export const MIRROR_GIF_ASK_MAX = 200;
 
@@ -217,6 +214,7 @@ export interface MirrorCacheEntry {
 export const MIRROR_CACHE_PREFIX = 'ps:friendMirror:';
 
 export const MIRROR_SERVED_KEY = 'ps:friendMirror:served';
+export const MIRROR_SENT_KEY = 'ps:friendMirror:sent';
 
 export const SYNC_EXCLUDE_KEYS = [
   'ps:networkIdentity',

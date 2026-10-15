@@ -30,7 +30,7 @@ export const TabBar = ({C, tab, isSinglet, onPressTab}: {C: ThemeColors; tab: Ta
           <View style={{height: fs(24), justifyContent: 'center', marginBottom: 2}}>
             <AccentText T={C} style={[styles.tabIcon, {color: tab === id ? C.accent : C.dim, fontSize: fs(18), lineHeight: fs(22), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center'}]} maxFontSizeMultiplier={1.2}>{TAB_ICONS[id]}</AccentText>
           </View>
-          <AccentText T={C} style={[styles.tabLabel, {color: tab === id ? C.accent : C.dim, fontSize: Math.min(fs(9), 12), textAlign: 'center'}]} numberOfLines={2} allowFontScaling={false}>{tabLabel(id)}</AccentText>
+          <AccentText T={C} style={[styles.tabLabel, {color: tab === id ? C.accent : C.dim, fontSize: Math.min(fs(9), 12), textAlign: 'center'}]} numberOfLines={2} maxFontSizeMultiplier={1.2}>{tabLabel(id)}</AccentText>
         </TouchableOpacity>
       ))}
     </View>

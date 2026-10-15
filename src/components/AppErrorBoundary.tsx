@@ -20,7 +20,7 @@ export class AppErrorBoundary extends React.Component<{children: React.ReactNode
     const msg = err?.message || String(err);
     return (
       <View style={{flex: 1, backgroundColor: '#0a0a0a', padding: 24, justifyContent: 'center', alignItems: 'center'}}>
-        <Text style={{color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center'}}>
+        <Text style={{color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center'}} accessibilityRole="header">
           {i18n.t('errorBoundary.title')}
         </Text>
         <Text style={{color: '#bbb', fontSize: 13, marginBottom: 24, textAlign: 'center'}}>
@@ -29,7 +29,7 @@ export class AppErrorBoundary extends React.Component<{children: React.ReactNode
         <Text style={{color: '#666', fontSize: 11, marginBottom: 24, textAlign: 'center'}} numberOfLines={4}>
           {msg}
         </Text>
-        <TouchableOpacity onPress={this.reset} accessibilityRole="button" style={{paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, backgroundColor: '#3a7bd5'}}>
+        <TouchableOpacity onPress={this.reset} accessibilityRole="button" hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, backgroundColor: '#3a7bd5'}}>
           <Text style={{color: '#fff', fontSize: 14, fontWeight: '600'}}>
             {i18n.t('errorBoundary.retry')}
           </Text>

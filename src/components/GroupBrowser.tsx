@@ -60,8 +60,8 @@ export const GroupBrowser = ({
     <>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14}}>
         {browseId !== null && (
-          <TouchableOpacity onPress={() => onNavigate(current?.parentId ?? null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4}}>
-            <Text style={{fontSize: fs(18), color: T.dim}} allowFontScaling={false}>←</Text>
+          <TouchableOpacity onPress={() => onNavigate(current?.parentId ?? null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{padding: 4}}>
+            <Text style={{fontSize: fs(18), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">←</Text>
           </TouchableOpacity>
         )}
         {current || rootTitle ? (
@@ -73,7 +73,7 @@ export const GroupBrowser = ({
       </View>
       {linkedMember && (
         <TouchableOpacity onPress={() => onViewMember && onViewMember(linkedMember.id)} activeOpacity={onViewMember ? 0.7 : 1} disabled={!onViewMember}
-          accessibilityRole="button" accessibilityState={{disabled: !onViewMember}} accessibilityLabel={`${t('memberGroups.linkedFronter')}: ${linkedMember.name}`}
+          accessibilityRole="button" accessibilityState={{disabled: !onViewMember}} accessibilityLabel={t('a11y.labelValue', {label: t('memberGroups.linkedFronter'), value: linkedMember.name})}
           style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 12}}>
           <Avatar member={linkedMember} size={30} T={T} />
           <View style={{flex: 1}}>
@@ -89,12 +89,13 @@ export const GroupBrowser = ({
         const subs = childrenOf(groups, g.id).length;
         return (
           <TouchableOpacity key={g.id} onPress={() => onNavigate(g.id)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityLabel={`${g.name}, ${groupKind(g) === 'subsystem' ? t('memberGroups.subsystem') : t('memberGroups.group')}, ${cnt}`}
+            accessibilityRole="button" accessibilityLabel={[g.name, groupKind(g) === 'subsystem' ? t('memberGroups.subsystem') : t('memberGroups.group'), t('members.count', {count: cnt}), subs > 0 ? t('memberGroups.subgroupCount', {count: subs}) : null].filter(Boolean).join(', ')}
+            hitSlop={{top: 4, bottom: 4}}
             style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: T.border, backgroundColor: T.card, marginBottom: 8}}>
             <View style={{width: 16, height: 16, borderRadius: groupKind(g) === 'subsystem' ? 4 : 8, backgroundColor: g.color || T.accent}} />
             <Text style={{flex: 1, fontSize: fs(14), fontWeight: '500', color: T.text}} numberOfLines={1}>{g.name}</Text>
             <Text style={{fontSize: fs(11), color: T.muted}}>{subs > 0 ? `${subs} ⊟ · ` : ''}{cnt}</Text>
-            <Text style={{fontSize: fs(16), color: T.dim}} allowFontScaling={false}>›</Text>
+            <Text style={{fontSize: fs(16), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
           </TouchableOpacity>
         );
       })}
@@ -104,6 +105,7 @@ export const GroupBrowser = ({
             {(['alphabetical', 'reverse-alphabetical', 'age', 'color', 'role', 'manual'] as const).map(mode => (
               <TouchableOpacity key={mode} onPress={() => onSortModeChange(mode)} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityState={{selected: (sortMode || 'manual') === mode}} accessibilityLabel={t(`memberSort.${mode}`)}
+                hitSlop={{top: 10, bottom: 10}}
                 style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                   backgroundColor: (sortMode || 'manual') === mode ? `${T.accent}20` : T.surface,
                   borderColor: (sortMode || 'manual') === mode ? `${T.accent}50` : T.border}}>
@@ -123,7 +125,7 @@ export const GroupBrowser = ({
         return (
           <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
             <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
-              accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')}
+              accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')} hitSlop={{top: 7, bottom: 7}}
               style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
               <Avatar member={m} size={30} T={T} />
               <View style={{flex: 1}}>
@@ -143,7 +145,7 @@ export const GroupBrowser = ({
             return (
               <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
                 <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
-                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')}
+                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')} hitSlop={{top: 7, bottom: 7}}
                   style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
                   <Avatar member={m} size={30} T={T} />
                   <View style={{flex: 1}}>
@@ -165,7 +167,7 @@ export const GroupBrowser = ({
             return (
               <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
                 <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
-                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')}
+                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')} hitSlop={{top: 7, bottom: 7}}
                   style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
                   <Avatar member={m} size={30} T={T} />
                   <View style={{flex: 1}}>

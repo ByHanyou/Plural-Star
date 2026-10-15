@@ -1,20 +1,19 @@
 import {Alert} from 'react-native';
 import {store, KEYS} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, ChatMessage, MedicalData, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid, mergeTags} from '../utils';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, ChatMessage, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid, mergeTags} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
 import {logError} from '../utils/log';
 import type {CustomPalette} from '../theme';
 import {migrateInlineChatMedia, rebaseChatMessageMedia, deleteAvatar} from '../utils/mediaUtils';
-import {setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, reschedulePlannerNotifications, showFrontNotification} from '../services/NotificationService';
+import { reschedulePlannerNotifications} from '../services/NotificationService';
 import {useAppStore} from './appStore';
 
 export const loadChatMessages = async (channels: ChatChannel[]) => {
   const {setAllChatMessages} = useAppStore.getState();
   const allMsgs: ChatMessage[] = [];
   for (const ch of channels) {
-    if (ch.archived) continue;
     try {
       const msgs = await store.get<ChatMessage[]>(`ps:chat:${ch.id}`, []);
       if (msgs) {
@@ -22,7 +21,7 @@ export const loadChatMessages = async (channels: ChatChannel[]) => {
         const {messages: rebased, changed: rebasedChanged} = rebaseChatMessageMedia(changed ? migrated : msgs);
         const finalMsgs = rebasedChanged ? rebased : (changed ? migrated : msgs);
         if (changed || rebasedChanged) await store.set(`ps:chat:${ch.id}`, finalMsgs);
-        for (const m of finalMsgs) allMsgs.push(m);
+        if (!ch.archived) for (const m of finalMsgs) allMsgs.push(m);
       }
     } catch (e) {
       console.error('[PS] chat load error:', ch.id, e);
@@ -76,7 +75,7 @@ export const saveHistory = async (d: HistoryEntry[]) => {
   setHistory(d); await store.set(KEYS.history, d);
 };
 
-export const saveJournal = async (d: JournalEntry[]) => {
+const saveJournal = async (d: JournalEntry[]) => {
   const {loaded, setJournal} = useAppStore.getState();
   if (!loaded && d.length === 0) return;
   setJournal(d); await store.set(KEYS.journal, d);
@@ -124,18 +123,6 @@ export const saveChatCategories = async (d: ChatCategory[]) => {
   setChatCategories(d); await store.set(KEYS.chatCategories, d);
 };
 
-export const saveMedical = async (d: MedicalData) => {
-  const {setMedical, front, members, system, appSettings} = useAppStore.getState();
-  setMedical(d);
-  await store.set(KEYS.medical, d);
-  setEmergencyNotificationInfo(null);
-  await rescheduleMedicationReminders(d.medications || []);
-  await rescheduleAppointmentReminders(d.appointments || []);
-  if (appSettings.notificationsEnabled && appSettings.persistentFrontNotif !== false) {
-    showFrontNotification(front, members, system.name).catch(e => console.error('[PS] notif error:', e));
-  }
-};
-
 export const savePlanner = async (d: PlannerData) => {
   const {setPlanner} = useAppStore.getState();
   setPlanner(d);
@@ -152,18 +139,18 @@ export const selectPalette = async (id: string) => {
   await store.set(KEYS.lightMode, id === '__light__');
 };
 
-export const updateLastLocation = async (loc: string | undefined) => {
+const updateLastLocation = async (loc: string | undefined) => {
   const {setLastKnownLocation} = useAppStore.getState();
   if (loc) { setLastKnownLocation(loc); await store.set('ps:lastLocation', loc); }
 };
 
-export const clearLastLocation = async () => {
+const clearLastLocation = async () => {
   const {setLastKnownLocation} = useAppStore.getState();
   setLastKnownLocation(undefined);
   await store.remove('ps:lastLocation');
 };
 
-export const maybeGPS = async (manualLocation?: string): Promise<string | undefined> => {
+const maybeGPS = async (manualLocation?: string): Promise<string | undefined> => {
   const {appSettings} = useAppStore.getState();
   const loc = manualLocation?.trim() || undefined;
   if (loc) return loc;
@@ -260,7 +247,7 @@ export const updateFront = async (primary: FrontTier, coFront: FrontTier, coCons
               const m = members.find(mm => mm.id === id);
               return `${m?.name || '?'} (${count})`;
             }).join(', ');
-            Alert.alert(i18n.t('mailbox.title'), `${names}`);
+            Alert.alert(i18n.t('mailbox.title'), i18n.t('mailbox.frontersHaveMail', {names}));
           }
         }
       } catch (e) { logError('front', e); }

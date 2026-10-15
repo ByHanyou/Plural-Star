@@ -1,4 +1,5 @@
 import {Alert} from 'react-native';
+import {ImportUserError, importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {Member, SystemInfo, HistoryEntry, ChatChannel, ChatMessage, uid} from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
@@ -44,15 +45,15 @@ export const handleParallaxPick = async (ctx: ParallaxCtx) => {
     let db: any = null;
     try { db = JSON.parse(raw); } catch {}
     if (!isParallaxDb(db)) {
-      throw new Error(t('share.parallaxNeedsJson', {defaultValue: "That isn't a Parallax export. In Parallax, use Export Data and pick the .json file it saves."}));
+      throw new ImportUserError(t('share.parallaxNeedsJson'));
     }
     setExtPreview({source: 'parallax', db});
     setImportSource('parallax');
-  } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || ''); }
+  } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), importErrorText(e, t)); }
 };
 
 export const handleParallaxConfirm = (ctx: ParallaxCtx) => {
-  const {extPreview, extSel, importMode, t, setRestoreError, setExtPreview, setImportStatus, setImportMsg, setRestoreProgress, onDataImported} = ctx;
+  const {extPreview, extSel, importMode, t, setExtPreview, setImportStatus, setImportMsg, setRestoreProgress, onDataImported} = ctx;
   if (!extPreview || extPreview.source !== 'parallax') return;
   Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
     {text: t('common.cancel'), style: 'cancel'},
@@ -72,7 +73,7 @@ export const handleParallaxConfirm = (ctx: ParallaxCtx) => {
               const spId = String(m.sp_id || '');
               const srcKey = /^[0-9a-f]{24}$/i.test(spId) ? spId : 'px:' + String(m.id);
               mergeForeignMember(merged, idMap, srcKey, {
-                name: (m.name && String(m.name).trim()) || 'Unnamed member',
+                name: (m.name && String(m.name).trim()) || t('share.unnamedMember'),
                 pronouns: String(m.pronouns || ''),
                 role: String(m.role || ''),
                 color: normHex(m.color_theme),
@@ -140,7 +141,7 @@ export const handleParallaxConfirm = (ctx: ParallaxCtx) => {
       } catch (e: any) {
         setRestoreProgress('');
         setImportStatus('error');
-        setImportMsg(e.message || t('share.importFailed'));
+        setImportMsg(importErrorText(e, t));
       }
     }},
   ]);

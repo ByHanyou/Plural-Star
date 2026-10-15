@@ -3,10 +3,10 @@ import {View, ScrollView, TouchableOpacity} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {loadChatMessages} from '../store/actions';
-import {Member, HistoryEntry, ChatMessage, fmtDur, fmtNum, fmtPercent, fmtClock, translateMood, SINGLET_HIDDEN_STATUS_NAMES, buildEffectiveEnd} from '../utils';
+import {Member, HistoryEntry, fmtDur, fmtNum, fmtPercent, fmtClock, translateMood, isSingletHiddenStatus, buildEffectiveEnd} from '../utils';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
 import {getTierNameOverride} from '../i18n/terminology';
@@ -82,7 +82,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
 
   const stats = useMemo(() => {
     const customFrontIds = new Set(members.filter(m => m.isCustomFront).map(m => m.id));
-    const hiddenStatusIds = new Set(members.filter(m => m.isCustomFront && SINGLET_HIDDEN_STATUS_NAMES.includes(m.name)).map(m => m.id));
+    const hiddenStatusIds = new Set(members.filter(m => m.isCustomFront && isSingletHiddenStatus(m)).map(m => m.id));
     const rankExclude = (id: string): boolean => singlet
       ? (id === selfId || !customFrontIds.has(id) || hiddenStatusIds.has(id))
       : customFrontIds.has(id);
@@ -191,14 +191,13 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
 
   const ShowMoreRow = ({boardKey, total, limit}: {boardKey: string; total: number; limit: number}) => {
     if (total <= limit || limit >= MAX_BOARD) return null;
-    const next = nextBoardLimit(limit);
     return (
       <TouchableOpacity onPress={() => expandBoard(boardKey)} activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={t('stats.showMoreN', {shown: limit, total})}
-        style={{paddingVertical: 9, alignItems: 'center', borderTopWidth: 1, borderTopColor: T.border}}>
+        accessibilityLabel={t('stats.showMoreN', {shown: fmtNum(limit, 0), total: fmtNum(total, 0)})}
+        hitSlop={{top: 6, bottom: 6}} style={{paddingVertical: 9, alignItems: 'center', borderTopWidth: 1, borderTopColor: T.border}}>
         <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>
-          {t('stats.showMore', {count: Math.min(next, total) - limit})} ({Math.min(limit, total)}/{total})
+          {t('stats.showMoreShort', {shown: fmtNum(Math.min(limit, total), 0), total: fmtNum(total, 0)})}
         </Text>
       </TouchableOpacity>
     );
@@ -263,7 +262,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
                   {member ? <Avatar member={member} size={24} T={T} /> : null}
                   <View style={{flex: 1}}>
                     <Text style={{fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>{member ? member.name : entry.id}</Text>
-                    <Text style={{fontSize: fs(10), color: T.muted}}>{entry.sessions} {t('stats.sessions').toLowerCase()}</Text>
+                    <Text style={{fontSize: fs(10), color: T.muted}}>{t('stats.sessionsCount', {count: entry.sessions})}</Text>
                   </View>
                   <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{`${fmtPercent(entry.time / totalT, 1, 1)} / ${fmtDur(0, entry.time)}`}</Text>
                 </View>
@@ -318,7 +317,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
               setCustomStart(now - 30 * 86400000);
               setCustomEnd(now);
             }} activeOpacity={0.7} accessibilityRole="button"
-              style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.last30')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => {
@@ -327,7 +326,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
               setCustomStart(start);
               setCustomEnd(Date.now());
             }} activeOpacity={0.7} accessibilityRole="button"
-              style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisMonth')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => {
@@ -335,7 +334,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
               setCustomStart(start);
               setCustomEnd(Date.now());
             }} activeOpacity={0.7} accessibilityRole="button"
-              style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisYear')}</Text>
             </TouchableOpacity>
           </View>
@@ -344,16 +343,16 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
 
       <View style={{flexDirection: 'row', gap: 8, marginBottom: 16}}>
         <StatCard T={T} label={t('stats.totalTime')} value={fmtDur(0, stats.totalMs)} accent />
-        <StatCard T={T} label={t('stats.sessions')} value={String(stats.totalSessions)} />
-        {!singlet && <StatCard T={T} label={t('stats.messages')} value={String(stats.totalMessages)} />}
+        <StatCard T={T} label={t('stats.sessions')} value={fmtNum(stats.totalSessions, 0)} />
+        {!singlet && <StatCard T={T} label={t('stats.messages')} value={fmtNum(stats.totalMessages, 0)} />}
       </View>
 
       <FrontLeaderboard />
-      {!singlet && <Leaderboard title={tierHeading('coFront', t('stats.topCoFronters'))} boardKey="cofronters" entries={stats.topCoFronters} renderValue={v => `${v}x`} />}
-      {!singlet && <Leaderboard title={tierHeading('coConscious', t('stats.topCoCon'))} boardKey="cocon" entries={stats.topCoCon} renderValue={v => `${v}x`} />}
-      {!singlet && <Leaderboard title={t('stats.topChatters')} boardKey="chatters" entries={stats.topChatters} renderValue={v => `${v} ${t('stats.msgsSuffix')}`} />}
-      <Leaderboard title={t('stats.topMoods')} boardKey="moods" entries={stats.topMoods} renderValue={v => `${v}x`} formatKey={m => translateMood(m, t)} />
-      <Leaderboard title={t('stats.topLocations')} boardKey="locations" entries={stats.topLocations} renderValue={v => `${v}x`} />
+      {!singlet && <Leaderboard title={tierHeading('coFront', t('stats.topCoFronters'))} boardKey="cofronters" entries={stats.topCoFronters} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} />}
+      {!singlet && <Leaderboard title={tierHeading('coConscious', t('stats.topCoCon'))} boardKey="cocon" entries={stats.topCoCon} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} />}
+      {!singlet && <Leaderboard title={t('stats.topChatters')} boardKey="chatters" entries={stats.topChatters} renderValue={v => t('stats.msgsCount', {count: v})} />}
+      <Leaderboard title={t('stats.topMoods')} boardKey="moods" entries={stats.topMoods} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} formatKey={m => translateMood(m, t)} />
+      <Leaderboard title={t('stats.topLocations')} boardKey="locations" entries={stats.topLocations} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} />
 
       {stats.energyAvgs.length > 0 && (
         <View style={{marginBottom: 16}}>
@@ -367,7 +366,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
                 <View style={{width: 80, height: 6, backgroundColor: T.surface, borderRadius: 3, overflow: 'hidden'}}>
                   <View style={{height: '100%', width: `${(avg / 10) * 100}%`, backgroundColor: m?.color || T.accent, borderRadius: 3}} />
                 </View>
-                <Text style={{fontSize: fs(11), color: T.muted, width: 40, textAlign: 'right'}}>{fmtNum(avg, 1)}/10</Text>
+                <Text style={{fontSize: fs(11), color: T.muted, minWidth: 40, textAlign: 'right'}}>{fmtNum(avg, 1)}/10</Text>
               </View>
             );
           })}
@@ -378,7 +377,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
         <View style={{marginBottom: 16}}>
           <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.peakHours')}</Text>
           <View accessible accessibilityRole="image"
-            accessibilityLabel={`${t('stats.peakHours')}: ${(stats.peakHours as number[]).map((c, h) => c > 0 ? `${fmtClock(h, 0)} (${fmtNum(c)})` : '').filter(Boolean).join(', ')}`}
+            accessibilityLabel={t('a11y.labelValue', {label: t('stats.peakHours'), value: (stats.peakHours as number[]).map((c, h) => c > 0 ? `${fmtClock(h, 0)} (${fmtNum(c)})` : '').filter(Boolean).join(', ')})}
             style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
             {stats.peakHours.map((count: number, h: number) => {
               const max = Math.max(...stats.peakHours as number[], 1);
@@ -406,7 +405,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
             <Text style={{fontSize: fs(9), color: T.muted}}>{t('energy.outOf10')}</Text>
           </View>
           <View accessible accessibilityRole="image"
-            accessibilityLabel={`${t('stats.energyByHour')}, ${t('energy.outOf10')}: ${(stats.energyByHour as number[]).map((avg, h) => avg > 0 ? `${fmtClock(h, 0)} (${fmtNum(avg, 1)})` : '').filter(Boolean).join(', ')}`}
+            accessibilityLabel={`${t('stats.energyByHour')}, ${t('a11y.labelValue', {label: t('energy.outOf10'), value: (stats.energyByHour as number[]).map((avg, h) => avg > 0 ? `${fmtClock(h, 0)} (${fmtNum(avg, 1)})` : '').filter(Boolean).join(', ')})}`}
             style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
             {stats.energyByHour.map((avg: number, h: number) => (
               <View key={h} style={{flex: 1, justifyContent: 'flex-end', height: '100%'}}>
@@ -427,11 +426,11 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
       <View style={{marginBottom: 16}}>
         <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.statusDetails') : t('stats.memberDetails')}</Text>
         {(() => {
-          const eligible = (m: Member) => !m.archived && (!singlet || (m.isCustomFront && !SINGLET_HIDDEN_STATUS_NAMES.includes(m.name)));
+          const eligible = (m: Member) => !m.archived && (!singlet || (m.isCustomFront && !isSingletHiddenStatus(m)));
           const chip = (m: Member) => (
             <TouchableOpacity key={m.id} onPress={() => setSelectedStatMember(selectedStatMember === m.id ? null : m.id)} activeOpacity={0.7}
               accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: selectedStatMember === m.id}}
-              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
+              hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                 backgroundColor: selectedStatMember === m.id ? `${m.color}20` : T.surface,
                 borderColor: selectedStatMember === m.id ? `${m.color}50` : T.border}}>
               <Text style={{fontSize: fs(11), color: selectedStatMember === m.id ? m.color : T.dim}}>{m.name}</Text>
@@ -501,7 +500,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
           return (
             <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12}}>
               <View style={{flexDirection: 'row', gap: 16, marginBottom: 10}}>
-                <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{entries.length}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('stats.sessionsSuffix')}</Text></View>
+                <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{fmtNum(entries.length, 0)}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('stats.sessionsSuffix', {count: entries.length})}</Text></View>
                 {avgE !== null && <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{fmtNum(avgE, 1)}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('energy.outOf10')}</Text></View>}
               </View>
               {coGroups.map(g => {
@@ -510,14 +509,14 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
                 const rows = g.all.slice(0, limit);
                 return (
                   <View key={g.key} style={{marginBottom: 8}}>
-                    <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{g.label}</Text>
+                    <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{g.label}</Text>
                     {rows.map(([id, count]) => {
                       const cm = getMember(id);
                       return (
                         <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
                           <Avatar member={cm} size={18} T={T} />
                           <Text style={{flex: 1, fontSize: fs(12), color: T.text}}>{cm?.name || '?'}</Text>
-                          <Text style={{fontSize: fs(11), color: T.muted}}>{count}x</Text>
+                          <Text style={{fontSize: fs(11), color: T.muted}}>{t('stats.timesCount', {count: fmtNum(count, 0)})}</Text>
                         </View>
                       );
                     })}
@@ -527,11 +526,11 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
               })}
               {topMd.length > 0 && (
                 <View>
-                  <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{t('stats.topMoods')}</Text>
+                  <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{t('stats.topMoods')}</Text>
                   {topMd.map(([mood, count]) => (
                     <View key={mood} style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
                       <Text style={{flex: 1, fontSize: fs(12), color: T.text}}>{translateMood(mood, t)}</Text>
-                      <Text style={{fontSize: fs(11), color: T.muted}}>{count}x</Text>
+                      <Text style={{fontSize: fs(11), color: T.muted}}>{t('stats.timesCount', {count: fmtNum(count, 0)})}</Text>
                     </View>
                   ))}
                   <ShowMoreRow boardKey="coMoods" total={topMdAll.length} limit={mdLimit} />
@@ -550,7 +549,7 @@ function RangeBtn({id, label, selected, onSelect, T}: {id: TimeRange; label: str
   return (
   <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.7}
     accessibilityRole="button" accessibilityState={{selected: selected === id}}
-    style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
+    hitSlop={{top: 6, bottom: 9}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
       backgroundColor: selected === id ? `${T.accent}20` : T.surface, borderColor: selected === id ? `${T.accent}60` : T.border}}>
     <Text style={{fontSize: fs(12), color: selected === id ? T.accent : T.dim, fontWeight: selected === id ? '600' : '400'}}>{label}</Text>
   </TouchableOpacity>

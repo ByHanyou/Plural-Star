@@ -19,13 +19,12 @@ import {
   getLocale,
   truncateRunes,
   fileSlug,
+  fmtNum,
 } from '../utils';
 import {store, KEYS, chatMsgKey} from '../storage';
 import {parallelMap} from '../utils/concurrency';
 import {readFileBytes, u8FromBase64} from '../utils/fileBytes';
 import {Zip, ZipPassThrough, strToU8, strFromU8, unzipSync} from 'fflate';
-
-export {u8FromBase64};
 
 export interface ExportCategories {
   system?: boolean;
@@ -103,7 +102,7 @@ const streamImageMap = async (
   await append('}');
 };
 
-export const buildExportBase = async (
+const buildExportBase = async (
   system: SystemInfo,
   members: Member[],
   history: HistoryEntry[],
@@ -181,82 +180,7 @@ export const buildExportBase = async (
   };
 };
 
-export const buildHtmlExport = (
-  system: SystemInfo,
-  members: Member[],
-  history: HistoryEntry[],
-  journal: JournalEntry[],
-): string => {
-  const docMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
-  const esc = (v: unknown): string => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const RICH_TAGS = /&lt;(\/?)(b|i|u|s|em|strong|br|p|img|a|ul|ol|li|h[1-6]|blockquote|pre|code|hr|span|div)((?:\s[^&<>]*?)?)\s*(\/?)&gt;/gi;
-  const escRich = (v: unknown): string => esc(v).replace(RICH_TAGS, (_m, slash, tag, attrs, self) => `<${slash}${tag}${String(attrs).replace(/&quot;/g, '"')}${self}>`);
-  const memberRows = docMembers
-    .map(
-      m => `<tr>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-weight:600">${esc(m.name)}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd">${esc(m.pronouns || '—')}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd">${esc(m.role || '—')}</td>
-      <td style="padding:8px 12px;border-bottom:1px solid #ddd;font-size:13px;color:#555">${escRich(m.description || '—')}</td>
-    </tr>`,
-    )
-    .join('');
-
-  const journalHtml = journal
-    .map(e => {
-      const authors = (e.authorIds || [])
-        .map(id => members.find(m => m.id === id)?.name)
-        .filter(Boolean);
-      return `<div style="margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #eee">
-        <h3 style="margin:0 0 4px;font-size:16px">${esc(e.title || i18n.t('common.untitled'))}</h3>
-        <div style="font-size:12px;color:#888;margin-bottom:10px">${fmtTime(e.timestamp)}${authors.length ? ` · By: ${esc(authors.join(', '))}` : ''}</div>
-        <div style="font-size:14px;line-height:1.7;white-space:pre-wrap">${escRich(e.body || '')}</div>
-      </div>`;
-    })
-    .join('');
-
-  const historyRows = history
-    .slice(0, 100)
-    .map(e => {
-      const names =
-        (e.memberIds || [])
-          .map(id => members.find(m => m.id === id)?.name)
-          .filter(Boolean)
-          .join(', ') || i18n.t('common.unknown');
-      return `<tr>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${esc(names)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${fmtTime(e.startTime)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:13px">${fmtDur(e.startTime, e.endTime)}</td>
-        <td style="padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;color:#666">${esc(e.note || '')}</td>
-      </tr>`;
-    })
-    .join('');
-
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>${esc(system.name)} — ${i18n.t('share.exportDocTitle')}</title>
-  <style>
-    body{font-family:OpenDyslexic,serif;max-width:860px;margin:40px auto;padding:0 24px;color:#222;line-height:1.6}
-    h1{font-size:32px;margin-bottom:4px}
-    h2{font-size:22px;margin:40px 0 16px;border-bottom:2px solid #c9a96e;padding-bottom:8px;color:#7a5c2e}
-    table{width:100%;border-collapse:collapse}
-    th{text-align:left;padding:8px 12px;background:#f5f0e8;font-size:13px;letter-spacing:.05em;text-transform:uppercase;color:#7a5c2e}
-    .meta{font-size:13px;color:#888;margin-bottom:32px}
-  </style></head>
-  <body>
-  <h1>${esc(system.name)}</h1>
-  ${system.description ? `<p style="font-size:16px;color:#555;margin-top:0">${escRich(system.description)}</p>` : ''}
-  <div class="meta">${i18n.t('share.exportDocMeta', {date: new Date().toLocaleString(getLocale(), {dateStyle: 'long', timeStyle: 'short'}), members: docMembers.length, journal: journal.length, history: history.length})}</div>
-  <h2>${i18n.t('share.exportDocMembers')}</h2>
-  ${docMembers.length ? `<table><thead><tr><th>${i18n.t('share.exportDocName')}</th><th>${i18n.t('share.exportDocPronouns')}</th><th>${i18n.t('share.exportDocRole')}</th><th>${i18n.t('share.exportDocDescription')}</th></tr></thead><tbody>${memberRows}</tbody></table>` : `<p style="color:#888">${i18n.t('share.exportDocNoMembers')}</p>`}
-  <h2>${i18n.t('share.exportDocJournal')}</h2>
-  ${journal.length ? journalHtml : `<p style="color:#888">${i18n.t('share.exportDocNoJournal')}</p>`}
-  <h2>${i18n.t('share.exportDocHistory')}</h2>
-  ${history.length ? `<table><thead><tr><th>${i18n.t('share.exportDocWho')}</th><th>${i18n.t('share.exportDocStarted')}</th><th>${i18n.t('share.exportDocEnded')}</th><th>${i18n.t('share.exportDocDuration')}</th><th>${i18n.t('share.exportDocNote')}</th></tr></thead><tbody>${historyRows}</tbody></table>${history.length > 100 ? `<p style="font-size:12px;color:#888;margin-top:8px">${i18n.t('share.exportDocShowing', {total: history.length})}</p>` : ''}` : `<p style="color:#888">${i18n.t('share.exportDocNoHistory')}</p>`}
-  </body></html>`;
-};
-
-export const buildEmailBody = (
+const buildEmailBody = (
   system: SystemInfo,
   members: Member[],
   history: HistoryEntry[],
@@ -276,11 +200,17 @@ export const buildEmailBody = (
     .slice(0, 20)
     .map(e => {
       const names = (e.memberIds || []).map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ') || i18n.t('common.unknown');
-      return `${fmtTime(e.startTime)} → ${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')} (${fmtDur(e.startTime, e.endTime)}) — ${names}${e.note ? ` | "${e.note}"` : ''}`;
+      return `${fmtTime(e.startTime)} → ${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')} (${fmtDur(e.startTime, e.endTime)}) — ${names}${e.note ? ` | ${i18n.t('share.quoted', {text: e.note})}` : ''}`;
     })
     .join('\n');
 
-  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExported')} ${new Date().toLocaleString(getLocale())}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembers')} (${realMembers.length}) ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${i18n.t('share.exportMailJournal')} (${journal.length}${journal.length > 10 ? i18n.t('share.exportMailShowingRecent', {count: 10}) : ''}) ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${i18n.t('share.exportMailHistory')} (${history.length}${history.length > 20 ? i18n.t('share.exportMailShowingRecent', {count: 20}) : ''}) ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
+  const journalHeader = journal.length > 10
+    ? i18n.t('share.exportMailJournalHeaderRecent', {count: fmtNum(journal.length, 0), shown: fmtNum(10, 0)})
+    : i18n.t('share.exportMailJournalHeader', {count: fmtNum(journal.length, 0)});
+  const historyHeader = history.length > 20
+    ? i18n.t('share.exportMailHistoryHeaderRecent', {count: fmtNum(history.length, 0), shown: fmtNum(20, 0)})
+    : i18n.t('share.exportMailHistoryHeader', {count: fmtNum(history.length, 0)});
+  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExportedLine', {date: new Date().toLocaleString(getLocale())})}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembersHeader', {count: fmtNum(realMembers.length, 0)})} ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${journalHeader} ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${historyHeader} ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
 };
 
 
@@ -297,11 +227,17 @@ const mimeFor = (filename: string): string => {
 
 const STREAM_CHUNK_CHARS = 64 * 1024;
 
-const verifyExport = async (tempPath: string, filename: string): Promise<void> => {
+/** A temp path of its own for every run, so two exports started together can never write the same file. */
+export const tempFilePath = (filename: string): string =>
+  `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${filename}`;
+
+const verifyExport = async (tempPath: string, filename: string, expectedSize?: number): Promise<void> => {
   const lower = filename.toLowerCase();
   const stat = await ReactNativeBlobUtil.fs.stat(tempPath);
   const size = Number(stat.size) || 0;
   if (!size) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
+  // The file must hold exactly what was written: anything lost or added while writing is not a usable backup.
+  if (expectedSize !== undefined && size !== expectedSize) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
 
   if (lower.endsWith('.json')) {
     const written = await ReactNativeBlobUtil.fs.readFile(tempPath, 'utf8');
@@ -326,10 +262,10 @@ const verifyExport = async (tempPath: string, filename: string): Promise<void> =
   }
 };
 
-const deliverFile = async (tempPath: string, filename: string): Promise<void> => {
+const deliverFile = async (tempPath: string, filename: string, expectedSize?: number): Promise<void> => {
   const isAndroid = Platform.OS === 'android';
 
-  await verifyExport(tempPath, filename);
+  await verifyExport(tempPath, filename, expectedSize);
 
   if (isAndroid) {
     try {
@@ -373,7 +309,7 @@ const deliverFile = async (tempPath: string, filename: string): Promise<void> =>
 };
 
 const saveToDownloads = async (content: string, filename: string): Promise<void> => {
-  const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
+  const tempPath = tempFilePath(filename);
   await ReactNativeBlobUtil.fs.writeFile(tempPath, content ?? '', 'utf8');
   await deliverFile(tempPath, filename);
 };
@@ -382,7 +318,7 @@ const saveStreamedToDownloads = async (
   filename: string,
   write: (append: (s: string) => Promise<any>) => Promise<void>,
 ): Promise<void> => {
-  const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
+  const tempPath = tempFilePath(filename);
   try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
   let started = false;
   await write(async (s: string) => {
@@ -450,7 +386,7 @@ const pkUuid = (): string =>
     return v.toString(16);
   });
 
-export const buildPluralKitExport = (
+const buildPluralKitExport = (
   system: SystemInfo,
   members: Member[],
   history: HistoryEntry[],
@@ -516,13 +452,21 @@ export const exportPluralKit = async (
 
 const B64C = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
+const B64_CHUNK = 8188;
+
 const b64Aligned = (bytes: Uint8Array, end: number): string => {
-  let out = '';
+  const parts: string[] = [];
+  let codes: number[] = [];
   for (let i = 0; i < end; i += 3) {
     const n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
-    out += B64C[(n >> 18) & 63] + B64C[(n >> 12) & 63] + B64C[(n >> 6) & 63] + B64C[n & 63];
+    codes.push(B64C.charCodeAt((n >> 18) & 63), B64C.charCodeAt((n >> 12) & 63), B64C.charCodeAt((n >> 6) & 63), B64C.charCodeAt(n & 63));
+    if (codes.length >= B64_CHUNK) {
+      parts.push(String.fromCharCode.apply(null, codes as unknown as number[]));
+      codes = [];
+    }
   }
-  return out;
+  if (codes.length) parts.push(String.fromCharCode.apply(null, codes as unknown as number[]));
+  return parts.join('');
 };
 
 const b64Tail = (bytes: Uint8Array, start: number): string => {
@@ -537,9 +481,10 @@ const b64Tail = (bytes: Uint8Array, start: number): string => {
 const zipToFile = async (
   tempPath: string,
   addFiles: (add: (name: string, bytes: Uint8Array) => Promise<void>) => Promise<void>,
-): Promise<void> => {
+): Promise<number> => {
   try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
   let started = false;
+  let written = 0;
   const put = async (b64: string) => {
     if (!b64) return;
     if (started) await ReactNativeBlobUtil.fs.appendFile(tempPath, b64, 'base64');
@@ -551,7 +496,7 @@ const zipToFile = async (
   const finished = new Promise<void>(resolve => { markDone = resolve; });
   const zip = new Zip((err: unknown, data: Uint8Array | undefined, final?: boolean) => {
     if (err) { zipErr = err; markDone(); return; }
-    if (data && data.length) queue.push(data);
+    if (data && data.length) { queue.push(data); written += data.length; }
     if (final) markDone();
   });
   let carry = new Uint8Array(0);
@@ -585,6 +530,7 @@ const zipToFile = async (
   if (carry.length) await put(b64Tail(carry, 0));
   if (!started) await ReactNativeBlobUtil.fs.writeFile(tempPath, '', 'base64');
   if (zipErr) throw zipErr;
+  return written;
 };
 
 const extFromDataUri = (uri: string): string => {
@@ -663,9 +609,9 @@ export const exportZipBundle = async (
 
   const slug = fileSlug(system.name);
   const filename = `${slug}-export-${dateSlug()}.zip`;
-  const tempPath = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${filename}`;
+  const tempPath = tempFilePath(filename);
 
-  await zipToFile(tempPath, async (add) => {
+  const written = await zipToFile(tempPath, async (add) => {
     await add('manifest.json', strToU8(JSON.stringify(manifest)));
     await add('data.json', strToU8(JSON.stringify(base)));
     for (const item of media) {
@@ -674,10 +620,8 @@ export const exportZipBundle = async (
     }
   });
 
-  await deliverFile(tempPath, filename);
+  await deliverFile(tempPath, filename, written);
 };
-
-export const exportBundle = exportZipBundle;
 
 const normalizeZipEntryPath = (value: string): string => value.replace(/\\/g, '/').replace(/^\.?\//, '');
 
@@ -767,19 +711,6 @@ export const importZipBundle = async (zipPath: string): Promise<ImportedZipBundl
   };
 };
 
-export const exportHTML = async (
-  system: SystemInfo,
-  members: Member[],
-  history: HistoryEntry[],
-  journal: JournalEntry[],
-): Promise<void> => {
-  const slug = fileSlug(system.name);
-  await saveToDownloads(
-    buildHtmlExport(system, members, history, journal),
-    `${slug}-export-${dateSlug()}.html`,
-  );
-};
-
 export const exportEmail = (
   system: SystemInfo,
   members: Member[],
@@ -799,9 +730,9 @@ const buildJournalTxt = (journal: JournalEntry[], members: Member[]): string => 
   return journal.map(e => {
     const authors = (e.authorIds || []).map(id => members.find(m => m.id === id)?.name).filter(Boolean);
     const header = [
-      `Title: ${e.title || i18n.t('common.untitled')}`,
-      `Date: ${fmtTime(e.timestamp)}`,
-      authors.length ? `Authors: ${authors.join(', ')}` : null,
+      i18n.t('share.exportTitleLine', {title: e.title || i18n.t('common.untitled')}),
+      i18n.t('share.exportDateLine', {date: fmtTime(e.timestamp)}),
+      authors.length ? i18n.t('share.exportAuthorsLine', {authors: authors.join(', ')}) : null,
     ].filter(Boolean).join('\n');
     return `${header}\n${'─'.repeat(40)}\n${e.body || ''}\n`;
   }).join('\n\n' + '═'.repeat(40) + '\n\n');
@@ -812,7 +743,7 @@ const buildJournalMd = (journal: JournalEntry[], members: Member[]): string => {
     const authors = (e.authorIds || []).map(id => members.find(m => m.id === id)?.name).filter(Boolean);
     const meta = [
       `*${fmtTime(e.timestamp)}*`,
-      authors.length ? `*Authors: ${authors.join(', ')}*` : null,
+      authors.length ? `*${i18n.t('share.exportAuthorsLine', {authors: authors.join(', ')})}*` : null,
     ].filter(Boolean).join(' · ');
     return `# ${e.title || i18n.t('common.untitled')}\n\n${meta}\n\n${e.body || ''}`;
   }).join('\n\n---\n\n');

@@ -81,7 +81,7 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
         placeholder={t('modal.entryTitlePlaceholder')}
         T={T} />
       <View style={{marginBottom: 14}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>
           {t('journal.templateBody')}
         </Text>
         <TouchableOpacity onPress={() => setShowBodyEditor(true)} activeOpacity={0.7}
@@ -99,14 +99,15 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
         theme={T}
         onSave={(html: string) => {set('body', html); setShowBodyEditor(false);}}
         onClose={() => setShowBodyEditor(false)} />
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
       {(f.hashtags || []).length > 0 && (
         <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
           {(f.hashtags || []).map((tag: string) => (
             <TouchableOpacity key={tag}
               onPress={() => set('hashtags', (f.hashtags || []).filter((x: string) => x !== tag))}
               activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={`${t('common.remove')} ${tag}`}
+              accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: tag})}
+              hitSlop={{top: 6, bottom: 6}}
               style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
               <Text style={{fontSize: fs(12), color: T.info}}>{tag}</Text>
               <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>

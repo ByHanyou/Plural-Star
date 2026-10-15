@@ -48,7 +48,8 @@
     "markdownPlaceholder": "Пишите в markdown…",
     "urlPlaceholder": "URL здесь",
     "textPlaceholder": "текст",
-    "body": "Редактор"
+    "body": "Редактор",
+    "linkUrl": "url"
   },
   "markdown": {
     "toolBold": "Жирный",
@@ -88,7 +89,8 @@
     "minute": "Минута",
     "switchToAm": "PM, переключить на AM",
     "switchToPm": "AM, переключить на PM",
-    "image": "Изображение"
+    "image": "Изображение",
+    "labelValue": "{{label}}: {{value}}"
   },
   "errorBoundary": {
     "title": "Что-то пошло не так",
@@ -99,6 +101,33 @@
     "add": "Добавить пользовательский фронт",
     "edit": "Изменить пользовательский фронт",
     "namePlaceholder": "Название пользовательского фронта"
+  },
+  "customFronts": {
+    "seed": {
+      "chatty": "Разговорчивость",
+      "nonVerbal": "Невербальность",
+      "iwc": "IWC",
+      "dni": "DNI",
+      "blurry": "Размытость",
+      "blendy": "Смешение",
+      "rapidSwitching": "Частые переключения",
+      "foggy": "Туман",
+      "grounded": "Заземление",
+      "dissociated": "Диссоциация",
+      "anxious": "Тревога",
+      "depressed": "Подавленность",
+      "cheerful": "Весёлость",
+      "happy": "Радость",
+      "sad": "Грусть",
+      "crisis": "Кризис",
+      "melancholy": "Меланхолия",
+      "stimming": "Стимминг",
+      "stressed": "Стресс",
+      "working": "Работа",
+      "traveling": "Путешествие",
+      "sleeping": "Сон",
+      "hyperfocus": "Гиперфокус"
+    }
   },
   "lock": {
     "locked": "Заблокировано",
@@ -116,7 +145,11 @@
     "browse": "Обзор",
     "deleteSelectedMsg": "Удалить выбранные элементы ({{count}})? Участники не будут удалены.",
     "desc": "Создавайте, редактируйте, переставляйте и удаляйте группы и подсистемы. Нажмите ⇄ на элементе, затем выберите место назначения, чтобы вложить его.",
-    "title": "Менеджер системы"
+    "title": "Менеджер системы",
+    "deleteSelectedMsg_one": "Удалить {{count}} выбранный элемент? Участники не будут удалены.",
+    "deleteSelectedMsg_few": "Удалить {{count}} выбранных элемента? Участники не будут удалены.",
+    "deleteSelectedMsg_many": "Удалить {{count}} выбранных элементов? Участники не будут удалены.",
+    "deleteSelectedMsg_other": "Удалить выбранные элементы ({{count}})? Участники не будут удалены."
   },
   "common": {
     "durDaysHours": "{{d}} д {{h}} ч",
@@ -130,6 +163,12 @@
     "movedAbove": "Перемещено над {{name}}",
     "movedBelow": "Перемещено под {{name}}",
     "search": "Поиск…",
+    "removeItem": "Убрать {{name}}",
+    "addItem": "Добавить {{name}}",
+    "clearItem": "Очистить {{name}}",
+    "editItem": "Изменить {{name}}",
+    "deleteItem": "Удалить {{name}}",
+    "exportItem": "Экспортировать {{name}}",
     "back": "Назад",
     "change": "Изменить",
     "export": "Экспорт",
@@ -144,7 +183,8 @@
     "remove": "Убрать",
     "unknown": "Неизвестно",
     "untitled": "Без названия",
-    "ok": "OK"
+    "ok": "OK",
+    "errorCode": "Код ошибки: {{code}}"
   },
   "tabs": {
     "fronters": "Фронтеры",
@@ -206,7 +246,8 @@
     "statusesDesc": "Статусы описывают ваше состояние — например, Сон, Работа или Тревога. Выбирайте их при обновлении статуса.",
     "noStatuses": "Статусов пока нет. Добавьте один, чтобы начать.",
     "activeStatus": "Активен",
-    "favoriteColor": "Любимый цвет"
+    "favoriteColor": "Любимый цвет",
+    "statusActiveA11y": "{{name}}, активен"
   },
   "settings": {
     "observatory": "Интерфейс «Обсерватория» (индивидуальный)",
@@ -223,7 +264,9 @@
     "noNote": "Нет заметки. Нажмите Изменить, чтобы добавить.",
     "clearFront": "Очистить фронт",
     "clearFrontMsg": "Это очистит все уровни и зафиксирует окончание текущей сессии. Продолжить?",
-    "clearFrontTitle": "Очистить фронт?"
+    "clearFrontTitle": "Очистить фронт?",
+    "frontingForA11y": "{{name}}, во фронте {{dur}}",
+    "frontingForSince": "Во фронте <b>{{dur}}</b> · с {{time}}"
   },
   "members": {
     "select": "Выбрать",
@@ -257,8 +300,14 @@
     "makeMember": "Перенести в участники",
     "moveCategoryHint": "Всё остальное в этом профиле сохраняется. Грани не считаются участниками.",
     "countFacet": "Граней: {{count}}",
+    "countFacet_one": "Граней: {{count}}",
+    "countFacet_few": "Граней: {{count}}",
+    "countFacet_many": "Граней: {{count}}",
     "countFilteredFacet": "{{filtered}} из {{total}} граней",
     "countCustomFront": "Своих фронтов: {{count}}",
+    "countCustomFront_one": "Своих фронтов: {{count}}",
+    "countCustomFront_few": "Своих фронтов: {{count}}",
+    "countCustomFront_many": "Своих фронтов: {{count}}",
     "countFacet_other": "Граней: {{count}}",
     "countCustomFront_other": "Своих фронтов: {{count}}",
     "countFilteredCustomFront": "{{filtered}} из {{total}} своих фронтов",
@@ -299,15 +348,38 @@
     "noArchivedFacets": "Нет архивных граней.",
     "noArchivedCustomFronts": "Нет архивных пользовательских фронтов.",
     "count": "{{count}} участник",
+    "count_one": "{{count}} участник",
     "count_few": "{{count}} участника",
     "count_many": "{{count}} участников",
     "count_other": "{{count}} участников",
     "countFronters": "{{count}} фронтер",
+    "countFronters_one": "{{count}} фронтер",
     "countFronters_few": "{{count}} фронтера",
     "countFronters_many": "{{count}} фронтеров",
     "countFronters_other": "{{count}} фронтеров",
     "countFiltered": "{{filtered}} из {{total}} участников",
-    "recentlyDeleted": "Недавно удалённые"
+    "recentlyDeleted": "Недавно удалённые",
+    "nameInTier": "{{name}}, сейчас: {{tier}}",
+    "moveUpItem": "Переместить {{name}} вверх",
+    "moveDownItem": "Переместить {{name}} вниз",
+    "addToFrontName": "Добавить во фронт — {{name}}",
+    "removeFromFrontName": "Убрать из фронта — {{name}}",
+    "titleCount": "Участники ({{n}})",
+    "facetsCount": "Грани ({{n}})",
+    "customFrontsCount": "Пользовательские фронты ({{n}})",
+    "restoreItem": "Восстановить {{name}}",
+    "bulkArchiveMsg_one": "Архивировать {{count}} участника? Его можно восстановить позже.",
+    "bulkArchiveMsg_few": "Архивировать {{count}} участника? Их можно восстановить позже.",
+    "bulkArchiveMsg_many": "Архивировать {{count}} участников? Их можно восстановить позже.",
+    "bulkArchiveMsg_other": "Архивировать {{count}} участника? Их можно восстановить позже.",
+    "bulkRestoreMsg_one": "Восстановить {{count}} участника как активного?",
+    "bulkRestoreMsg_few": "Восстановить {{count}} участника как активных?",
+    "bulkRestoreMsg_many": "Восстановить {{count}} участников как активных?",
+    "bulkRestoreMsg_other": "Восстановить {{count}} участника как активных?",
+    "bulkDeleteMsg_one": "Удалить {{count}} участника навсегда? Это действие нельзя отменить.",
+    "bulkDeleteMsg_few": "Удалить {{count}} участника навсегда? Это действие нельзя отменить.",
+    "bulkDeleteMsg_many": "Удалить {{count}} участников навсегда? Это действие нельзя отменить.",
+    "bulkDeleteMsg_other": "Удалить {{count}} участника навсегда? Это действие нельзя отменить."
   },
   "history": {
     "editEntry": "Изменить",
@@ -351,7 +423,15 @@
     "deleteConfirm2": "Это действие нельзя отменить. Удалить?",
     "deleteConfirm3": "Последнее подтверждение: удалить навсегда?",
     "showMore": "Показать больше",
-    "showLess": "Показать меньше"
+    "showLess": "Показать меньше",
+    "moodBadge": "настроение <b>{{mood}}</b>",
+    "atBadge": "в <b>{{location}}</b>",
+    "energyBadge": "Энергия <b>{{value}}</b>",
+    "moodLocationChanged_tier": "Настроение и место сменились ({{tier}})",
+    "moodChanged_tier": "Настроение сменилось ({{tier}})",
+    "locationChanged_tier": "Место сменилось ({{tier}})",
+    "noteUpdated_tier": "Заметка обновлена ({{tier}})",
+    "frontSwitch_tier": "Смена фронта ({{tier}})"
   },
   "journal": {
     "deleteTemplateMsg": "Этот шаблон будет удалён навсегда.",
@@ -386,7 +466,8 @@
     "templateName": "Название Шаблона *",
     "templateNamePlaceholder": "напр. Утренние страницы",
     "templateTitle": "Заголовок Записи (предустановка)",
-    "templateBody": "Текст Записи (предустановка)"
+    "templateBody": "Текст Записи (предустановка)",
+    "openEntryHint": "Открывает запись полностью"
   },
   "share": {
     "groupsCount": "{{count}} групп",
@@ -411,6 +492,42 @@
     "progressChat": "Восстановление чата…",
     "progressChatN": "Восстановление каналов чата… {{done}}/{{total}}",
     "progressSavingMembers": "Сохранение участников…",
+    "exportAs": "Экспортировать как {{format}}",
+    "sizeMB": "{{n}} МБ",
+    "sizeKB": "{{n}} КБ",
+    "sizeB": "{{n}} Б",
+    "quoted": "«{{text}}»",
+    "exportMailExportedLine": "Экспортировано: {{date}}",
+    "exportMailMembersHeader": "УЧАСТНИКИ ({{count}})",
+    "exportMailJournalHeader": "ДНЕВНИК ({{count}})",
+    "exportMailJournalHeaderRecent": "ДНЕВНИК ({{count}} — показаны {{shown}} последних)",
+    "exportMailHistoryHeader": "ИСТОРИЯ ФРОНТА ({{count}})",
+    "exportMailHistoryHeaderRecent": "ИСТОРИЯ ФРОНТА ({{count}} — показаны {{shown}} последних)",
+    "exportTitleLine": "Название: {{title}}",
+    "exportDateLine": "Дата: {{date}}",
+    "exportAuthorsLine": "Авторы: {{authors}}",
+    "importStopped_one": "Импорт остановлен. {{count}} шаг завершён и сохранён; остальные шаги не выполнялись.",
+    "importStopped_few": "Импорт остановлен. {{count}} шага завершены и сохранены; остальные шаги не выполнялись.",
+    "importStopped_many": "Импорт остановлен. {{count}} шагов завершено и сохранено; остальные шаги не выполнялись.",
+    "importStopped_other": "Импорт остановлен. Шагов завершено и сохранено: {{count}}; остальные шаги не выполнялись.",
+    "psAvatarsImported_one": "Импортирован {{count}} аватар.",
+    "psAvatarsImported_few": "Импортировано {{count}} аватара.",
+    "psAvatarsImported_many": "Импортировано {{count}} аватаров.",
+    "psAvatarsImported_other": "Импортировано аватаров: {{count}}.",
+    "recoverConfirmMsg_one": "Восстановить {{count}} элемент в приложение? Текущие данные в этой категории будут перезаписаны.",
+    "recoverConfirmMsg_few": "Восстановить {{count}} элемента в приложение? Текущие данные в этих категориях будут перезаписаны.",
+    "recoverConfirmMsg_many": "Восстановить {{count}} элементов в приложение? Текущие данные в этих категориях будут перезаписаны.",
+    "recoverConfirmMsg_other": "Восстановить {{count}} элемента в приложение? Текущие данные в этих категориях будут перезаписаны.",
+    "cfUnmatched_one": "{{count}} ключ не совпал ни с одним из наших ID/названий полей. Несовпавший ключ: {{samples}}",
+    "cfUnmatched_few": "{{count}} ключа не совпали ни с одним из наших ID/названий полей. Примеры несовпавших ключей: {{samples}}",
+    "cfUnmatched_many": "{{count}} ключей не совпали ни с одним из наших ID/названий полей. Примеры несовпавших ключей: {{samples}}",
+    "cfUnmatched_other": "{{count}} ключа не совпали ни с одним из наших ID/названий полей. Примеры несовпавших ключей: {{samples}}",
+    "unnamedMember": "Участник без имени",
+    "fieldN": "Поле {{n}}",
+    "systemN": "Система {{n}}",
+    "groupN": "Группа {{n}}",
+    "channelN": "Канал {{n}}",
+    "ageField": "Возраст",
     "bundleNotRecognized": "Этот .zip не является резервной копией Plural Star.",
     "jsonHint": "ZIP и JSON — это полные резервные копии, которые можно снова импортировать в Plural Star.",
     "invalidJsonBackup": "Файл не является допустимым JSON. Выберите файл резервной копии (.json) Plural Star или Simply Plural.",
@@ -623,7 +740,9 @@
     "savedToDownloadsMsg": "{{filename}} сохранён в папке «Загрузки».",
     "exportReady": "Экспорт готов",
     "exportReadyMsg": "{{filename}} создан, но окно «Поделиться» не открылось автоматически.",
-    "importing": "Импорт…"
+    "importing": "Импорт…",
+    "exporting": "Экспорт…",
+    "errUnexpected": "Что-то пошло не так. Проверьте файл и попробуйте ещё раз."
   },
   "hub": {
     "editEntry": "Изменить запись",
@@ -650,11 +769,11 @@
     "statistics": "Статистика",
     "systemChat": "Чат системы",
     "archive": "Архив",
-    "discord": "Discord",
     "credits": "Благодарности",
     "creditLogo": "Логотип Plural Star",
     "creditIos": "iOS-порт Plural Star",
-    "supportPS": "Поддержать PS"
+    "supportPS": "Поддержать PS",
+    "discord": "Discord"
   },
   "modal": {
     "linkPfp": "Ссылка на изображение",
@@ -693,6 +812,8 @@
     "colorLock": "Блокировка цвета",
     "invalidHex": "Неверный hex-цвет",
     "customColor": "Свой цвет",
+    "emoji": "Эмодзи",
+    "emojiPlaceholder": "например, 🦊",
     "transparentColor": "Прозрачный",
     "removeImageMsg": "Удалить это изображение?",
     "deletePaletteMsg": "Эта палитра будет удалена навсегда.",
@@ -775,12 +896,23 @@
     "textScaleLarge": "Большой",
     "textScaleExtraLarge": "Огромный",
     "dyslexicFont": "Шрифт для дислексии",
-    "dyslexicFontDesc": "Переключает основной текст на OpenDyslexic. Заголовки сохраняют свой шрифт."
+    "dyslexicFontDesc": "Переключает основной текст на OpenDyslexic. Заголовки сохраняют свой шрифт.",
+    "cropArea": "Область обрезки",
+    "addEntryPassword": "Добавить пароль записи",
+    "removeEntryPassword": "Убрать пароль записи",
+    "addJournalPassword": "Добавить пароль журнала",
+    "removeJournalPassword": "Убрать пароль журнала",
+    "addAppLockPassword": "Добавить пароль блокировки приложения",
+    "removeAppLockPassword": "Убрать пароль блокировки приложения",
+    "fontDefault": "По умолчанию",
+    "paletteObsidian": "Обсидиан",
+    "paletteSteel": "Сталь"
   },
   "notification": {
     "chatPingTitle": "◆ {{speaker}} пингнул(а) вас в #{{channel}}",
     "chatPingBody": "{{preview}}",
     "chatPingBodyEmpty": "Нажмите, чтобы посмотреть сообщение.",
+    "friendLine": "◈ {{name}}: {{fronters}}",
     "locationPermTitle": "Разрешение на местоположение",
     "locationPermMsg": "Plural Star хочет отмечать примерное местоположение при фронте.",
     "allow": "Разрешить",
@@ -819,10 +951,12 @@
     "noteboard": "Уведомления Почты",
     "noteboardDesc": "Уведомлять, когда у фронтящего участника есть непрочитанная почта.",
     "noteboardUnreadTitle": "◇ {{count}} непрочитанная заметка",
+    "noteboardUnreadTitle_one": "◇ {{count}} непрочитанная заметка",
     "noteboardUnreadTitle_few": "◇ {{count}} непрочитанные заметки",
     "noteboardUnreadTitle_many": "◇ {{count}} непрочитанных заметок",
     "noteboardUnreadTitle_other": "◇ {{count}} непрочитанных заметок",
     "noteboardUnreadLine": "{{name}}: {{count}} новая заметка",
+    "noteboardUnreadLine_one": "{{name}}: {{count}} новая заметка",
     "noteboardUnreadLine_few": "{{name}}: {{count}} новые заметки",
     "noteboardUnreadLine_many": "{{name}}: {{count}} новых заметок",
     "noteboardUnreadLine_other": "{{name}}: {{count}} новых заметок"
@@ -876,7 +1010,20 @@
     "removeMembers": "Убрать участников",
     "deleteGroup": "Удалить группу",
     "deleteGroupMsg": "Удалить эту группу? Участники останутся.",
-    "deleteWithChildrenMsg": "Содержит вложенных элементов: {{count}}. Сохранить их, подняв на уровень выше, или удалить всё?"
+    "deleteWithChildrenMsg": "Содержит вложенных элементов: {{count}}. Сохранить их, подняв на уровень выше, или удалить всё?",
+    "subgroupCount_one": "{{count}} подгруппа",
+    "subgroupCount_few": "{{count}} подгруппы",
+    "subgroupCount_many": "{{count}} подгрупп",
+    "subgroupCount_other": "{{count}} подгруппы",
+    "expandA11y": "Подгруппы {{name}}, выбрано: {{count}}",
+    "subsystemNamed": "{{name}}, подсистема",
+    "moveItem": "Переместить {{name}}",
+    "addMembersTo": "Добавить участников — {{name}}",
+    "newKind": "Тип нового элемента",
+    "deleteWithChildrenMsg_one": "Содержит {{count}} вложенный элемент. Сохранить его, подняв на уровень выше, или удалить всё?",
+    "deleteWithChildrenMsg_few": "Содержит {{count}} вложенных элемента. Сохранить их, подняв на уровень выше, или удалить всё?",
+    "deleteWithChildrenMsg_many": "Содержит {{count}} вложенных элементов. Сохранить их, подняв на уровень выше, или удалить всё?",
+    "deleteWithChildrenMsg_other": "Содержит вложенных элементов: {{count}}. Сохранить их, подняв на уровень выше, или удалить всё?"
   },
   "stats": {
     "rangeStart": "Дата начала",
@@ -885,6 +1032,7 @@
     "thisYear": "Этот год",
     "showMore": "Показать больше",
     "showMoreN": "Показать больше — {{shown}} из {{total}}",
+    "showMoreShort": "Показать больше ({{shown}}/{{total}})",
     "energyByHour": "Энергия по часам",
     "allTime": "Всё время",
     "last7": "7 дней",
@@ -910,7 +1058,19 @@
     "topCoMembers": "Топ со-участников",
     "msgsSuffix": "сообщ.",
     "sessionsSuffix": "сессий",
-    "totalSessions": "Всего сессий"
+    "totalSessions": "Всего сессий",
+    "sessionsCount_one": "{{count}} сессия",
+    "sessionsCount_few": "{{count}} сессии",
+    "sessionsCount_many": "{{count}} сессий",
+    "sessionsCount_other": "{{count}} сессии",
+    "msgsCount_one": "{{count}} сообщ.",
+    "msgsCount_few": "{{count}} сообщ.",
+    "msgsCount_many": "{{count}} сообщ.",
+    "msgsCount_other": "{{count}} сообщ.",
+    "timesCount": "{{count}}×",
+    "sessionsSuffix_one": "сессия",
+    "sessionsSuffix_few": "сессии",
+    "sessionsSuffix_many": "сессий"
   },
   "chat": {
     "ping": "Пинг",
@@ -921,6 +1081,16 @@
     "editingHeader": "Редактирование сообщения",
     "editPlaceholder": "Изменить сообщение…",
     "imagePreview": "[изображение]",
+    "reactionA11y_one": "{{emoji}}, {{count}} реакция",
+    "reactionA11y_few": "{{emoji}}, {{count}} реакции",
+    "reactionA11y_many": "{{emoji}}, {{count}} реакций",
+    "reactionA11y_other": "{{emoji}}, {{count}} реакции",
+    "replyTo": "Ответить {{name}}",
+    "archiveChannelNamed": "Архивировать {{name}}",
+    "defaultGeneral": "Общий",
+    "defaultVenting": "Выговориться",
+    "defaultPlanning": "Планирование",
+    "attachment": "Вложение",
     "imageUnavailable": "[изображение недоступно]",
     "addReaction": "Добавить реакцию",
     "attachFile": "Прикрепить файл",
@@ -1011,6 +1181,7 @@
     "cloudErrRate": "Слишком много попыток. Подождите минуту и попробуйте снова.",
     "cloudErrFull": "В хранилище или на узле нет места.",
     "cloudErrTooLarge": "Пропущено, больше 25 МБ: {{keys}}",
+    "cloudErrOverQuota": "Пропущено, в хранилище нет места: {{keys}}",
     "cloudErrBadPassword": "Хранилище существует, но этот пароль его не открывает.",
     "cloudErrCorrupt": "Не удалось прочитать хранилище на этом устройстве. Отвяжите и привяжите снова с тем же паролем.",
     "cloudUnavailable": "Узел, к которому вы подключены, не предоставляет Облачные сервисы.",
@@ -1079,6 +1250,7 @@
     "deleteBucket": "Удалить круг",
     "deleteBucketMsg": "Удалить «{{name}}»?",
     "cloneBucket": "Дублировать круг",
+    "cloneBucketName": "Дублировать круг — {{name}}",
     "viewShared": "Смотреть общее",
     "mirrorNothing": "Они пока не поделились этим с вами.",
     "mirrorOffline": "Друг не в сети — показана последняя полученная копия.",
@@ -1129,7 +1301,16 @@
     "syncCloneSending": "Отправка первой копии…",
     "syncCloneReceiving": "Получение первой копии…",
     "syncCloneDone": "Первая копия завершена",
-    "publishFailed": "Не удалось опубликовать код — проверьте подключение и попробуйте снова."
+    "publishFailed": "Не удалось опубликовать код — проверьте подключение и попробуйте снова.",
+    "friendStatusOffline": "{{status}}. Не в сети",
+    "scopeCount": "Выбрано: {{count}}",
+    "bucketCopyName": "{{name}} 2",
+    "cloudErrGeneric": "Что-то пошло не так при синхронизации с облаком. Попробуйте ещё раз.",
+    "scopeSelectTitle": "{{feature}} — Выбор",
+    "viewSharedTitle": "{{name}} — Смотреть общее",
+    "deviceFallback": "Устройство",
+    "friendFallback": "Друг",
+    "androidDeviceFallback": "Android-устройство"
   },
   "terminology": {
     "fronter": "Фронтер",
@@ -1205,7 +1386,9 @@
     "addTime": "Добавить время",
     "notifAppt": "{{time}}",
     "notifApptAt": "{{time}} · {{location}}",
-    "notifReminder": "Напоминание планировщика"
+    "notifReminder": "Напоминание планировщика",
+    "todayA11y": "Сегодня, {{date}}",
+    "reminderOff": "Выкл."
   },
   "mailbox": {
     "title": "Почта",
@@ -1225,13 +1408,20 @@
     "inboxOf": "Почта {{name}}",
     "replyFrom": "Отправить {{name}} как:",
     "messageCount": "{{count}} сообщение",
+    "messageCount_one": "{{count}} сообщение",
     "messageCount_few": "{{count}} сообщения",
     "messageCount_many": "{{count}} сообщений",
     "messageCount_other": "{{count}} сообщений",
     "unreadCount": "{{count}} непрочитанных",
     "unreadCount_one": "{{count}} непрочитанное",
     "deleteTitle": "Удалить сообщение",
-    "deleteMsg": "Удалить это сообщение? Это действие нельзя отменить."
+    "deleteMsg": "Удалить это сообщение? Это действие нельзя отменить.",
+    "locked": "Заблокирован",
+    "unlocked": "Не заблокирован",
+    "allOthersCount": "Все остальные Участники · {{count}}",
+    "unread": "Не прочитано",
+    "deleteFrom": "Удалить сообщение от {{name}}",
+    "frontersHaveMail": "Непрочитанная почта для: {{names}}"
   },
   "whiteboard": {
     "title": "Доска",
@@ -1286,7 +1476,9 @@
     "voPosDown": "{{n}} снизу",
     "voPosUp": "{{n}} сверху",
     "voEdges": "{{left}} до левого края, {{right}} до правого края, {{top}} до верха, {{bottom}} до низа",
-    "voRecentered": "Перо возвращено в центр"
+    "voRecentered": "Перо возвращено в центр",
+    "voTwoParts": "{{a}}. {{b}}",
+    "brushSizeN": "Размер кисти {{n}}"
   },
   "systemMap": {
     "connections": "Связи",
@@ -1333,7 +1525,13 @@
     "zoomIn": "Приблизить",
     "zoomOut": "Отдалить",
     "resetView": "Сбросить вид",
-    "notePlaceholder": "Необязательная заметка…"
+    "notePlaceholder": "Необязательная заметка…",
+    "mapA11y": "Карта связей, {{members}}, {{relationships}}",
+    "mapA11yHint": "Выберите участника через меню действий",
+    "depthN_one": "{{count}} связь от выбранного",
+    "depthN_few": "{{count}} связи от выбранного",
+    "depthN_many": "{{count}} связей от выбранного",
+    "depthN_other": "{{count}} связи от выбранного"
   },
   "relType": {
     "love": "Любовь",
@@ -1401,13 +1599,17 @@
     "deletePollMsg": "Это безвозвратно удалит опрос.",
     "noPolls": "Опросов пока нет.",
     "closed": "Закрыт",
-    "votingAs": "Голосует:"
+    "votingAs": "Голосует:",
+    "optionN": "Вариант {{n}}",
+    "removeOptionN": "Удалить вариант {{n}}"
   },
   "energy": {
     "label": "Энергия",
     "level": "Уровень энергии",
     "avgEnergy": "Средняя энергия",
-    "outOf10": "/10 энергии"
+    "outOf10": "/10 энергии",
+    "levelN": "Уровень энергии {{n}}",
+    "outOfTen": "{{n}}/10"
   },
   "systemProfile": {
     "read": "Просмотр",

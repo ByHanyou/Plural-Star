@@ -1,4 +1,5 @@
 import {Alert} from 'react-native';
+import {ImportUserError, importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {withTimeout} from '../utils/concurrency';
 
@@ -68,11 +69,11 @@ export const handlePluralKitFetch = async (ctx: PluralKitFetchCtx) => {
         pkRequest(`${PK_BASE}/systems/@me`, headers),
         pkRequest(`${PK_BASE}/systems/@me/members`, headers),
         pkRequest(`${PK_BASE}/systems/@me/groups?with_members=true`, headers),
-      ]).catch(() => { throw new Error(t('share.couldNotConnect')); });
+      ]).catch(() => { throw new ImportUserError(t('share.couldNotConnect')); });
       const check = (res: Response) => {
         if (res.ok) return;
-        if (res.status === 401 || res.status === 403) throw new Error(t('share.authFailed', {status: res.status}));
-        throw new Error(t('share.couldNotConnect'));
+        if (res.status === 401 || res.status === 403) throw new ImportUserError(t('share.authFailed', {status: res.status}));
+        throw new ImportUserError(t('share.couldNotConnect'));
       };
       check(sRes); check(mRes); check(gRes);
       let sData: any = {}; let mData: any = []; let gData: any = [];
@@ -84,8 +85,8 @@ export const handlePluralKitFetch = async (ctx: PluralKitFetchCtx) => {
         swData = await fetchAllPkSwitches(headers);
       } catch (e: any) {
         const status = Number(e?.message);
-        if (status === 401 || status === 403) throw new Error(t('share.authFailed', {status}));
-        throw new Error(t('share.couldNotConnect'));
+        if (status === 401 || status === 403) throw new ImportUserError(t('share.authFailed', {status}));
+        throw new ImportUserError(t('share.couldNotConnect'));
       }
       const memberList = Array.isArray(mData) ? mData : [];
       const sanitized = memberList.map((m: any) => {
@@ -94,6 +95,6 @@ export const handlePluralKitFetch = async (ctx: PluralKitFetchCtx) => {
         return m;
       });
       setExtPreview({system: sData, members: sanitized, switches: Array.isArray(swData) ? swData : [], groups: Array.isArray(gData) ? gData : []});
-    } catch (e: any) {Alert.alert(t('share.importFailed'), e.message || t('share.couldNotConnect'));}
+    } catch (e: any) {Alert.alert(t('share.importFailed'), importErrorText(e, t));}
     finally {setExtLoading(false);}
   };

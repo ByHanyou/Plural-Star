@@ -18,7 +18,7 @@ interface Props {
   members?: Member[];
 }
 
-type MdTool = {label: string; a11y: string; before: string; after: string; bold?: boolean; italic?: boolean; strike?: boolean; side?: 'left' | 'right'};
+type MdTool = {label: string; a11y: string; before: string; after: string; bold?: boolean; italic?: boolean; strike?: boolean; side?: 'left' | 'right'; link?: boolean};
 
 const MD_TOOLS: MdTool[] = [
   {label: 'B', a11y: 'markdown.toolBold', before: '**', after: '**', bold: true},
@@ -27,7 +27,7 @@ const MD_TOOLS: MdTool[] = [
   {label: 'H1', a11y: 'markdown.toolH1', before: '# ', after: ''},
   {label: 'H2', a11y: 'markdown.toolH2', before: '## ', after: ''},
   {label: 'H3', a11y: 'markdown.toolH3', before: '### ', after: ''},
-  {label: '🔗', a11y: 'markdown.toolLink', before: '[', after: '](url)'},
+  {label: '🔗', a11y: 'markdown.toolLink', before: '[', after: '', link: true},
   {label: '🖼', a11y: 'markdown.toolImage', before: '<img src="', after: '" width="100" height="100">'},
   {label: '🖼≡', a11y: 'markdown.toolImageLeft', before: '', after: '', side: 'left'},
   {label: '≡🖼', a11y: 'markdown.toolImageRight', before: '', after: '', side: 'right'},
@@ -42,11 +42,12 @@ const MdToolbar = ({onInsert, T}: {onInsert: (tool: MdTool) => void; T: ThemeCol
   const fs = fontScale(T);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
-      style={{maxHeight: 40, flexGrow: 0, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}
+      style={{minHeight: 40, flexGrow: 0, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}
       contentContainerStyle={{paddingHorizontal: 12, paddingVertical: 6, gap: 6, flexDirection: 'row', alignItems: 'center'}}>
       {MD_TOOLS.map(tool => (
         <TouchableOpacity key={tool.label} onPress={() => onInsert(tool)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={i18n.t(tool.a11y)}
+          hitSlop={{top: 6, bottom: 6}}
           style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: T.border, backgroundColor: T.bg}}>
           <Text style={{fontSize: fs(12), fontWeight: tool.bold ? '700' : '500', fontStyle: tool.italic ? 'italic' : 'normal', textDecorationLine: tool.strike ? 'line-through' : 'none', color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{tool.label}</Text>
         </TouchableOpacity>
@@ -184,7 +185,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
 
   const insertTool = (tool: MdTool) => {
     if (tool.side) insertSidePicture(tool.side);
-    else insertFormat(tool.before, tool.after);
+    else insertFormat(tool.before, tool.link ? `](${i18n.t('editor.linkUrl')})` : tool.after);
   };
 
   const insertMention = (m: Member) => {
@@ -206,11 +207,11 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   return (
     <View style={[s.container, {backgroundColor: T.bg, paddingTop: Platform.OS === 'ios' ? insets.top : Math.max(StatusBar.currentHeight || 0, insets.top || 0, 28)}]}>
       <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.bg}]}>
-        <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')} style={s.headerBtn}>
+        <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.cancel')} hitSlop={{top: 10, bottom: 10, left: 8, right: 8}} style={s.headerBtn}>
           <Text style={{fontSize: fs(14), color: T.dim}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{i18n.t('common.cancel')}</Text>
         </TouchableOpacity>
         <Text accessibilityRole="header" style={[s.headerTitle, {color: T.text, flex: 1, textAlign: 'center', marginHorizontal: 8}]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{title}</Text>
-        <TouchableOpacity onPress={handleSave} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.save')} style={[s.headerBtn, {alignItems: 'flex-end'}]}>
+        <TouchableOpacity onPress={handleSave} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={i18n.t('common.save')} hitSlop={{top: 10, bottom: 10, left: 8, right: 8}} style={[s.headerBtn, {alignItems: 'flex-end'}]}>
           <Text style={{fontSize: fs(14), fontWeight: '600', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{i18n.t('common.save')}</Text>
         </TouchableOpacity>
       </View>
@@ -221,6 +222,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
         {members && members.length > 0 && (
           <TouchableOpacity onPress={() => setShowMentionPicker(true)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityLabel={i18n.t('mention.pickMember')}
+            hitSlop={{top: 6, bottom: 6}}
             style={{paddingHorizontal: 14, paddingVertical: 7, marginRight: 8, borderRadius: 6, borderWidth: 1, borderColor: T.accent, backgroundColor: T.accentBg}}>
             <Text style={{fontSize: fs(14), fontWeight: '700', color: T.accent}} accessibilityElementsHidden importantForAccessibility="no">@</Text>
           </TouchableOpacity>
@@ -240,7 +242,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
           onContentSizeChange={() => {
             if (kbHeight > 0 && selEndRef.current >= text.length - 2) scrollRef.current?.scrollToEnd({animated: false});
           }}
-          style={{fontSize: fs(15), color: T.text, lineHeight: 22, fontFamily: 'monospace', minHeight: 300, textAlignVertical: 'top'}}
+          style={{fontSize: fs(15), color: T.text, lineHeight: fs(22), fontFamily: 'monospace', minHeight: 300, textAlignVertical: 'top'}}
         />
       </ScrollView>
       {showMentionPicker && members && (

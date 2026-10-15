@@ -12,7 +12,7 @@ import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {Avatar} from '../components/Avatar';
 import {GroupBrowser} from '../components/GroupBrowser';
-import {Member, MemberGroup, GroupNodeKind, FrontState, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName} from '../utils';
+import {Member, MemberGroup, GroupNodeKind, FrontTierKey, uid, childrenOf, descendantsOf, isDescendant, groupKind, groupParent, sortMembersBySearch, memberMatchesSearch, colorName} from '../utils';
 
 interface Props {
   theme: ThemeColors;
@@ -252,8 +252,8 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
             onStep={dir => reorderNode(g.id, dir === 1 ? 'down' : 'up')} />
           {depth > 0 && <Text style={{color: T.muted, fontSize: fs(12)}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">└</Text>}
           {selectMode && !moving && (
-            <TouchableOpacity onPress={() => toggleSelected(g.id)} accessibilityRole="checkbox" accessibilityState={{checked: isSelected}} accessibilityLabel={g.name} style={{padding: 2}}>
-              <Text style={{fontSize: fs(16), color: isSelected ? T.accent : T.muted}}>{isSelected ? '☑' : '☐'}</Text>
+            <TouchableOpacity onPress={() => toggleSelected(g.id)} accessibilityRole="checkbox" accessibilityState={{checked: isSelected}} accessibilityLabel={g.name} hitSlop={{top: 8, bottom: 10}} style={{padding: 2}}>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: isSelected ? T.accent : T.muted}}>{isSelected ? '☑' : '☐'}</Text>
             </TouchableOpacity>
           )}
           {isEditing ? (
@@ -264,17 +264,18 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
           {isEditing ? (
             <View style={{flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center'}}>
               <TextInput value={editName} onChangeText={setEditName} autoFocus accessibilityLabel={t('memberGroups.groupName')} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, fontSize: fs(13)}} onSubmitEditing={() => renameNode(g.id)} returnKeyType="done" />
-              <TouchableOpacity onPress={() => renameNode(g.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text style={{color: T.success, fontSize: fs(14)}}>✓</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => setEditId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{color: T.dim, fontSize: fs(12)}}>✕</Text></TouchableOpacity>
+              <TouchableOpacity hitSlop={{top: 8, bottom: 13}} onPress={() => renameNode(g.id)} accessibilityRole="button" accessibilityLabel={t('common.save')}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{color: T.success, fontSize: fs(14)}}>✓</Text></TouchableOpacity>
+              <TouchableOpacity hitSlop={{top: 8, bottom: 15}} onPress={() => setEditId(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{color: T.dim, fontSize: fs(12)}}>✕</Text></TouchableOpacity>
             </View>
           ) : (
             <>
               <Text onPress={selectMode && !moving ? () => toggleSelected(g.id) : undefined}
                 accessibilityRole={selectMode && !moving ? 'button' : undefined}
                 accessibilityState={selectMode && !moving ? {selected: selectedIds.includes(g.id)} : undefined}
+                accessibilityLabel={isSub ? t('memberGroups.subsystemNamed', {name: g.name}) : g.name}
                 style={{flex: 1, fontSize: fs(14), color: T.text, fontWeight: '500'}} numberOfLines={1}>{isSub ? '⊟ ' : ''}{g.name}</Text>
               {canDrop ? (
-                <TouchableOpacity onPress={() => moveNodes(moving!, g.id)} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.moveHere')}: ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.successBg, borderColor: `${T.success}40`}}><Text style={{fontSize: fs(11), color: T.success}}>{t('memberGroups.moveHere')}</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => moveNodes(moving!, g.id)} accessibilityRole="button" accessibilityLabel={t('a11y.labelValue', {label: t('memberGroups.moveHere'), value: g.name})} hitSlop={{top: 8, bottom: 12}} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.successBg, borderColor: `${T.success}40`}}><Text style={{fontSize: fs(11), color: T.success}}>{t('memberGroups.moveHere')}</Text></TouchableOpacity>
               ) : moving && moving.includes(g.id) ? (
                 <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic'}}>{t('memberGroups.moving')}</Text>
               ) : selectMode || moving ? (
@@ -282,11 +283,11 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
               ) : (
                 <>
                   <Text style={{fontSize: fs(11), color: T.muted}}>{memberCount}</Text>
-                  <TouchableOpacity ref={(el) => { moveBtnRefs.current[g.id] = el; }} onPress={() => reorderNode(g.id, 'up')} disabled={sibIdx <= 0} accessibilityRole="button" accessibilityState={{disabled: sibIdx <= 0}} accessibilityLabel={sibIdx <= 0 ? `${t('members.moveUp')} ${g.name}` : `${t('members.moveUp')} ${g.name}, ${t('members.moveAbove', {name: sibs[sibIdx - 1].name})}`} style={{padding: 2, opacity: sibIdx <= 0 ? 0.25 : 1}}><Text style={{fontSize: fs(13), color: T.dim}}>▲</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => reorderNode(g.id, 'down')} disabled={sibIdx === sibs.length - 1} accessibilityRole="button" accessibilityState={{disabled: sibIdx === sibs.length - 1}} accessibilityLabel={sibIdx === sibs.length - 1 ? `${t('members.moveDown')} ${g.name}` : `${t('members.moveDown')} ${g.name}, ${t('members.moveBelow', {name: sibs[sibIdx + 1].name})}`} style={{padding: 2, opacity: sibIdx === sibs.length - 1 ? 0.25 : 1}}><Text style={{fontSize: fs(13), color: T.dim}}>▼</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => setMovingIds([g.id])} accessibilityRole="button" accessibilityLabel={`${t('memberGroups.move')} ${g.name}`}><Text style={{fontSize: fs(15), color: T.dim}}>⇄</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => {setEditId(g.id); setEditName(g.name); setEditColor(g.color || PALETTE[0]); setEditDesc(g.description || ''); setEditLinked(g.linkedMemberId || null);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.edit')} ${g.name}`} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
-                  <TouchableOpacity onPress={() => deleteNode(g.id)} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={`${t('common.delete')} ${g.name}`}><Text style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
+                  <TouchableOpacity ref={(el) => { moveBtnRefs.current[g.id] = el; }} onPress={() => reorderNode(g.id, 'up')} disabled={sibIdx <= 0} accessibilityRole="button" accessibilityState={{disabled: sibIdx <= 0}} accessibilityLabel={sibIdx <= 0 ? t('members.moveUpItem', {name: g.name}) : `${t('members.moveUpItem', {name: g.name})}, ${t('members.moveAbove', {name: sibs[sibIdx - 1].name})}`} hitSlop={{top: 8, bottom: 12}} style={{padding: 2, opacity: sibIdx <= 0 ? 0.25 : 1}}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(13), color: T.dim}}>▲</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => reorderNode(g.id, 'down')} disabled={sibIdx === sibs.length - 1} accessibilityRole="button" accessibilityState={{disabled: sibIdx === sibs.length - 1}} accessibilityLabel={sibIdx === sibs.length - 1 ? t('members.moveDownItem', {name: g.name}) : `${t('members.moveDownItem', {name: g.name})}, ${t('members.moveBelow', {name: sibs[sibIdx + 1].name})}`} hitSlop={{top: 8, bottom: 12}} style={{padding: 2, opacity: sibIdx === sibs.length - 1 ? 0.25 : 1}}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(13), color: T.dim}}>▼</Text></TouchableOpacity>
+                  <TouchableOpacity hitSlop={{top: 8, bottom: 13}} onPress={() => setMovingIds([g.id])} accessibilityRole="button" accessibilityLabel={t('memberGroups.moveItem', {name: g.name})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(15), color: T.dim}}>⇄</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => {setEditId(g.id); setEditName(g.name); setEditColor(g.color || PALETTE[0]); setEditDesc(g.description || ''); setEditLinked(g.linkedMemberId || null);}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.editItem', {name: g.name})} hitSlop={{top: 8, bottom: 12}} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={() => deleteNode(g.id)} hitSlop={{top: 8, bottom: 11}} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: g.name})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(12), color: T.danger}}>✕</Text></TouchableOpacity>
                 </>
               )}
             </>
@@ -302,8 +303,8 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
               const linked = editLinked ? members.find(m => m.id === editLinked && !m.deleted) || null : null;
               return (
                 <TouchableOpacity onPress={() => { setLinkSearch(''); setLinkPickOpen(true); }} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={`${t('memberGroups.linkedFronter')}: ${linked ? linked.name : t('memberGroups.noLinkedFronter')}`}
-                  style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}>
+                  accessibilityRole="button" accessibilityLabel={t('a11y.labelValue', {label: t('memberGroups.linkedFronter'), value: linked ? linked.name : t('memberGroups.noLinkedFronter')})}
+                  hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}>
                   <Text style={{fontSize: fs(11), color: T.dim}}>{t('memberGroups.linkedFronter')}</Text>
                   <View style={{flex: 1}} />
                   {linked ? <Avatar member={linked} size={22} T={T} /> : null}
@@ -365,19 +366,19 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
           headerRight={<>
           {current && !removeMode && (
             <TouchableOpacity onPress={() => { setAddPickIds([]); setAddSearch(''); setAddPickOpen(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberGroups.addMembers')}
-              style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
               <PlusMinusIcon size={12} color={T.accent} />
             </TouchableOpacity>
           )}
           {current && folderMembers.length > 0 && !removeMode && (
             <TouchableOpacity onPress={() => { setRemoveIds([]); setRemoveMode(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('memberGroups.removeMembers')}
-              style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
-              <Text style={{fontSize: fs(15), color: T.danger}} allowFontScaling={false}>−</Text>
+              hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(15), color: T.danger}} allowFontScaling={false}>−</Text>
             </TouchableOpacity>
           )}
           {!removeMode && (
             <TouchableOpacity onPress={() => setBrowse(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.edit')}
-              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+              hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('common.edit')}</Text>
             </TouchableOpacity>
           )}
@@ -386,10 +387,10 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, padding: 8, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: `${T.danger}40`}}>
             <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('members.selectedCount', {count: removeIds.length})}</Text>
             <TouchableOpacity onPress={confirmRemove} disabled={removeIds.length === 0} accessibilityRole="button" accessibilityState={{disabled: removeIds.length === 0}} accessibilityLabel={t('memberGroups.removeMembers')}
-              style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`, opacity: removeIds.length === 0 ? 0.45 : 1}}>
+              hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`, opacity: removeIds.length === 0 ? 0.45 : 1}}>
               <Text style={{fontSize: fs(11), fontWeight: '600', color: T.danger}}>{t('network.remove')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setRemoveMode(false); setRemoveIds([]); }} accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
+            <TouchableOpacity hitSlop={{top: 15, bottom: 15}} onPress={() => { setRemoveMode(false); setRemoveIds([]); }} accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
@@ -400,7 +401,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
               <TouchableOpacity onPress={() => toggleRemovePick(m.id)} activeOpacity={0.7}
                 accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={m.name}
                 style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
-                <Text style={{fontSize: fs(16), color: checked ? T.danger : T.muted}}>{checked ? '☑' : '☐'}</Text>
+                <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: checked ? T.danger : T.muted}}>{checked ? '☑' : '☐'}</Text>
                 <Avatar member={m} size={30} T={T} />
                 <View style={{flex: 1}}>
                   <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
@@ -421,14 +422,14 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
                       {text: t('network.remove'), style: 'destructive', onPress: () => onRemoveFromFront(m.id)},
                     ])}
                     accessibilityRole="button" accessibilityLabel={`${t('members.removeFromFront')} — ${m.name}`}
-                    style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
-                    <Text style={{fontSize: fs(15), color: T.danger}} allowFontScaling={false}>−</Text>
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
+                    <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(15), color: T.danger}} allowFontScaling={false}>−</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
                     onPress={() => setQuickFrontFor(m)}
                     accessibilityRole="button" accessibilityLabel={`${t('members.addToFront')} — ${m.name}`}
-                    style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
                     <PlusMinusIcon size={12} color={T.accent} />
                   </TouchableOpacity>
                 )
@@ -441,7 +442,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
         <Modal visible={!!quickFrontFor} transparent animationType="fade" onRequestClose={() => setQuickFrontFor(null)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
             <View accessibilityViewIsModal onAccessibilityEscape={() => setQuickFrontFor(null)} style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 360, backgroundColor: T.card, borderColor: T.border}}>
-              <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 12}} numberOfLines={1}>{t('members.addToFront')} — {quickFrontFor?.name}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 12}} numberOfLines={1}>{t('members.addToFrontName', {name: quickFrontFor?.name})}</Text>
               {(['primary', 'coFront', 'coConscious'] as FrontTierKey[]).map(tier => (
                 <TouchableOpacity key={tier}
                   onPress={() => { const m = quickFrontFor; setQuickFrontFor(null); if (m) onQuickFront?.(m.id, tier); }}
@@ -453,7 +454,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
                 </TouchableOpacity>
               ))}
               <TouchableOpacity onPress={() => setQuickFrontFor(null)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                style={{alignItems: 'center', paddingVertical: 10, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 10, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                 <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
@@ -463,7 +464,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
         <Modal visible={addPickOpen} transparent animationType="fade" onRequestClose={() => setAddPickOpen(false)}>
           <View style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24}}>
             <View accessibilityViewIsModal onAccessibilityEscape={() => setAddPickOpen(false)} style={{borderRadius: 16, borderWidth: 1, padding: 18, width: '100%', maxWidth: 400, maxHeight: '80%', backgroundColor: T.card, borderColor: T.border}}>
-              <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}} numberOfLines={1}>{t('memberGroups.addMembers')} — {current?.name}</Text>
+              <Text accessibilityRole="header" style={{fontSize: fs(15), fontWeight: '600', color: T.text, marginBottom: 10}} numberOfLines={1}>{t('memberGroups.addMembersTo', {name: current?.name})}</Text>
               <TextInput value={addSearch} onChangeText={setAddSearch} placeholder={t('common.search')} placeholderTextColor={T.muted}
                 accessibilityLabel={t('common.search')}
                 style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: fs(13), marginBottom: 10}} />
@@ -477,7 +478,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
                     <TouchableOpacity key={m.id} onPress={() => toggleAddPick(m.id)} activeOpacity={0.7}
                       accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={m.name}
                       style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8}}>
-                      <Text style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
+                      <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
                       <Avatar member={m} size={26} T={T} />
                       <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
                     </TouchableOpacity>
@@ -492,7 +493,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
                         <TouchableOpacity key={m.id} onPress={() => toggleAddPick(m.id)} activeOpacity={0.7}
                           accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={m.name}
                           style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8}}>
-                          <Text style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
+                          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
                           <Avatar member={m} size={26} T={T} />
                           <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
                         </TouchableOpacity>
@@ -509,7 +510,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
                         <TouchableOpacity key={m.id} onPress={() => toggleAddPick(m.id)} activeOpacity={0.7}
                           accessibilityRole="checkbox" accessibilityState={{checked}} accessibilityLabel={m.name}
                           style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8}}>
-                          <Text style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
+                          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: checked ? T.accent : T.muted}}>{checked ? '☑' : '☐'}</Text>
                           <Avatar member={m} size={26} T={T} />
                           <Text style={{flex: 1, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
                         </TouchableOpacity>
@@ -524,14 +525,14 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12}}>
                 <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('members.selectedCount', {count: addPickIds.length})}</Text>
                 <TouchableOpacity onPress={() => setAddPickOpen(false)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                  style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                   <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => { if (current && addPickIds.length > 0) { onAddToGroup?.(addPickIds, current.id); } setAddPickOpen(false); setAddPickIds([]); }}
                   disabled={addPickIds.length === 0}
                   accessibilityRole="button" accessibilityState={{disabled: addPickIds.length === 0}} accessibilityLabel={t('common.add')}
-                  style={{paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: addPickIds.length === 0 ? 0.45 : 1}}>
+                  hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: addPickIds.length === 0 ? 0.45 : 1}}>
                   <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.add')}</Text>
                 </TouchableOpacity>
               </View>
@@ -545,11 +546,11 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
   return (
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled" scrollEnabled={!dragging} bottomOffset={24}>
       {header}
-      <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 14, lineHeight: 18}}>{t('systemManager.desc')}</Text>
+      <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 14, lineHeight: fs(18)}}>{t('systemManager.desc')}</Text>
       <View style={{flexDirection: 'row', marginBottom: 12}}>
         <TouchableOpacity onPress={() => { goBrowseTo(null); setBrowse(true); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemManager.browse')}
-          style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
-          <Text style={{fontSize: fs(13)}} allowFontScaling={false}>🗂</Text>
+          hitSlop={{top: 7, bottom: 7}} style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(13)}} allowFontScaling={false}>🗂</Text>
           <Text style={{fontSize: fs(12), fontWeight: '500', color: T.dim}}>{t('systemManager.browse')}</Text>
         </TouchableOpacity>
         <View style={{flex: 1}} />
@@ -560,24 +561,24 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
           {selectMode ? (
             <>
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('members.selectedCount', {count: selectedIds.length})}</Text>
-              <TouchableOpacity onPress={() => setSelectedIds(groups.map(g => g.id))} accessibilityRole="button" accessibilityLabel={t('members.selectAll')}><Text style={{fontSize: fs(11), color: T.accent}}>{t('members.selectAll')}</Text></TouchableOpacity>
-              <TouchableOpacity onPress={() => setSelectedIds([])} accessibilityRole="button" accessibilityLabel={t('members.selectNone')}><Text style={{fontSize: fs(11), color: T.accent}}>{t('members.selectNone')}</Text></TouchableOpacity>
+              <TouchableOpacity hitSlop={{top: 12, bottom: 15}} onPress={() => setSelectedIds(groups.map(g => g.id))} accessibilityRole="button" accessibilityLabel={t('members.selectAll')}><Text style={{fontSize: fs(11), color: T.accent}}>{t('members.selectAll')}</Text></TouchableOpacity>
+              <TouchableOpacity hitSlop={{top: 12, bottom: 15}} onPress={() => setSelectedIds([])} accessibilityRole="button" accessibilityLabel={t('members.selectNone')}><Text style={{fontSize: fs(11), color: T.accent}}>{t('members.selectNone')}</Text></TouchableOpacity>
               <View style={{flex: 1}} />
               <TouchableOpacity onPress={() => { if (selectedIds.length > 0) setMovingIds([...selectedIds]); }} disabled={selectedIds.length === 0} accessibilityRole="button" accessibilityState={{disabled: selectedIds.length === 0}} accessibilityLabel={t('memberGroups.move')}
-                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: selectedIds.length === 0 ? 0.45 : 1}}>
+                hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: selectedIds.length === 0 ? 0.45 : 1}}>
                 <Text style={{fontSize: fs(11), fontWeight: '600', color: T.accent}}>{t('memberGroups.move')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={massDelete} disabled={selectedIds.length === 0} accessibilityRole="button" accessibilityState={{disabled: selectedIds.length === 0}} accessibilityLabel={t('common.delete')}
-                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`, opacity: selectedIds.length === 0 ? 0.45 : 1}}>
+                hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`, opacity: selectedIds.length === 0 ? 0.45 : 1}}>
                 <Text style={{fontSize: fs(11), fontWeight: '600', color: T.danger}}>{t('common.delete')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={exitSelectMode} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(11), color: T.dim}}>{t('common.cancel')}</Text></TouchableOpacity>
+              <TouchableOpacity hitSlop={{top: 12, bottom: 15}} onPress={exitSelectMode} accessibilityRole="button" accessibilityLabel={t('common.cancel')}><Text style={{fontSize: fs(11), color: T.dim}}>{t('common.cancel')}</Text></TouchableOpacity>
             </>
           ) : (
             <>
               <View style={{flex: 1}} />
               <TouchableOpacity onPress={() => setSelectMode(true)} accessibilityRole="button" accessibilityLabel={t('members.select')}
-                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+                hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
                 <Text style={{fontSize: fs(11), color: T.dim}}>{t('members.select')}</Text>
               </TouchableOpacity>
             </>
@@ -587,8 +588,8 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
       {movingIds && (
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, padding: 8, borderRadius: 8, backgroundColor: T.surface, borderWidth: 1, borderColor: `${T.accent}40`}}>
           <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('memberGroups.movePrompt')}</Text>
-          <TouchableOpacity onPress={() => moveNodes(movingIds!, null)} accessibilityRole="button"><Text style={{fontSize: fs(11), color: T.accent, fontWeight: '600'}}>{t('memberGroups.toRoot')}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setMovingIds(null)} accessibilityRole="button"><Text style={{fontSize: fs(11), color: T.dim}}>{t('common.cancel')}</Text></TouchableOpacity>
+          <TouchableOpacity hitSlop={{top: 15, bottom: 15}} onPress={() => moveNodes(movingIds!, null)} accessibilityRole="button"><Text style={{fontSize: fs(11), color: T.accent, fontWeight: '600'}}>{t('memberGroups.toRoot')}</Text></TouchableOpacity>
+          <TouchableOpacity hitSlop={{top: 15, bottom: 15}} onPress={() => setMovingIds(null)} accessibilityRole="button"><Text style={{fontSize: fs(11), color: T.dim}}>{t('common.cancel')}</Text></TouchableOpacity>
         </View>
       )}
       {childrenOf(groups, null).map(g => renderNode(g, 0))}
@@ -596,14 +597,15 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
       <View style={{flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 8}}>
         <TouchableOpacity onPress={() => setShowNewColor(s => !s)}
           accessibilityRole="button" accessibilityState={{expanded: showNewColor}} accessibilityLabel={`${t('memberGroups.changeColor')}, ${colorName(newColor, t)}`}
-          style={{width: 28, height: 28, borderRadius: newKind === 'subsystem' ? 6 : 14, backgroundColor: newColor, borderWidth: 2, borderColor: showNewColor ? '#fff' : 'rgba(255,255,255,0.15)'}} />
+          hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{width: 28, height: 28, borderRadius: newKind === 'subsystem' ? 6 : 14, backgroundColor: newColor, borderWidth: 2, borderColor: showNewColor ? '#fff' : 'rgba(255,255,255,0.15)'}} />
         <TextInput value={newName} onChangeText={setNewName} accessibilityLabel={t('memberGroups.addPlaceholder')} placeholder={t('memberGroups.addPlaceholder')} placeholderTextColor={T.muted}
           style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, fontSize: fs(13)}} onSubmitEditing={addNode} returnKeyType="done" />
         <TouchableOpacity onPress={() => setNewKind(k => k === 'group' ? 'subsystem' : 'group')} activeOpacity={0.7} accessibilityRole="button"
-          style={{paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+          accessibilityLabel={t('memberGroups.newKind')} accessibilityValue={{text: newKind === 'subsystem' ? t('memberGroups.subsystem') : t('memberGroups.group')}}
+          hitSlop={{top: 8, bottom: 8}} style={{paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
           <Text style={{fontSize: fs(11), color: T.dim}}>{newKind === 'subsystem' ? t('memberGroups.subsystem') : t('memberGroups.group')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={addNode} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.add')} style={{paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+        <TouchableOpacity onPress={addNode} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.add')} hitSlop={{top: 8, bottom: 8}} style={{paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
           <Text style={{fontSize: fs(12), fontWeight: '500', color: T.accent}}>{t('common.add')}</Text>
         </TouchableOpacity>
       </View>
@@ -639,7 +641,7 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
               })}
             </ScrollView>
             <TouchableOpacity onPress={() => setLinkPickOpen(false)} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-              style={{alignItems: 'center', paddingVertical: 10, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+              hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 10, marginTop: 12, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
               <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>

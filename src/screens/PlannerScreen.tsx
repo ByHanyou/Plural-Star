@@ -4,7 +4,7 @@ import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
 import {useTranslation} from 'react-i18next';
-import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtTime, fmtClock, isValidTimeHHMM, getLocale, firstDayOfWeek} from '../utils';
+import {PlannerAppointment, PlannerReminder, PlannerRepeat, PlannerReminderRepeat, plannerOccursOnDay, uid, fmtClock, isValidTimeHHMM, getLocale, firstDayOfWeek} from '../utils';
 import {fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {savePlanner} from '../store/actions';
@@ -211,13 +211,14 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
 
   const dayAppts = apptsOn(selected);
   const apptClock = (ts: number) => { const d = new Date(ts); return fmtClock(d.getHours(), d.getMinutes()); };
+  const clockOf = (hhmm: string): string => { const [h, m] = hhmm.split(':').map(Number); return Number.isFinite(h) && Number.isFinite(m) ? fmtClock(h, m) : hhmm; };
   const selectedLabel = selected.toLocaleDateString(locale, {weekday: 'long', month: 'long', day: 'numeric'});
   const sortedRems = [...planner.reminders].sort((a, b) => (a.times[0] || '').localeCompare(b.times[0] || ''));
 
   const formHeader = (title: string, onClose: () => void) => (
     <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-      <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
-        <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
+      <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 7, bottom: 7}} style={{padding: 4, marginRight: 12}}>
+        <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
       </TouchableOpacity>
       <Text accessibilityRole="header" maxFontSizeMultiplier={1.2} style={{fontSize: fs(20), fontWeight: '600', color: T.text, flex: 1}} numberOfLines={1}>{title}</Text>
     </View>
@@ -236,7 +237,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
               style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), marginTop: 10, marginBottom: 10}} />
             <TextInput value={apptNotes} onChangeText={setApptNotes} placeholder={t('planner.notesPlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('planner.notesPlaceholder')} multiline
               style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), minHeight: 56, textAlignVertical: 'top', marginBottom: 10}} />
-            <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.repeatLabel')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.repeatLabel')}</Text>
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12}}>
               {APPT_REPEAT_CHOICES.map(rep => {
                 const label = rep == null ? t('planner.repeatOnce') : t(REPEAT_KEYS[rep]);
@@ -244,7 +245,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                 return (
                   <TouchableOpacity key={String(rep)} onPress={() => setApptRepeat(rep)} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={label}
-                    style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+                    hitSlop={{top: 6, bottom: 9}} style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
                       backgroundColor: sel ? `${T.accent}20` : T.bg,
                       borderColor: sel ? `${T.accent}50` : T.border}}>
                     <Text style={{fontSize: fs(11), color: sel ? T.accent : T.dim}}>{label}</Text>
@@ -252,12 +253,12 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                 );
               })}
             </View>
-            <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.remindLabel')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.remindLabel')}</Text>
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12}}>
               {REMIND_CHOICES.map(c => (
                 <TouchableOpacity key={String(c.minutes)} onPress={() => setApptRemind(c.minutes)} activeOpacity={0.7}
                   accessibilityRole="button" accessibilityState={{selected: apptRemind === c.minutes}} accessibilityLabel={t(c.key)}
-                  style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+                  hitSlop={{top: 6, bottom: 9}} style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
                     backgroundColor: apptRemind === c.minutes ? `${T.accent}20` : T.bg,
                     borderColor: apptRemind === c.minutes ? `${T.accent}50` : T.border}}>
                   <Text style={{fontSize: fs(11), color: apptRemind === c.minutes ? T.accent : T.dim}}>{t(c.key)}</Text>
@@ -269,7 +270,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
               <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('planner.apptColor')}</Text>
               {apptColor ? (
                 <TouchableOpacity onPress={() => setApptColor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('planner.apptColorDefault')}
-                  style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: T.border}}>
+                  hitSlop={{top: 11, bottom: 11}} style={{paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1, borderColor: T.border}}>
                   <Text style={{fontSize: fs(11), color: T.dim}}>{t('planner.apptColorDefault')}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -279,12 +280,12 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
             </View>
             <View style={{flexDirection: 'row', gap: 10}}>
               <TouchableOpacity onPress={() => setApptOpen(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                 <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={saveAppt} activeOpacity={0.7} disabled={!apptTitle.trim()} accessibilityRole="button" accessibilityLabel={t('common.save')}
                 accessibilityState={{disabled: !apptTitle.trim()}}
-                style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: apptTitle.trim() ? 1 : 0.4}}>
+                hitSlop={{top: 6, bottom: 6}} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: apptTitle.trim() ? 1 : 0.4}}>
                 <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
@@ -302,13 +303,13 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
           <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 32}} keyboardShouldPersistTaps="handled">
             <TextInput value={remTitle} onChangeText={setRemTitle} placeholder={t('planner.reminderTitlePlaceholder')} placeholderTextColor={T.muted} accessibilityLabel={t('planner.reminderTitlePlaceholder')}
               style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), marginBottom: 10}} />
-            <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.timesLabel')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.timesLabel')}</Text>
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
               {remTimes.map(tm => (
                 <TouchableOpacity key={tm} onPress={() => setRemTimes(remTimes.filter(x => x !== tm))} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={t('planner.removeTime', {time: tm})}
-                  style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, backgroundColor: `${T.accent}15`, borderColor: `${T.accent}40`}}>
-                  <Text style={{fontSize: fs(12), color: T.accent}}>{tm}</Text>
+                  accessibilityRole="button" accessibilityLabel={t('planner.removeTime', {time: clockOf(tm)})}
+                  hitSlop={{top: 6, bottom: 9}} style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, backgroundColor: `${T.accent}15`, borderColor: `${T.accent}40`}}>
+                  <Text style={{fontSize: fs(12), color: T.accent}}>{clockOf(tm)}</Text>
                   <Text style={{fontSize: fs(11), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
                 </TouchableOpacity>
               ))}
@@ -318,18 +319,18 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                 style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} onSubmitEditing={addRemTime} returnKeyType="done" />
               <TouchableOpacity onPress={addRemTime} activeOpacity={0.7} disabled={!isValidTimeHHMM(remNewTime.trim())} accessibilityRole="button" accessibilityLabel={t('planner.addTime')}
                 accessibilityState={{disabled: !isValidTimeHHMM(remNewTime.trim())}}
-                style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, opacity: isValidTimeHHMM(remNewTime.trim()) ? 1 : 0.4}}>
-                <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>+</Text>
+                hitSlop={{top: 6, bottom: 6}} style={{backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10, opacity: isValidTimeHHMM(remNewTime.trim()) ? 1 : 0.4}}>
+                <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>+</Text>
               </TouchableOpacity>
             </View>
-            <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.repeatLabel')}</Text>
+            <Text accessibilityRole="header" style={{fontSize: fs(11), color: T.dim, marginBottom: 6}}>{t('planner.repeatLabel')}</Text>
             <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10}}>
               {REM_REPEAT_CHOICES.map(rep => {
                 const sel = remRepeat === rep;
                 return (
                   <TouchableOpacity key={rep} onPress={() => setRemRepeat(rep)} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={t(REPEAT_KEYS[rep])}
-                    style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
+                    hitSlop={{top: 6, bottom: 9}} style={{paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
                       backgroundColor: sel ? `${T.accent}20` : T.bg,
                       borderColor: sel ? `${T.accent}50` : T.border}}>
                     <Text style={{fontSize: fs(11), color: sel ? T.accent : T.dim}}>{t(REPEAT_KEYS[rep])}</Text>
@@ -346,12 +347,12 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
               style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), minHeight: 56, textAlignVertical: 'top', marginBottom: 12}} />
             <View style={{flexDirection: 'row', gap: 10}}>
               <TouchableOpacity onPress={() => setRemOpen(false)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
+                hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
                 <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={saveRem} activeOpacity={0.7} disabled={!remTitle.trim() || remTimes.length === 0} accessibilityRole="button" accessibilityLabel={t('common.save')}
                 accessibilityState={{disabled: !remTitle.trim() || remTimes.length === 0}}
-                style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: (remTitle.trim() && remTimes.length > 0) ? 1 : 0.4}}>
+                hitSlop={{top: 6, bottom: 6}} style={{flex: 2, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`, opacity: (remTitle.trim() && remTimes.length > 0) ? 1 : 0.4}}>
                 <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
@@ -364,8 +365,8 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
-        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 4, marginRight: 12}}>
-          <Text style={{fontSize: fs(18), color: T.dim}}>←</Text>
+        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 7, bottom: 7}} style={{padding: 4, marginRight: 12}}>
+          <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
         </TouchableOpacity>
         <Text accessibilityRole="header" maxFontSizeMultiplier={1.2} style={{fontSize: fs(20), fontWeight: '600', color: T.text, flex: 1}} numberOfLines={1}>{t('planner.title')}</Text>
       </View>
@@ -373,22 +374,22 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
       <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 32}}>
         <View style={{flexDirection: 'row', gap: 10, marginBottom: 12}}>
           <TouchableOpacity onPress={openNewAppt} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('planner.addAppt')}
-            style={{flex: 1, alignItems: 'center', backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10}}>
+            hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10}}>
             <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}} numberOfLines={1}>+ {t('planner.appt')}</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={openNewRem} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('planner.addReminder')}
-            style={{flex: 1, alignItems: 'center', backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10}}>
+            hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10}}>
             <Text style={{fontSize: fs(13), fontWeight: '600', color: T.accent}} numberOfLines={1}>+ {t('planner.reminder')}</Text>
           </TouchableOpacity>
         </View>
         <View style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 10}}>
           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
             <TouchableOpacity onPress={() => shiftMonth(-1)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('planner.prevMonth')} style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-              <Text style={{fontSize: fs(16), color: T.accent}}>‹</Text>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: T.accent}}>‹</Text>
             </TouchableOpacity>
             <Text accessibilityRole="header" style={{flex: 1, textAlign: 'center', fontSize: fs(15), fontWeight: '600', color: T.text}}>{monthLabel}</Text>
             <TouchableOpacity onPress={() => shiftMonth(1)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('planner.nextMonth')} style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-              <Text style={{fontSize: fs(16), color: T.accent}}>›</Text>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: T.accent}}>›</Text>
             </TouchableOpacity>
           </View>
           <View style={{flexDirection: 'row'}}>
@@ -409,7 +410,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                 const label = `${d.toLocaleDateString(locale, {weekday: 'long', month: 'long', day: 'numeric'})}${count > 0 ? `, ${t('planner.apptCount', {count})}` : ''}`;
                 return (
                   <TouchableOpacity key={col} onPress={() => { setSelected(new Date(d)); if (!inMonth) setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1)); }}
-                    activeOpacity={0.7} accessibilityRole="button" accessibilityState={{selected: isSel}} accessibilityLabel={label}
+                    activeOpacity={0.7} accessibilityRole="button" accessibilityState={{selected: isSel}} accessibilityLabel={isToday ? t('planner.todayA11y', {date: label}) : label}
                     style={{flex: 1, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', margin: 1, borderRadius: 8,
                       backgroundColor: isSel ? `${T.accent}25` : 'transparent',
                       borderWidth: isToday ? 1 : 0, borderColor: T.accent}}>
@@ -426,10 +427,10 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
           ))}
           <TouchableOpacity onPress={() => setMarkPickerOpen(v => !v)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{expanded: markPickerOpen}} accessibilityLabel={t('planner.markColor')}
-            style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: T.border}}>
+            hitSlop={{top: 11, bottom: 11}} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: T.border}}>
             <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: markColor}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
             <Text style={{flex: 1, fontSize: fs(11), color: T.dim}}>{t('planner.markColor')}</Text>
-            <Text style={{fontSize: fs(11), color: T.dim}}>{markPickerOpen ? '▲' : '▼'}</Text>
+            <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(11), color: T.dim}}>{markPickerOpen ? '▲' : '▼'}</Text>
           </TouchableOpacity>
           {markPickerOpen && (
             <View style={{marginTop: 8}}>
@@ -452,8 +453,8 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
           <View key={a.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, borderLeftWidth: 4, borderLeftColor: a.color || markColor, padding: 12, marginBottom: 8}}>
             <TouchableOpacity onPress={() => openEditAppt(a)} activeOpacity={0.7} accessibilityRole="button"
               accessibilityLabel={[apptClock(a.time), a.title, a.location, ...meta].filter(Boolean).join(', ')}
-              style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
-              <Text style={{fontSize: fs(13), fontWeight: '700', color: T.accent, width: 58}}>{apptClock(a.time)}</Text>
+              hitSlop={{top: 13, bottom: 13}} style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+              <Text style={{fontSize: fs(13), fontWeight: '700', color: T.accent, minWidth: 58}}>{apptClock(a.time)}</Text>
               <View style={{flex: 1}}>
                 <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1}>{a.title}</Text>
                 {(a.location || a.notes) ? <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}} numberOfLines={2}>{[a.location, a.notes].filter(Boolean).join(' · ')}</Text> : null}
@@ -467,7 +468,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
                 )}
               </View>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => deleteAppt(a)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.delete')}, ${a.title}`} style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            <TouchableOpacity onPress={() => deleteAppt(a)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: a.title})} style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
               <Text style={{fontSize: fs(15), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
             </TouchableOpacity>
           </View>
@@ -482,13 +483,13 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
         ) : sortedRems.map(r => (
           <View key={r.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12, marginBottom: 8, opacity: r.enabled ? 1 : 0.55}}>
             <TouchableOpacity onPress={() => openEditRem(r)} activeOpacity={0.7} accessibilityRole="button"
-              accessibilityLabel={`${r.title}, ${t(REPEAT_KEYS[r.repeat || 'daily'])}, ${r.times.join(', ')}`} style={{flex: 1}}>
+              accessibilityLabel={`${r.title}, ${t(REPEAT_KEYS[r.repeat || 'daily'])}, ${r.times.map(clockOf).join(', ')}`} hitSlop={{top: 13, bottom: 13}} style={{flex: 1}}>
               <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text}} numberOfLines={1}>{r.title}</Text>
-              <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{`↻ ${t(REPEAT_KEYS[r.repeat || 'daily'])}  ·  ${r.times.join('  ·  ')}`}</Text>
+              <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{`↻ ${t(REPEAT_KEYS[r.repeat || 'daily'])}  ·  ${r.times.map(clockOf).join('  ·  ')}`}</Text>
               {r.notes ? <Text style={{fontSize: fs(11), color: T.muted, marginTop: 2}} numberOfLines={1}>{r.notes}</Text> : null}
             </TouchableOpacity>
-            <ToggleSwitch value={r.enabled} onToggle={() => toggleRem(r)} T={T} label={`${r.enabled ? t('planner.disableReminder') : t('planner.enableReminder')}, ${r.title}`} />
-            <TouchableOpacity onPress={() => deleteRem(r)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('common.delete')}, ${r.title}`} style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            <ToggleSwitch value={r.enabled} onToggle={() => toggleRem(r)} T={T} label={r.title} />
+            <TouchableOpacity onPress={() => deleteRem(r)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: r.title})} style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
               <Text style={{fontSize: fs(15), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
             </TouchableOpacity>
           </View>

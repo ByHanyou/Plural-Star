@@ -1,9 +1,11 @@
 import {Alert} from 'react-native';
+import {importNameKey} from './importNames';
+import {ImportUserError, importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, JournalEntry, CustomFieldDef, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
 import {safePick, isPickerCancel, getPickedFilePath} from '../utils/safePicker';
-import {readFileBytes, readFileText} from '../utils/fileBytes';
+import {readFileBytes} from '../utils/fileBytes';
 import {convertSPSwitches, normHex, mergeForeignMember, finalizeMemberReplace, ImportMode} from './convert';
 import {base64FromU8} from '../export/exportUtils';
 import {saveAvatar, saveBannerFromBase64} from '../utils/mediaUtils';
@@ -29,18 +31,21 @@ export type AmpersandCtx = {
 
 const AMPAR_MAGIC = [0x41, 0x4d, 0x50, 0x41, 0x52, 0x00];
 
-export const isAmparBytes = (b: Uint8Array): boolean =>
+const isAmparBytes = (b: Uint8Array): boolean =>
   !!b && b.length > 10 && AMPAR_MAGIC.every((c, i) => b[i] === c);
 
+const UTF8_CHUNK = 8190;
+
 const utf8 = (b: Uint8Array, start: number, len: number): string => {
-  let out = '';
+  const parts: string[] = [];
+  let codes: number[] = [];
   let i = start;
   const end = start + len;
   while (i < end) {
     const c = b[i++];
-    if (c < 0x80) { out += String.fromCharCode(c); continue; }
     let cp: number;
-    if (c < 0xe0) cp = ((c & 0x1f) << 6) | (b[i++] & 0x3f);
+    if (c < 0x80) cp = c;
+    else if (c < 0xe0) cp = ((c & 0x1f) << 6) | (b[i++] & 0x3f);
     else if (c < 0xf0) { cp = ((c & 0x0f) << 12) | ((b[i++] & 0x3f) << 6); cp |= b[i++] & 0x3f; }
     else {
       cp = ((c & 0x07) << 18) | ((b[i++] & 0x3f) << 12) | ((b[i++] & 0x3f) << 6);
@@ -48,13 +53,41 @@ const utf8 = (b: Uint8Array, start: number, len: number): string => {
     }
     if (cp > 0xffff) {
       cp -= 0x10000;
-      out += String.fromCharCode(0xd800 + (cp >> 10), 0xdc00 + (cp & 0x3ff));
-    } else out += String.fromCharCode(cp);
+      codes.push(0xd800 + (cp >> 10), 0xdc00 + (cp & 0x3ff));
+    } else codes.push(cp);
+    if (codes.length >= UTF8_CHUNK) {
+      parts.push(String.fromCharCode.apply(null, codes as unknown as number[]));
+      codes = [];
+    }
   }
-  return out;
+  if (codes.length) parts.push(String.fromCharCode.apply(null, codes as unknown as number[]));
+  return parts.join('');
 };
 
-export const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => {
+const bytesToText = (b: Uint8Array): string => {
+  const g = globalThis as any;
+  const text = typeof g.TextDecoder === 'function' ? new g.TextDecoder().decode(b) : utf8(b, 0, b.length);
+  return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+};
+
+const yieldToUi = (): Promise<void> => new Promise<void>(r => setTimeout(r, 0));
+
+const DECODE_YIELD_EVERY = 200;
+
+const AMPAR_KEEP_TABLES = new Set(['__config', 'systems', 'members', 'frontingEntries', 'customFields', 'tags', 'journalPosts', 'boardMessages']);
+
+const detachBuffers = (v: any, depth = 0): any => {
+  if (depth > 12 || v === null || typeof v !== 'object') return v;
+  if (v instanceof Uint8Array) return Uint8Array.from(v);
+  if (Array.isArray(v)) {
+    for (let i = 0; i < v.length; i++) v[i] = detachBuffers(v[i], depth + 1);
+    return v;
+  }
+  for (const k of Object.keys(v)) v[k] = detachBuffers(v[k], depth + 1);
+  return v;
+};
+
+const decodeAmpar = async (bytes: Uint8Array): Promise<{table: string; data: any}[]> => {
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let p = 10;
 
@@ -131,16 +164,18 @@ export const decodeAmpar = (bytes: Uint8Array): {table: string; data: any}[] => 
   };
 
   const out: {table: string; data: any}[] = [];
+  let n = 0;
   while (p < bytes.length) {
     const rec = read();
-    if (rec && typeof rec === 'object' && typeof rec.table === 'string') out.push(rec);
+    if (rec && typeof rec === 'object' && typeof rec.table === 'string' && AMPAR_KEEP_TABLES.has(rec.table)) out.push(detachBuffers(rec));
+    if (++n % DECODE_YIELD_EVERY === 0) await yieldToUi();
   }
   return out;
 };
 
-export const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) => {
+const amparToPreview = async (bytes: Uint8Array, fallbackSystemName: string) => {
   const byTable: Record<string, any[]> = {};
-  for (const r of decodeAmpar(bytes)) (byTable[r.table] = byTable[r.table] || []).push(r.data);
+  for (const r of await decodeAmpar(bytes)) (byTable[r.table] = byTable[r.table] || []).push(r.data);
   const systems: any[] = byTable.systems || [];
   const defaultId = String(byTable.__config?.[0]?.appConfig?.defaultSystem || '');
   return {
@@ -155,7 +190,7 @@ export const amparToPreview = (bytes: Uint8Array, fallbackSystemName: string) =>
   };
 };
 
-export const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
+const ampersandJsonToPreview = (d: any, fallbackSystemName: string) => {
   const db = d?.database || {};
   const systems: any[] = Array.isArray(db.systems) ? db.systems : [];
   const defaultId = String(d?.config?.appConfig?.defaultSystem || '');
@@ -228,15 +263,21 @@ const amparJournalEntries = (
   nameOf: (uuid: any) => string,
 ): JournalEntry[] => {
   const at = (v: any): number => typeof v === 'number' ? v : (v ? new Date(String(v)).getTime() || 0 : 0);
-  const authorIds = (memberUuid: any): string[] => {
-    const local = idMap[String(memberUuid)];
-    return local ? [local] : [];
+  const authorIds = (who: any): string[] => {
+    const list: any[] = Array.isArray(who) ? who : who != null ? [who] : [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const u of list) {
+      const local = idMap[String(u)];
+      if (local && !seen.has(local)) { seen.add(local); out.push(local); }
+    }
+    return out;
   };
   const out: JournalEntry[] = posts.map((p: any) => ({
     id: uid(),
     title: String(p?.title || '').trim(),
     body: String(p?.body || ''),
-    authorIds: authorIds(p?.member),
+    authorIds: authorIds(p?.members ?? p?.member),
     hashtags: (Array.isArray(p?.tags) ? p.tags : []).map((tid: any) => tagNameById[String(tid)]).filter(Boolean),
     timestamp: at(p?.date),
     pinned: !!p?.isPinned,
@@ -260,7 +301,7 @@ const amparJournalEntries = (
       id: uid(),
       title: String(b?.title || '').trim(),
       body,
-      authorIds: authorIds(b?.member),
+      authorIds: authorIds(b?.members ?? b?.member),
       hashtags: [],
       timestamp: at(b?.date),
       pinned: !!b?.isPinned,
@@ -276,35 +317,40 @@ export const handleAmpersandPick = async (ctx: AmpersandCtx) => {
       const [res] = await safePick({type: ['*/*']});
       if (!res) return;
       const path = getPickedFilePath(res);
-      let jsonDb: any = null;
-      try {
-        const txt: string = await readFileText(path, res.uri);
-        const parsed = JSON.parse(txt);
-        if (parsed && parsed.database && Array.isArray(parsed.database.members)) jsonDb = parsed;
-      } catch {}
-      if (jsonDb) {
-        const prev = ampersandJsonToPreview(jsonDb, t('share.system'));
-        if (prev.members.length === 0 && prev.switches.length === 0) throw new Error(t('share.amparEmpty'));
-        setExtPreview(prev);
-        setImportSource('ampersand');
-        return;
-      }
       let bytes: Uint8Array | null = null;
       try {
         bytes = await readFileBytes(path, res.uri);
       } catch {}
       if (bytes && isAmparBytes(bytes)) {
-        const amparBytes: Uint8Array = bytes;
-        const prev = (() => { try { return amparToPreview(amparBytes, t('share.system')); } catch { throw new Error(t('share.couldNotReadAmpar')); } })();
-        if (prev.members.length === 0 && prev.switches.length === 0) throw new Error(t('share.amparEmpty'));
+        let prev: Awaited<ReturnType<typeof amparToPreview>>;
+        try {
+          prev = await amparToPreview(bytes, t('share.system'));
+        } catch {
+          throw new ImportUserError(t('share.couldNotReadAmpar'));
+        }
+        bytes = null;
+        if (prev.members.length === 0 && prev.switches.length === 0) throw new ImportUserError(t('share.amparEmpty'));
         setExtPreview(prev);
         setImportSource('ampersand');
         return;
       }
-      throw new Error(t('share.ampersandNeedsJson', {
-        defaultValue: "That isn't an Ampersand export. In Ampersand, use Export your data and pick the .ampar archive or the JSON file.",
-      }));
-    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || t('share.couldNotReadAmpar')); }
+      let jsonDb: any = null;
+      if (bytes) {
+        try {
+          const parsed = JSON.parse(bytesToText(bytes));
+          if (parsed && parsed.database && Array.isArray(parsed.database.members)) jsonDb = parsed;
+        } catch {}
+        bytes = null;
+      }
+      if (jsonDb) {
+        const prev = ampersandJsonToPreview(jsonDb, t('share.system'));
+        if (prev.members.length === 0 && prev.switches.length === 0) throw new ImportUserError(t('share.amparEmpty'));
+        setExtPreview(prev);
+        setImportSource('ampersand');
+        return;
+      }
+      throw new ImportUserError(t('share.ampersandNeedsJson'));
+    } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), importErrorText(e, t)); }
   };
 
 export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
@@ -328,9 +374,9 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           if (extSel.customFields) {
             const existingDefs = await store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []) || [];
             const newDefs: CustomFieldDef[] = [];
-            const findDef = (name: string) => [...existingDefs, ...newDefs].find(d => d.name.toLowerCase() === name.toLowerCase());
+            const findDef = (name: string) => [...existingDefs, ...newDefs].find(d => importNameKey(d.name) === importNameKey(name));
             amFields.forEach((f: any, i: number) => {
-              const name = String(f.name || `Field ${i + 1}`);
+              const name = String(f.name || t('share.fieldN', {n: i + 1}));
               const existing = findDef(name);
               const localId = existing ? existing.id : uid();
               fieldIdMap[String(f.uuid)] = localId;
@@ -338,11 +384,11 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
             });
             const hasAge = amMembers.some((a: any) => a?.age != null && String(a.age).trim() !== '');
             if (hasAge && !amFields.some((f: any) => String(f.name || '').toLowerCase() === 'age')) {
-              const ageDef = findDef('Age');
+              const ageDef = findDef(t('share.ageField'));
               if (ageDef) ageFieldId = ageDef.id;
               else {
                 ageFieldId = uid();
-                newDefs.push({id: ageFieldId, name: 'Age', type: 'text', sortOrder: existingDefs.length + newDefs.length});
+                newDefs.push({id: ageFieldId, name: t('share.ageField'), type: 'text', sortOrder: existingDefs.length + newDefs.length});
               }
             }
             if (newDefs.length > 0) await store.set(KEYS.customFieldDefs, [...existingDefs, ...newDefs]);
@@ -359,8 +405,8 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
             const newGroups: MemberGroup[] = [];
             const claimGroup = (name: string, sourceId: string, color?: string): string => {
               const clean = name.trim();
-              const existing = existingGroups.find(eg => eg.name.toLowerCase() === clean.toLowerCase())
-                || newGroups.find(ng => ng.name.toLowerCase() === clean.toLowerCase());
+              const existing = existingGroups.find(eg => importNameKey(eg.name) === importNameKey(clean))
+                || newGroups.find(ng => importNameKey(ng.name) === importNameKey(clean));
               if (existing) return existing.id;
               const localId = uid();
               newGroups.push({id: localId, name: clean, sourceId, ...(color ? {color: normHex(color)} : {})});
@@ -368,7 +414,7 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
             };
             if (amSystems.length > 1) {
               amSystems.forEach((sy: any, i: number) => {
-                const sName = (sy?.name && String(sy.name).trim()) || `System ${i + 1}`;
+                const sName = (sy?.name && String(sy.name).trim()) || t('share.systemN', {n: i + 1});
                 if (sy?.uuid != null) sysGroupMap[String(sy.uuid)] = claimGroup(sName, 'amp:sys:' + String(sy?.uuid || i));
               });
             }
@@ -402,7 +448,7 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
                 cf.push({fieldId: ageFieldId, value: String(a.age) as any});
               }
               mergeForeignMember(merged, idMap, 'amp:' + String(a.uuid), {
-                name: (a.name && String(a.name).trim()) || 'Unnamed member',
+                name: (a.name && String(a.name).trim()) || t('share.unnamedMember'),
                 pronouns: String(a.pronouns || ''), role: String(a.role || ''), color: normHex(a.color),
                 description: String(a.description || ''), archived: !!a.isArchived, isCustomFront: !!(a.isCustomFront || a.isDissociativeState),
                 customFields: cf,
@@ -446,7 +492,7 @@ export const handleAmpersandConfirm = (ctx: AmpersandCtx) => {
           setImportStatus('success'); setImportMsg(t('share.importComplete'));
           setExtPreview(null);
           setTimeout(() => onDataImported(), 800);
-        } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric')); }
+        } catch (e: any) { setImportStatus('error'); setImportMsg(importErrorText(e, t)); }
       }},
     ]);
   };

@@ -1,4 +1,5 @@
 import {Alert} from 'react-native';
+import {importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, CustomFieldDef, CustomFieldType, CustomFieldValue, uid} from '../utils';
 import {store, KEYS} from '../storage';
@@ -45,7 +46,7 @@ export const handleSPFileImport = async (ctx: SPFileCtx) => {
       setExtPreview({system: {content: systemInfo}, members: sanitized, switches: spHistory, groups: spGroups, customFields: spCustomFields});
       setImportSource('spfile');
     } catch (e: any) {
-      if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || '');
+      if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), importErrorText(e, t));
     }
   };
 
@@ -67,7 +68,7 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
           spMembers.forEach((m: any) => {
             const spId: string | undefined = m._id;
             const incoming: Partial<Member> = {
-              name: m.name || 'Unknown',
+              name: m.name || t('common.unknown'),
               pronouns: m.pronouns || '',
               role: '',
               color: normHex(m.color),
@@ -144,7 +145,7 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
             extPreview.customFields.forEach((cf: any, i: number) => {
               const candidates = [cf.id, cf.uuid, cf._id];
               const spIds = candidates.map(normId).filter(Boolean);
-              const spName = cf.name || `Field ${i + 1}`;
+              const spName = cf.name || t('share.fieldN', {n: i + 1});
               const spType = cf.type;
               const existing = existingDefs.find(d => d.name.toLowerCase() === String(spName).toLowerCase());
               let localId: string;
@@ -230,6 +231,6 @@ export const handleSPFileConfirmImport = (ctx: SPFileCtx) => {
     };
     Alert.alert(t('share.importData'), t(importMode === 'update' ? 'share.importUpdateDataMsg' : 'share.importAddDataMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('share.importBtn'), onPress: () => { importSPFile().catch((e: any) => Alert.alert(t('share.importFailed'), String(e?.message || e))); }},
+      {text: t('share.importBtn'), onPress: () => { importSPFile().catch((e: any) => Alert.alert(t('share.importFailed'), importErrorText(e, t))); }},
     ]);
   };

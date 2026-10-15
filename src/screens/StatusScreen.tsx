@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
-import {Member, FrontState, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, frontSessionStart, translateMood} from '../utils';
+import {Member, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, fmtNum, frontSessionStart, translateMood} from '../utils';
 
 interface Props {
   theme: ThemeColors;
@@ -37,7 +37,7 @@ export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Pro
             {t('status.current')}
           </Text>
           <TouchableOpacity onPress={onSetStatus} accessibilityRole="button" accessibilityLabel={t('status.update')}
-            style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`, alignSelf: 'flex-start'}]}>
+            hitSlop={{top: 8, bottom: 8}} style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`, alignSelf: 'flex-start'}]}>
             <Text style={[s.btnText, {color: T.accent, fontSize: fs(13)}]} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('status.update')}</Text>
           </TouchableOpacity>
         </View>
@@ -48,7 +48,7 @@ export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Pro
           </View>
         ) : (
           <TouchableOpacity onPress={() => onEditDetails('primary')} activeOpacity={0.8}
-            accessibilityRole="button" accessibilityLabel={t('status.editDetails')}
+            accessibilityRole="button" accessibilityHint={t('status.editDetails')}
             style={[s.card, {backgroundColor: T.card, borderColor: T.border}]}>
             {statuses.length > 0 && (
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10}}>
@@ -78,7 +78,7 @@ export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Pro
             {tier?.energyLevel != null ? (
               <View style={s.row}>
                 <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{t('energy.level')}</Text>
-                <Text style={{fontSize: fs(13), color: T.text}}>{tier.energyLevel}/10</Text>
+                <Text style={{fontSize: fs(13), color: T.text}}>{t('energy.outOfTen', {n: fmtNum(tier.energyLevel, 0)})}</Text>
               </View>
             ) : null}
             {tier?.note ? (

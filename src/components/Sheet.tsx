@@ -1,4 +1,4 @@
-import React, {ReactNode, useEffect, useRef} from 'react';
+import React, {ReactNode, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {View, ScrollView, TouchableOpacity, StyleSheet, Platform} from 'react-native';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
@@ -19,54 +19,76 @@ interface SheetProps {
 const isIPad = Platform.OS === 'ios' && Platform.isPad;
 
 const ANDROID_NAV_BAR_FLOOR = 24;
+const PRESENT_RETRY_MS = 800;
+const PRESENT_MAX_ATTEMPTS = 10;
 
 export const Sheet = ({visible, title, theme: T, onClose, children, footer, headerAction}: SheetProps) => {
   const {t} = useTranslation();
   const sheetRef = useRef<TrueSheet>(null);
-  const scrollRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
   const rawBottomInset = isIPad ? 0 : insets.bottom;
   const bottomInset = Platform.OS === 'android'
     ? Math.max(rawBottomInset, ANDROID_NAV_BAR_FLOOR)
     : rawBottomInset;
-  const wasVisible = useRef(false);
+  const [mountChildren, setMountChildren] = useState(visible);
   const presentedRef = useRef(false);
+  const dismissingRef = useRef(false);
   const visibleRef = useRef(visible);
   visibleRef.current = visible;
-  const watchdogs = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const clearWatchdogs = () => {
-    for (const w of watchdogs.current) clearTimeout(w);
-    watchdogs.current = [];
-  };
-  useEffect(() => {
-    if (visible) {
-      wasVisible.current = true;
-      presentedRef.current = false;
-      clearWatchdogs();
-      const attempt = () => {
-        Promise.resolve(sheetRef.current?.present())
-          .then(() => {
-            presentedRef.current = true;
-            clearWatchdogs();
-            if (!visibleRef.current) Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
-          })
-          .catch(() => {});
-      };
-      attempt();
-      watchdogs.current.push(setTimeout(() => {
-        if (!presentedRef.current && visibleRef.current) attempt();
-      }, 3000));
-    } else if (wasVisible.current) {
-      wasVisible.current = false;
-      clearWatchdogs();
-      const tryDismiss = () => Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
-      tryDismiss();
-      watchdogs.current.push(setTimeout(() => {
-        if (presentedRef.current && !visibleRef.current) tryDismiss();
-      }, 700));
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const sessionRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
-    return clearWatchdogs;
+  };
+  const dismissNow = () => {
+    dismissingRef.current = true;
+    Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
+  };
+  const presentWithRetry = (session: number, delayFirst: boolean) => {
+    clearTimer();
+    let attempts = 0;
+    const tick = () => {
+      timerRef.current = null;
+      if (session !== sessionRef.current || !visibleRef.current || presentedRef.current) return;
+      if (attempts >= PRESENT_MAX_ATTEMPTS) {
+        dismissNow();
+        onCloseRef.current();
+        return;
+      }
+      attempts += 1;
+      Promise.resolve(sheetRef.current?.present()).catch(() => {});
+      timerRef.current = setTimeout(tick, PRESENT_RETRY_MS);
+    };
+    if (delayFirst) timerRef.current = setTimeout(tick, PRESENT_RETRY_MS / 2);
+    else tick();
+  };
+
+  useEffect(() => {
+    sessionRef.current += 1;
+    if (visible) {
+      setMountChildren(true);
+      presentWithRetry(sessionRef.current, false);
+    } else {
+      clearTimer();
+      if (presentedRef.current) {
+        presentedRef.current = false;
+        dismissNow();
+      }
+    }
+    return clearTimer;
   }, [visible]);
+
+  useLayoutEffect(() => () => {
+    if (presentedRef.current) {
+      presentedRef.current = false;
+      dismissNow();
+    }
+  }, []);
 
   const scrollPaddingBottom = (footer ? 8 : 56) + bottomInset;
 
@@ -78,31 +100,45 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
       backgroundColor={T.card}
       onDidPresent={() => {
         presentedRef.current = true;
-        clearWatchdogs();
-        if (!visibleRef.current) Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
+        dismissingRef.current = false;
+        clearTimer();
+        if (!visibleRef.current) {
+          presentedRef.current = false;
+          dismissNow();
+        }
       }}
-      onDidDismiss={() => { presentedRef.current = false; onClose(); }}
+      onDidDismiss={() => {
+        const wasPresented = presentedRef.current;
+        const ours = dismissingRef.current;
+        presentedRef.current = false;
+        dismissingRef.current = false;
+        if (visibleRef.current && !wasPresented && ours) {
+          presentWithRetry(sessionRef.current, true);
+          return;
+        }
+        setMountChildren(false);
+        if (visibleRef.current) onCloseRef.current();
+      }}
       scrollable
       header={
         <View style={[s.header, {borderBottomColor: T.border, backgroundColor: T.card}]}>
           <Text style={[s.title, {color: T.text, flex: 1, marginRight: 8}]} accessibilityRole="header" numberOfLines={1}>{title}</Text>
           {headerAction}
-          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} style={s.closeBtn}>
+          <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={{top: 10, bottom: 10, left: 8, right: 10}} style={s.closeBtn}>
             <Text style={[s.closeX, {color: T.dim}]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
           </TouchableOpacity>
         </View>
       }
     >
       <ScrollView
-        ref={scrollRef}
         style={s.body}
         contentContainerStyle={{paddingBottom: scrollPaddingBottom}}
         showsVerticalScrollIndicator
         keyboardShouldPersistTaps="handled"
         nestedScrollEnabled
       >
-        {children}
-        {footer ? (
+        {mountChildren ? children : null}
+        {mountChildren && footer ? (
           <View style={[s.footer, {borderTopColor: T.border}]}>
             {footer}
           </View>

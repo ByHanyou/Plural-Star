@@ -44,10 +44,11 @@ export const AppHeader = ({C, systemName, canLock, onLock, onOpenSettings, onOpe
             accessibilityRole="button"
             accessibilityLabel={t('a11y.lockApp')}
             accessibilityState={{disabled: !canLock}}
+            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
             style={styles.settingsBtn}>
             <Text style={[styles.settingsIcon, {color: canLock ? C.dim : C.muted, opacity: canLock ? 1 : 0.35}]} maxFontSizeMultiplier={1.2} allowFontScaling={false} importantForAccessibility="no" accessibilityElementsHidden>🔒</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onOpenSettings} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.settings')} style={styles.settingsBtn}>
+          <TouchableOpacity onPress={onOpenSettings} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.settings')} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={styles.settingsBtn}>
             <Text style={[styles.settingsIcon, {color: C.dim}]} maxFontSizeMultiplier={1.2} allowFontScaling={false} importantForAccessibility="no" accessibilityElementsHidden>⚙</Text>
           </TouchableOpacity>
         </View>

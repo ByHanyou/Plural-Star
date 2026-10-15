@@ -1,4 +1,5 @@
 import {Alert} from 'react-native';
+import {ImportUserError, importErrorText} from './importError';
 import type {TFunction} from 'i18next';
 import {Member, MemberGroup, SystemInfo, HistoryEntry, uid} from '../utils';
 import {store, KEYS} from '../storage';
@@ -34,15 +35,15 @@ export const handleTupperboxPick = async (ctx: TupperboxCtx) => {
       parsed = JSON.parse(txt);
     } catch {}
     if (!parsed || !Array.isArray(parsed.tuppers)) {
-      throw new Error(t('share.tupperboxNeedsJson'));
+      throw new ImportUserError(t('share.tupperboxNeedsJson'));
     }
-    if (parsed.tuppers.length === 0) throw new Error(t('share.tupperboxEmpty'));
+    if (parsed.tuppers.length === 0) throw new ImportUserError(t('share.tupperboxEmpty'));
     setExtPreview({
       tuppers: parsed.tuppers,
       groups: Array.isArray(parsed.groups) ? parsed.groups : [],
     });
     setImportSource('tupperbox');
-  } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), e.message || String(e)); }
+  } catch (e: any) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), importErrorText(e, t)); }
 };
 
 export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
@@ -83,7 +84,7 @@ export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
               }
             }
             mergeForeignMember(merged, idMap, 'tb:' + String(tp?.id ?? uid()), {
-              name: (tp?.name && String(tp.name).trim()) || 'Unnamed member',
+              name: (tp?.name && String(tp.name).trim()) || t('share.unnamedMember'),
               description: String(tp?.description || ''),
               groupIds: tp?.group_id != null && groupIdMap[String(tp.group_id)] ? [groupIdMap[String(tp.group_id)]] : [],
               ...(proxyTags.length > 0 ? {pkProxyTags: proxyTags} : {}),
@@ -98,7 +99,7 @@ export const handleTupperboxConfirm = (ctx: TupperboxCtx) => {
         setImportStatus('success'); setImportMsg(t('share.importComplete'));
         setExtPreview(null);
         setTimeout(() => onDataImported(), 800);
-      } catch (e: any) { setImportStatus('error'); setImportMsg(e.message || t('share.importFailedGeneric')); }
+      } catch (e: any) { setImportStatus('error'); setImportMsg(importErrorText(e, t)); }
     }},
   ]);
 };

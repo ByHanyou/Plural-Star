@@ -394,10 +394,10 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
         const next = strokesRef.current.map(s => s.id === id ? {...s, pts: [...s.pts, nx, ny]} : s);
         setStrokes(next); persist(next);
       }
-      voAnnounce(`${t('whiteboard.voDrew', {dir, dist: step})}. ${voPosText({x: nx, y: ny})}`);
+      voAnnounce(t('whiteboard.voTwoParts', {a: t('whiteboard.voDrew', {dir, dist: step}), b: voPosText({x: nx, y: ny})}));
     } else {
       voStrokeIdRef.current = null;
-      voAnnounce(`${t('whiteboard.voMoved', {dir, dist: step})}. ${voPosText({x: nx, y: ny})}`);
+      voAnnounce(t('whiteboard.voTwoParts', {a: t('whiteboard.voMoved', {dir, dist: step}), b: voPosText({x: nx, y: ny})}));
     }
   };
 
@@ -409,7 +409,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
       left: Math.round(hw + c.x), right: Math.round(hw - c.x),
       top: Math.round(hh + c.y), bottom: Math.round(hh - c.y),
     });
-    voAnnounce(`${voPosText(c)}. ${edges}`);
+    voAnnounce(t('whiteboard.voTwoParts', {a: voPosText(c), b: edges}));
   };
 
   const voRecenter = () => {
@@ -438,14 +438,14 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
     const next = [...strokesRef.current, s];
     setStrokes(next);
     persist(next);
-    voAnnounce(`${t('whiteboard.voPlacedShape', {shape: shapeName(shape)})}. ${voPosText(c)}`);
+    voAnnounce(t('whiteboard.voTwoParts', {a: t('whiteboard.voPlacedShape', {shape: shapeName(shape)}), b: voPosText(c)}));
   };
 
   const voPolyPoint = () => {
     voStrokeIdRef.current = null;
     const c = voCursorRef.current;
     addPolyVertex(c.x, c.y);
-    voAnnounce(`${t('whiteboard.voPolyPointAdded')}. ${voPosText(c)}`);
+    voAnnounce(t('whiteboard.voTwoParts', {a: t('whiteboard.voPolyPointAdded'), b: voPosText(c)}));
   };
 
   const voPolyFinish = () => {
@@ -466,7 +466,7 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   const toolBtn = (id: Tool, glyph: string, label: string) => (
     <TouchableOpacity key={id} onPress={() => setTool(id)} activeOpacity={0.7}
       accessibilityRole="button" accessibilityState={{selected: tool === id}} accessibilityLabel={label}
-      style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1,
+      hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, borderWidth: 1,
         backgroundColor: tool === id ? T.accentBg : 'transparent', borderColor: tool === id ? T.accent : T.border}}>
       <Text style={{fontSize: fs(15), color: tool === id ? T.accent : T.dim}} accessibilityElementsHidden importantForAccessibility="no">{glyph}</Text>
     </TouchableOpacity>
@@ -475,20 +475,20 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border, gap: 8}}>
-        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} style={{padding: 6}}>
+        <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 8, bottom: 8, left: 6, right: 6}} style={{padding: 6}}>
           <Text style={{fontSize: fs(16), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">‹</Text>
         </TouchableOpacity>
         <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(16), fontWeight: '600', color: T.text}}>{t('whiteboard.title')}</Text>
-        <TouchableOpacity onPress={undo} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('whiteboard.undo')} accessibilityState={{disabled: strokes.length === 0}} style={{padding: 6}}>
+        <TouchableOpacity onPress={undo} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('whiteboard.undo')} accessibilityState={{disabled: strokes.length === 0}} hitSlop={{top: 8, bottom: 8, left: 6, right: 6}} style={{padding: 6}}>
           <Text style={{fontSize: fs(15), color: strokes.length ? T.text : T.muted}} accessibilityElementsHidden importantForAccessibility="no">↩</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => zoomBy(1.25)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.zoomIn')} style={{padding: 6}}>
+        <TouchableOpacity onPress={() => zoomBy(1.25)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.zoomIn')} hitSlop={{top: 8, bottom: 8, left: 6, right: 6}} style={{padding: 6}}>
           <Text style={{fontSize: fs(15), color: T.text}} accessibilityElementsHidden importantForAccessibility="no">＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => zoomBy(0.8)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.zoomOut')} style={{padding: 6}}>
+        <TouchableOpacity onPress={() => zoomBy(0.8)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemMap.zoomOut')} hitSlop={{top: 8, bottom: 8, left: 6, right: 6}} style={{padding: 6}}>
           <Text style={{fontSize: fs(15), color: T.text}} accessibilityElementsHidden importantForAccessibility="no">－</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={clearAll} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('whiteboard.clear')} style={{padding: 6}}>
+        <TouchableOpacity onPress={clearAll} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('whiteboard.clear')} hitSlop={{top: 8, bottom: 8, left: 6, right: 6}} style={{padding: 6}}>
           <Text style={{fontSize: fs(15), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no">🗑</Text>
         </TouchableOpacity>
       </View>
@@ -506,14 +506,14 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
           <View style={{width: 1, height: 22, backgroundColor: T.border}} importantForAccessibility="no" accessibilityElementsHidden />
           {WIDTHS.map(wd => (
             <TouchableOpacity key={wd} onPress={() => setWidth(wd)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityState={{selected: width === wd}} accessibilityLabel={`${t('whiteboard.brushSize')} ${wd}`}
-              style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: width === wd ? T.accent : T.border}}>
+              accessibilityRole="button" accessibilityState={{selected: width === wd}} accessibilityLabel={t('whiteboard.brushSizeN', {n: wd})}
+              hitSlop={{top: 8, bottom: 8, left: 6, right: 6}} style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: width === wd ? T.accent : T.border}}>
               <View style={{width: wd + 4, height: wd + 4, borderRadius: (wd + 4) / 2, backgroundColor: color}} accessibilityElementsHidden importantForAccessibility="no" />
             </TouchableOpacity>
           ))}
           <TouchableOpacity onPress={() => setTool('bucket')} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{selected: tool === 'bucket'}} accessibilityLabel={t('whiteboard.bucket')}
-            style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: tool === 'bucket' ? T.accentBg : 'transparent', borderColor: tool === 'bucket' ? T.accent : T.border}}>
+            hitSlop={{top: 8, bottom: 8, left: 6, right: 6}} style={{width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: tool === 'bucket' ? T.accentBg : 'transparent', borderColor: tool === 'bucket' ? T.accent : T.border}}>
             <Text style={{fontSize: fs(14)}} accessibilityElementsHidden importantForAccessibility="no">🪣</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -621,10 +621,10 @@ export const WhiteboardScreen = ({theme: T, onBack}: Props) => {
                 t('whiteboard.voWhere'), t('whiteboard.voRecenter'),
                 t('whiteboard.undo'), t('whiteboard.clear'),
               ].map((c, i) => (
-                <Text key={i} style={{fontSize: fs(15), color: T.text, paddingVertical: 6}}>{`• ${c}`}</Text>
+                <Text key={i} style={{fontSize: fs(15), color: T.text, paddingVertical: 6}} accessibilityLabel={c}>{`• ${c}`}</Text>
               ))}
             </ScrollView>
-            <TouchableOpacity onPress={() => setVoHelpOpen(false)} accessibilityRole="button" accessibilityLabel={t('common.close')} style={{marginTop: 12, alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 12}}>
+            <TouchableOpacity onPress={() => setVoHelpOpen(false)} accessibilityRole="button" accessibilityLabel={t('common.close')} hitSlop={{top: 6, bottom: 6}} style={{marginTop: 12, alignSelf: 'flex-end', paddingVertical: 8, paddingHorizontal: 12}}>
               <Text style={{fontSize: fs(15), color: T.accent, fontWeight: '600'}}>{t('common.close')}</Text>
             </TouchableOpacity>
           </View>

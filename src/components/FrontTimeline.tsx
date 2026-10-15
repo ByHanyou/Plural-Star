@@ -29,7 +29,7 @@ const TIER_BAR: Record<FrontTierKey, {height: number; opacity: number}> = {
   coConscious: {height: 7, opacity: 0.45},
 };
 
-export const buildTimelineRows = (
+const buildTimelineRows = (
   history: HistoryEntry[],
   members: Member[],
   start: number,
@@ -110,8 +110,11 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
   const spanLabel = (sp: Span): string =>
     `${fmtTime(sp.start)} → ${sp.open && live ? t('history.now') : fmtTime(sp.end)} (${fmtDur(sp.start, sp.end)})`;
 
+  const tierLineOf = (sp: Span): string | null =>
+    singlet ? null : t(sp.tier === 'primary' ? 'tier.primaryFront' : sp.tier === 'coFront' ? 'tier.coFront' : 'tier.coConscious');
+
   const showSpan = (member: Member, sp: Span) => {
-    const tierLine = singlet ? null : t(sp.tier === 'primary' ? 'tier.primaryFront' : sp.tier === 'coFront' ? 'tier.coFront' : 'tier.coConscious');
+    const tierLine = tierLineOf(sp);
     Alert.alert(member.name, [tierLine, spanLabel(sp)].filter(Boolean).join('\n'));
   };
 
@@ -131,7 +134,8 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
               onPress={() => showSpan(item.member, sp)}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel={`${item.member.name}, ${spanLabel(sp)}`}
+              accessibilityLabel={[item.member.name, tierLineOf(sp), spanLabel(sp)].filter(Boolean).join(', ')}
+              hitSlop={{top: 9, bottom: 9}}
               style={{
                 position: 'absolute',
                 left: `${((sp.start - start) / span) * 100}%`,
@@ -162,6 +166,7 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
         {RANGE_KEYS.map(k => (
           <TouchableOpacity key={k} onPress={() => setRange(k)} activeOpacity={0.7}
             accessibilityRole="button" accessibilityState={{selected: range === k}} accessibilityLabel={t(RANGE_LABEL[k])}
+            hitSlop={{top: 6, bottom: 6}}
             style={chip(range === k)}>
             <Text style={{fontSize: fs(11), color: range === k ? T.accent : T.dim, fontWeight: range === k ? '600' : '400'}}>{t(RANGE_LABEL[k])}</Text>
           </TouchableOpacity>
@@ -169,19 +174,22 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
       </View>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 8}}>
         <TouchableOpacity onPress={goEarlier} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('history.tlEarlier')}
+          hitSlop={{top: 8, bottom: 8}}
           style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}>
-          <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false}>‹</Text>
+          <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">‹</Text>
         </TouchableOpacity>
-        <Text style={{flex: 1, textAlign: 'center', fontSize: fs(11), color: T.dim}} numberOfLines={1}>
+        <Text style={{flex: 1, textAlign: 'center', fontSize: fs(11), color: T.dim}} numberOfLines={1} accessibilityLiveRegion="polite">
           {`${tickLabel(start)} → ${live ? t('history.tlNow') : tickLabel(end)}`}
         </Text>
         <TouchableOpacity onPress={goLater} disabled={live} activeOpacity={0.7} accessibilityRole="button"
           accessibilityState={{disabled: live}} accessibilityLabel={t('history.tlLater')}
+          hitSlop={{top: 8, bottom: 8}}
           style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, opacity: live ? 0.4 : 1}}>
-          <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false}>›</Text>
+          <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
         </TouchableOpacity>
         {!live && (
           <TouchableOpacity onPress={() => setEndAnchor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('history.tlNow')}
+            hitSlop={{top: 9, bottom: 9}}
             style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg}}>
             <Text style={{fontSize: fs(11), color: T.accent}}>{t('history.tlNow')}</Text>
           </TouchableOpacity>

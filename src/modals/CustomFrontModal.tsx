@@ -7,10 +7,10 @@ import {ImageCropHost} from '../components/ImageCropModal';
 import {Sheet} from '../components/Sheet';
 import {ColorCarousel} from '../components/ColorCarousel';
 import {PALETTE, fontScale, initialOn} from '../theme';
-import {Member, MemberGroup, uid, getInitials, sortGroupsForDisplay, groupKind} from '../utils';
+import {Member, MemberGroup, uid, getInitials, sortGroupsForDisplay, groupKind, normalizeMemberEmoji} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
-import {deleteAvatar, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
+import {saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 import {ToggleSwitch} from '../components/ToggleSwitch';
@@ -85,8 +85,8 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
             <Text style={{fontSize: fs(13), color: T.bg}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">📷</Text>
           </View>
         </TouchableOpacity>
-        {f.avatar && <TouchableOpacity onPress={removePfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.removePfp')} style={{marginTop: 6}}><Text style={{fontSize: fs(11), color: T.danger}}>{t('modal.removePfp')}</Text></TouchableOpacity>}
-        <TouchableOpacity onPress={() => setShowLink(!showLink)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.linkPfp')} style={{marginTop: 6}}><Text style={{fontSize: fs(11), color: T.accent}}>🔗 {t('modal.linkPfp')}</Text></TouchableOpacity>
+        {f.avatar && <TouchableOpacity onPress={removePfp} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.removePfp')} hitSlop={{top: 6, bottom: 6, left: 8, right: 8}} style={{marginTop: 6}}><Text style={{fontSize: fs(11), color: T.danger}}>{t('modal.removePfp')}</Text></TouchableOpacity>}
+        <TouchableOpacity onPress={() => setShowLink(!showLink)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.linkPfp')} hitSlop={{top: 6, bottom: 8, left: 8, right: 8}} style={{marginTop: 6}}><Text style={{fontSize: fs(11), color: T.accent}}>🔗 {t('modal.linkPfp')}</Text></TouchableOpacity>
         {showLink && (
           <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 8, width: '100%'}}>
             <TextInput value={linkInput} onChangeText={setLinkInput} accessibilityLabel={t('modal.linkPfp')} placeholder="https://…" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url"
@@ -99,7 +99,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
       <Field label={t('modal.nickname')} value={f.nickname || ''} onChange={(v: string) => set('nickname', v || undefined)} placeholder={t('modal.nickname')} T={T} />
       {!statusMode && (groups || []).length > 0 && (
         <>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('memberGroups.title')}</Text>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 14}}>
             {sortGroupsForDisplay(groups || [], groups || []).map((g: MemberGroup) => {
               const active = (f.groupIds || []).includes(g.id);
@@ -107,6 +107,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
                 <TouchableOpacity key={g.id} activeOpacity={0.7}
                   onPress={() => set('groupIds', active ? (f.groupIds || []).filter(id => id !== g.id) : [...(f.groupIds || []), g.id])}
                   accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={g.name}
+                  hitSlop={{top: 7, bottom: 7}}
                   style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                     backgroundColor: active ? `${g.color || T.accent}20` : T.surface, borderColor: active ? `${g.color || T.accent}50` : T.border}}>
                   <View style={{width: 7, height: 7, borderRadius: groupKind(g) === 'subsystem' ? 1.5 : 3.5, backgroundColor: g.color || T.accent}} />
@@ -119,7 +120,7 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
         </>
       )}
       <View style={{marginBottom: 14}}>
-        <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
+        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.descriptionBio')}</Text>
         <TouchableOpacity onPress={() => setShowDescEditor(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('modal.descriptionBio')}
           style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 72}}>
           {f.description ? <RichDescription text={f.description} T={T} /> : <Text style={{fontSize: fs(13), color: T.muted}}>{t('modal.descriptionPlaceholder')}</Text>}
@@ -127,7 +128,8 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
       </View>
       <RichTextEditor visible={showDescEditor} title={t('modal.descriptionBio')} initialContent={f.description || ''} theme={T}
         onSave={(html: string) => {set('description', html); setShowDescEditor(false);}} onClose={() => setShowDescEditor(false)} />
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.color')}</Text>
+      <Field label={t('modal.emoji')} value={f.emoji || ''} onChange={(v: string) => set('emoji', normalizeMemberEmoji(v))} placeholder={t('modal.emojiPlaceholder')} T={T} />
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.color')}</Text>
       <ColorCarousel value={f.color} onChange={(v: string) => set('color', v)} T={T} />
       <View style={{height: 12}} />
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8}}>
@@ -140,12 +142,12 @@ export const CustomFrontModal = ({visible, theme: T, customFront, groups, onSave
       </View>
       <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 6}}>
         <View style={{flex: 1}}>
-          <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.private')}</Text>
-          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: 15}}>{t('modal.privateDesc')}</Text>
+          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{t('modal.private')}</Text>
+          <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(15)}}>{t('modal.privateDesc')}</Text>
         </View>
         <ToggleSwitch value={!!f.private} onToggle={() => set('private', !f.private)} label={t('modal.private')} T={T} style={{marginLeft: 12}} />
       </View>
-      {isFronting && <Text style={{fontSize: fs(11), color: T.danger, lineHeight: 15, marginTop: 4}}>{t('members.frontingLockMsg')}</Text>}
+      {isFronting && <Text style={{fontSize: fs(11), color: T.danger, lineHeight: fs(15), marginTop: 4}}>{t('members.frontingLockMsg')}</Text>}
       {visible && <ImageCropHost theme={T} />}
     </Sheet>
   );

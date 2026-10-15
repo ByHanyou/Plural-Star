@@ -1,8 +1,8 @@
 import {CloudApi, VaultCreds} from './cloudApi';
 import {
-  CLOUD_LINK_KEY,
   CloudError,
   CloudLinkState,
+  cloudErrorCode,
   CloudPhase,
   CloudStatus,
   CloudTransport,
@@ -70,6 +70,27 @@ const tierOf = (kind: EntryKind): Tier => (kind === 'data' || kind === 'avatar' 
 
 const isMediaKey = (key: string): boolean => key.startsWith('ps:media:');
 
+const CLOUD_MEDIA_MARK = 'cloud:media';
+
+const canonicalRecord = (key: string, raw: string): string => {
+  if (key !== 'ps:members' && key !== 'ps:system') return raw;
+  try {
+    const v = JSON.parse(raw);
+    const scrub = (o: any): void => {
+      if (!o || typeof o !== 'object') return;
+      for (const f of ['avatar', 'banner'] as const) {
+        const s = o[f];
+        if (typeof s === 'string' && (s.startsWith('file://') || s.startsWith('data:') || s === CLOUD_MEDIA_MARK)) o[f] = CLOUD_MEDIA_MARK;
+      }
+    };
+    if (Array.isArray(v)) v.forEach(scrub);
+    else scrub(v);
+    return JSON.stringify(v);
+  } catch {
+    return raw;
+  }
+};
+
 const ownerKeyOf = (path: string): string => {
   if (path.startsWith('ps:media:chat:')) return `ps:chat:${path.slice('ps:media:chat:'.length).split(':')[0]}`;
   if (path === 'ps:media:sysav' || path === 'ps:media:sysbn') return 'ps:system';
@@ -88,6 +109,7 @@ export class CloudService {
   private phase: CloudPhase = 'idle';
   private progress = 0;
   private lastError: string | null = null;
+  private lastErrorCode: string | null = null;
   private deviceCount = 0;
   private pendingKeys = 0;
   private listeners: Set<Listener> = new Set();
@@ -99,6 +121,7 @@ export class CloudService {
   private sealed: Map<string, {hash: string; ct: Uint8Array}> = new Map();
   private sealedBytes = 0;
   private tooLarge: string[] = [];
+  private overQuota: string[] = [];
   private unbackedMedia: string[] = [];
   private lastCheckStartedAt = 0;
   private loaded = false;
@@ -120,6 +143,7 @@ export class CloudService {
       phase: this.phase,
       progress: this.progress,
       lastError: this.lastError,
+      lastErrorCode: this.lastErrorCode,
       mediaTier: !!this.link?.mediaTier,
       deviceCount: this.deviceCount,
       lastSyncAt: this.link?.lastCheckAt || 0,
@@ -187,6 +211,7 @@ export class CloudService {
   async linkWithPassword(password: string, mediaTier: boolean): Promise<LinkOutcome> {
     if (this.link) throw new CloudError(0, 'already linked');
     this.lastError = null;
+    this.lastErrorCode = null;
     this.setPhase('deriving', 0);
     try {
       const creds = await deriveVaultCredentials(password, f => this.setPhase('deriving', f));
@@ -233,6 +258,7 @@ export class CloudService {
     if (!creds) throw new CloudError(0, 'no pending credentials');
     this.pendingCreds = null;
     this.lastError = null;
+    this.lastErrorCode = null;
     this.setPhase('importing', 0);
     try {
       const api = this.api();
@@ -267,7 +293,7 @@ export class CloudService {
         const held = new Set(manifest.entries.map(e => e.path));
         const local = await this.p.snapshot();
         for (const k of Object.keys(local)) {
-          if (isMediaKey(k) || !this.includeKey(k) || held.has(k)) continue;
+          if (isMediaKey(k) || held.has(k)) continue;
           if (k === CLOUD_IDENTITY_KEY || k === CLOUD_FRIENDS_KEY || k === CLOUD_TOMBSTONES_KEY) continue;
           await this.p.remove(k);
         }
@@ -368,6 +394,7 @@ export class CloudService {
 
   private recordError(e: unknown): void {
     this.lastError = e instanceof Error ? e.message : String(e);
+    this.lastErrorCode = cloudErrorCode(e);
     this.emit();
   }
 
@@ -387,12 +414,16 @@ export class CloudService {
       this.setPhase(phase, 0);
       try {
         this.tooLarge = [];
+        this.overQuota = [];
         this.unbackedMedia = [];
         await this.syncOnce();
         this.retryAttempt = 0;
         this.lastError = this.tooLarge.length
           ? `Left out, larger than ${Math.round(OBJECT_MAX_BYTES / (1024 * 1024))} MB: ${this.tooLarge.join(', ')}`
-          : null;
+          : this.overQuota.length
+            ? `Left out, over the vault's space: ${this.overQuota.join(', ')}`
+            : null;
+        this.lastErrorCode = null;
       } catch (e) {
         this.recordError(e);
         this.scheduleRetry(e);
@@ -419,13 +450,8 @@ export class CloudService {
   }
 
   private keyHash(key: string, raw: string): string {
-    return isMediaKey(key) ? this.p.localHash(raw.slice(raw.indexOf(',') + 1)) : this.p.localHash(raw);
-  }
-
-  private includeKey(key: string): boolean {
-    if (!isMediaKey(key)) return true;
-    if (tierOf(kindOf(key)) === 'base') return true;
-    return !!this.link?.mediaTier;
+    if (isMediaKey(key)) return this.p.localHash(raw.slice(raw.indexOf(',') + 1));
+    return this.p.localHash(canonicalRecord(key, raw));
   }
 
   private async syncOnce(): Promise<void> {
@@ -438,7 +464,6 @@ export class CloudService {
     const missing = new Set<string>();
     let hashed = 0;
     for (const k in local) {
-      if (!this.includeKey(k)) continue;
       if (local[k] === CLOUD_MEDIA_MISSING) {
         missing.add(k);
         continue;
@@ -491,7 +516,6 @@ export class CloudService {
       }
       for (const [path, e] of R) {
         if (path in localHashes) continue;
-        if (!this.includeKey(path)) continue;
         if (missing.has(path)) {
           toPull.push(e);
           continue;
@@ -595,7 +619,17 @@ export class CloudService {
     }
     const id = objectIdOf(ct);
     this.keepSealed(key, hash, ct);
-    await api.putObject(vc, id, tier, ct);
+    try {
+      await api.putObject(vc, id, tier, ct);
+    } catch (e) {
+      // The vault's tier is at its cap for this object: leave the key out of this run,
+      // keep the rest syncing, and report it. The vault keeps its last good copy.
+      if (e instanceof CloudError && e.status === 413 && /quota/i.test(e.code)) {
+        if (!this.overQuota.includes(key)) this.overQuota.push(key);
+        return null;
+      }
+      throw e;
+    }
     this.dropSealed(key);
     remoteObjects.add(id);
     return {path: key, id, size: plain.length, kind, tier, hash: canonical, mime};
@@ -622,8 +656,7 @@ export class CloudService {
   }
 
   private async pullAll(api: CloudApi, vc: VaultCreds, manifest: VaultManifest, importing: boolean): Promise<Record<string, string>> {
-    const entries = manifest.entries.filter(e => this.includeKey(e.path));
-    return this.pullEntries(api, vc, entries, importing);
+    return this.pullEntries(api, vc, manifest.entries, importing);
   }
 
   private async pullEntries(api: CloudApi, vc: VaultCreds, entries: ManifestEntry[], importing: boolean): Promise<Record<string, string>> {

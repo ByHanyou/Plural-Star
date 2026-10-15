@@ -3,7 +3,7 @@ import {View, TouchableOpacity, ScrollView, Keyboard, Alert, Text as RNText} fro
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {Member, MemberGroup, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch, memberMatchesSearch, tagKey} from '../utils';
+import {Member, FrontState, FrontTierKey, DEFAULT_MOODS, EMPTY_TIER, parseMoodList, serializeMoodList, sortMembersBySearch, memberMatchesSearch, tagKey, nameCompare} from '../utils';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import type {TFunction} from 'i18next';
@@ -43,9 +43,9 @@ export const KindToggles = ({kinds, setKinds, T, t}: {kinds: PickerKinds; setKin
   );
 };
 
-export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups, allAssigned, T, t, kindLabel}: {
+export const TierMemberPicker = ({tierKey, selected, setSelected, pools, allAssigned, T, t, kindLabel}: {
   tierKey: FrontTierKey; selected: Set<string>; setSelected: (s: Set<string>) => void;
-  pools: PickerPool[]; groups: MemberGroup[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
+  pools: PickerPool[]; allAssigned: Record<string, FrontTierKey>; T: ThemeColors; t: TFunction;
   kindLabel?: string;
 }) => {
   const fs = fontScale(T);
@@ -62,10 +62,7 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
       const k = tagKey(tag);
       if (!seen.has(k)) seen.set(k, tag);
     }
-    return [...seen.values()].sort((a, b) => {
-      const ka = tagKey(a), kb = tagKey(b);
-      return ka < kb ? -1 : ka > kb ? 1 : 0;
-    });
+    return [...seen.values()].sort((a, b) => nameCompare(tagKey(a), tagKey(b)));
   }, [members]);
 
   const grouped = useMemo(() => {
@@ -99,10 +96,10 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
   const selectedMembers = members.filter(m => selected.has(m.id));
   const searchKind = kindLabel || (hasKinds ? t('terminology.fronters') : '');
   const searchLabel = searchKind
-    ? t('members.searchToAddKind', {kind: searchKind, defaultValue: `Type to search ${searchKind}…`})
+    ? t('members.searchToAddKind', {kind: searchKind})
     : t('members.searchToAdd');
   const hintLabel = searchKind
-    ? t('members.searchToAddKind', {kind: searchKind, defaultValue: `Type to search ${searchKind}…`})
+    ? t('members.searchToAddKind', {kind: searchKind})
     : t('members.searchHint');
 
   return (
@@ -111,11 +108,11 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
         <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
           {selectedMembers.map(m => (
             <TouchableOpacity key={m.id} onPress={() => toggle(m.id)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={`${m.name}, ${t('common.remove')}`}
-              style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
+              accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: m.name})}
+              hitSlop={{top: 6, bottom: 10}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
               <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: m.color}} />
               <Text style={{fontSize: fs(12), fontWeight: '500', color: m.color}}>{m.name}</Text>
-              <Text style={{fontSize: fs(10), color: m.color, marginLeft: 2}}>✕</Text>
+              <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(10), color: m.color, marginLeft: 2}}>✕</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -127,7 +124,7 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
             {allTags.map(tag => (
               <TouchableOpacity key={tag} onPress={() => setFilterTag(filterTag === tag ? null : tag)} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityState={{selected: filterTag === tag}} accessibilityLabel={tag}
-                style={{paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
+                hitSlop={{top: 12, bottom: 12}} style={{paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999, borderWidth: 1,
                   backgroundColor: filterTag === tag ? `${T.info}18` : T.surface, borderColor: filterTag === tag ? `${T.info}50` : T.border}}>
                 <Text style={{fontSize: fs(10), color: filterTag === tag ? T.info : T.dim}}>{tag}</Text>
               </TouchableOpacity>
@@ -155,7 +152,7 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
                 const otherLabel = otherTier ? (assignedTo === 'primary' ? t('tier.primaryShort') : assignedTo === 'coFront' ? t('tier.coFrontShort') : t('tier.coConShort')) : '';
                 return (
                   <TouchableOpacity key={m.id} onPress={() => toggle(m.id)} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityLabel={m.name}
+                    accessibilityRole="button" accessibilityLabel={otherLabel ? t('members.nameInTier', {name: m.name, tier: otherLabel}) : m.name}
                     style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, opacity: otherTier ? 0.45 : 1}}>
                     <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
                     <Text style={{flex: 1, minWidth: 0, fontSize: fs(13), color: T.text}} numberOfLines={1}>{m.name}</Text>
@@ -169,6 +166,10 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
         </View>
       )}
 
+      {(search || filterTag) && filtered.length === 0 && (
+        <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 6}}>{t('members.countFiltered', {filtered: 0, total: members.length})}</Text>
+      )}
+
       {!search && !filterTag && members.length > 0 && selectedMembers.length === 0 && (
         <Text style={{fontSize: fs(11), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 6}}>{hintLabel}</Text>
       )}
@@ -176,7 +177,7 @@ export const TierMemberPicker = ({tierKey, selected, setSelected, pools, groups,
   );
 };
 
-export const SetFrontModal = ({visible, theme: T, members, groups, current, settings, lastKnownLocation, onSave, onClose}: any) => {
+export const SetFrontModal = ({visible, theme: T, members, current, settings, lastKnownLocation, onSave, onClose}: any) => {
   const fs = fontScale(T);
   const {t} = useTranslation();
   const [primaryIds, setPrimaryIds] = useState<Set<string>>(new Set());
@@ -278,32 +279,32 @@ export const SetFrontModal = ({visible, theme: T, members, groups, current, sett
       ]);
     }}>{t('common.clear')}</Btn><Btn instant T={T} onPress={handleSave}>{t('common.save')}</Btn></>}>
       <SectionDivider label={t('tier.primaryFront')} color={T.accent} T={T} />
-      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} pools={pools} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="primary" selected={primaryIds} setSelected={makeExclusiveSetter('primary', setPrimaryIds)} pools={pools} allAssigned={allAssigned} T={T} t={t} />
       <MoodPicker mood={primaryMood} setMood={setPrimaryMood} customMood={primaryCustomMood} setCustomMood={setPrimaryCustomMood} showCustom={primaryShowCustom} setShowCustom={setPrimaryShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <LocationPicker location={primaryLocation} setLocation={setPrimaryLocation} allLocations={allLocations} color={T.accent} T={T} t={t} />
       <View style={{height: 8}} />
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
       <EnergyRow value={primaryEnergy} onChange={setPrimaryEnergy} color={T.accent} T={T} t={t} />
       <Field label={t('modal.noteOptional')} value={primaryNote} onChange={setPrimaryNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
 
       <SectionDivider label={t('tier.coFront')} color={T.info} T={T} />
-      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} pools={pools} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="coFront" selected={coFrontIds} setSelected={makeExclusiveSetter('coFront', setCoFrontIds)} pools={pools} allAssigned={allAssigned} T={T} t={t} />
       <MoodPicker mood={coFrontMood} setMood={setCoFrontMood} customMood={coFrontCustomMood} setCustomMood={setCoFrontCustomMood} showCustom={coFrontShowCustom} setShowCustom={setCoFrontShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <LocationPicker location={coFrontLocation} setLocation={setCoFrontLocation} allLocations={allLocations} color={T.info} T={T} t={t} />
       <View style={{height: 8}} />
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
       <EnergyRow value={coFrontEnergy} onChange={setCoFrontEnergy} color={T.info} T={T} t={t} />
       <Field label={t('modal.noteOptional')} value={coFrontNote} onChange={setCoFrontNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
 
       <SectionDivider label={t('tier.coConscious')} color={T.success} T={T} />
-      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} pools={pools} groups={groups} allAssigned={allAssigned} T={T} t={t} />
+      <TierMemberPicker tierKey="coConscious" selected={coConsciousIds} setSelected={makeExclusiveSetter('coConscious', setCoConsciousIds)} pools={pools} allAssigned={allAssigned} T={T} t={t} />
       <MoodPicker mood={coConsciousMood} setMood={setCoConsciousMood} customMood={coConsciousCustomMood} setCustomMood={setCoConsciousCustomMood} showCustom={coConsciousShowCustom} setShowCustom={setCoConsciousShowCustom} allMoods={allMoods} T={T} t={t} />
       <View style={{height: 10}} />
       <LocationPicker location={coConsciousLocation} setLocation={setCoConsciousLocation} allLocations={allLocations} color={T.success} T={T} t={t} />
       <View style={{height: 8}} />
-      <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
+      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{t('energy.level')}</Text>
       <EnergyRow value={coConsciousEnergy} onChange={setCoConsciousEnergy} color={T.success} T={T} t={t} />
       <Field label={t('modal.noteOptional')} value={coConsciousNote} onChange={setCoConsciousNote} placeholder={t('modal.whatHappening')} multiline numberOfLines={2} T={T} />
     </Sheet>

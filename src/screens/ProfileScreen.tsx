@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors, initialOn, profileTheme} from '../theme';
 import {AccentText} from '../components/AccentText';
 import {RichText} from '../components/MarkdownRenderer';
-import {Member, FrontState, getInitials, allFrontMemberIds, singletStatuses, isValidHex} from '../utils';
+import {Member, getInitials, allFrontMemberIds, singletStatuses, isValidHex, colorName} from '../utils';
 import {useAppStore} from '../store/appStore';
 
 type SubTab = 'profile' | 'statuses';
@@ -38,12 +38,12 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
           </Text>
           {subTab === 'profile' ? (
             <TouchableOpacity onPress={onEditProfile} accessibilityRole="button" accessibilityLabel={t('profile.edit')}
-              style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+              hitSlop={{top: 8, bottom: 8}} style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={onAddStatus} accessibilityRole="button" accessibilityLabel={t('status.add')}
-              style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+              hitSlop={{top: 8, bottom: 8}} style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
               <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('profile.addStatus')}</Text>
             </TouchableOpacity>
           )}
@@ -52,7 +52,7 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
           {(['profile', 'statuses'] as SubTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
-              style={[s.subtab, {flex: 1, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: subTab === tab ? T.accent : 'transparent'}]}>
+              hitSlop={{top: 6, bottom: 6}} style={[s.subtab, {flex: 1, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: subTab === tab ? T.accent : 'transparent'}]}>
               <AccentText T={T} numberOfLines={2} maxFontSizeMultiplier={1.3} style={{fontSize: fs(13), textAlign: 'center', fontWeight: subTab === tab ? '600' : '400', color: subTab === tab ? T.accent : T.dim}}>
                 {tab === 'profile' ? t('tabs.profile') : t('profile.statuses')}
               </AccentText>
@@ -75,14 +75,15 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
                   <Text style={{fontSize: fs(30), fontWeight: '700', color: bgOn ? P.text : initialOn(member?.color || T.accent), includeFontPadding: false, textAlign: 'center', textAlignVertical: 'center'}}>{getInitials(member?.name || '?')}</Text>
                 </View>
               )}
-              <Text style={{fontSize: fs(22), fontWeight: '600', color: P.text, marginTop: 10, textAlign: 'center'}} numberOfLines={2}>
+              <Text accessibilityRole="header" style={{fontSize: fs(22), fontWeight: '600', color: P.text, marginTop: 10, textAlign: 'center'}} numberOfLines={2}>
                 {member?.name || t('profile.notSetUp')}
               </Text>
               {member?.pronouns ? <Text style={{fontSize: fs(14), color: P.dim, marginTop: 3}}>{member.pronouns}</Text> : null}
               {member ? (
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
                   <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: P.dim, fontWeight: '600'}}>{t('profile.favoriteColor')}</Text>
-                  <View style={{width: 16, height: 16, borderRadius: 8, backgroundColor: member.color || T.accent, borderWidth: 1, borderColor: bgOn ? P.border : 'rgba(255,255,255,0.2)'}} />
+                  <View accessible accessibilityLabel={colorName(member.color || T.accent, t)} style={{width: 16, height: 16, borderRadius: 8, backgroundColor: member.color || T.accent, borderWidth: 1, borderColor: bgOn ? P.border : 'rgba(255,255,255,0.2)'}} />
+                  {member.emoji ? <Text style={{fontSize: fs(16)}} accessibilityLabel={t('a11y.labelValue', {label: t('modal.emoji'), value: member.emoji})}>{member.emoji}</Text> : null}
                 </View>
               ) : null}
             </View>
@@ -111,7 +112,7 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
                 const active = activeIds.includes(m.id);
                 return (
                   <TouchableOpacity key={m.id} onPress={() => onEditStatus(m)} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityLabel={m.name}
+                    accessibilityRole="button" accessibilityLabel={active ? t('profile.statusActiveA11y', {name: m.name}) : m.name}
                     style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: i === statuses.length - 1 ? 0 : 1, borderBottomColor: T.border}}>
                     <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
                     <Text style={{flex: 1, fontSize: fs(14), color: T.text, fontWeight: '500'}} numberOfLines={1}>{m.name}</Text>
