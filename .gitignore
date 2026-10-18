@@ -20,7 +20,6 @@ DerivedData
 **/.xcode.env.local
 ios/PluralSpace.xcodeproj/project.xcworkspace/
 
-# iOS signing secrets — never commit
 *.p8
 *.p12
 *.cer

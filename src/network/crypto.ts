@@ -82,21 +82,21 @@ export const openMessage = (
     return null;
   }
   if (derivedPeerId !== senderPeerId) {
-    console.warn('[NETWORK] sender peer_id does not match signed identity — dropping');
+    console.warn('[NETWORK] sender peer_id does not match signed identity - dropping');
     return null;
   }
 
   let sigOk = false;
   try { sigOk = nacl.sign.detached.verify(concat(nonce, ct), sig, edPub); } catch { sigOk = false; }
   if (!sigOk) {
-    console.warn('[NETWORK] envelope signature invalid — dropping');
+    console.warn('[NETWORK] envelope signature invalid - dropping');
     return null;
   }
 
   let plaintext: Uint8Array | null = null;
   try { plaintext = nacl.box.open(ct, nonce, boxPub, self.boxSecretKey); } catch { plaintext = null; }
   if (!plaintext) {
-    console.warn('[NETWORK] box.open failed — dropping');
+    console.warn('[NETWORK] box.open failed - dropping');
     return null;
   }
 

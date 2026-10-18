@@ -6,6 +6,8 @@ const HEADER_VAULT_ID = 'X-Vault-Id';
 const HEADER_VAULT_AUTH = 'X-Vault-Auth';
 const HEADER_TIER = 'X-Ps-Tier';
 const HEADER_UPLOAD_OFFSET = 'upload-offset';
+const HEADER_DEVICE_ID = 'X-Ps-Device-Id';
+const HEADER_DEVICE_KEY = 'X-Ps-Device-Key';
 
 export const UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
 const JSON_TIMEOUT_MS = 15000;
@@ -14,7 +16,11 @@ const OBJECT_TIMEOUT_MS = 120000;
 export interface VaultCreds {
   lookupId: string;
   authSecret: string;
+  deviceId?: string;
+  deviceKey?: string;
 }
+
+const vaultOnly = (creds: VaultCreds): VaultCreds => ({lookupId: creds.lookupId, authSecret: creds.authSecret});
 
 const lower = (h: Record<string, string>): Record<string, string> => {
   const out: Record<string, string> = {};
@@ -39,6 +45,10 @@ export class CloudApi {
     if (creds) {
       h[HEADER_VAULT_ID] = creds.lookupId;
       h[HEADER_VAULT_AUTH] = creds.authSecret;
+      if (creds.deviceId && creds.deviceKey) {
+        h[HEADER_DEVICE_ID] = creds.deviceId;
+        h[HEADER_DEVICE_KEY] = creds.deviceKey;
+      }
     }
     return h;
   }
@@ -97,7 +107,7 @@ export class CloudApi {
   }
 
   async create(creds: VaultCreds, wrappedMasterKeyB64: string): Promise<void> {
-    await this.json('POST', '/cloud/vault/create', creds, {
+    await this.json('POST', '/cloud/vault/create', vaultOnly(creds), {
       lookup_id: creds.lookupId,
       auth_secret: creds.authSecret,
       wrapped_master_key: wrappedMasterKeyB64,
@@ -218,14 +228,26 @@ export class CloudApi {
     return {complete: !!body.complete};
   }
 
-  async linkDevice(creds: VaultCreds, subId: string, label: string): Promise<RemoteDevice[]> {
-    const {body} = await this.json('POST', '/cloud/vault/devices', creds, {
+  async linkDevice(creds: VaultCreds, subId: string, label: string): Promise<{devices: RemoteDevice[]; deviceKey: string; existed: boolean}> {
+    const {body} = await this.json('POST', '/cloud/vault/devices', vaultOnly(creds), {
       lookup_id: creds.lookupId,
       auth_secret: creds.authSecret,
       sub_id: subId,
       label,
     });
-    return Array.isArray(body?.devices) ? body.devices : [];
+    return {
+      devices: Array.isArray(body?.devices) ? body.devices : [],
+      deviceKey: String(body?.device_key || ''),
+      existed: !!body?.existed,
+    };
+  }
+
+  async issueDeviceKey(creds: VaultCreds, subId: string): Promise<string> {
+    const {body} = await this.json('POST', `/cloud/vault/devices/${encodeURIComponent(subId)}/key`, vaultOnly(creds), {
+      lookup_id: creds.lookupId,
+      auth_secret: creds.authSecret,
+    });
+    return String(body?.device_key || '');
   }
 
   async unlinkDevice(creds: VaultCreds, subId: string): Promise<{devices: RemoteDevice[]; graceDays: number}> {

@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Switch, Alert, AccessibilityInfo, Modal} from 'react-native';
+import {View, ScrollView, TouchableOpacity, Switch, Alert, AccessibilityInfo, Modal, ActivityIndicator} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import Clipboard from '@react-native-clipboard/clipboard';
 import {Text, TextInput} from '../components/AppText';
@@ -8,6 +8,7 @@ import {fmtDur, fmtTime, fmtPercent, uid, CustomFieldDef, Relationship, Relation
 import {fontScale, ThemeColors, initialOn} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
+import {useWhileTabActive} from '../hooks/useTabActive';
 import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
 import {useNetwork} from '../network/useNetwork';
@@ -102,6 +103,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const [cloudOn, setCloudOn] = useState(false);
   const [cloudPw, setCloudPw] = useState('');
   const [cloudMedia, setCloudMedia] = useState(false);
+  const [cloudUnlinking, setCloudUnlinking] = useState(false);
   const cloudRule = passwordRuleFailing(cloudPw);
   const cloudBusy = cloud.phase !== 'idle';
 
@@ -125,27 +127,30 @@ export const NetworkScreen = ({theme: T}: Props) => {
     NetworkManager.refreshAllMirrors();
   };
 
-  useEffect(() => {
+  useWhileTabActive(() => {
     const id = setInterval(() => setNowTick(n => n + 1), 1000);
     return () => clearInterval(id);
-  }, []);
+  });
 
   const prevStatus = useRef(net.status);
-  useEffect(() => {
-    if (prevStatus.current !== net.status) {
-      if (net.status === 'online') AccessibilityInfo.announceForAccessibility(t('network.status.online'));
-      else if (net.status === 'error') AccessibilityInfo.announceForAccessibility(t('network.status.error'));
-      prevStatus.current = net.status;
-    }
-  }, [net.status, t]);
   const prevAccepted = useRef(0);
-  useEffect(() => {
-    const accepted = [...net.friends, ...net.devices].filter(f => f.status === 'accepted').length;
+  useEffect(() => NetworkManager.subscribe(s => {
+    if (prevStatus.current !== s.status) {
+      if (s.status === 'online') AccessibilityInfo.announceForAccessibility(t('network.status.online'));
+      else if (s.status === 'error') AccessibilityInfo.announceForAccessibility(t('network.status.error'));
+      prevStatus.current = s.status;
+    }
+    const accepted = [...s.friends, ...s.devices].filter(f => f.status === 'accepted').length;
     if (accepted > prevAccepted.current) AccessibilityInfo.announceForAccessibility(t('network.connected'));
     prevAccepted.current = accepted;
-  }, [net.friends, net.devices, t]);
+  }), [t]);
   useEffect(() => NetworkManager.onSyncCloneDone(() => {
     AccessibilityInfo.announceForAccessibility(t('network.syncCloneDone'));
+  }), [t]);
+  const prevRemovedFromVault = useRef(cloud.removedFromVault);
+  useEffect(() => CloudServices.subscribe(c => {
+    if (c.removedFromVault && !prevRemovedFromVault.current) AccessibilityInfo.announceForAccessibility(t('network.cloudRemovedHere'));
+    prevRemovedFromVault.current = c.removedFromVault;
   }), [t]);
 
   const labelStyle = {fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase' as const, color: T.dim, marginBottom: 6, fontWeight: '600' as const};
@@ -215,12 +220,34 @@ export const NetworkScreen = ({theme: T}: Props) => {
     setCloudOn(v);
     if (!v) { setCloudPw(''); CloudServices.cancelPendingLink(); }
   };
+  const onCloudClear = () => {
+    Alert.alert(t('network.cloudClearTitle'), t('network.cloudClearMsg'), [
+      {text: t('common.cancel'), style: 'cancel', onPress: () => CloudServices.cancelPendingLink()},
+      {text: t('network.cloudClear'), style: 'destructive', onPress: () => {
+        Alert.alert(t('network.cloudClearConfirm2Title'), t('network.cloudClearConfirm2'), [
+          {text: t('common.cancel'), style: 'cancel', onPress: () => CloudServices.cancelPendingLink()},
+          {text: t('network.cloudClear'), style: 'destructive', onPress: () => {
+            CloudServices.clearAndUpload(cloudMedia)
+              .then(() => setCloudPw(''))
+              .catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e), cloudErrorCode(e))));
+          }},
+        ]);
+      }},
+    ]);
+  };
   const onCloudSubmit = async () => {
     if (cloudRule || cloudBusy) return;
     const pw = cloudPw;
     try {
       const outcome = await CloudServices.linkWithPassword(pw, cloudMedia);
       if (outcome.kind === 'created') { setCloudPw(''); return; }
+      if (outcome.empty) {
+        Alert.alert(t('network.cloudExistsTitle'), t('network.cloudEmptyMsg'), [
+          {text: t('common.cancel'), style: 'cancel', onPress: () => CloudServices.cancelPendingLink()},
+          {text: t('network.cloudClear'), style: 'destructive', onPress: onCloudClear},
+        ]);
+        return;
+      }
       Alert.alert(t('network.cloudExistsTitle'), t('network.cloudExistsMsg'), [
         {text: t('common.cancel'), style: 'cancel', onPress: () => CloudServices.cancelPendingLink()},
         {text: t('network.cloudImport'), style: 'destructive', onPress: () => {
@@ -233,6 +260,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
             }},
           ]);
         }},
+        ...(outcome.canClear ? [{text: t('network.cloudClear'), style: 'destructive' as const, onPress: onCloudClear}] : []),
       ]);
     } catch (e: any) {
       Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e), cloudErrorCode(e)));
@@ -245,7 +273,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
         Alert.alert(t('network.cloudUnlink'), t('network.cloudUnlinkConfirm2'), [
           {text: t('common.cancel'), style: 'cancel'},
           {text: t('network.cloudUnlink'), style: 'destructive', onPress: () => {
-            CloudServices.unlink().then(() => setCloudOn(false)).catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e), cloudErrorCode(e))));
+            setCloudUnlinking(true);
+            CloudServices.unlink().then(r => {
+              setCloudOn(false);
+              if (!r.deviceRemoved) Alert.alert(t('network.errorTitle'), t('network.cloudUnlinkUnreached', {code: r.errorCode || 'CLOUD-APP'}));
+            }).catch((e: any) => Alert.alert(t('network.errorTitle'), cloudErrorText(String(e?.message || e), cloudErrorCode(e))))
+              .finally(() => setCloudUnlinking(false));
           }},
         ]);
       }},
@@ -268,7 +301,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
     if (s.includes('quota') || s.includes('watermark') || s.includes('507')) return t('network.cloudErrFull');
     if (s.includes('does not open it') || s.includes('bad password') || s.includes('bad auth')) return t('network.cloudErrBadPassword');
     if (s.includes('undecryptable') || s.includes('malformed') || s.includes('hash mismatch') || s.includes('did not match its id') || s.includes('could not be decrypted')) return t('network.cloudErrCorrupt');
-    if (s.includes('kept changing the vault') || s.includes('conflict') || s.includes('network') || s.includes('timed out') || s.includes('failed') || s.includes('fetch') || s.includes('not connected') || s.includes('unreach') || /http 5\d\d/.test(s)) return t('network.cloudErrNetwork');
+    if (s.includes('kept changing the vault') || s.includes('conflict') || s.includes('network') || s.includes('timed out') || s.includes('failed') || s.includes('fetch') || s.includes('not connected') || s.includes('unreach') || /http 5\d\d/.test(s)) return `${t('network.cloudErrNetwork')} ${t('common.errorCode', {code})}`;
     if (__DEV__) console.warn('[cloud]', raw);
     return `${t('network.cloudErrGeneric')} ${t('common.errorCode', {code})}`;
   };
@@ -515,7 +548,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
   const relLabel = (r: Relationship): string => {
     const rt = relTypes.find(x => x.id === r.typeId) || PRESET_RELATIONSHIP_TYPES.find(x => x.id === r.typeId);
     const arrow = rt?.directional ? '→' : '↔';
-    const rtName = rt ? ((rt.preset && !rt.overridden) ? t(`relType.${rt.id}`, {defaultValue: rt.name}) : rt.name) : '';
+    const rtName = rt ? ((rt.preset && !rt.overridden) ? t(`relType.${rt.id}`) : rt.name) : '';
     return `${memberName(r.fromId)} ${arrow} ${memberName(r.toId)}${rt ? `  ·  ${rtName}` : ''}`;
   };
 
@@ -723,9 +756,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
                     <Text style={{fontSize: fs(11), color: T.dim, marginTop: 2}}>{t('network.cloudPending', {n: cloud.pendingKeys})}</Text>
                   )}
                   {cloudBusy && (
-                    <Text style={{fontSize: fs(11), color: T.accent, marginTop: 6}} accessibilityLiveRegion="polite">
-                      {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${fmtPercent(cloud.progress, 0)}` : ''}
-                    </Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6}}>
+                      <ActivityIndicator size="small" color={T.accent} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+                      <Text style={{fontSize: fs(11), color: T.accent, flexShrink: 1}} accessibilityLiveRegion="polite">
+                        {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${fmtPercent(cloud.progress, 0)}` : ''}
+                      </Text>
+                    </View>
                   )}
                   {cloud.lastError ? (
                     <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '', cloud.lastErrorCode || 'CLOUD-APP')})}</Text>
@@ -738,10 +774,18 @@ export const NetworkScreen = ({theme: T}: Props) => {
                     <Switch value={cloud.mediaTier} disabled={cloudBusy} onValueChange={v => CloudServices.setMediaTier(v).catch(() => {})}
                       accessibilityRole="switch" accessibilityLabel={t('network.cloudMediaTier')} accessibilityState={{checked: cloud.mediaTier, disabled: cloudBusy}} />
                   </View>
-                  <TouchableOpacity onPress={onCloudUnlink} disabled={cloudBusy} activeOpacity={0.8}
+                  <TouchableOpacity onPress={onCloudUnlink} activeOpacity={0.8}
                     hitSlop={{top: 6, bottom: 6}} style={{marginTop: 14, borderRadius: 8, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: `${T.danger}60`, backgroundColor: `${T.danger}12`}}
-                    accessibilityRole="button" accessibilityLabel={t('network.cloudUnlink')} accessibilityState={{disabled: cloudBusy}}>
-                    <Text style={{color: T.danger, fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudUnlink')}</Text>
+                    accessibilityRole="button" accessibilityLabel={cloudUnlinking ? t('network.cloudUnlinking') : t('network.cloudUnlink')} accessibilityState={{busy: cloudUnlinking}}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                      {cloudUnlinking && (
+                        <ActivityIndicator size="small" color={T.accent} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+                      )}
+                      {cloudUnlinking && (
+                        <Text style={{fontSize: fs(11), color: T.accent}}>{t('network.cloudUnlinking')}</Text>
+                      )}
+                      <Text style={{color: T.danger, fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudUnlink')}</Text>
+                    </View>
                   </TouchableOpacity>
                 </>
               ) : (
@@ -753,6 +797,9 @@ export const NetworkScreen = ({theme: T}: Props) => {
                   </View>
                   {!cloud.available && (
                     <Text style={{fontSize: fs(11), color: T.muted, marginTop: 8}}>{t('network.cloudUnavailable')}</Text>
+                  )}
+                  {cloud.removedFromVault && (
+                    <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.danger, marginTop: 8}}>{t('network.cloudRemovedHere')}</Text>
                   )}
                   {cloudOn && (
                     <View style={{marginTop: 12}}>
@@ -778,9 +825,12 @@ export const NetworkScreen = ({theme: T}: Props) => {
                         <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.cloudSubmit')}</Text>
                       </TouchableOpacity>
                       {cloudBusy && (
-                        <Text style={{fontSize: fs(11), color: T.accent, marginTop: 8}} accessibilityLiveRegion="polite">
-                          {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${fmtPercent(cloud.progress, 0)}` : ''}
-                        </Text>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
+                          <ActivityIndicator size="small" color={T.accent} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+                          <Text style={{fontSize: fs(11), color: T.accent, flexShrink: 1}} accessibilityLiveRegion="polite">
+                            {cloudPhaseText()}{cloud.progress > 0 && cloud.progress < 1 ? ` ${fmtPercent(cloud.progress, 0)}` : ''}
+                          </Text>
+                        </View>
                       )}
                       {cloud.lastError ? (
                         <Text accessibilityLiveRegion="polite" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('network.cloudError', {error: cloudErrorText(cloud.lastError || '', cloud.lastErrorCode || 'CLOUD-APP')})}</Text>
@@ -797,7 +847,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
               <Text style={labelStyle} nativeID="lblRelayUrl">{t('network.relayUrl')}</Text>
               <TextInput value={relayUrl} onChangeText={setRelayUrl} placeholder="http://192.168.1.20:7523" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url" style={inputStyle} accessibilityLabel={t('network.relayUrl')} accessibilityLabelledBy="lblRelayUrl" />
               <Text style={[labelStyle, {marginTop: 12}]} nativeID="lblRelayToken">{t('network.relayToken')}</Text>
-              <TextInput value={relayToken} onChangeText={setRelayToken} placeholder="—" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={inputStyle} accessibilityLabel={t('network.relayToken')} accessibilityLabelledBy="lblRelayToken" />
+              <TextInput value={relayToken} onChangeText={setRelayToken} placeholder="-" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={inputStyle} accessibilityLabel={t('network.relayToken')} accessibilityLabelledBy="lblRelayToken" />
               <Text style={{fontSize: fs(11), color: T.dim, marginTop: 8, marginBottom: 12}}>{t('network.relayHint')}</Text>
               <TouchableOpacity onPress={onSaveRelay} disabled={busy} activeOpacity={0.8} hitSlop={{top: 4, bottom: 4}} style={primaryBtn} accessibilityRole="button" accessibilityState={{disabled: busy}}>
                 <Text style={{color: initialOn(T.accent), fontWeight: '600', fontSize: fs(13)}}>{t('network.saveRelay')}</Text>

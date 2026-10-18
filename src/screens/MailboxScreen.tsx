@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {View, TouchableOpacity, Alert, Modal, AccessibilityInfo, Platform} from 'react-native';
+import {View, TouchableOpacity, Alert, Modal, AccessibilityInfo} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
@@ -96,7 +96,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
       setPwError(false);
     } else {
       setPwError(true);
-      if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));
+      AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));
     }
   };
 
@@ -284,7 +284,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
             <TextInput value={pwInput} onChangeText={v => { setPwInput(v); setPwError(false); }} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
               accessibilityLabel={t('journal.password')} onSubmitEditing={submitUnlock}
               style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: pwError ? T.danger : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13), marginBottom: 8}} />
-            {pwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 8}} accessibilityLiveRegion="polite" accessibilityRole="alert">{t('journal.incorrectPassword')}</Text>}
+            {pwError && <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 8}} accessibilityRole="alert">{t('journal.incorrectPassword')}</Text>}
             <View style={{flexDirection: 'row', gap: 10}}>
               <TouchableOpacity onPress={() => { setPwFor(null); setPwInput(''); setPwError(false); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                 hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>

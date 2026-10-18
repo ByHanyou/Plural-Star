@@ -1,12 +1,13 @@
 {
   "name": "PluralStar",
-  "version": "1.23.0",
+  "version": "1.23.1",
   "private": true,
   "scripts": {
     "android": "node scripts/run-android.js",
     "ios": "react-native run-ios",
     "start": "react-native start",
     "typecheck": "tsc --noEmit -p tsconfig.check.json",
+    "audit:check": "node scripts/audit-check.js",
     "build-android-release": "cd android && bash ./gradlew bundleRelease",
     "build-android-apk": "cd android && bash ./gradlew assembleRelease",
     "postinstall": "patch-package"
@@ -17,8 +18,8 @@
     "@noble/hashes": "^2.2.0",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-native-clipboard/clipboard": "^1.16.3",
-    "@react-native-community/image-editor": "^4.3.0",
     "@react-native-community/geolocation": "^3.4.0",
+    "@react-native-community/image-editor": "^4.3.0",
     "@react-native-documents/picker": "^12.0.1",
     "@react-native/gradle-plugin": "0.86.1",
     "@shopify/flash-list": "^2.3.2",
@@ -28,6 +29,7 @@
     "react": "19.2.8",
     "react-i18next": "^17.0.11",
     "react-native": "0.86.0",
+    "react-native-argon2": "^4.0.0",
     "react-native-blob-util": "^0.24.10",
     "react-native-get-random-values": "^2.0.0",
     "react-native-image-picker": "^8.2.1",

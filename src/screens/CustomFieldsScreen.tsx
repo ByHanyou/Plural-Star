@@ -216,7 +216,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
               <Text style={{fontSize: fs(11), color: T.dim}}>{t('customFields.fieldType')}</Text>
               <TouchableOpacity onPress={() => setRetypeId(retypeId === fd.id ? null : fd.id)} activeOpacity={0.7}
                 accessibilityRole="button" accessibilityState={{expanded: retypeId === fd.id}}
-                accessibilityLabel={`${t('customFields.fieldType')} — ${fd.name}`} accessibilityValue={{text: typeLabel(fd.type)}}
+                accessibilityLabel={`${t('customFields.fieldType')} - ${fd.name}`} accessibilityValue={{text: typeLabel(fd.type)}}
                 hitSlop={{top: 8, bottom: 11}} style={{backgroundColor: T.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: retypeId === fd.id ? `${T.accent}60` : T.border}}>
                 <Text style={{fontSize: fs(12), color: T.muted}}>{typeLabel(fd.type)} ▾</Text>
               </TouchableOpacity>

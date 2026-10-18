@@ -2323,7 +2323,7 @@ class NetworkManagerImpl {
               const v = (m.customFields || []).find((x: any) => x && x.fieldId === d.id);
               if (!v || v.value === null || v.value === '') return null;
               if (d.type === 'image') {
-                if (typeof v.value !== 'string' || !v.value) return null;
+                if (typeof v.value !== 'string' || !v.value || v.value === CLOUD_CHAT_MEDIA_MARK) return null;
                 cfImages.push({memberId: m.id, fieldId: d.id, src: v.value});
                 const gif = probed.get(v.value) || undefined;
                 if (gif) gifSrc.set(`${m.id}#cf:${d.id}`, {h: gif, src: v.value});
@@ -3163,9 +3163,12 @@ class NetworkManagerImpl {
         mm.banner = lm?.banner;
         if (!lm || !Array.isArray(mm.customFields) || !Array.isArray(lm.customFields)) continue;
         for (const c of mm.customFields) {
-          if (!c || typeof c.value !== 'string' || !c.value.startsWith('data:')) continue;
+          if (!c || typeof c.value !== 'string') continue;
+          const mark = c.value === CLOUD_CHAT_MEDIA_MARK;
+          if (!mark && !c.value.startsWith('data:')) continue;
           const lc = lm.customFields.find((x: any) => x && x.fieldId === c.fieldId);
-          if (lc && typeof lc.value === 'string' && lc.value.startsWith('file://')) c.value = lc.value;
+          if (!lc || typeof lc.value !== 'string') continue;
+          if (lc.value.startsWith('file://') || (mark && lc.value.startsWith('data:'))) c.value = lc.value;
         }
       }
       return JSON.stringify(inc);
@@ -3797,8 +3800,8 @@ class NetworkManagerImpl {
     return {relayUrl: net.relayUrl, token: net.token};
   }
 
-  cloudLocalHash(raw: string): string {
-    return syncHash(raw);
+  cloudLocalHash(raw: string): Promise<string> {
+    return syncHashAsync(raw);
   }
 
   async cloudSnapshot(): Promise<Record<string, string>> {

@@ -265,7 +265,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
               return {
                 id: uid(),
                 targetMemberId: creator,
-                question: [String(p?.title || '').trim(), desc].filter(Boolean).join(' — ') || '?',
+                question: [String(p?.title || '').trim(), desc].filter(Boolean).join(' - ') || '?',
                 options: (Array.isArray(p?.options) ? p.options : []).map((o: any) => ({
                   id: uid(),
                   label: String(o?.text || ''),

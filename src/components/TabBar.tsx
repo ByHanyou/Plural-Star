@@ -13,7 +13,7 @@ const TAB_ICONS: Record<Tab, string> = {
   front: '◈', members: '◇', hub: '⬡', journal: '◉', history: '◷',
 };
 
-export const TabBar = ({C, tab, isSinglet, onPressTab}: {C: ThemeColors; tab: Tab; isSinglet: boolean; onPressTab: (id: Tab) => void}) => {
+export const TabBar = React.memo(function TabBar({C, tab, isSinglet, onPressTab}: {C: ThemeColors; tab: Tab; isSinglet: boolean; onPressTab: (id: Tab) => void}) {
   const {t} = useTranslation();
   const insets = useSafeAreaInsets();
   const fs = fontScale(C);
@@ -35,7 +35,7 @@ export const TabBar = ({C, tab, isSinglet, onPressTab}: {C: ThemeColors; tab: Ta
       ))}
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   tabBar: {flexDirection: 'row', borderTopWidth: 1},

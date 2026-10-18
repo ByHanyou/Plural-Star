@@ -251,7 +251,7 @@ export const handleExtImport = (ctx: ExtApplyCtx) => {
                 t('share.cfKeys', {seen: totalInfoKeys, written: matchedKeys}),
                 membersWithInfo === 0
                   ? t('share.cfNoData')
-                  : t('share.cfUnmatched', {count: totalInfoKeys - matchedKeys, samples: sampleStr || '—'}),
+                  : t('share.cfUnmatched', {count: totalInfoKeys - matchedKeys, samples: sampleStr || '-'}),
               ];
               Alert.alert(t('share.cfPartialTitle'), lines.join('\n\n'));
             }

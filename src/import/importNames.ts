@@ -1,6 +1,3 @@
-// Names the app makes up for imported items that have none ("Field 1", "Unnamed member", …) follow the app language.
-// importNameKey turns a name into a comparison key under which every language's form of such a name is the same,
-// so a re-import after a language switch still finds what the first import created. Real names compare case-insensitively.
 import i18n from '../i18n/i18n';
 
 type Translate = (key: string, opts?: Record<string, unknown>) => string;
@@ -9,7 +6,6 @@ const PATTERN_KEYS: string[] = ['share.fieldN', 'share.systemN', 'share.groupN',
 const PLAIN_KEYS: string[] = ['share.unnamedMember', 'share.ageField', 'common.unknown', 'memberGroups.group'];
 const MARK = '\u0001';
 
-/** Builds the key function for a translate function and the languages to recognise (the app language first, then English). */
 export const makeImportNameKey = (t: Translate, langs: string[]) => {
   const cache = new Map<string, string>();
   return (name: unknown): string => {
@@ -39,7 +35,6 @@ export const makeImportNameKey = (t: Translate, langs: string[]) => {
 
 let current: {lang: string; fn: (name: unknown) => string} | null = null;
 
-/** The comparison key for an imported item's name in the current app language. */
 export const importNameKey = (name: unknown): string => {
   const lang = String(i18n.language || 'en');
   if (!current || current.lang !== lang) {

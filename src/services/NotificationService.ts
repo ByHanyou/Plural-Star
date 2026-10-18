@@ -268,7 +268,6 @@ const buildFriendNotifs = (): {id: string; title: string; body: string; big: str
     const s = f.lastStatus;
     if (!s || !s.fronters) continue;
     const lines = friendStatusLines(s);
-    // The time fronting is text that is rebuilt on every refresh (the 5-minute timer and each front change), not a running clock.
     const dur = typeof s.startTime === 'number' && s.startTime > 0 ? fmtDur(s.startTime) : '';
     out.push({
       id: `${FRIEND_NOTIF_PREFIX}${f.peerId}`,
@@ -297,7 +296,6 @@ export const showFriendUpdateAlert = async (f: Friend) => {
     return;
   }
   await setupFriendAlertChannel();
-  // A new alert replaces the previous one as a fresh post stamped now, so it lands at the top of the tray.
   try { await notifee.cancelNotification(`${FRIEND_ALERT_PREFIX}${f.peerId}`); } catch (e) { logError('notif', e); }
   await notifee.displayNotification({
     id: `${FRIEND_ALERT_PREFIX}${f.peerId}`,
@@ -351,7 +349,6 @@ const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
         pressAction: {id: 'default'},
         color: '#DAA520',
         sortKey: `1${String(i).padStart(4, '0')}`,
-        // Posted as new on every refresh (the 5-minute timer, the scheduled refresh and each front change), so the card never sinks. The front start is in the text.
         timestamp: Date.now(),
         style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
@@ -380,7 +377,7 @@ export const showFrontNotification = async (
     }
 
     const canBindFgs =
-      netOn && (fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31);
+      fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
     if (fgsBound && !canBindFgs) {
       await notifee.stopForegroundService();
       fgsBound = false;
@@ -510,13 +507,8 @@ export const reassertFrontNotification = async () => {
     await setupNotificationChannel();
     const postedAt = Date.now();
     const cfg = frontAndroidConfig(content.bigText, [], content.body, content.since);
-    let netOn = false;
-    try {
-      const net = await store.get('ps:networkSettings', null);
-      netOn = !!(net && net.enabled);
-    } catch (e) { logError('notif', e); }
     const canBindFgs =
-      netOn && (fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31);
+      fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
     if (fgsBound && !canBindFgs) {
       try { await notifee.stopForegroundService(); } catch (e) { logError('notif', e); }
       fgsBound = false;
@@ -536,7 +528,6 @@ export const reassertFrontNotification = async () => {
       bound = false;
       await notifee.displayNotification({id: NOTIF_ID, title: content.title, body: content.body, data: {postedAt: String(postedAt)}, android: cfg});
     }
-    // The scheduled refresh re-posts the friend cards too, so they stay near the top. Skipped when the friend network is not loaded in this process, which would otherwise clear them.
     if (NetworkManager.getState().enabled) await syncFriendNotifications();
     fgsBound = bound;
     lastFrontSig = sig;

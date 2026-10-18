@@ -9,6 +9,7 @@ export interface ManifestEntry {
   tier: Tier;
   hash: string;
   mime?: string;
+  enc?: number;
 }
 
 export interface ManifestDevice {
@@ -61,6 +62,9 @@ export interface CloudLinkState {
   lastCheckAt: number;
   known: Record<string, {id: string; hash: string; remote?: string}>;
   removed?: Record<string, number>;
+  sent?: Record<string, {hash: string; entry: ManifestEntry}>;
+  vaultEntries?: number;
+  deviceKey?: string;
 }
 
 export const CLOUD_LINK_KEY = 'ps:cloudVault';
@@ -73,13 +77,14 @@ export interface CloudStatus {
   phase: CloudPhase;
   progress: number;
   lastError: string | null;
-  /** Short code for lastError, for support: CLOUD-<HTTP status> for a node reply, CLOUD-APP otherwise. */
   lastErrorCode: string | null;
   mediaTier: boolean;
   deviceCount: number;
   lastSyncAt: number;
   pendingKeys: number;
   unbackedMedia: number;
+  vaultEntries: number;
+  removedFromVault: boolean;
 }
 
 export class CloudError extends Error {
@@ -96,7 +101,6 @@ export class CloudError extends Error {
   }
 }
 
-/** The support code for an error: CLOUD-<HTTP status> when the node answered, CLOUD-APP for anything else. */
 export const cloudErrorCode = (e: unknown): string => (e instanceof CloudError ? `CLOUD-${e.status}` : 'CLOUD-APP');
 
 export interface CloudRequest {

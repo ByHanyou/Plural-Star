@@ -1,14 +1,17 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import ImageResizer from '@bam.tech/react-native-image-resizer';
 import {Platform} from 'react-native';
-import {store, onStoreWrite} from '../storage';
+import {store, onStoreWrite, KEYS} from '../storage';
 import {getDeviceSubId} from '../network/identity';
 import {SYNC_STATE_KEY, MIRROR_CACHE_PREFIX} from '../network/types';
 import {NetworkManager} from '../network/NetworkManager';
+import {Member} from '../utils';
 import {CloudService, CloudPlatform} from './cloudVault';
 import {CLOUD_LINK_KEY, CloudLinkState, CloudRequest, CloudResponse, CloudTransport} from './cloudTypes';
 import {splitDataUri, base64ToBytes} from './cloudCrypto';
 import {strFromU8} from 'fflate';
+import {bytesToHex, hexToBytes} from '@noble/hashes/utils.js';
+import type Argon2 from 'react-native-argon2';
 
 const transport: CloudTransport = {
   async request(req: CloudRequest): Promise<CloudResponse> {
@@ -52,25 +55,50 @@ const transport: CloudTransport = {
   },
 };
 
-const reencodeImage = async (dataUri: string): Promise<string> => {
+const AVATAR_MAX_PX = 256;
+
+const isAvatarKey = (key: string): boolean => key.startsWith('ps:media:av:') || key === 'ps:media:sysav';
+
+const keepsTransparentPng = async (key: string): Promise<boolean> => {
+  if (!key.startsWith('ps:media:av:')) return false;
+  const id = key.slice('ps:media:av:'.length);
+  const members = await store.get<Member[]>(KEYS.members, []) || [];
+  return members.some(m => m && m.id === id && m.avatarTransparent === true);
+};
+
+const reencodeImage = async (dataUri: string, key: string): Promise<string> => {
   const parts = splitDataUri(dataUri);
   if (!parts) return dataUri;
-  const mime = parts.mime.toLowerCase();
-  if (mime === 'image/gif' || mime === 'image/png') return dataUri;
+  const b64 = dataUri.slice(dataUri.indexOf(',') + 1);
+  if (b64.startsWith('R0lGO')) return `data:image/gif;base64,${b64}`;
   const tmp = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_cloud_${Date.now()}_${Math.floor(Math.random() * 1e6)}.img`;
   try {
-    const b64 = dataUri.slice(dataUri.indexOf(',') + 1);
+    const png = b64.startsWith('iVBOR') && (await keepsTransparentPng(key));
+    const max = isAvatarKey(key) ? AVATAR_MAX_PX : 10000;
     await ReactNativeBlobUtil.fs.writeFile(tmp, b64, 'base64');
-    const resized = await ImageResizer.createResizedImage(`file://${tmp}`, 10000, 10000, 'JPEG', 80, 0);
+    const resized = await ImageResizer.createResizedImage(`file://${tmp}`, max, max, png ? 'PNG' : 'JPEG', png ? 100 : 80, 0, null, false, {mode: 'contain', onlyScaleDown: true});
     const path = resized.uri.replace('file://', '');
     const out = await ReactNativeBlobUtil.fs.readFile(path, 'base64');
     try { await ReactNativeBlobUtil.fs.unlink(path); } catch {}
-    return `data:image/jpeg;base64,${out}`;
+    return `data:${png ? 'image/png' : 'image/jpeg'};base64,${out}`;
   } catch {
     return dataUri;
   } finally {
     try { await ReactNativeBlobUtil.fs.unlink(tmp); } catch {}
   }
+};
+
+const argon2id = async (password: string, salt: Uint8Array): Promise<Uint8Array> => {
+  const argon2: typeof Argon2 = require('react-native-argon2').default;
+  const {rawHash} = await argon2(password, bytesToHex(salt), {
+    mode: 'argon2id',
+    iterations: 3,
+    memory: 65536,
+    parallelism: 1,
+    hashLength: 32,
+    saltEncoding: 'hex',
+  });
+  return hexToBytes(rawHash);
 };
 
 const platform: CloudPlatform = {
@@ -91,6 +119,7 @@ const platform: CloudPlatform = {
   deviceSubId: () => getDeviceSubId(),
   deviceLabel: () => (Platform.OS === 'ios' ? 'iOS' : 'Android'),
   now: () => Date.now(),
+  argon2id,
 };
 
 export const CloudServices = new CloudService(platform);

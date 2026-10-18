@@ -1,7 +1,6 @@
 ENV['RCT_USE_PREBUILT_RNCORE'] = '0'
 ENV['RCT_USE_RN_DEP'] = '0'
 
-# Resolve react_native_pods.rb with node to allow for hoisting
 require Pod::Executable.execute_command('node', ['-p',
   'require.resolve(
     "react-native/scripts/react_native_pods.rb",
@@ -22,7 +21,6 @@ target 'PluralSpace' do
 
   use_react_native!(
     :path => config[:reactNativePath],
-    # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
@@ -31,16 +29,7 @@ target 'PluralSpace' do
       installer,
       config[:reactNativePath],
       :mac_catalyst_enabled => false,
-      # :ccache_enabled => true
     )
-
-    # NOTE: A previous Xcode-26 modulemap workaround for `react-native-document-picker`
-    # (the old, deprecated package) lived here. We have since migrated to
-    # `@react-native-documents/picker`, which publishes a different pod name and
-    # modulemap path, so the gsub no longer matched anything (no-op). Removed
-    # for clarity. If Xcode 26 raises a modulemap-not-found error for the NEW
-    # picker, add a fresh workaround keyed on `@react-native-documents` rather
-    # than restoring this dead block.
 
     fmt_support_files = [
       'Target Support Files/fmt/fmt.debug.xcconfig',

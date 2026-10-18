@@ -293,7 +293,7 @@ const amparJournalEntries = (
           const reason = String(v?.reason || '').trim();
           return reason ? `${n} (${reason})` : n;
         }).filter(Boolean);
-        return `- **${String(e?.choice || '')}** — ${votes.length}${who.length ? `: ${who.join(', ')}` : ''}`;
+        return `- **${String(e?.choice || '')}** - ${votes.length}${who.length ? `: ${who.join(', ')}` : ''}`;
       });
       body = `${body}\n\n${lines.join('\n')}`.trim();
     }

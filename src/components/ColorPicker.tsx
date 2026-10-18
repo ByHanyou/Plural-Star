@@ -7,6 +7,7 @@ import {isValidHex, normalizeHex} from '../utils';
 import type {ThemeColors} from '../theme';
 
 const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+const SV_STEP = 0.05;
 
 const hexToRgb = (hex: string) => {
   const h = hex.replace('#', '');
@@ -172,9 +173,26 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         <View
           onLayout={e => { const {width, height} = e.nativeEvent.layout; sqRef.current = {w: width, h: height}; setSqSize({w: width, h: height}); }}
           {...sqPan.panHandlers}
+          accessible accessibilityRole="adjustable"
           accessibilityLabel={t('modal.color')}
-          accessibilityValue={{text: curHex}}
+          accessibilityValue={{text: t('modal.colorSquareValue', {hex: curHex, s: Math.round(hsv.s * 100), v: Math.round(hsv.v * 100)})}}
           accessibilityState={{disabled: locked}}
+          accessibilityActions={[
+            {name: 'increment', label: t('modal.brightnessUp')},
+            {name: 'decrement', label: t('modal.brightnessDown')},
+            {name: 'saturation_up', label: t('modal.saturationUp')},
+            {name: 'saturation_down', label: t('modal.saturationDown')},
+          ]}
+          onAccessibilityAction={e => {
+            if (lockedRef.current) return;
+            const cur = hsvRef.current;
+            switch (e.nativeEvent.actionName) {
+              case 'increment': commit({...cur, v: clamp(cur.v + SV_STEP, 0, 1)}); break;
+              case 'decrement': commit({...cur, v: clamp(cur.v - SV_STEP, 0, 1)}); break;
+              case 'saturation_up': commit({...cur, s: clamp(cur.s + SV_STEP, 0, 1)}); break;
+              case 'saturation_down': commit({...cur, s: clamp(cur.s - SV_STEP, 0, 1)}); break;
+            }
+          }}
           style={{width: '100%', height: 160, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: T.border}}>
           <SatValGradient hueHex={hueHex} />
           <View pointerEvents="none" style={{position: 'absolute', left: hsv.s * sqSize.w - 9, top: (1 - hsv.v) * sqSize.h - 9, width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#fff', backgroundColor: curHex}} />
@@ -183,9 +201,9 @@ export const ColorPicker = ({value, onChange, T}: {value: string; onChange: (hex
         <View
           onLayout={e => { const {width} = e.nativeEvent.layout; hueRef.current = width; setHueW(width); }}
           {...huePan.panHandlers}
-          accessibilityRole="adjustable" accessibilityLabel={t('modal.hue')} accessibilityValue={{text: `${Math.round(hsv.h)}°`}}
+          accessible accessibilityRole="adjustable" accessibilityLabel={t('modal.hue')} accessibilityValue={{text: `${Math.round(hsv.h)}°`}}
           accessibilityState={{disabled: locked}}
-          accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+          accessibilityActions={[{name: 'increment', label: t('a11y.hueUp')}, {name: 'decrement', label: t('a11y.hueDown')}]}
           onAccessibilityAction={e => { if (lockedRef.current) return; const cur = hsvRef.current; const step = e.nativeEvent.actionName === 'increment' ? 10 : -10; commit({...cur, h: (cur.h + step + 360) % 360}); }}
           style={{height: 18, borderRadius: 9, overflow: 'hidden', marginTop: 14, borderWidth: 1, borderColor: T.border}}>
           <HueGradient />

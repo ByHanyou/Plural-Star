@@ -1,29 +1,18 @@
 diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
-index bda1ee4..a47713e 100644
+index bda1ee4..2edbac9 100644
 --- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
 +++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ForegroundService.java
-@@ -51,6 +51,20 @@ public class ForegroundService extends Service {
+@@ -51,6 +51,9 @@ public class ForegroundService extends Service {
    private static final Object sLock = new Object();
    private static final String DEFENSIVE_CHANNEL_ID = "notifee_fg_default";
    private static final int DEFENSIVE_NOTIFICATION_ID = Integer.MAX_VALUE - 1;
-+  // Own channel for the onCreate() placeholder. Channel importance is frozen at
-+  // first creation, so a "notifee_fg_default" created by an older build at a
-+  // higher importance would keep the placeholder in the alerting section; a
-+  // fresh id guarantees IMPORTANCE_MIN.
 +  private static final String PLACEHOLDER_CHANNEL_ID = "ps_fg_placeholder";
 +
-+  /**
-+   * True while the onCreate() placeholder is this instance's foreground notification. A
-+   * later onStartCommand that would only notify() the real notification must instead call
-+   * startForeground() with it: NotificationManager.cancel() is ignored for the notification
-+   * a running foreground service owns, so a placeholder left in that slot stays on screen
-+   * as a blank row ("Plural Star · now") beside the real one.
-+   */
 +  private boolean mPlaceholderIsForeground = false;
  
    /**
     * Tracks whether startForeground() has been called on THIS service instance. This is an instance
-@@ -130,10 +144,33 @@ public class ForegroundService extends Service {
+@@ -130,10 +133,27 @@ public class ForegroundService extends Service {
      intent.putExtra("notificationBundle", notificationBundle);
  
      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -31,12 +20,6 @@ index bda1ee4..a47713e 100644
 +      try {
 +        context.startForegroundService(intent);
 +      } catch (Exception e) {
-+        // Android 12+ denies foreground-service starts from the background
-+        // (ForegroundServiceStartNotAllowedException, an IllegalStateException
-+        // subclass), and an oversized notification parcel can throw
-+        // TransactionTooLargeException. Neither should crash the app: post the
-+        // notification directly so the user still sees it, and let the service
-+        // bind on the next legal start.
 +        Logger.w(TAG, "startForegroundService() failed; posting notification without FGS", e);
 +        try {
 +          NotificationManagerCompat.from(context).notify(hashCode, notification);
@@ -60,7 +43,7 @@ index bda1ee4..a47713e 100644
      }
    }
  
-@@ -163,6 +200,65 @@ public class ForegroundService extends Service {
+@@ -163,6 +183,50 @@ public class ForegroundService extends Service {
      }
    }
  
@@ -70,15 +53,6 @@ index bda1ee4..a47713e 100644
 +    satisfyContractEarly();
 +  }
 +
-+  /**
-+   * Android gives a service started via startForegroundService() five seconds to call
-+   * startForeground(); on slow cold starts (Doze exit, low-RAM devices, React Native init
-+   * contending for the main thread) onStartCommand can land after that window, and the system
-+   * then raises ForegroundServiceDidNotStartInTimeException — the largest crash cluster this
-+   * service produced in production. Satisfy the contract with a minimal silent placeholder at the
-+   * earliest lifecycle point; onStartCommand replaces it with the real notification and cancels
-+   * the placeholder id.
-+   */
 +  @SuppressLint({"ForegroundServiceType", "MissingPermission"})
 +  private void satisfyContractEarly() {
 +    if (mStartForegroundCalled) {
@@ -89,14 +63,10 @@ index bda1ee4..a47713e 100644
 +      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
 +        declaredTypes = getDeclaredForegroundServiceType();
 +        if (!hasAnyForegroundServiceType(declaredTypes)) {
-+          // No usable manifest type on API 34+: leave the existing onStartCommand
-+          // paths to handle (and report) this configuration.
 +          return;
 +        }
 +      }
 +      ensurePlaceholderChannel();
-+      // App icon + app name, silent, minimum priority: if this placeholder is
-+      // ever on screen for a frame it must not read as a blank "(i)" alert.
 +      int appIcon = getApplicationInfo().icon;
 +      Notification placeholder =
 +          new NotificationCompat.Builder(this, PLACEHOLDER_CHANNEL_ID)
@@ -117,8 +87,6 @@ index bda1ee4..a47713e 100644
 +      mStartForegroundCalled = true;
 +      mPlaceholderIsForeground = true;
 +    } catch (Exception e) {
-+      // Denied (e.g. a background start that raced past the caller-side guard) or any
-+      // other failure: fall through to the original onStartCommand behaviour.
 +      Logger.w(TAG, "Early startForeground() placeholder failed; continuing", e);
 +    }
 +  }
@@ -126,7 +94,7 @@ index bda1ee4..a47713e 100644
    @SuppressLint({"ForegroundServiceType", "MissingPermission"})
    @Override
    public int onStartCommand(Intent intent, int flags, int startId) {
-@@ -233,6 +329,7 @@ public class ForegroundService extends Service {
+@@ -233,6 +297,7 @@ public class ForegroundService extends Service {
                      Trace.endSection();
                    }
                    mStartForegroundCalled = true;
@@ -134,7 +102,7 @@ index bda1ee4..a47713e 100644
                    mCurrentForegroundServiceType = foregroundServiceType;
                  }
                } else {
-@@ -243,6 +340,7 @@ public class ForegroundService extends Service {
+@@ -243,6 +308,7 @@ public class ForegroundService extends Service {
                    Trace.endSection();
                  }
                  mStartForegroundCalled = true;
@@ -142,21 +110,17 @@ index bda1ee4..a47713e 100644
                }
  
                if (!noneEarlyReturn) {
-@@ -277,7 +375,12 @@ public class ForegroundService extends Service {
+@@ -277,7 +343,8 @@ public class ForegroundService extends Service {
                          TAG,
                          "Resolved foreground service type is NONE on API 34+; skipping type"
                              + " change.");
 -                  } else if (foregroundServiceType != mCurrentForegroundServiceType) {
 +                  } else if (foregroundServiceType != mCurrentForegroundServiceType
 +                      || mPlaceholderIsForeground) {
-+                    // Also taken when this (recreated) instance still holds the onCreate()
-+                    // placeholder as its foreground notification: the static id survived a
-+                    // system-killed instance, so a plain notify() would leave the blank
-+                    // placeholder in the foreground slot for good.
                      Trace.beginSection("notifee:startForeground");
                      try {
                        startForeground(hashCode, notification, foregroundServiceType);
-@@ -285,9 +388,20 @@ public class ForegroundService extends Service {
+@@ -285,9 +352,20 @@ public class ForegroundService extends Service {
                        Trace.endSection();
                      }
                      mStartForegroundCalled = true;
@@ -177,28 +141,22 @@ index bda1ee4..a47713e 100644
                  }
                  if (shouldPostNotificationAgain) {
                    NotificationManagerCompat.from(ContextHolder.getApplicationContext())
-@@ -308,6 +422,16 @@ public class ForegroundService extends Service {
+@@ -308,6 +386,11 @@ public class ForegroundService extends Service {
              return START_NOT_STICKY;
            }
  
-+          // The onCreate() placeholder (if used) has been superseded by the real
-+          // startForeground() above; remove any detached copy from the shade.
-+          // Outside sLock: notification cancel is Binder IPC.
 +          try {
 +            NotificationManagerCompat.from(ContextHolder.getApplicationContext())
 +                .cancel(DEFENSIVE_NOTIFICATION_ID);
-+          } catch (Exception ignored) {
-+            // Nothing to clean up.
-+          }
++          } catch (Exception ignored) {}
 +
            if (pendingEvent != null) {
              EventBus.post(pendingEvent);
            }
-@@ -392,6 +516,37 @@ public class ForegroundService extends Service {
+@@ -392,6 +475,32 @@ public class ForegroundService extends Service {
      }
    }
  
-+  /** Channel for the onCreate() placeholder only; see PLACEHOLDER_CHANNEL_ID. */
 +  private void ensurePlaceholderChannel() {
 +    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
 +      NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -217,14 +175,10 @@ index bda1ee4..a47713e 100644
 +
 +  @Override
 +  public void onDestroy() {
-+    // Belt and braces: whatever path stopped this instance, no detached
-+    // placeholder may outlive it.
 +    try {
 +      NotificationManagerCompat.from(ContextHolder.getApplicationContext())
 +          .cancel(DEFENSIVE_NOTIFICATION_ID);
-+    } catch (Exception ignored) {
-+      // Nothing to clean up.
-+    }
++    } catch (Exception ignored) {}
 +    mPlaceholderIsForeground = false;
 +    super.onDestroy();
 +  }
@@ -232,18 +186,11 @@ index bda1ee4..a47713e 100644
    @SuppressWarnings("deprecation")
    private void stopForegroundCompat() {
      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-@@ -531,6 +686,19 @@ public class ForegroundService extends Service {
+@@ -531,6 +640,12 @@ public class ForegroundService extends Service {
            "Defensive startForeground() was denied by Android while stopping the service; "
                + "continuing with stopSelf() to avoid a fatal app crash.",
            e);
 +    } catch (IllegalStateException e) {
-+      // ForegroundServiceStartNotAllowedException (API 31+) extends
-+      // IllegalStateException: Android denied the defensive foreground call, most
-+      // commonly on a STOP delivered to a background-started service. The old
-+      // rethrow here converted that denial into a production crash. There is no
-+      // contract to satisfy when the service was started via plain startService(),
-+      // and when there is one the system raises its own ANR regardless — so a
-+      // best-effort stop beats a guaranteed crash in both cases.
 +      Logger.w(
 +          TAG,
 +          "Defensive startForeground() was not allowed (background start restriction); "
