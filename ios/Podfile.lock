@@ -1,4 +1,5 @@
 PODS:
+  - Argon2Swift (1.0.4)
   - AsyncStorage (3.1.1):
     - boost
     - DoubleConversion
@@ -2877,6 +2878,9 @@ PODS:
     - React-perflogger (= 0.86.0)
     - React-utils (= 0.86.0)
     - SocketRocket
+  - RNArgon2 (4.0.0):
+    - Argon2Swift (~> 1.0)
+    - React-Core
   - RNCClipboard (1.16.3):
     - boost
     - DoubleConversion
@@ -3409,6 +3413,7 @@ DEPENDENCIES:
   - ReactAppDependencyProvider (from `build/generated/ios/ReactAppDependencyProvider`)
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
+  - RNArgon2 (from `../node_modules/react-native-argon2`)
   - "RNCClipboard (from `../node_modules/@react-native-clipboard/clipboard`)"
   - RNLocalize (from `../node_modules/react-native-localize`)
   - RNNotifee (from `../node_modules/react-native-notify-kit`)
@@ -3422,6 +3427,7 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - Argon2Swift
     - React-Codegen
     - SocketRocket
 
@@ -3605,6 +3611,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios/ReactCodegen
   ReactCommon:
     :path: "../node_modules/react-native/ReactCommon"
+  RNArgon2:
+    :path: "../node_modules/react-native-argon2"
   RNCClipboard:
     :path: "../node_modules/@react-native-clipboard/clipboard"
   RNLocalize:
@@ -3625,6 +3633,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
+  Argon2Swift: 295b8bde7ba61434f227f5610b8813c42e866f74
   AsyncStorage: 10b4956c3184302f5003b3360acc30b9c59dce1e
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   BVLinearGradient: cb006ba232a1f3e4f341bb62c42d1098c284da70
@@ -3715,6 +3724,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: dcdd0e1b9559a6d8d8aea05286f4ed085091978e
   ReactCodegen: a0a155a9a10985ce8f65b2e6fe68016728c7624f
   ReactCommon: 00abba14a8d9028ee0d36efddcb8e13406af6845
+  RNArgon2: 138efccb99e2e3047309cdfecb989d4ee3a2f74e
   RNCClipboard: 4b58c780f63676367640f23c8e114e9bd0cf86ac
   RNLocalize: 1aedbc2c15073861a364174919d23c31c5924b16
   RNNotifee: 49d92abf6fc0122dc35666c32b45d2293119f7de
