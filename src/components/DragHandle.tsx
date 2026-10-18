@@ -24,7 +24,7 @@ export const DragHandle = ({T, active, panHandlers, name, position, count, onSte
       accessibilityLabel={name ? `${t('common.dragReorder')}, ${name}` : t('common.dragReorder')}
       accessibilityState={{disabled: !active}}
       accessibilityValue={position != null && count != null ? {text: `${position} / ${count}`} : undefined}
-      accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+      accessibilityActions={[{name: 'increment', label: t('a11y.moveDown')}, {name: 'decrement', label: t('a11y.moveUp')}]}
       onAccessibilityAction={e => {
         if (!active || !onStep) return;
         onStep(e.nativeEvent.actionName === 'increment' ? 1 : -1);

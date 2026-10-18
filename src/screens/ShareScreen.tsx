@@ -138,7 +138,6 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
   });
   const togExp = (k: keyof ExportCategories) => setExportSel(s => ({...s, [k]: !s[k]}));
 
-  // One export at a time: a second tap while one is still writing is ignored.
   const exportingRef = useRef(false);
   const runExport = async (fn: () => Promise<void>) => {
     if (exportingRef.current) return;

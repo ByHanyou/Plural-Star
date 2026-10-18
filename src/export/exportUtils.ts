@@ -188,7 +188,7 @@ const buildEmailBody = (
 ): string => {
   const realMembers = members.filter(m => !m.isCustomFront && !m.isFacet && !m.deleted);
   const mList = realMembers
-    .map(m => `• ${m.name}${m.pronouns ? ` (${m.pronouns})` : ''}${m.role ? ` — ${m.role}` : ''}`)
+    .map(m => `• ${m.name}${m.pronouns ? ` (${m.pronouns})` : ''}${m.role ? ` - ${m.role}` : ''}`)
     .join('\n');
 
   const jList = journal
@@ -200,7 +200,7 @@ const buildEmailBody = (
     .slice(0, 20)
     .map(e => {
       const names = (e.memberIds || []).map(id => members.find(m => m.id === id)?.name).filter(Boolean).join(', ') || i18n.t('common.unknown');
-      return `${fmtTime(e.startTime)} → ${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')} (${fmtDur(e.startTime, e.endTime)}) — ${names}${e.note ? ` | ${i18n.t('share.quoted', {text: e.note})}` : ''}`;
+      return `${fmtTime(e.startTime)} → ${e.endTime ? fmtTime(e.endTime) : i18n.t('share.exportDocOngoing')} (${fmtDur(e.startTime, e.endTime)}) - ${names}${e.note ? ` | ${i18n.t('share.quoted', {text: e.note})}` : ''}`;
     })
     .join('\n');
 
@@ -210,7 +210,7 @@ const buildEmailBody = (
   const historyHeader = history.length > 20
     ? i18n.t('share.exportMailHistoryHeaderRecent', {count: fmtNum(history.length, 0), shown: fmtNum(20, 0)})
     : i18n.t('share.exportMailHistoryHeader', {count: fmtNum(history.length, 0)});
-  return `${i18n.t('share.exportMailTitle')} — ${system.name}\n${i18n.t('share.exportMailExportedLine', {date: new Date().toLocaleString(getLocale())})}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembersHeader', {count: fmtNum(realMembers.length, 0)})} ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${journalHeader} ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${historyHeader} ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
+  return `${i18n.t('share.exportMailTitle')} - ${system.name}\n${i18n.t('share.exportMailExportedLine', {date: new Date().toLocaleString(getLocale())})}\n${system.description ? `\n${system.description}\n` : ''}\n\n━━ ${i18n.t('share.exportMailMembersHeader', {count: fmtNum(realMembers.length, 0)})} ━━\n${mList || i18n.t('share.exportMailNone')}\n\n━━ ${journalHeader} ━━\n${jList || i18n.t('share.exportMailNoEntries')}\n\n━━ ${historyHeader} ━━\n${hList || i18n.t('share.exportMailNoHistory')}\n\n━━━━━━━━━━━━━━━━━━━━━━━━\n${i18n.t('share.exportMailFooter')}`;
 };
 
 
@@ -227,7 +227,6 @@ const mimeFor = (filename: string): string => {
 
 const STREAM_CHUNK_CHARS = 64 * 1024;
 
-/** A temp path of its own for every run, so two exports started together can never write the same file. */
 export const tempFilePath = (filename: string): string =>
   `${ReactNativeBlobUtil.fs.dirs.CacheDir}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}_${filename}`;
 
@@ -236,7 +235,6 @@ const verifyExport = async (tempPath: string, filename: string, expectedSize?: n
   const stat = await ReactNativeBlobUtil.fs.stat(tempPath);
   const size = Number(stat.size) || 0;
   if (!size) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
-  // The file must hold exactly what was written: anything lost or added while writing is not a usable backup.
   if (expectedSize !== undefined && size !== expectedSize) throw new Error(i18n.t('share.exportVerifyFailed', {filename}));
 
   if (lower.endsWith('.json')) {
@@ -719,7 +717,7 @@ export const exportEmail = (
   recipient: string,
 ): void => {
   const subject = encodeURIComponent(
-    `${system.name} — ${i18n.t('share.exportDocTitle')} · ${new Date().toLocaleDateString(getLocale(), {month: 'long', day: 'numeric', year: 'numeric'})}`,
+    `${system.name} - ${i18n.t('share.exportDocTitle')} ·${new Date().toLocaleDateString(getLocale(), {month: 'long', day: 'numeric', year: 'numeric'})}`,
   );
   const body = encodeURIComponent(buildEmailBody(system, members, history, journal));
   Linking.openURL(`mailto:${recipient}?subject=${subject}&body=${body}`);

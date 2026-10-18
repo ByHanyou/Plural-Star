@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef, useMemo} from 'react';
+import React, {useState, useEffect, useRef, useMemo, useCallback} from 'react';
 import {View, ScrollView, TouchableOpacity, Alert, Linking, BackHandler, Platform, PanResponder, PixelRatio, AccessibilityInfo} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -470,6 +470,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     applyFrontState(f, since).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || '')));
   const fs = fontScale(T);
   const [activeTile, setActiveTile] = useState<HubTile | null>(null);
+  const closeTile = useCallback(() => setActiveTile(null), []);
   useEffect(() => {
     if (Platform.OS !== 'android' || !activeTile) return;
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -654,7 +655,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   if (activeTile === 'mailbox') {
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
-        {renderMailboxScreen(() => setActiveTile(null))}
+        {renderMailboxScreen(closeTile)}
       </View>
     );
   }
@@ -662,7 +663,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   if (activeTile === 'whiteboard') {
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
-        {renderWhiteboardScreen(() => setActiveTile(null))}
+        {renderWhiteboardScreen(closeTile)}
       </View>
     );
   }
@@ -678,7 +679,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   if (activeTile === 'colors') {
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>
-        {renderColorsScreen(() => setActiveTile(null))}
+        {renderColorsScreen(closeTile)}
       </View>
     );
   }
@@ -826,16 +827,8 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
     const from = visIds.indexOf(id);
     const target = from + dir;
     if (from < 0 || target < 0 || target >= visIds.length) return;
-    const neighbor = tiles.find(x => x.id === visIds[target]);
     commitTileDrop(id, from, target);
-    const msg = target === 0
-      ? t('common.movedToTop')
-      : target === visIds.length - 1
-        ? t('common.movedToBottom')
-        : dir === -1
-          ? t('common.movedAbove', {name: neighbor?.label || ''})
-          : t('common.movedBelow', {name: neighbor?.label || ''});
-    AccessibilityInfo.announceForAccessibility(msg);
+    AccessibilityInfo.announceForAccessibility(t('a11y.movedToPosition', {n: target + 1, total: visIds.length}));
   };
   const osFontCap = Math.min(PixelRatio.getFontScale() || 1, 1.3);
   const tileCols = (T.textScale || 1) * osFontCap >= 1.4 ? 2 : 3;
@@ -872,7 +865,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
               accessibilityRole={tileReorderOn ? 'adjustable' : 'button'}
               accessibilityLabel={tileReorderOn ? `${t('common.dragReorder')}, ${tile.label}` : tile.label}
               accessibilityValue={tileReorderOn ? {text: String(i + 1)} : undefined}
-              accessibilityActions={tileReorderOn ? [{name: 'increment'}, {name: 'decrement'}, {name: 'activate'}] : undefined}
+              accessibilityActions={tileReorderOn ? [{name: 'increment', label: t('a11y.moveNext')}, {name: 'decrement', label: t('a11y.movePrevious')}, {name: 'activate', label: t('a11y.open')}] : undefined}
               onAccessibilityAction={tileReorderOn ? e => {
                 const action = e.nativeEvent.actionName;
                 if (action === 'activate') handleTilePress(tile);

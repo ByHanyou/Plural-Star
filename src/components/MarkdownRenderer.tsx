@@ -1,10 +1,14 @@
 import React from 'react';
 import {View, Image, Linking} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {Text} from './AppText';
 import type {Member} from '../utils';
 import i18n from '../i18n/i18n';
 import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
+
+type MemberLookup = {get: (id: string) => Member | undefined};
+type HTMLSegment = {tag: string; content: string; listItems?: string[]};
 
 const IMAGE_URL_RE = /https?:\/\/\S+\.(?:gif|png|pnj|jpe?g|webp|bmp|svg)(?:[?#]\S*)?/i;
 const MD_IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/;
@@ -48,7 +52,7 @@ const UriImage = ({uri, style, T}: {uri: string; style: any; T: ThemeColors}) =>
   if (failed) {
     return <Text style={{fontSize: fs(11, T), color: T?.muted || '#888', fontStyle: 'italic'}}>{i18n.t('markdown.imageUnavailable')}</Text>;
   }
-  return <Image source={{uri}} style={style} resizeMode="contain" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
+  return <Image source={{uri}} style={style} resizeMode="contain" resizeMethod="resize" accessibilityRole="image" accessibilityLabel={i18n.t('a11y.image')} onError={() => setFailed(true)} />;
 };
 
 const AutoImage = ({uri, T, hintRatio, hintW, side}: {uri: string; T: ThemeColors; hintRatio?: number; hintW?: number; side?: Side}) => {
@@ -73,6 +77,7 @@ const AutoImage = ({uri, T, hintRatio, hintW, side}: {uri: string; T: ThemeColor
       source={{uri}}
       style={[{borderRadius: 8, marginVertical: 2}, sizing]}
       resizeMode="contain"
+      resizeMethod="resize"
       accessibilityRole="image"
       accessibilityLabel={i18n.t('a11y.image')}
       onLoad={e => {
@@ -102,6 +107,7 @@ const SideImage = ({uri, T, w, ratio}: {uri: string; T: ThemeColors; w?: number;
       source={{uri}}
       style={{width: w || 110, maxWidth: '45%', aspectRatio: ratio || measured || 1, borderRadius: 8}}
       resizeMode="contain"
+      resizeMethod="resize"
       accessibilityRole="image"
       accessibilityLabel={i18n.t('a11y.image')}
       onLoad={e => {
@@ -146,7 +152,7 @@ const spoilerKey = (i: number, raw: string) => `sp-${i}-${raw.length}-${raw.slic
 const renderTextWithMentions = (
   text: string,
   T: ThemeColors,
-  members?: Member[],
+  members?: MemberLookup,
   onMentionPress?: (memberId: string) => void,
   baseStyle?: object,
 ): React.ReactNode => {
@@ -171,7 +177,7 @@ const renderTextWithMentions = (
 const renderMentionsOnly = (
   text: string,
   T: ThemeColors,
-  members?: Member[],
+  members?: MemberLookup,
   onMentionPress?: (memberId: string) => void,
   baseStyle?: object,
 ): React.ReactNode => {
@@ -185,7 +191,7 @@ const renderMentionsOnly = (
     if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
     const storedName = m[1];
     const id = m[2];
-    const member = members?.find(mb => mb.id === id);
+    const member = members?.get(id);
     const displayName = member?.name || storedName;
     const color = member?.color || T?.muted || '#888';
     const onPress = onMentionPress && member ? () => onMentionPress(id) : undefined;
@@ -215,7 +221,7 @@ const isHTML = (text: string): boolean => {
 
 const decodeEntities = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, ' ');
 
-const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderInlineHTML = (html: string, T: ThemeColors, members?: MemberLookup, onMentionPress?: (id: string) => void): React.ReactNode => {
   const parts: React.ReactNode[] = [];
   let remaining = html;
   let key = 0;
@@ -283,14 +289,28 @@ const renderInlineHTML = (html: string, T: ThemeColors, members?: Member[], onMe
   return parts.length === 1 ? parts[0] : <>{parts}</>;
 };
 
-const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const segmentLines = (seg: HTMLSegment): number => {
+  if (seg.listItems) return seg.listItems.length;
+  if (seg.tag === 'p' || seg.tag === 'div') return seg.content.trim() ? 1 : 0;
+  return 1;
+};
+
+const renderHTMLBlocks = (html: string, T: ThemeColors, members?: MemberLookup, onMentionPress?: (id: string) => void, maxLines?: number): React.ReactNode => {
   const blockRe = /<(p|h[1-3]|blockquote|ul|ol|pre|hr|li|div)(\s[^>]*)?>|<\/(p|h[1-3]|blockquote|ul|ol|pre|li|div)>/g;
-  let segments: {tag: string; content: string; listItems?: string[]}[] = [];
+  let segments: HTMLSegment[] = [];
   let current = '';
   let currentTag = 'p';
   let listItems: string[] = [];
+  let listTag = 'ul';
+  let listDepth = 0;
+  let shownLines = 0;
+  let stopped = false;
   let lastIdx = 0;
   let match;
+  const addSegment = (seg: HTMLSegment) => {
+    segments.push(seg);
+    shownLines += segmentLines(seg);
+  };
 
   const raw = html.replace(/\n/g, '');
 
@@ -299,22 +319,30 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
     const tag = (openTag || closeTag || '').toLowerCase();
 
     if (openTag) {
-      if (tag === 'hr') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; segments.push({tag: 'hr', content: ''}); }
-      else if (tag === 'ul' || tag === 'ol') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; listItems = []; }
+      if (tag === 'hr') { if (current.trim()) addSegment({tag: currentTag, content: current}); current = ''; addSegment({tag: 'hr', content: ''}); }
+      else if (tag === 'ul' || tag === 'ol') { if (current.trim()) addSegment({tag: currentTag, content: current}); current = ''; listItems = []; listTag = tag; listDepth += 1; }
       else if (tag === 'li') { current = ''; }
-      else if (tag === 'pre' || tag === 'blockquote') { if (current.trim()) segments.push({tag: currentTag, content: current}); current = ''; currentTag = tag; }
+      else if (tag === 'pre' || tag === 'blockquote') { if (current.trim()) addSegment({tag: currentTag, content: current}); current = ''; currentTag = tag; }
       else {
-        if (current.trim()) segments.push({tag: currentTag, content: current});
+        if (current.trim()) addSegment({tag: currentTag, content: current});
         current = '';
         currentTag = tag;
       }
     } else if (closeTag) {
       if (closeTag === 'li') { listItems.push(current); current = ''; }
-      else if (closeTag === 'ul' || closeTag === 'ol') { segments.push({tag: closeTag, content: '', listItems: [...listItems]}); listItems = []; }
+      else if (closeTag === 'ul' || closeTag === 'ol') { addSegment({tag: closeTag, content: '', listItems: [...listItems]}); listItems = []; listDepth = Math.max(0, listDepth - 1); }
       else {
-        if (current.trim() || closeTag === 'p') segments.push({tag: currentTag, content: current});
+        if (current.trim() || closeTag === 'p') addSegment({tag: currentTag, content: current});
         current = '';
         currentTag = 'p';
+      }
+    }
+    if (maxLines) {
+      const pendingItems = listDepth > 0 ? listItems.length : 0;
+      if (shownLines + pendingItems >= maxLines) {
+        if (pendingItems > 0) addSegment({tag: listTag, content: '', listItems: [...listItems]});
+        stopped = true;
+        break;
       }
     }
     lastIdx = match.index + full.length;
@@ -322,7 +350,7 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
     if (nextMatch) { current = raw.slice(lastIdx, nextMatch.index); blockRe.lastIndex = nextMatch.index; }
     else { current = raw.slice(lastIdx); blockRe.lastIndex = raw.length; }
   }
-  if (current.trim()) segments.push({tag: currentTag, content: current});
+  if (!stopped && current.trim()) addSegment({tag: currentTag, content: current});
 
   if (segments.length === 0 && raw.trim()) {
     segments.push({tag: 'p', content: raw});
@@ -384,14 +412,14 @@ const renderHTMLBlocks = (html: string, T: ThemeColors, members?: Member[], onMe
   );
 };
 
-const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderInline = (text: string, T: ThemeColors, members?: MemberLookup, onMentionPress?: (id: string) => void): React.ReactNode => {
   const parts: React.ReactNode[] = [];
   let remaining = text;
   let key = 0;
   const patterns: [RegExp, (m: RegExpMatchArray) => React.ReactNode][] = [
     [SPOILER_RE, m => { const raw = m[1]; return <Spoiler key={spoilerKey(key++, raw)} T={T} raw={raw} render={() => renderInline(raw, T, members, onMentionPress)} />; }],
     [/@\[([^\]]+)\]\(member:([a-zA-Z0-9_-]+)\)/, m => {
-      const member = members?.find(mb => mb.id === m[2]);
+      const member = members?.get(m[2]);
       const displayName = member?.name || m[1];
       const color = member?.color || T.muted;
       return (
@@ -433,7 +461,7 @@ const renderInline = (text: string, T: ThemeColors, members?: Member[], onMentio
   return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : <>{parts}</>;
 };
 
-const renderMarkdownLine = (line: string, T: ThemeColors, i: React.Key, members?: Member[], onMentionPress?: (id: string) => void): React.ReactNode => {
+const renderMarkdownLine = (line: string, T: ThemeColors, i: React.Key, members?: MemberLookup, onMentionPress?: (id: string) => void): React.ReactNode => {
   if (line.startsWith('### ')) return <Text key={i} accessibilityRole="header" style={{fontSize: fs(14, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(4), T, members, onMentionPress)}</Text>;
   if (line.startsWith('## ')) return <Text key={i} accessibilityRole="header" style={{fontSize: fs(16, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(3), T, members, onMentionPress)}</Text>;
   if (line.startsWith('# ')) return <Text key={i} accessibilityRole="header" style={{fontSize: fs(18, T), fontWeight: '700', color: T.text, marginBottom: 4}} maxFontSizeMultiplier={1.3}>{renderInline(line.slice(2), T, members, onMentionPress)}</Text>;
@@ -445,15 +473,9 @@ const renderMarkdownLine = (line: string, T: ThemeColors, i: React.Key, members?
   return <Text key={i} style={{fontSize: fs(13, T), color: T.dim, lineHeight: fs(20, T)}} maxFontSizeMultiplier={1.3}>{renderInline(line, T, members, onMentionPress)}</Text>;
 };
 
-export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
-  text: string;
-  T: ThemeColors;
-  numberOfLines?: number;
-  members?: Member[];
-  onMentionPress?: (memberId: string) => void;
-}) => {
+const renderRichText = (text: string, T: ThemeColors, numberOfLines?: number, members?: MemberLookup, onMentionPress?: (memberId: string) => void): React.ReactNode => {
   if (!text) return null;
-  if (isHTML(text)) return renderHTMLBlocks(text, T, members, onMentionPress);
+  if (isHTML(text)) return renderHTMLBlocks(text, T, members, onMentionPress, numberOfLines);
   const mdText = text
     .replace(/<img\s[^>]*>/gi, tag => {
       const src = (tag.match(/src=["']([^"']+)["']/) || [])[1] || '';
@@ -511,3 +533,32 @@ export const RichText = ({text, T, numberOfLines, members, onMentionPress}: {
   }
   return <View style={{gap: 2}}>{elements}</View>;
 };
+
+const lazyMemberLookup = (members: Member[]): MemberLookup => {
+  let map: Map<string, Member> | undefined;
+  const build = () => {
+    const next = new Map<string, Member>();
+    for (const m of members) if (!next.has(m.id)) next.set(m.id, m);
+    return next;
+  };
+  return {get: id => (map || (map = build())).get(id)};
+};
+
+export const RichText = React.memo(function RichText({text, T, numberOfLines, members, memberById, onMentionPress}: {
+  text: string;
+  T: ThemeColors;
+  numberOfLines?: number;
+  members?: Member[];
+  memberById?: MemberLookup;
+  onMentionPress?: (memberId: string) => void;
+}) {
+  const language = useTranslation().i18n.language;
+  const lookup = React.useMemo(
+    () => memberById || (members ? lazyMemberLookup(members) : undefined),
+    [memberById, members],
+  );
+  return React.useMemo(
+    () => renderRichText(text, T, numberOfLines, lookup, onMentionPress),
+    [text, T, numberOfLines, lookup, onMentionPress, language],
+  );
+});

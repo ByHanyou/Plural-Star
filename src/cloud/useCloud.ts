@@ -1,9 +1,10 @@
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
 import {CloudServices} from './cloudPlatform';
 import {CloudStatus} from './cloudTypes';
+import {useWhileTabActive} from '../hooks/useTabActive';
 
 export const useCloud = (): CloudStatus => {
   const [state, setState] = useState<CloudStatus>(() => CloudServices.status());
-  useEffect(() => CloudServices.subscribe(setState), []);
+  useWhileTabActive(() => CloudServices.subscribe(setState));
   return state;
 };

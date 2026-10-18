@@ -94,7 +94,6 @@ const FrontHistoryEntryRow = React.memo(function FrontHistoryEntryRow({
   const primaryFronters = singlet && withoutSelf.length === 0 ? allPrimary : withoutSelf;
   const coFrontMembers = (entry.coFrontIds || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
   const coConMembers = (entry.coConsciousIds || []).map(id => memberMap.get(id)).filter(Boolean) as Member[];
-  // A row with no primary fronter shows its co-front, else co-conscious, members instead of "Unknown" (same fallback as the notification title).
   const shownFronters = primaryFronters.length ? primaryFronters : coFrontMembers.length ? coFrontMembers : coConMembers;
   const displayEnd = entry.endTime ?? effectiveEnd;
   const isOpen = displayEnd === null;
@@ -252,7 +251,6 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
   const onSaveHistory = saveHistory;
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
-  // The edit callback from App is a new function on every render; the row renderer uses a stable one so the rows do not all re-render on each visit.
   const onEditEntryRef = useRef(onEditEntry);
   onEditEntryRef.current = onEditEntry;
   const editEntry = useCallback((originalIndex: number) => onEditEntryRef.current?.(originalIndex), []);

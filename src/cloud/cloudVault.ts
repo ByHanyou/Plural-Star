@@ -35,11 +35,18 @@ export const CLOUD_MEDIA_MISSING = 'cloud:missing';
 const MANIFEST_V = 1 as const;
 const OBJECT_MAX_BYTES = 25 * 1024 * 1024;
 const SEALED_KEEP_MAX_BYTES = 64 * 1024 * 1024;
-const HASH_YIELD_KEYS = 8;
+const HASH_YIELD_CHARS = 64 * 1024;
 const PUSH_DEBOUNCE_MS = 4000;
 const RETRY_BASE_MS = 5000;
 const RETRY_MAX_MS = 5 * 60 * 1000;
 const CHECK_MIN_INTERVAL_MS = 20000;
+const UNLINK_WAIT_MS = 20000;
+const SENT_SAVE_MS = 5000;
+const MEDIA_ENCODING = 2;
+const PARTIAL_SHARE = 0.6;
+const BOT_SUB_PREFIX = 'starbot:';
+const DEVICE_UNLINKED = 'device unlinked';
+const DEVICE_KEY_ISSUED = 'device key already issued';
 
 export interface CloudPlatform {
   transport: CloudTransport;
@@ -49,13 +56,15 @@ export interface CloudPlatform {
   remove(key: string): Promise<void>;
   adoptIdentity(identityRaw: string, friendsRaw: string | null): Promise<void>;
   mergeFriends(friendsRaw: string | null, tombstonesRaw: string | null): Promise<void>;
-  reencodeImage(dataUri: string): Promise<string>;
-  localHash(raw: string): string;
+  reencodeImage(dataUri: string, key: string): Promise<string>;
+  localHash(raw: string): Promise<string>;
   loadLink(): Promise<CloudLinkState | null>;
   saveLink(state: CloudLinkState | null): Promise<void>;
   deviceSubId(): Promise<string>;
   deviceLabel(): string;
   now(): number;
+  skipMediaReupload?: boolean;
+  argon2id?(password: string, salt: Uint8Array): Promise<Uint8Array>;
 }
 
 const kindOf = (key: string): EntryKind => {
@@ -82,6 +91,11 @@ const canonicalRecord = (key: string, raw: string): string => {
         const s = o[f];
         if (typeof s === 'string' && (s.startsWith('file://') || s.startsWith('data:') || s === CLOUD_MEDIA_MARK)) o[f] = CLOUD_MEDIA_MARK;
       }
+      if (!Array.isArray(o.customFields)) return;
+      for (const c of o.customFields) {
+        const s = c && c.value;
+        if (typeof s === 'string' && (s.startsWith('file://') || s.startsWith('data:image') || s === CLOUD_MEDIA_MARK)) c.value = CLOUD_MEDIA_MARK;
+      }
     };
     if (Array.isArray(v)) v.forEach(scrub);
     else scrub(v);
@@ -97,7 +111,46 @@ const ownerKeyOf = (path: string): string => {
   return 'ps:members';
 };
 
-export type LinkOutcome = {kind: 'created'} | {kind: 'existing'};
+const isDeviceGone = (e: unknown): boolean => e instanceof CloudError && e.status === 401 && e.code === DEVICE_UNLINKED;
+
+const isKeyRouteMissing = (e: unknown): boolean => e instanceof CloudError && (e.status === 404 || e.status === 405) && e.code === `http ${e.status}`;
+
+const isKeyIssued = (e: unknown): boolean => e instanceof CloudError && e.status === 409 && e.code === DEVICE_KEY_ISSUED;
+
+const rosterOf = (raw: string | undefined): string[] | null => {
+  if (raw === undefined) return [];
+  let list: unknown;
+  try {
+    list = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(list)) return null;
+  const text = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
+  return list
+    .filter(m => m && typeof m === 'object' && !m.deleted && !m.isCustomFront && !m.isFacet)
+    .map(m => JSON.stringify([text(m.name), text(m.emoji), text(m.avatar) !== '', text(m.banner) !== '']))
+    .sort();
+};
+
+export type LinkOutcome = {kind: 'created'} | {kind: 'existing'; empty: boolean; canClear: boolean};
+
+export type UnlinkOutcome = {deviceRemoved: boolean; errorCode: string | null};
+
+type PendingLink = {
+  lookupId: string;
+  authSecret: string;
+  subId: string;
+  deviceKey: string;
+  masterKey: Uint8Array;
+  manifest: VaultManifest | null;
+  version: number;
+  deviceCount: number;
+  empty: boolean;
+  canClear: boolean;
+};
+
+const pendingVaultCreds = (p: PendingLink): VaultCreds => ({lookupId: p.lookupId, authSecret: p.authSecret, deviceId: p.subId, deviceKey: p.deviceKey});
 
 type Listener = (s: CloudStatus) => void;
 
@@ -125,6 +178,11 @@ export class CloudService {
   private unbackedMedia: string[] = [];
   private lastCheckStartedAt = 0;
   private loaded = false;
+  private runGen = 0;
+  private unlinking = false;
+  private removedFromVault = false;
+  private unlinkRun: Promise<UnlinkOutcome> | null = null;
+  private keying: Promise<void> | null = null;
 
   constructor(platform: CloudPlatform) {
     this.p = platform;
@@ -149,6 +207,8 @@ export class CloudService {
       lastSyncAt: this.link?.lastCheckAt || 0,
       pendingKeys: this.pendingKeys,
       unbackedMedia: this.unbackedMedia.length,
+      vaultEntries: this.link?.vaultEntries || 0,
+      removedFromVault: this.removedFromVault,
     };
   }
 
@@ -176,9 +236,9 @@ export class CloudService {
     return new CloudApi(relayUrl, token, this.p.transport);
   }
 
-  private creds(): VaultCreds {
-    if (!this.link) throw new CloudError(0, 'not linked');
-    return {lookupId: this.link.lookupId, authSecret: this.link.authSecret};
+  private async creds(link: CloudLinkState | null = this.link): Promise<VaultCreds> {
+    if (!link) throw new CloudError(0, 'not linked');
+    return {lookupId: link.lookupId, authSecret: link.authSecret, deviceId: await this.p.deviceSubId(), deviceKey: link.deviceKey};
   }
 
   private key(): Uint8Array {
@@ -197,6 +257,18 @@ export class CloudService {
         this.masterKey = null;
       }
       this.pendingKeys = 0;
+      const link = this.link;
+      Promise.resolve()
+        .then(() => this.ensureDeviceKey())
+        .then(() => this.creds(link))
+        .then(vc => this.api().info(vc))
+        .then(info => {
+          if (this.link !== link) return;
+          this.deviceCount = info.devices.length;
+          this.emit();
+        })
+        .catch(e => (this.link === link && isDeviceGone(e) ? this.dropRemovedDevice() : undefined))
+        .catch(() => {});
     }
     this.emit();
   }
@@ -210,23 +282,32 @@ export class CloudService {
 
   async linkWithPassword(password: string, mediaTier: boolean): Promise<LinkOutcome> {
     if (this.link) throw new CloudError(0, 'already linked');
+    if (this.pendingCreds) this.pendingCreds.masterKey.fill(0);
+    this.pendingCreds = null;
+    this.removedFromVault = false;
     this.lastError = null;
     this.lastErrorCode = null;
     this.setPhase('deriving', 0);
+    let link: CloudLinkState;
+    let gen: number;
     try {
-      const creds = await deriveVaultCredentials(password, f => this.setPhase('deriving', f));
+      const creds = await deriveVaultCredentials(password, f => this.setPhase('deriving', f), this.p.argon2id?.bind(this.p));
       const api = this.api();
       const exists = await api.lookup(creds.lookupId);
       if (exists) {
-        this.pendingCreds = creds;
+        this.setPhase('checking', 0);
+        const pending = await this.peekVault(api, creds);
+        this.pendingCreds = pending;
         this.setPhase('idle', 0);
-        return {kind: 'existing'};
+        return {kind: 'existing', empty: pending.empty, canClear: pending.canClear};
       }
       const mk = newMasterKey();
       const wrapped = wrapMasterKey(mk, creds.kek);
       await api.create({lookupId: creds.lookupId, authSecret: creds.authSecret}, wrapped);
+      const reg = await api.linkDevice({lookupId: creds.lookupId, authSecret: creds.authSecret}, await this.p.deviceSubId(), this.p.deviceLabel());
       this.masterKey = mk;
-      this.link = {
+      this.deviceCount = reg.devices.length;
+      link = this.link = {
         v: 1,
         lookupId: creds.lookupId,
         authSecret: creds.authSecret,
@@ -236,51 +317,104 @@ export class CloudService {
         linkedAt: this.p.now(),
         lastCheckAt: 0,
         known: {},
+        deviceKey: reg.deviceKey,
       };
       creds.kek.fill(0);
-      await this.p.saveLink(this.link);
-      await this.registerDevice();
+      gen = this.runGen;
+      await this.p.saveLink(link);
       this.emit();
       await this.runSync('uploading');
-      return {kind: 'created'};
     } catch (e) {
       this.setPhase('idle', 0);
-      this.recordError(e);
+      this.noteError(e);
       throw e;
+    }
+    if (gen !== this.runGen || this.link !== link) throw new CloudError(0, 'not linked');
+    return {kind: 'created'};
+  }
+
+  private async peekVault(api: CloudApi, creds: {lookupId: string; authSecret: string; kek: Uint8Array}): Promise<PendingLink> {
+    const subId = await this.p.deviceSubId();
+    const vc: VaultCreds = {lookupId: creds.lookupId, authSecret: creds.authSecret, deviceId: subId};
+    let mk: Uint8Array | null = null;
+    try {
+      const reg = await api.linkDevice(vc, subId, this.p.deviceLabel());
+      vc.deviceKey = reg.deviceKey;
+      const info = await api.info(vc);
+      mk = unwrapMasterKey(info.wrappedMasterKey, creds.kek);
+      if (!mk) throw new CloudError(0, 'bad password', 'The vault exists but this password does not open it.');
+      const remote = await api.getManifest(vc);
+      const manifest = remote ? this.openManifest(remote.ciphertext, mk) : null;
+      const entries = manifest ? manifest.entries : [];
+      const empty = entries.length === 0;
+      let canClear = empty;
+      if (!empty) {
+        const local = await this.p.snapshot();
+        const partial = entries.length < Object.keys(local).length * PARTIAL_SHARE;
+        canClear = partial && (reg.existed || (await this.sameMembers(api, vc, mk, entries, local)));
+      }
+      return {
+        lookupId: creds.lookupId,
+        authSecret: creds.authSecret,
+        subId,
+        deviceKey: reg.deviceKey,
+        masterKey: mk,
+        manifest,
+        version: remote ? remote.version : 0,
+        deviceCount: reg.devices.length,
+        empty,
+        canClear,
+      };
+    } catch (e) {
+      if (mk) mk.fill(0);
+      if (vc.deviceKey && !isDeviceGone(e)) await api.unlinkDevice(vc, subId).catch(() => {});
+      throw e;
+    } finally {
+      creds.kek.fill(0);
     }
   }
 
-  private pendingCreds: {lookupId: string; authSecret: string; kek: Uint8Array} | null = null;
+  private async sameMembers(api: CloudApi, vc: VaultCreds, mk: Uint8Array, entries: ManifestEntry[], local: Record<string, string>): Promise<boolean> {
+    const e = entries.find(x => x.path === 'ps:members');
+    if (!e) return false;
+    const ct = await api.getObject(vc, e.id);
+    if (objectIdOf(ct) !== e.id) throw new CloudError(0, 'object hash mismatch', `Downloaded object ${e.id} did not match its ID.`);
+    const plain = decryptBytes(mk, ct);
+    if (!plain) throw new CloudError(0, 'object undecryptable', `Object ${e.id} could not be decrypted.`);
+    const vault = rosterOf(unpackData(plain));
+    const mine = rosterOf(local['ps:members']);
+    return !!vault && !!mine && vault.length === mine.length && vault.every((m, i) => m === mine[i]);
+  }
 
-  async importExisting(mediaTier: boolean): Promise<void> {
+  private pendingCreds: PendingLink | null = null;
+
+  async importExisting(mediaTier: boolean, allowEmpty = false): Promise<void> {
     if (this.link) throw new CloudError(0, 'already linked');
-    const creds = this.pendingCreds;
-    if (!creds) throw new CloudError(0, 'no pending credentials');
+    const pending = this.pendingCreds;
+    if (!pending) throw new CloudError(0, 'no pending credentials');
+    if (pending.empty && !allowEmpty) throw new CloudError(0, 'vault empty');
     this.pendingCreds = null;
     this.lastError = null;
     this.lastErrorCode = null;
     this.setPhase('importing', 0);
     try {
       const api = this.api();
-      const vc = {lookupId: creds.lookupId, authSecret: creds.authSecret};
-      const info = await api.info(vc);
-      const mk = unwrapMasterKey(info.wrappedMasterKey, creds.kek);
-      creds.kek.fill(0);
-      if (!mk) throw new CloudError(0, 'bad password', 'The vault exists but this password does not open it.');
-      this.masterKey = mk;
+      const vc = pendingVaultCreds(pending);
+      this.masterKey = pending.masterKey;
       this.link = {
         v: 1,
-        lookupId: creds.lookupId,
-        authSecret: creds.authSecret,
-        masterKeyB64: bytesToBase64(mk),
+        lookupId: pending.lookupId,
+        authSecret: pending.authSecret,
+        masterKeyB64: bytesToBase64(pending.masterKey),
         mediaTier,
         manifestVersion: 0,
         linkedAt: this.p.now(),
         lastCheckAt: 0,
         known: {},
+        deviceKey: pending.deviceKey,
       };
+      this.deviceCount = pending.deviceCount;
       await this.p.saveLink(this.link);
-      await this.registerDevice();
       const remote = await api.getManifest(vc);
       if (remote) {
         const manifest = this.openManifest(remote.ciphertext);
@@ -297,6 +431,7 @@ export class CloudService {
           if (k === CLOUD_IDENTITY_KEY || k === CLOUD_FRIENDS_KEY || k === CLOUD_TOMBSTONES_KEY) continue;
           await this.p.remove(k);
         }
+        this.link.vaultEntries = manifest.entries.length;
         this.link.lastCheckAt = this.p.now();
         await this.p.saveLink(this.link);
       }
@@ -308,33 +443,124 @@ export class CloudService {
       this.masterKey = null;
       await this.p.saveLink(null).catch(() => {});
       this.setPhase('idle', 0);
-      this.recordError(e);
+      this.noteError(e);
       throw e;
     }
   }
 
-  cancelPendingLink(): void {
-    if (this.pendingCreds) this.pendingCreds.kek.fill(0);
+  async clearAndUpload(mediaTier: boolean): Promise<void> {
+    if (this.link) throw new CloudError(0, 'already linked');
+    const pending = this.pendingCreds;
+    if (!pending) throw new CloudError(0, 'no pending credentials');
+    if (!pending.canClear) throw new CloudError(0, 'vault not clearable');
     this.pendingCreds = null;
+    this.lastError = null;
+    this.lastErrorCode = null;
+    this.setPhase('uploading', 0);
+    let link: CloudLinkState;
+    let gen: number;
+    try {
+      const api = this.api();
+      const vc = pendingVaultCreds(pending);
+      const info = await api.info(vc);
+      let devices = info.devices;
+      for (const d of info.devices) {
+        if (d.sub_id === pending.subId || d.sub_id.startsWith(BOT_SUB_PREFIX)) continue;
+        devices = (await api.unlinkDevice(vc, d.sub_id)).devices;
+      }
+      const now = this.p.now();
+      const cleared: VaultManifest = {
+        v: MANIFEST_V,
+        version: pending.version + 1,
+        created: pending.manifest?.created || now,
+        updated: now,
+        devices: pending.manifest?.devices || [],
+        entries: [],
+      };
+      const version = await api.putManifest(vc, pending.version, this.sealManifest(cleared, pending.masterKey), []);
+      this.masterKey = pending.masterKey;
+      this.deviceCount = devices.length;
+      link = this.link = {
+        v: 1,
+        lookupId: pending.lookupId,
+        authSecret: pending.authSecret,
+        masterKeyB64: bytesToBase64(pending.masterKey),
+        mediaTier,
+        manifestVersion: version,
+        linkedAt: now,
+        lastCheckAt: 0,
+        known: {},
+        vaultEntries: 0,
+        deviceKey: pending.deviceKey,
+      };
+      gen = this.runGen;
+      await this.p.saveLink(link);
+      this.emit();
+      await this.runSync('uploading');
+    } catch (e) {
+      this.setPhase('idle', 0);
+      this.noteError(e);
+      throw e;
+    }
+    if (gen !== this.runGen || this.link !== link) throw new CloudError(0, 'not linked');
   }
 
-  async unlink(): Promise<void> {
-    if (!this.link) return;
-    this.clearTimers();
-    this.sealed.clear();
-    this.sealedBytes = 0;
-    try {
-      const sub = await this.p.deviceSubId();
-      await this.api().unlinkDevice(this.creds(), sub);
-    } catch (e) {
-      this.recordError(e);
+  cancelPendingLink(): void {
+    const pending = this.pendingCreds;
+    this.pendingCreds = null;
+    if (!pending) return;
+    pending.masterKey.fill(0);
+    this.api().unlinkDevice(pendingVaultCreds(pending), pending.subId).catch(() => {});
+  }
+
+  unlink(): Promise<UnlinkOutcome> {
+    if (!this.unlinkRun) {
+      this.unlinkRun = this.unlinkOnce().finally(() => {
+        this.unlinkRun = null;
+      });
     }
-    this.link = null;
-    this.masterKey = null;
-    this.deviceCount = 0;
-    this.pendingKeys = 0;
-    await this.p.saveLink(null);
-    this.setPhase('idle', 0);
+    return this.unlinkRun;
+  }
+
+  private async unlinkOnce(): Promise<UnlinkOutcome> {
+    if (!this.link) return {deviceRemoved: true, errorCode: null};
+    this.unlinking = true;
+    this.runGen++;
+    this.queued = null;
+    this.clearTimers();
+    try {
+      const running = this.syncing;
+      if (running) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        await Promise.race([running.catch(() => {}), new Promise<void>(r => (timer = setTimeout(r, UNLINK_WAIT_MS)))]);
+        if (timer) clearTimeout(timer);
+      }
+      this.clearTimers();
+      this.sealed.clear();
+      this.sealedBytes = 0;
+      let errorCode: string | null = null;
+      try {
+        await this.ensureDeviceKey();
+        const sub = await this.p.deviceSubId();
+        await this.api().unlinkDevice(await this.creds(), sub);
+      } catch (e) {
+        if (!isDeviceGone(e)) {
+          errorCode = cloudErrorCode(e);
+          this.recordError(e);
+        }
+      }
+      this.link = null;
+      this.masterKey = null;
+      this.deviceCount = 0;
+      this.pendingKeys = 0;
+      this.lastError = null;
+      this.lastErrorCode = null;
+      await this.p.saveLink(null);
+      this.setPhase('idle', 0);
+      return {deviceRemoved: errorCode === null, errorCode};
+    } finally {
+      this.unlinking = false;
+    }
   }
 
   noteRemoved(key: string): void {
@@ -351,10 +577,48 @@ export class CloudService {
     this.schedulePush(0);
   }
 
-  private async registerDevice(): Promise<void> {
-    const sub = await this.p.deviceSubId();
-    const devices = await this.api().linkDevice(this.creds(), sub, this.p.deviceLabel());
-    this.deviceCount = devices.length;
+  private ensureDeviceKey(): Promise<void> {
+    const link = this.link;
+    if (!link || link.deviceKey) return Promise.resolve();
+    if (!this.keying) {
+      this.keying = (async () => {
+        const sub = await this.p.deviceSubId();
+        const vc: VaultCreds = {lookupId: link.lookupId, authSecret: link.authSecret};
+        let key: string;
+        try {
+          key = await this.api().issueDeviceKey(vc, sub);
+        } catch (e) {
+          if (isKeyRouteMissing(e)) return;
+          if (!isKeyIssued(e)) throw e;
+          if (this.link !== link) throw new CloudError(0, 'not linked');
+          key = (await this.api().linkDevice(vc, sub, this.p.deviceLabel())).deviceKey;
+        }
+        if (this.link !== link) throw new CloudError(0, 'not linked');
+        link.deviceKey = key;
+        await this.p.saveLink(link);
+      })().finally(() => {
+        this.keying = null;
+      });
+    }
+    return this.keying;
+  }
+
+  private async dropRemovedDevice(): Promise<void> {
+    if (!this.link || this.unlinking) return;
+    this.removedFromVault = true;
+    this.runGen++;
+    this.queued = null;
+    this.clearTimers();
+    this.sealed.clear();
+    this.sealedBytes = 0;
+    this.link = null;
+    this.masterKey = null;
+    this.deviceCount = 0;
+    this.pendingKeys = 0;
+    this.lastError = null;
+    this.lastErrorCode = null;
+    await this.p.saveLink(null);
+    this.setPhase('idle', 0);
   }
 
   schedulePush(delayMs = PUSH_DEBOUNCE_MS): void {
@@ -398,10 +662,26 @@ export class CloudService {
     this.emit();
   }
 
+  private noteError(e: unknown): void {
+    if (isDeviceGone(e)) {
+      this.removedFromVault = true;
+      this.emit();
+    } else {
+      this.recordError(e);
+    }
+  }
+
+  private stopIfStale(gen?: number): void {
+    if (gen !== undefined && gen !== this.runGen) throw new CloudError(0, 'run stopped');
+  }
+
   private runSync(phase: CloudPhase): Promise<void> {
+    if (this.unlinking) return Promise.resolve();
+    const gen = this.runGen;
     if (this.syncing) {
       if (!this.queued) {
         const after = (): Promise<void> => {
+          if (gen !== this.runGen) return Promise.resolve();
           this.queued = null;
           return this.link ? this.runSync(phase) : Promise.resolve();
         };
@@ -416,7 +696,8 @@ export class CloudService {
         this.tooLarge = [];
         this.overQuota = [];
         this.unbackedMedia = [];
-        await this.syncOnce();
+        await this.syncOnce(gen);
+        if (gen !== this.runGen) return;
         this.retryAttempt = 0;
         this.lastError = this.tooLarge.length
           ? `Left out, larger than ${Math.round(OBJECT_MAX_BYTES / (1024 * 1024))} MB: ${this.tooLarge.join(', ')}`
@@ -425,55 +706,69 @@ export class CloudService {
             : null;
         this.lastErrorCode = null;
       } catch (e) {
+        if (gen !== this.runGen) return;
+        if (isDeviceGone(e)) {
+          await this.dropRemovedDevice();
+          throw e;
+        }
         this.recordError(e);
         this.scheduleRetry(e);
         throw e;
       } finally {
         this.syncing = null;
-        this.setPhase('idle', 0);
+        if (gen === this.runGen) this.setPhase('idle', 0);
       }
     })();
     this.syncing = run;
     return run;
   }
 
-  private openManifest(ciphertext: Uint8Array): VaultManifest {
-    const plain = decryptBytes(this.key(), ciphertext);
+  private openManifest(ciphertext: Uint8Array, key: Uint8Array = this.key()): VaultManifest {
+    const plain = decryptBytes(key, ciphertext);
     if (!plain) throw new CloudError(0, 'manifest undecryptable');
     const m = JSON.parse(unpackData(plain)) as VaultManifest;
     if (!m || m.v !== MANIFEST_V || !Array.isArray(m.entries)) throw new CloudError(0, 'manifest malformed');
     return m;
   }
 
-  private sealManifest(m: VaultManifest): Uint8Array {
-    return encryptBytes(this.key(), packData(JSON.stringify(m)));
+  private sealManifest(m: VaultManifest, key: Uint8Array = this.key()): Uint8Array {
+    return encryptBytes(key, packData(JSON.stringify(m)));
   }
 
-  private keyHash(key: string, raw: string): string {
+  private keyHash(key: string, raw: string): Promise<string> {
     if (isMediaKey(key)) return this.p.localHash(raw.slice(raw.indexOf(',') + 1));
     return this.p.localHash(canonicalRecord(key, raw));
   }
 
-  private async syncOnce(): Promise<void> {
+  private async syncOnce(gen: number): Promise<void> {
     if (!this.link) return;
+    await this.ensureDeviceKey();
+    this.stopIfStale(gen);
     const api = this.api();
-    const vc = this.creds();
+    const vc = await this.creds();
+    this.stopIfStale(gen);
     const removedAtStart: Record<string, number> = {...(this.link.removed || {})};
     const local = await this.p.snapshot();
     const localHashes: Record<string, string> = {};
     const missing = new Set<string>();
-    let hashed = 0;
+    let sinceYield = 0;
     for (const k in local) {
       if (local[k] === CLOUD_MEDIA_MISSING) {
         missing.add(k);
         continue;
       }
-      localHashes[k] = this.keyHash(k, local[k]);
-      if (++hashed % HASH_YIELD_KEYS === 0) await new Promise<void>(r => setTimeout(r, 0));
+      localHashes[k] = await this.keyHash(k, local[k]);
+      sinceYield += local[k].length;
+      if (sinceYield >= HASH_YIELD_CHARS) {
+        sinceYield = 0;
+        await new Promise<void>(r => setTimeout(r, 0));
+      }
     }
 
     for (let attempt = 0; attempt < 3; attempt++) {
+      this.stopIfStale(gen);
       const remote = await api.getManifest(vc);
+      this.stopIfStale(gen);
       const remoteManifest: VaultManifest = remote
         ? this.openManifest(remote.ciphertext)
         : {v: MANIFEST_V, version: 0, created: this.p.now(), updated: this.p.now(), devices: [], entries: []};
@@ -482,6 +777,7 @@ export class CloudService {
       const R = new Map(remoteManifest.entries.map(e => [e.path, e]));
       this.unbackedMedia = [...missing].filter(k => !R.has(k));
       const K = this.link.known;
+      const reupload = !this.p.skipMediaReupload;
 
       const toUpload: string[] = [];
       const toPull: ManifestEntry[] = [];
@@ -499,6 +795,8 @@ export class CloudService {
             toRemoveLocal.push(k);
           } else if (r.hash !== knownRemote) {
             toPull.push(r);
+          } else if (reupload && isMediaKey(k) && (r.enc || 0) < MEDIA_ENCODING) {
+            toUpload.push(k);
           }
           continue;
         }
@@ -535,12 +833,24 @@ export class CloudService {
       let done = 0;
       const uploaded: ManifestEntry[] = [];
       const uploadedLocal: Record<string, string> = {};
+      const leftOut = new Set<string>();
+      let sentSavedAt = this.p.now();
       for (const k of toUpload) {
-        const entry = await this.uploadKey(api, vc, k, local[k], localHashes[k], remoteObjects);
+        const entry = await this.uploadKey(api, vc, k, local[k], localHashes[k], remoteObjects, gen);
+        this.stopIfStale(gen);
         if (entry) {
           uploaded.push(entry);
           merged.set(k, entry);
           uploadedLocal[k] = localHashes[k];
+          this.link.sent = this.link.sent || {};
+          this.link.sent[k] = {hash: localHashes[k], entry};
+          if (this.p.now() - sentSavedAt >= SENT_SAVE_MS) {
+            sentSavedAt = this.p.now();
+            await this.p.saveLink(this.link);
+            this.stopIfStale(gen);
+          }
+        } else {
+          leftOut.add(k);
         }
         done++;
         this.progress = toUpload.length ? done / toUpload.length : 1;
@@ -549,7 +859,7 @@ export class CloudService {
 
       const changedManifest = uploaded.length > 0 || merged.size !== R.size || [...merged.keys()].some(k => !R.has(k));
       let newVersion = remoteVersion;
-      if (changedManifest || !remote) {
+      if (changedManifest) {
         const next: VaultManifest = {
           v: MANIFEST_V,
           version: remoteVersion + 1,
@@ -565,19 +875,29 @@ export class CloudService {
           if (e instanceof CloudError && e.status === 409) continue;
           throw e;
         }
+        this.stopIfStale(gen);
+        delete this.link.sent;
       }
 
       let pulled: Record<string, string> = {};
       if (toPull.length || toRemoveLocal.length) {
-        pulled = await this.pullEntries(api, vc, toPull, false);
-        for (const k of toRemoveLocal) await this.p.remove(k);
+        pulled = await this.pullEntries(api, vc, toPull, false, gen);
+        for (const k of toRemoveLocal) {
+          this.stopIfStale(gen);
+          await this.p.remove(k);
+        }
+        this.stopIfStale(gen);
       }
 
       const known: Record<string, {id: string; hash: string; remote?: string}> = {};
       for (const e of merged.values()) {
+        if (leftOut.has(e.path)) continue;
         const localNow = uploadedLocal[e.path] ?? pulled[e.path] ?? localHashes[e.path];
         if (localNow === undefined) continue;
         known[e.path] = {id: e.id, hash: localNow, remote: e.hash};
+      }
+      for (const k of leftOut) {
+        if (K[k]) known[k] = K[k];
       }
       this.link.known = known;
       if (this.link.removed) {
@@ -588,6 +908,7 @@ export class CloudService {
       }
       this.link.manifestVersion = newVersion;
       this.link.lastCheckAt = this.p.now();
+      this.link.vaultEntries = merged.size;
       this.pendingKeys = 0;
       await this.p.saveLink(this.link);
       return;
@@ -595,22 +916,30 @@ export class CloudService {
     throw new CloudError(409, 'manifest version conflict', 'Another device kept changing the vault; will retry.');
   }
 
-  private async uploadKey(api: CloudApi, vc: VaultCreds, key: string, raw: string, hash: string, remoteObjects: Set<string>): Promise<ManifestEntry | null> {
+  private async uploadKey(api: CloudApi, vc: VaultCreds, key: string, raw: string, hash: string, remoteObjects: Set<string>, gen: number): Promise<ManifestEntry | null> {
+    const sent = this.link?.sent?.[key];
+    if (sent && sent.hash === hash && (await api.objectStatus(vc, sent.entry.id)).exists) {
+      remoteObjects.add(sent.entry.id);
+      return sent.entry;
+    }
     const kind = kindOf(key);
     const tier = tierOf(kind);
     let plain: Uint8Array;
     let mime: string | undefined;
+    let enc: number | undefined;
     let canonical = hash;
     if (isMediaKey(key)) {
-      const encoded = await this.p.reencodeImage(raw);
+      const encoded = await this.p.reencodeImage(raw, key);
       const parts = splitDataUri(encoded);
       if (!parts) return null;
       plain = parts.bytes;
       mime = parts.mime;
-      canonical = this.keyHash(key, encoded);
+      enc = MEDIA_ENCODING;
+      canonical = await this.keyHash(key, encoded);
     } else {
       plain = packData(raw);
     }
+    this.stopIfStale(gen);
     const kept = this.sealed.get(key);
     const ct = kept && kept.hash === hash ? kept.ct : encryptBytes(this.key(), plain);
     if (ct.length > OBJECT_MAX_BYTES) {
@@ -622,8 +951,6 @@ export class CloudService {
     try {
       await api.putObject(vc, id, tier, ct);
     } catch (e) {
-      // The vault's tier is at its cap for this object: leave the key out of this run,
-      // keep the rest syncing, and report it. The vault keeps its last good copy.
       if (e instanceof CloudError && e.status === 413 && /quota/i.test(e.code)) {
         if (!this.overQuota.includes(key)) this.overQuota.push(key);
         return null;
@@ -632,7 +959,7 @@ export class CloudService {
     }
     this.dropSealed(key);
     remoteObjects.add(id);
-    return {path: key, id, size: plain.length, kind, tier, hash: canonical, mime};
+    return {path: key, id, size: plain.length, kind, tier, hash: canonical, mime, enc};
   }
 
   private keepSealed(key: string, hash: string, ct: Uint8Array): void {
@@ -659,7 +986,7 @@ export class CloudService {
     return this.pullEntries(api, vc, manifest.entries, importing);
   }
 
-  private async pullEntries(api: CloudApi, vc: VaultCreds, entries: ManifestEntry[], importing: boolean): Promise<Record<string, string>> {
+  private async pullEntries(api: CloudApi, vc: VaultCreds, entries: ManifestEntry[], importing: boolean, gen?: number): Promise<Record<string, string>> {
     const landed: Record<string, string> = {};
     if (!entries.length) return landed;
     const values: Record<string, string> = {};
@@ -669,6 +996,7 @@ export class CloudService {
     let done = 0;
     for (const e of entries) {
       const ct = await api.getObject(vc, e.id);
+      this.stopIfStale(gen);
       if (objectIdOf(ct) !== e.id) throw new CloudError(0, 'object hash mismatch', `Downloaded object ${e.id} did not match its ID.`);
       const plain = decryptBytes(this.key(), ct);
       if (!plain) throw new CloudError(0, 'object undecryptable', `Object ${e.id} could not be decrypted.`);
@@ -679,13 +1007,14 @@ export class CloudService {
       else if (e.path === CLOUD_FRIENDS_KEY) friendsRaw = raw;
       else if (e.path === CLOUD_TOMBSTONES_KEY) tombstonesRaw = raw;
       else values[e.path] = raw;
-      landed[e.path] = this.keyHash(e.path, raw);
+      landed[e.path] = await this.keyHash(e.path, raw);
       done++;
       this.progress = done / entries.length;
       this.emit();
     }
     if (importing && identityRaw) await this.p.adoptIdentity(identityRaw, friendsRaw);
     else if (friendsRaw || tombstonesRaw) await this.p.mergeFriends(friendsRaw, tombstonesRaw);
+    this.stopIfStale(gen);
     if (Object.keys(values).length) await this.p.apply(values);
     return landed;
   }

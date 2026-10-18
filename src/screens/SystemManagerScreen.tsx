@@ -421,14 +421,14 @@ export const SystemManagerScreen = ({theme: T, onViewMember, startBrowsing, head
                       {text: t('common.cancel'), style: 'cancel'},
                       {text: t('network.remove'), style: 'destructive', onPress: () => onRemoveFromFront(m.id)},
                     ])}
-                    accessibilityRole="button" accessibilityLabel={`${t('members.removeFromFront')} — ${m.name}`}
+                    accessibilityRole="button" accessibilityLabel={`${t('members.removeFromFront')} - ${m.name}`}
                     hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.dangerBg, borderColor: `${T.danger}40`}}>
                     <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(15), color: T.danger}} allowFontScaling={false}>−</Text>
                   </TouchableOpacity>
                 ) : (
                   <TouchableOpacity
                     onPress={() => setQuickFrontFor(m)}
-                    accessibilityRole="button" accessibilityLabel={`${t('members.addToFront')} — ${m.name}`}
+                    accessibilityRole="button" accessibilityLabel={`${t('members.addToFront')} - ${m.name}`}
                     hitSlop={{top: 8, bottom: 8, left: 8, right: 8}} style={{width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
                     <PlusMinusIcon size={12} color={T.accent} />
                   </TouchableOpacity>

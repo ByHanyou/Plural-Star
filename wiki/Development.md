@@ -37,5 +37,3 @@ npm run build-android-release
 ## Documentation
 
 - Privacy policy site: `docs/index.html`
-- Android reference notes: `docs/android_build_config_reference.txt`
-- Android manifest reference: `docs/android_manifest_reference.xml`

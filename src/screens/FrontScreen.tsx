@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   AccessibilityInfo,
+  Alert,
 } from 'react-native';
 import type {GestureResponderHandlers} from 'react-native';
 import {Text} from '../components/AppText';
@@ -16,7 +17,7 @@ import {useAppStore} from '../store/appStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
 import {useDragReorder} from '../hooks/useDragReorder';
 import type {DragReorderState} from '../hooks/useDragReorder';
-import {updateFront, saveFrontSortMode, saveFrontCustomOrder} from '../store/actions';
+import {removeFromFront, saveFrontSortMode, saveFrontCustomOrder} from '../store/actions';
 import {
   FrontState,
   FrontTier,
@@ -40,11 +41,6 @@ interface Props {
   onEditDetails: (tier: FrontTierKey) => void;
   onOpenMember?: (id: string) => void;
 }
-
-const stripMember = (tier: FrontTier, id: string): FrontTier => ({
-  ...tier,
-  memberIds: tier.memberIds.filter(x => x !== id),
-});
 
 const TIER_I18N_KEY: Record<FrontTierKey, string> = {
   primary: 'tier.primaryFront',
@@ -297,12 +293,11 @@ export const FrontScreen = ({
   const dragProps = {custom: customOn, drag, dragging, registerHeight, makeHandlePanHandlers, onStep: stepFronter};
 
   const quickRemove = (memberId: string) => {
-    if (!front) return;
-    updateFront(
-      stripMember(front.primary, memberId),
-      stripMember(front.coFront, memberId),
-      stripMember(front.coConscious, memberId),
-    ).catch(() => {});
+    const name = getMember(memberId)?.name || '';
+    Alert.alert(t('front.quickRemove', {name}), t('members.removeFromFrontMsg', {name}), [
+      {text: t('common.cancel'), style: 'cancel'},
+      {text: t('network.remove'), style: 'destructive', onPress: () => { removeFromFront(memberId).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''))); }},
+    ]);
   };
 
   return (

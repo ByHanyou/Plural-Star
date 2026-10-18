@@ -12,6 +12,9 @@ const APP_SALT = utf8ToBytes('PluralStarCloudVault/v1');
 const LABEL_LOOKUP = utf8ToBytes('lookup');
 const LABEL_AUTH = utf8ToBytes('auth');
 const LABEL_KEK = utf8ToBytes('kek');
+const KDF_CHECK_PASSWORD = 'Plural Star vault check ✦ 2026';
+const KDF_CHECK_HEX = 'bab91b985a030977df4e9a9eb2b616bb1e70a54e82f346d2e568b8c6583c3f11';
+const FAST_KDF_TIMEOUT_MS = 20000;
 
 export interface VaultCredentials {
   lookupId: string;
@@ -19,17 +22,57 @@ export interface VaultCredentials {
   kek: Uint8Array;
 }
 
+type Argon2idHook = (password: string, salt: Uint8Array) => Promise<Uint8Array>;
+
+let fastKdfCheck: Promise<boolean> | null = null;
+
+const hasLoneSurrogate = (s: string): boolean => {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c < 0xd800 || c > 0xdfff) continue;
+    if (c > 0xdbff) return true;
+    const next = s.charCodeAt(i + 1);
+    if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+    i++;
+  }
+  return false;
+};
+
+const runFastKdf = async (hook: Argon2idHook, password: string): Promise<Uint8Array | null> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const out = await Promise.race([
+      hook(password, APP_SALT.slice()),
+      new Promise<null>(resolve => (timer = setTimeout(() => resolve(null), FAST_KDF_TIMEOUT_MS))),
+    ]);
+    return out instanceof Uint8Array && out.length === 32 ? out : null;
+  } catch {
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
+const fastKdfTrusted = (hook: Argon2idHook): Promise<boolean> => {
+  if (!fastKdfCheck) fastKdfCheck = runFastKdf(hook, KDF_CHECK_PASSWORD).then(out => !!out && bytesToHex(out) === KDF_CHECK_HEX);
+  return fastKdfCheck;
+};
+
 export const deriveVaultCredentials = async (
   password: string,
   onProgress?: (fraction: number) => void,
+  argon2id?: Argon2idHook,
 ): Promise<VaultCredentials> => {
-  const material = await argon2idAsync(utf8ToBytes(password), APP_SALT, {
-    ...VAULT_KDF,
-    dkLen: 32,
-    maxmem: KDF_MAXMEM,
-    asyncTick: 20,
-    onProgress,
-  });
+  const fast = argon2id && !hasLoneSurrogate(password) && (await fastKdfTrusted(argon2id)) ? await runFastKdf(argon2id, password) : null;
+  const material =
+    fast ||
+    (await argon2idAsync(utf8ToBytes(password), APP_SALT, {
+      ...VAULT_KDF,
+      dkLen: 32,
+      maxmem: KDF_MAXMEM,
+      asyncTick: 20,
+      onProgress,
+    }));
   const lookupId = bytesToHex(hkdf(sha256, material, APP_SALT, LABEL_LOOKUP, 32));
   const authSecret = bytesToHex(hkdf(sha256, material, APP_SALT, LABEL_AUTH, 32));
   const kek = hkdf(sha256, material, APP_SALT, LABEL_KEK, 32);

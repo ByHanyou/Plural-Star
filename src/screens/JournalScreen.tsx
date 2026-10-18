@@ -1,6 +1,9 @@
-import React, {useState, useMemo, useEffect} from 'react';
-import {View, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet, AccessibilityInfo, Platform} from 'react-native';
+import React, {useState, useMemo, useEffect, useCallback, useRef} from 'react';
+import {View, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet, AccessibilityInfo} from 'react-native';
+import type {ScrollViewProps} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
+import type {KeyboardAwareScrollViewRef} from 'react-native-keyboard-controller';
+import {FlashList, useMappingHelper} from '@shopify/flash-list';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
@@ -23,6 +26,90 @@ interface Props {
 
 type JournalSubTab = 'entries' | 'templates';
 
+const JournalScrollView = React.forwardRef<KeyboardAwareScrollViewRef, ScrollViewProps>(function JournalScrollView(props, ref) {
+  return <KeyboardAwareScrollView {...props} ref={ref} bottomOffset={24} />;
+});
+
+const EntryGap = () => <View style={{height: 9}} />;
+const entryKey = (e: JournalEntry) => e.id;
+const NO_ENTRIES: JournalEntry[] = [];
+const NO_ANCHOR = {disabled: true};
+
+interface JournalEntryRowProps {
+  entry: JournalEntry;
+  isLocked: boolean;
+  activeTagKey: string | null;
+  memberById: Map<string, Member>;
+  T: ThemeColors;
+  fs: (n: number) => number;
+  t: (key: string, opts?: any) => string;
+  onMentionPress?: (memberId: string) => void;
+  onTogglePin: (entry: JournalEntry) => void;
+  onEditTap: (entry: JournalEntry) => void;
+  onExportTap: (entry: JournalEntry) => void;
+  onDeleteTap: (entry: JournalEntry) => void;
+  onViewTap: (entry: JournalEntry) => void;
+  onTagPress: (tag: string, selected: boolean) => void;
+}
+
+const JournalEntryRow = React.memo(function JournalEntryRow({
+  entry: e, isLocked, activeTagKey, memberById, T, fs, t,
+  onMentionPress, onTogglePin, onEditTap, onExportTap, onDeleteTap, onViewTap, onTagPress,
+}: JournalEntryRowProps) {
+  const {getMappingKey} = useMappingHelper();
+  const authors = (e.authorIds || []).map(id => memberById.get(id)).filter(Boolean) as Member[];
+  return (
+    <View style={[s.card, {backgroundColor: e.pinned ? `${T.accent}10` : T.card, borderColor: e.pinned ? `${T.accent}50` : T.border}]}>
+      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4}}>
+        <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text, flex: 1, marginRight: 8}} numberOfLines={2}>{e.pinned ? '📌 ' : ''}{e.title || t('common.untitled')}</Text>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+          {isLocked && <Text style={{fontSize: fs(13)}} accessibilityLabel={t('journal.locked')}>🔒</Text>}
+          <TouchableOpacity onPress={() => onTogglePin(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityState={{selected: !!e.pinned}} accessibilityLabel={e.pinned ? t('noteboard.unpin') : t('noteboard.pin')}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(12), color: e.pinned ? T.accent : T.muted}}>📌</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => onEditTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.editItem', {name: e.title || t('common.untitled')})} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => onExportTap(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.exportItem', {name: e.title || t('common.untitled')})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.dim}}>↑</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => onDeleteTap(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: e.title || t('common.untitled')})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.muted}}>✕</Text></TouchableOpacity>
+        </View>
+      </View>
+      <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 8}}>{fmtTime(e.timestamp)}</Text>
+      {authors.length > 0 && (
+        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8}}>
+          {authors.map((m, ai) => (
+            <View key={getMappingKey(m.id, ai)} style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3,
+              borderRadius: 999, borderWidth: 1, backgroundColor: `${m.color}20`, borderColor: `${m.color}45`}}>
+              <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
+              <Text style={{fontSize: fs(11), fontWeight: '600', color: m.color}}>{m.name}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+      {isLocked ? (
+        <TouchableOpacity onPress={() => onViewTap(e)} accessibilityRole="button" accessibilityLabel={t('journal.tapToUnlock')} hitSlop={{top: 7, bottom: 7}} style={{paddingVertical: 8, alignItems: 'center'}}>
+          <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic'}}>{t('journal.tapToUnlock')}</Text>
+        </TouchableOpacity>
+      ) : (
+        <>
+          {e.body ? (
+            <TouchableOpacity onPress={() => onViewTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint={t('journal.openEntryHint')}>
+              <View style={{maxHeight: 80, overflow: 'hidden'}} pointerEvents="none"><RichText text={e.body} T={T} numberOfLines={4} memberById={memberById} onMentionPress={onMentionPress} /></View>
+            </TouchableOpacity>
+          ) : null}
+          {(e.hashtags || []).length > 0 && (
+            <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8}}>
+              {(e.hashtags || []).map((tag, ti) => { const sel = activeTagKey === tagKey(tag); return (
+                <TouchableOpacity key={getMappingKey(`${ti}-${tag}`, ti)} onPress={() => onTagPress(tag, sel)} activeOpacity={0.7}
+                  accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={tag}
+                  hitSlop={{top: 5, bottom: 10}} style={[s.tagChip, {backgroundColor: sel ? `${T.info}25` : `${T.info}12`, borderColor: sel ? `${T.info}60` : `${T.info}30`}]}>
+                  <Text style={{fontSize: fs(11), color: T.info}}>{tag}</Text>
+                </TouchableOpacity>
+              ); })}
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+});
+
 export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, onMentionPress}: Props) => {
   const kbHeight = useKeyboardHeight();
   const journal = useAppStore(s => s.journal);
@@ -31,7 +118,15 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
   const systemJournalPassword = useAppStore(s => s.system.journalPassword);
   const onSaveTemplates = saveJournalTemplates;
   const {t} = useTranslation();
-  const fs = fontScale(T);
+  const fs = useMemo(() => fontScale(T), [T]);
+  const onEditRef = useRef(onEdit);
+  onEditRef.current = onEdit;
+  const onDeleteRef = useRef(onDelete);
+  onDeleteRef.current = onDelete;
+  const onTogglePinRef = useRef(onTogglePin);
+  onTogglePinRef.current = onTogglePin;
+  const onMentionPressRef = useRef(onMentionPress);
+  onMentionPressRef.current = onMentionPress;
   const [journalUnlocked, setJournalUnlocked] = useState(!systemJournalPassword);
   const [globalPwInput, setGlobalPwInput] = useState('');
   const [globalPwError, setGlobalPwError] = useState(false);
@@ -114,31 +209,36 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
 
   const handleGlobalUnlock = () => {
     if (globalPwInput === systemJournalPassword) {setJournalUnlocked(true); setGlobalPwError(false); setGlobalPwInput('');}
-    else {setGlobalPwError(true); if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));}
+    else {setGlobalPwError(true); AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));}
   };
 
-  const handleEntryTap = (entry: JournalEntry) => {
-    if (!entry.password || unlockedEntries.has(entry.id)) {onEdit(entry);}
+  const handleEntryTap = useCallback((entry: JournalEntry) => {
+    if (!entry.password || unlockedEntries.has(entry.id)) {onEditRef.current(entry);}
     else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'edit'});}
-  };
+  }, [unlockedEntries]);
 
-  const handleViewTap = (entry: JournalEntry) => {
+  const handleViewTap = useCallback((entry: JournalEntry) => {
     if (!entry.password || unlockedEntries.has(entry.id)) {setViewEntry(entry);}
     else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'view'});}
-  };
+  }, [unlockedEntries]);
 
-  const handleExportTap = (entry: JournalEntry) => {
+  const handleExportTap = useCallback((entry: JournalEntry) => {
     if (!entry.password || unlockedEntries.has(entry.id)) {setExportMenuEntry(entry);}
     else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'export'});}
-  };
+  }, [unlockedEntries]);
 
-  const handleDeleteTap = (entry: JournalEntry) => {
+  const handleDeleteTap = useCallback((entry: JournalEntry) => {
     if (!entry.password || unlockedEntries.has(entry.id)) {
-      Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDelete(entry.id)}]);
+      Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDeleteRef.current(entry.id)}]);
     } else {
       setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'delete'});
     }
-  };
+  }, [unlockedEntries, t]);
+
+  const togglePin = useCallback((entry: JournalEntry) => onTogglePinRef.current(entry), []);
+  const mentionPress = useCallback((memberId: string) => onMentionPressRef.current?.(memberId), []);
+  const rowMentionPress = onMentionPress ? mentionPress : undefined;
+  const selectTag = useCallback((tag: string, selected: boolean) => {setActiveTag(selected ? null : tag); setTagSearch('');}, []);
 
   const handleEntryPwConfirm = () => {
     if (!entryPwModal) return;
@@ -150,7 +250,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
       else if (entryPwModal.mode === 'export') {setExportMenuEntry(entryPwModal.entry);}
       else {Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDelete(entryPwModal.entry.id)}]);}
       setEntryPwModal(null);
-    } else {setEntryPwError(true); if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));}
+    } else {setEntryPwError(true); AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));}
   };
 
   const handleEntryExport = (entry: JournalEntry, fmt: 'txt' | 'md' | 'json') => {
@@ -165,6 +265,30 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
     run();
   };
 
+  const renderEntry = useCallback(({item}: {item: JournalEntry}) => (
+    <JournalEntryRow
+      entry={item}
+      isLocked={!!item.password && !unlockedEntries.has(item.id)}
+      activeTagKey={activeTagKey}
+      memberById={memberById}
+      T={T}
+      fs={fs}
+      t={t}
+      onMentionPress={rowMentionPress}
+      onTogglePin={togglePin}
+      onEditTap={handleEntryTap}
+      onExportTap={handleExportTap}
+      onDeleteTap={handleDeleteTap}
+      onViewTap={handleViewTap}
+      onTagPress={selectTag}
+    />
+  ), [unlockedEntries, activeTagKey, memberById, T, fs, t, rowMentionPress, togglePin, handleEntryTap, handleExportTap, handleDeleteTap, handleViewTap, selectTag]);
+
+  const listExtraData = useMemo(
+    () => ({unlockedEntries, activeTagKey, memberById, T, t, rowMentionPress}),
+    [unlockedEntries, activeTagKey, memberById, T, t, rowMentionPress],
+  );
+
   if (!journalUnlocked) {
     return (
       <View style={{flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32}}>
@@ -175,7 +299,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
           accessibilityLabel={t('journal.password')} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
           style={[s.input, {width: '100%', backgroundColor: T.surface, color: T.text, borderColor: globalPwError ? T.danger : T.border, marginBottom: 6, fontSize: fs(15)}]}
           onSubmitEditing={handleGlobalUnlock} />
-        {globalPwError && <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={{fontSize: fs(12), color: T.danger, marginBottom: 10, alignSelf: 'flex-start'}}>{t('journal.incorrectPassword')}</Text>}
+        {globalPwError && <Text accessibilityRole="alert" style={{fontSize: fs(12), color: T.danger, marginBottom: 10, alignSelf: 'flex-start'}}>{t('journal.incorrectPassword')}</Text>}
         <TouchableOpacity onPress={handleGlobalUnlock} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('journal.unlockJournal')}
           style={{width: '100%', backgroundColor: T.accent, borderRadius: 8, paddingVertical: 13, alignItems: 'center', marginTop: 8}}>
           <Text style={{fontSize: fs(15), fontWeight: '700', color: initialOn(T.accent)}}>{t('journal.unlockJournal')}</Text>
@@ -184,8 +308,8 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
     );
   }
 
-  return (
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
+  const listHeader = (
+    <>
       <View style={s.headerRow}>
         <Text
           accessibilityRole="header"
@@ -351,80 +475,41 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
           )}
         </View>
       )}
-
-      {!filteredJournal.length ? (
-        <View style={{alignItems: 'center', paddingVertical: 48}}>
-          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◉</Text>
-          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>
-            {activeTag ? t('journal.noEntriesTagged', {tag: activeTag}) : t('journal.noEntries')}
-          </Text>
-          {!activeTag && (
-            <TouchableOpacity onPress={onAdd} activeOpacity={0.7} accessibilityRole="button"
-              hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('journal.writeEntry')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      ) : (
-        <View style={{gap: 9}}>
-          {filteredJournal.map(e => {
-            const authors = (e.authorIds || []).map(id => getMember(id)).filter(Boolean) as Member[];
-            const isLocked = !!e.password && !unlockedEntries.has(e.id);
-            return (
-              <View key={e.id} style={[s.card, {backgroundColor: e.pinned ? `${T.accent}10` : T.card, borderColor: e.pinned ? `${T.accent}50` : T.border}]}>
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4}}>
-                  <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text, flex: 1, marginRight: 8}} numberOfLines={2}>{e.pinned ? '📌 ' : ''}{e.title || t('common.untitled')}</Text>
-                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                    {isLocked && <Text style={{fontSize: fs(13)}} accessibilityLabel={t('journal.locked')}>🔒</Text>}
-                    <TouchableOpacity onPress={() => onTogglePin(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityState={{selected: !!e.pinned}} accessibilityLabel={e.pinned ? t('noteboard.unpin') : t('noteboard.pin')}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(12), color: e.pinned ? T.accent : T.muted}}>📌</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleEntryTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.editItem', {name: e.title || t('common.untitled')})} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleExportTap(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.exportItem', {name: e.title || t('common.untitled')})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.dim}}>↑</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDeleteTap(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: e.title || t('common.untitled')})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.muted}}>✕</Text></TouchableOpacity>
-                  </View>
-                </View>
-                <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 8}}>{fmtTime(e.timestamp)}</Text>
-                {authors.length > 0 && (
-                  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8}}>
-                    {authors.map(m => (
-                      <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3,
-                        borderRadius: 999, borderWidth: 1, backgroundColor: `${m.color}20`, borderColor: `${m.color}45`}}>
-                        <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                        <Text style={{fontSize: fs(11), fontWeight: '600', color: m.color}}>{m.name}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-                {isLocked ? (
-                  <TouchableOpacity onPress={() => handleViewTap(e)} accessibilityRole="button" accessibilityLabel={t('journal.tapToUnlock')} hitSlop={{top: 7, bottom: 7}} style={{paddingVertical: 8, alignItems: 'center'}}>
-                    <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic'}}>{t('journal.tapToUnlock')}</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <>
-                    {e.body ? (
-                      <TouchableOpacity onPress={() => handleViewTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint={t('journal.openEntryHint')}>
-                        <View style={{maxHeight: 80, overflow: 'hidden'}} pointerEvents="none"><RichText text={e.body} T={T} numberOfLines={4} members={members} onMentionPress={onMentionPress} /></View>
-                      </TouchableOpacity>
-                    ) : null}
-                    {(e.hashtags || []).length > 0 && (
-                      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8}}>
-                        {(e.hashtags || []).map((tag, ti) => { const sel = activeTagKey === tagKey(tag); return (
-                          <TouchableOpacity key={`${ti}-${tag}`} onPress={() => {setActiveTag(sel ? null : tag); setTagSearch('');}} activeOpacity={0.7}
-                            accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={tag}
-                            hitSlop={{top: 5, bottom: 10}} style={[s.tagChip, {backgroundColor: sel ? `${T.info}25` : `${T.info}12`, borderColor: sel ? `${T.info}60` : `${T.info}30`}]}>
-                            <Text style={{fontSize: fs(11), color: T.info}}>{tag}</Text>
-                          </TouchableOpacity>
-                        ); })}
-                      </View>
-                    )}
-                  </>
-                )}
-              </View>
-            );
-          })}
-        </View>
-      )}
       </>
       )}
+    </>
+  );
+
+  const listEmpty = subTab === 'entries' ? (
+    <View style={{alignItems: 'center', paddingVertical: 48}}>
+      <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◉</Text>
+      <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>
+        {activeTag ? t('journal.noEntriesTagged', {tag: activeTag}) : t('journal.noEntries')}
+      </Text>
+      {!activeTag && (
+        <TouchableOpacity onPress={onAdd} activeOpacity={0.7} accessibilityRole="button"
+          hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
+          <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>{t('journal.writeEntry')}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  ) : null;
+
+  return (
+    <View style={{flex: 1, backgroundColor: T.bg}}>
+      <FlashList
+        data={subTab === 'entries' ? filteredJournal : NO_ENTRIES}
+        renderItem={renderEntry}
+        keyExtractor={entryKey}
+        extraData={listExtraData}
+        ItemSeparatorComponent={EntryGap}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        renderScrollComponent={JournalScrollView}
+        maintainVisibleContentPosition={NO_ANCHOR}
+        contentContainerStyle={s.content}
+        keyboardShouldPersistTaps="handled"
+      />
 
       <JournalTemplateModal
         visible={editingTemplate !== null}
@@ -473,7 +558,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
               </View>
             )}
             <ScrollView style={{flexShrink: 1}} contentContainerStyle={{paddingBottom: 4}}>
-              {viewEntry?.body ? <RichText text={viewEntry.body} T={T} members={members} onMentionPress={onMentionPress} /> : null}
+              {viewEntry?.body ? <RichText text={viewEntry.body} T={T} memberById={memberById} onMentionPress={onMentionPress} /> : null}
               {viewEntry && (viewEntry.hashtags || []).length > 0 && (
                 <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 10}}>
                   {(viewEntry.hashtags || []).map(tag => (
@@ -509,7 +594,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
               accessibilityLabel={t('journal.password')} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
               style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: entryPwError ? T.danger : T.border, marginBottom: 6, fontSize: fs(15)}]}
               onSubmitEditing={handleEntryPwConfirm} />
-            {entryPwError && <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={{fontSize: fs(12), color: T.danger, marginBottom: 10}}>{t('journal.incorrectPassword')}</Text>}
+            {entryPwError && <Text accessibilityRole="alert" style={{fontSize: fs(12), color: T.danger, marginBottom: 10}}>{t('journal.incorrectPassword')}</Text>}
             <View style={{flexDirection: 'row', gap: 8, marginTop: 12}}>
               <TouchableOpacity onPress={() => setEntryPwModal(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                 hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
@@ -525,7 +610,7 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
           </View>
         </View>
       </Modal>
-    </KeyboardAwareScrollView>
+    </View>
   );
 };
 

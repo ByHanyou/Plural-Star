@@ -445,10 +445,10 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
     await store.set(KEYS.relationshipTypes, next);
   };
 
-  const typeLabel = useCallback((td: RelationshipTypeDef): string => (td.preset && !td.overridden) ? t(`relType.${td.id}`, {defaultValue: td.name}) : td.name, [t]);
+  const typeLabel = useCallback((td: RelationshipTypeDef): string => (td.preset && !td.overridden) ? t(`relType.${td.id}`) : td.name, [t]);
   const typeInverseLabel = useCallback((td: RelationshipTypeDef): string => {
     if (!td.directional) return typeLabel(td);
-    return (td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`, {defaultValue: td.inverseName || td.name}) : (td.inverseName || td.name);
+    return (td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`) : (td.inverseName || td.name);
   }, [t, typeLabel]);
 
   const roleOfOther = (r: Relationship, memberId: string): string => {

@@ -225,7 +225,7 @@ const writeWithBackup = async (key: string, json: string, value: unknown): Promi
       if (value != null) {
         const ok = await writeBackup(key, value);
         if (!asyncStorageOk && !ok) {
-          console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes — data lost this session`);
+          console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes - data lost this session`);
         }
       }
     } else {
@@ -233,7 +233,7 @@ const writeWithBackup = async (key: string, json: string, value: unknown): Promi
       if (!isEmpty) {
         const ok = await writeBackup(key, value);
         if (!asyncStorageOk && !ok) {
-          console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes — data lost this session`);
+          console.error(`[STORAGE] CRITICAL: ${key} failed BOTH AsyncStorage AND filesystem backup writes - data lost this session`);
         }
       } else {
         try {

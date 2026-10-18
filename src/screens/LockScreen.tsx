@@ -25,7 +25,7 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
       onUnlock();
     } else {
       setError(t('lock.wrongPassword'));
-      if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(t('lock.wrongPassword'));
+      AccessibilityInfo.announceForAccessibility(t('lock.wrongPassword'));
     }
   };
 
@@ -48,7 +48,7 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
             returnKeyType="go"
             style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: error ? T.danger : T.border, fontSize: fs(14)}]}
           />
-          {error ? <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, marginTop: -8}} accessibilityLiveRegion="polite">{error}</Text> : null}
+          {error ? <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, marginTop: -8}}>{error}</Text> : null}
           <TouchableOpacity onPress={submit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('lock.unlock')} style={[s.btn, {backgroundColor: T.accent}]}>
             <Text style={[s.btnText, {color: initialOn(T.accent), fontSize: fs(15)}]}>{t('lock.unlock')}</Text>
           </TouchableOpacity>

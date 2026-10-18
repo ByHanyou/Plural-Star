@@ -20,7 +20,6 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
   }, [appSettings.notificationsEnabled, persistent]);
 
   useEffect(() => {
-    // Before the data is loaded the front is still null; clearing then would stop the foreground service just as the real post starts it.
     if (!loaded) return;
     if (appSettings.notificationsEnabled && persistent) { showFrontNotification(front, membersRef.current, systemName).catch(e => console.error('[PS] notif error:', e)); }
     else { clearFrontNotification().catch(e => console.error('[PS] clear notif error:', e)); }

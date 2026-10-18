@@ -1,4 +1,4 @@
-import React, {useState, useMemo, useCallback, useDeferredValue, useRef, useEffect} from 'react';
+import React, {useState, useMemo, useCallback, useDeferredValue, useRef, useEffect, startTransition} from 'react';
 import {View, ScrollView, TouchableOpacity, StyleSheet, Alert, Modal, AccessibilityInfo, Image, findNodeHandle} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {Avatar} from '../components/Avatar';
@@ -64,7 +64,6 @@ const MemberCard = React.memo(function MemberCard({
   front, allFrontIds, groups, T, fs, t,
   onActivate, onToggleSelect, onEnterSelection, onReorder, onQuickFront, onRemoveFromFront, fields, prevName, nextName, dragHandle,
 }: MemberCardProps) {
-  // Keys inside a recycled list item must come from FlashList's mapping helper, not from the data, or recycling re-creates the subtree.
   const {getMappingKey} = useMappingHelper();
   const tier = getMemberTier(m.id, front);
   const isFronting = allFrontIds.has(m.id);
@@ -89,7 +88,7 @@ const MemberCard = React.memo(function MemberCard({
       style={[s.card, {backgroundColor: cardBg, borderColor: cardBorder, borderWidth: selectionMode && isSelected ? 2 : 1, marginBottom: 8, overflow: 'hidden'}]}>
       {bannerBg && !selectionMode && (
         <>
-          <Image source={{uri: bannerBg}} accessibilityElementsHidden importantForAccessibility="no" style={StyleSheet.absoluteFill as any} resizeMode="cover" />
+          <Image source={{uri: bannerBg}} accessibilityElementsHidden importantForAccessibility="no" style={StyleSheet.absoluteFill as any} resizeMode="cover" resizeMethod="resize" />
           <View style={[StyleSheet.absoluteFill as any, {backgroundColor: `${T.card}C8`}]} accessibilityElementsHidden importantForAccessibility="no" />
         </>
       )}
@@ -153,6 +152,29 @@ const MemberCard = React.memo(function MemberCard({
           </View>
         )}
       </View>
+    </View>
+  );
+});
+
+const AlphaRail = React.memo(function AlphaRail({show, letters, color, fs, onJump}: {
+  show: boolean;
+  letters: string[];
+  color: string;
+  fs: (n: number) => number;
+  onJump: (letter: string) => void;
+}) {
+  const [railH, setRailH] = useState(0);
+  if (!show) return null;
+  const railItemBase = fs(9) + 3;
+  const railItemH = railH > 0 && letters.length > 0 ? Math.min(railItemBase, railH / letters.length) : railItemBase;
+  const railScale = railItemH / railItemBase;
+  return (
+    <View style={{position: 'absolute', right: 1, top: 96, bottom: 96, justifyContent: 'center'}} onLayout={e => setRailH(e.nativeEvent.layout.height)}>
+      {letters.map(L => (
+        <TouchableOpacity key={L} onPress={() => onJump(L)} hitSlop={{left: 10, right: 4, top: railScale < 1 ? 0 : 1, bottom: railScale < 1 ? 0 : 1}} accessibilityRole="button" accessibilityLabel={L} style={{paddingHorizontal: 3, height: railItemH, justifyContent: 'center'}}>
+          <Text style={{fontSize: fs(9) * railScale, lineHeight: railItemH, fontWeight: '700', color}} allowFontScaling={false}>{L}</Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 });
@@ -264,6 +286,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   const {t} = useTranslation();
   const fs = useCallback(fontScale(T), [T.textScale]);
   const [memberTab, setMemberTab] = useState<'active' | 'facets' | 'customFronts'>('active');
+  const [pressedTab, setPressedTab] = useState<'active' | 'facets' | 'customFronts'>('active');
   const [query, setQuery] = useState('');
   const [activeGroup, setActiveGroup] = useState<string | null>(null);
   const [activeTag, setActiveTag] = useState<string | null>(null);
@@ -315,7 +338,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   }, []);
   const exitSelection = () => {
     setSelectionMode(false);
-    setSelectedIds(new Set());
+    setSelectedIds(prev => (prev.size ? new Set() : prev));
   };
   const toggleSelected = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -342,10 +365,13 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
   }, [memberTab]);
   const switchTab = (tab: 'active' | 'facets' | 'customFronts') => {
     if (__DEV__) subTabStart.current = {tab, at: Date.now()};
-    setMemberTab(tab);
-    setQuery(''); setActiveGroup(null); setActiveTag(null);
-    searchRef.current?.clear();
-    exitSelection();
+    setPressedTab(tab);
+    startTransition(() => {
+      setMemberTab(tab);
+      setQuery(''); setActiveGroup(null); setActiveTag(null);
+      searchRef.current?.clear();
+      exitSelection();
+    });
   };
 
   const confirmBulkArchive = () => {
@@ -515,7 +541,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     return () => clearTimeout(id);
   }, [deferredQuery, activeGroup, activeTag, memberTab]);
 
-  const jumpToLetter = (letter: string) => {
+  const jumpToLetter = useCallback((letter: string) => {
     const firstChar = (m: Member): string => railFirstChar(m.name);
     let idx = filtered.findIndex(m => firstChar(m) === letter);
     if (idx < 0) {
@@ -525,9 +551,8 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
     }
     if (idx < 0 && filtered.length > 0) idx = filtered.length - 1;
     if (idx >= 0) { try { listRef.current?.scrollToIndex({index: idx, animated: false, viewPosition: 0}); } catch {} }
-  };
+  }, [filtered, sortMode]);
   const showRail = !selectionMode && (sortMode === 'alphabetical' || sortMode === 'reverse-alphabetical') && filtered.length > 12;
-  const [railH, setRailH] = useState(0);
   const railLetters = useMemo(() => {
     const set = new Set(ALPHABET);
     for (const m of filtered) {
@@ -589,7 +614,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
 
   const renderMember = useCallback(({item: m, index}: {item: Member; index: number}) => (
     <View
-      onLayout={e => registerHeight(m.id, e.nativeEvent.layout.height)}
+      onLayout={reorderOn && showReorder ? e => registerHeight(m.id, e.nativeEvent.layout.height) : undefined}
       style={{
         borderTopWidth: 2,
         borderTopColor: dragging && drag.key !== m.id && drag.siblings[drag.target] === m.id ? T.accent : 'transparent',
@@ -771,9 +796,9 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flex: 1}} contentContainerStyle={{alignItems: 'center'}}>
           {(['active', 'facets', 'customFronts'] as const).map(tab => (
             <TouchableOpacity key={tab} onPress={() => switchTab(tab)} activeOpacity={0.7}
-              accessibilityRole="tab" accessibilityState={{selected: memberTab === tab}}
-              hitSlop={{top: 6, bottom: 6}} style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: memberTab === tab ? T.accent : 'transparent'}}>
-              <Text style={{fontSize: fs(13), color: memberTab === tab ? T.accent : T.dim, fontWeight: memberTab === tab ? '600' : '400'}} numberOfLines={1}>
+              accessibilityRole="tab" accessibilityState={{selected: pressedTab === tab}}
+              hitSlop={{top: 6, bottom: 6}} style={{paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: pressedTab === tab ? T.accent : 'transparent'}}>
+              <Text style={{fontSize: fs(13), color: pressedTab === tab ? T.accent : T.dim, fontWeight: pressedTab === tab ? '600' : '400'}} numberOfLines={1}>
                 {tab === 'active' ? (listFields.count !== false && rosterCount > 0 ? t('members.titleCount', {n: fmtNum(rosterCount, 0)}) : t('members.title'))
                   : tab === 'facets' ? (listFields.count !== false && facetCount > 0 ? t('members.facetsCount', {n: fmtNum(facetCount, 0)}) : t('members.facets'))
                   : (listFields.count !== false && customFrontCount > 0 ? t('members.customFrontsCount', {n: fmtNum(customFrontCount, 0)}) : t('members.customFronts'))}
@@ -804,7 +829,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 6}}>
           <View accessible accessibilityRole="adjustable" accessibilityLabel={t('memberGroups.title')}
             accessibilityValue={{text: activeGroupName}}
-            accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+            accessibilityActions={[{name: 'increment', label: t('a11y.nextGroup')}, {name: 'decrement', label: t('a11y.previousGroup')}]}
             onAccessibilityAction={e => stepGroup(e.nativeEvent.actionName === 'increment' ? 1 : -1)}>
             <View style={{flexDirection: 'row', gap: 6}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <TouchableOpacity onPress={() => setActiveGroup(null)} activeOpacity={0.7}
@@ -831,7 +856,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 8}}>
           <View accessible accessibilityRole="adjustable" accessibilityLabel={t('modal.tags')}
             accessibilityValue={{text: activeTag || t('members.allTags')}}
-            accessibilityActions={[{name: 'increment'}, {name: 'decrement'}]}
+            accessibilityActions={[{name: 'increment', label: t('a11y.nextTag')}, {name: 'decrement', label: t('a11y.previousTag')}]}
             onAccessibilityAction={e => stepTag(e.nativeEvent.actionName === 'increment' ? 1 : -1)}>
             <View style={{flexDirection: 'row', gap: 6}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
               <TouchableOpacity onPress={() => setActiveTag(null)} activeOpacity={0.7}
@@ -875,7 +900,6 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       renderItem={renderMember}
       keyExtractor={(m: Member) => m.id}
       extraData={flashExtraData}
-      drawDistance={600}
       maintainVisibleContentPosition={{disabled: true}}
       contentContainerStyle={{padding: 16, paddingBottom: 32, backgroundColor: T.bg}}
       keyboardShouldPersistTaps="handled"
@@ -930,21 +954,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
         </View>
       )}
     />
-    {showRail && (() => {
-      // Each letter is fs(9) + 3 tall; when the letters would overrun the rail, every letter shrinks by the same factor so the rail always fits.
-      const railItemBase = fs(9) + 3;
-      const railItemH = railH > 0 && railLetters.length > 0 ? Math.min(railItemBase, railH / railLetters.length) : railItemBase;
-      const railScale = railItemH / railItemBase;
-      return (
-      <View style={{position: 'absolute', right: 1, top: 96, bottom: 96, justifyContent: 'center'}} onLayout={e => setRailH(e.nativeEvent.layout.height)}>
-        {railLetters.map(L => (
-          <TouchableOpacity key={L} onPress={() => jumpToLetter(L)} hitSlop={{left: 10, right: 4, top: railScale < 1 ? 0 : 1, bottom: railScale < 1 ? 0 : 1}} accessibilityRole="button" accessibilityLabel={L} style={{paddingHorizontal: 3, height: railItemH, justifyContent: 'center'}}>
-            <Text style={{fontSize: fs(9) * railScale, lineHeight: railItemH, fontWeight: '700', color: T.dim}} allowFontScaling={false}>{L}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      );
-    })()}
+    <AlphaRail show={showRail} letters={railLetters} color={T.dim} fs={fs} onJump={jumpToLetter} />
     {showTop && (
       <TouchableOpacity onPress={() => scrollToTop(true)} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('members.backToTop')}
         style={{position: 'absolute', right: 16, bottom: 24, width: 44, height: 44, borderRadius: 22, backgroundColor: T.accent, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4, elevation: 4}}>

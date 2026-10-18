@@ -842,7 +842,6 @@ const historyEntryToFrontState = (entry: HistoryEntry): FrontState => ({
 });
 
 export const findOpenFrontInHistory = (history: HistoryEntry[]): FrontState | null => {
-  // Any tier counts: a front with only co-front or co-conscious members is still an open front.
   const openFrontEntry = history.find(entry =>
     entry.endTime === null &&
     (entry.memberIds.length > 0 || (entry.coFrontIds?.length || 0) > 0 || (entry.coConsciousIds?.length || 0) > 0) &&
@@ -1049,7 +1048,6 @@ export const fmtClock = (hours: number, minutes: number): string => {
 
 const dateFormatCache = new Map<string, (d: Date) => string>();
 
-/** One Intl.DateTimeFormat per locale and options, reused: building one on every call is what made the toLocale* helpers slow on Hermes. */
 const dateFormatter = (kind: string, options: Record<string, string>): ((d: Date) => string) => {
   const tag = getLocale();
   const key = `${tag}|${kind}`;
@@ -1121,7 +1119,6 @@ const isEmojiModifier = (cp: number): boolean =>
   cp === 0x200d || cp === 0xfe0e || cp === 0xfe0f || (cp >= 0x1f3fb && cp <= 0x1f3ff) || cp === 0x20e3 || (cp >= 0xe0020 && cp <= 0xe007f);
 const isRegionalIndicator = (cp: number): boolean => cp >= 0x1f1e6 && cp <= 0x1f1ff;
 
-/** Splits text into emoji-sized clusters: a base code point plus its joiners, selectors, skin tones, keycaps, tags and paired flags. */
 export const emojiClusters = (s: string): string[] => {
   const cps = Array.from(s);
   const out: string[] = [];
@@ -1149,7 +1146,6 @@ export const emojiClusters = (s: string): string[] => {
   return out;
 };
 
-/** Profile emoji: whitespace removed, at most 3 emoji (never cut inside a sequence), no dangling joiner; empty -> undefined. */
 export const normalizeMemberEmoji = (v: string): string | undefined => {
   const s = emojiClusters(String(v ?? '').replace(/\s+/g, '')).slice(0, 3).join('').replace(/\u200D+$/, '');
   return s || undefined;

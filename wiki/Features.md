@@ -2,7 +2,7 @@
 
 ## Core
 
-- Three-tier front tracking: `primary`, `coFront`, `coConscious` — multiple members per tier, energy levels 1–10.
+- Three-tier front tracking: `primary`, `coFront`, `coConscious`. Multiple members per tier, energy levels 1–10.
 - Custom fronts (statuses) selectable via search pickers under Front and Co-Front in Update Front and Retro History.
 - Observatory (singlet) mode: `accountMode: 'singlet'` + `selfMemberId` in settings. Front/Members tabs become Status/Profile, statuses replace fronting, system-only tools (chat, system manager, custom fields, polls, archive, system map) are hidden, terminology adapts throughout. Medical stays available.
 - Member profiles with avatars, banners, colors, tags, groups, and markdown bios.

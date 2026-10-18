@@ -166,7 +166,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
       setViewEntry(e);
     } else {
       setPwError(true);
-      if (Platform.OS === 'ios') AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));
+      AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));
     }
   };
 
@@ -542,7 +542,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
                 accessibilityLabel={t('journal.password')}
                 style={{borderWidth: 1, borderColor: pwError ? T.danger : T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, color: T.text, fontSize: fs(13)}}
               />
-              {pwError && <Text accessibilityLiveRegion="polite" accessibilityRole="alert" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
+              {pwError && <Text accessibilityRole="alert" style={{fontSize: fs(11), color: T.danger, marginTop: 6}}>{t('journal.incorrectPassword')}</Text>}
               <View style={{flexDirection: 'row', gap: 10, marginTop: 12}}>
                 <TouchableOpacity onPress={() => setUnlockFor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
                   hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>

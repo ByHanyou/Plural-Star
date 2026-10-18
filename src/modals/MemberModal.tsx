@@ -205,8 +205,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
 
 
   const relTypeMap = new Map(allRelationshipTypes(relTypes).map((td: RelationshipTypeDef) => [td.id, td] as [string, RelationshipTypeDef]));
-  const relTypeName = (td: RelationshipTypeDef) => (td.preset && !td.overridden) ? t(`relType.${td.id}`, {defaultValue: td.name}) : td.name;
-  const relTypeInverse = (td: RelationshipTypeDef) => !td.directional ? relTypeName(td) : ((td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`, {defaultValue: td.inverseName || td.name}) : (td.inverseName || td.name));
+  const relTypeName = (td: RelationshipTypeDef) => (td.preset && !td.overridden) ? t(`relType.${td.id}`) : td.name;
+  const relTypeInverse = (td: RelationshipTypeDef) => !td.directional ? relTypeName(td) : ((td.preset && !td.overridden) ? t(`relType.${td.id}Inverse`) : (td.inverseName || td.name));
   const connRole = (r: Relationship) => { const td = relTypeMap.get(r.typeId); if (!td) return '?'; return r.fromId === f.id ? relTypeInverse(td) : relTypeName(td); };
   const otherIsGone = (id: string) => {
     const m = (members || []).find((x: Member) => x.id === id);
@@ -696,7 +696,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
         <View>
           {(() => {
           const visibleDefs = readOnly
-            ? fieldDefs.filter(vfd => { const vv = (f.customFields || []).find(c => c.fieldId === vfd.id)?.value; return !(vv === undefined || vv === null || vv === ''); })
+            ? fieldDefs.filter(vfd => { const vv = (f.customFields || []).find(c => c.fieldId === vfd.id)?.value; return !(vv === undefined || vv === null || vv === '' || (vfd.type === 'image' && vv === 'cloud:media')); })
             : fieldDefs;
           if (readOnly && visibleDefs.length === 0) return null;
           return (<>
@@ -705,7 +705,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
           )}
           {visibleDefs.length > 0 ? visibleDefs.map((fd, fdIndex) => {
             const cfv = (f.customFields || []).find(v => v.fieldId === fd.id);
-            const val = cfv?.value ?? '';
+            const val = fd.type === 'image' && cfv?.value === 'cloud:media' ? '' : (cfv?.value ?? '');
 
             const dateTypes: Record<string, true> = {
               date: true, timestamp: true, monthYear: true,

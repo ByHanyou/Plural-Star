@@ -35,7 +35,7 @@ const MD_TOOLS: MdTool[] = [
   {label: '1.', a11y: 'markdown.toolNumbered', before: '1. ', after: ''},
   {label: '❝', a11y: 'markdown.toolQuote', before: '> ', after: ''},
   {label: '</>', a11y: 'markdown.toolCode', before: '`', after: '`'},
-  {label: '—', a11y: 'markdown.toolDivider', before: '\n---\n', after: ''},
+  {label: '-', a11y: 'markdown.toolDivider', before: '\n---\n', after: ''},
 ];
 
 const MdToolbar = ({onInsert, T}: {onInsert: (tool: MdTool) => void; T: ThemeColors}) => {
