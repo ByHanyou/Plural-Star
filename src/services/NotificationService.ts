@@ -330,7 +330,7 @@ const cancelStaleFriendNotifs = async (keepIds: Set<string>) => {
   } catch (e) { logError('notif', e); }
 };
 
-const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
+const syncFriendNotifications = async (desired = buildFriendNotifs(), ownWhen = Date.now()) => {
   await cancelStaleFriendNotifs(new Set(desired.map(d => d.id)));
   for (let i = 0; i < desired.length; i++) {
     const d = desired[i];
@@ -349,7 +349,7 @@ const syncFriendNotifications = async (desired = buildFriendNotifs()) => {
         pressAction: {id: 'default'},
         color: '#DAA520',
         sortKey: `1${String(i).padStart(4, '0')}`,
-        timestamp: Date.now(),
+        timestamp: ownWhen - 60000 * (i + 1),
         style: {type: AndroidStyle.INBOX as const, lines: (d.big || d.body).split('\n').slice(0, 6)},
       },
     });
@@ -415,7 +415,7 @@ export const showFrontNotification = async (
       bound = false;
       await notifee.displayNotification({id: NOTIF_ID, title, body, data: {postedAt: String(postedAt)}, android: cfg});
     }
-    await syncFriendNotifications();
+    await syncFriendNotifications(buildFriendNotifs(), content?.since && content.since > 0 ? content.since : postedAt);
     fgsBound = bound;
     lastFrontSig = sig;
     lastFrontPostedAt = Math.max(lastFrontPostedAt, postedAt);
@@ -528,7 +528,7 @@ export const reassertFrontNotification = async () => {
       bound = false;
       await notifee.displayNotification({id: NOTIF_ID, title: content.title, body: content.body, data: {postedAt: String(postedAt)}, android: cfg});
     }
-    if (NetworkManager.getState().enabled) await syncFriendNotifications();
+    if (NetworkManager.getState().enabled) await syncFriendNotifications(buildFriendNotifs(), content.since && content.since > 0 ? content.since : postedAt);
     fgsBound = bound;
     lastFrontSig = sig;
     lastFrontPostedAt = Math.max(lastFrontPostedAt, postedAt);

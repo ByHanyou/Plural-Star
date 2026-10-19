@@ -117,6 +117,7 @@ const platform: CloudPlatform = {
     else await store.remove(CLOUD_LINK_KEY);
   },
   deviceSubId: () => getDeviceSubId(),
+  readMedia: ref => NetworkManager.readMediaDataUri(ref),
   deviceLabel: () => (Platform.OS === 'ios' ? 'iOS' : 'Android'),
   now: () => Date.now(),
   argon2id,

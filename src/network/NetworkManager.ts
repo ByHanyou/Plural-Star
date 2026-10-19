@@ -2,7 +2,7 @@ import { Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import { saveAvatar, saveBannerFromBase64, saveBioImage, saveChatMedia, mirrorThumbDataUri, rebaseDocumentUri, mirrorGifProbe, mirrorGifBase64, mirrorGifFiles, pruneMirrorGifs, saveMirrorGif, clearMirrorGifs } from '../utils/mediaUtils';
-import { CLOUD_MEDIA_MISSING } from '../cloud/cloudVault';
+import { CLOUD_MEDIA_MISSING, CLOUD_MEDIA_REF } from '../cloud/cloudVault';
 import { logError } from '../utils/log';
 import { store, KEYS, chatMsgKey, onStoreWrite } from '../storage';
 import i18n from '../i18n/i18n';
@@ -2911,7 +2911,7 @@ class NetworkManagerImpl {
     return memo.p;
   }
 
-  private async buildSnapshot(): Promise<Record<string, string>> {
+  private async buildSnapshot(lazyMedia = false): Promise<Record<string, string>> {
     const keys = (await AsyncStorage.getAllKeys()).filter(
       k => k.startsWith('ps:') && !SYNC_EXCLUDE.has(k) && !k.startsWith(MIRROR_CACHE_PREFIX),
     );
@@ -2934,13 +2934,29 @@ class NetworkManagerImpl {
       const v = got[k];
       if (v != null) out[k] = v;
     }
-    Object.assign(out, await this.mediaEntries(out[KEYS.members], out[KEYS.system]));
+    Object.assign(out, await this.mediaEntries(out[KEYS.members], out[KEYS.system], lazyMedia));
     return out;
+  }
+
+  private async mediaRef(val: string): Promise<string | null> {
+    if (val.startsWith('data:')) return val;
+    if (!val.startsWith('file://')) return null;
+    try {
+      const path = (rebaseDocumentUri(val) || val).replace(/^file:\/\//, '').split('?')[0];
+      const st = await ReactNativeBlobUtil.fs.stat(path);
+      return `${CLOUD_MEDIA_REF}${Number(st.lastModified) || 0}:${Number(st.size) || 0}:${val}`;
+    } catch {
+      return null;
+    }
+  }
+
+  async readMediaDataUri(ref: string): Promise<string | null> {
+    return this.readFileDataUri(ref.replace(/^\d+:\d+:/, ''));
   }
 
   private mediaCache: Map<string, string> = new Map();
   private mediaCacheChars = 0;
-  private async mediaEntries(membersRaw: string | undefined, systemRaw?: string): Promise<Record<string, string>> {
+  private async mediaEntries(membersRaw: string | undefined, systemRaw?: string, lazy = false): Promise<Record<string, string>> {
     const out: Record<string, string> = {};
     if (membersRaw) {
       let list: any[] = [];
@@ -2959,13 +2975,13 @@ class NetworkManagerImpl {
               continue;
             }
             if (!val.startsWith('file://')) continue;
-            const uri = await this.readImageDataUri(val);
+            const uri = lazy ? await this.mediaRef(val) : await this.readImageDataUri(val);
             if (uri) out[key] = uri;
           }
           if (!Array.isArray(m.customFields)) continue;
           for (const c of m.customFields) {
             if (!c || !c.fieldId || typeof c.value !== 'string' || !c.value.startsWith('file://')) continue;
-            const uri = await this.readImageDataUri(c.value);
+            const uri = lazy ? await this.mediaRef(c.value) : await this.readImageDataUri(c.value);
             if (uri) out[`ps:media:cf:${m.id}:${c.fieldId}`] = uri;
           }
         }
@@ -2978,7 +2994,7 @@ class NetworkManagerImpl {
           for (const [field, key] of [['avatar', 'ps:media:sysav'], ['banner', 'ps:media:sysbn']] as const) {
             const val = sys[field];
             if (typeof val !== 'string' || !val) continue;
-            const uri = await this.readImageDataUri(val);
+            const uri = lazy ? await this.mediaRef(val) : await this.readImageDataUri(val);
             if (uri) out[key] = uri;
           }
         }
@@ -3805,7 +3821,7 @@ class NetworkManagerImpl {
   }
 
   async cloudSnapshot(): Promise<Record<string, string>> {
-    const snap = {...(await this.snapshot())};
+    const snap = await this.buildSnapshot(true);
     const identityRaw = await readRaw(IDENTITY_STORAGE_KEY);
     if (identityRaw) snap[IDENTITY_STORAGE_KEY] = identityRaw;
     const byPeer = (a: {peerId: string}, b: {peerId: string}) => (a.peerId < b.peerId ? -1 : a.peerId > b.peerId ? 1 : 0);
@@ -3902,7 +3918,7 @@ class NetworkManagerImpl {
       for (const m of msgs) {
         const c = m && (m.type === 'image' || m.type === 'file') && typeof m.content === 'string' ? m.content : '';
         if (c && (c.startsWith('file://') || c.startsWith('data:')) && m.id) {
-          const uri = await this.readFileDataUri(c);
+          const uri = await this.mediaRef(c);
           snap[`ps:media:chat:${channelId}:${m.id}`] = uri || CLOUD_MEDIA_MISSING;
           neutral.push({...m, content: CLOUD_CHAT_MEDIA_MARK});
           changed = true;

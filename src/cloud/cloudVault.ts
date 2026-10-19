@@ -34,7 +34,7 @@ export const CLOUD_MEDIA_MISSING = 'cloud:missing';
 
 const MANIFEST_V = 1 as const;
 const OBJECT_MAX_BYTES = 25 * 1024 * 1024;
-const SEALED_KEEP_MAX_BYTES = 64 * 1024 * 1024;
+const SEALED_KEEP_MAX_BYTES = 24 * 1024 * 1024;
 const HASH_YIELD_CHARS = 64 * 1024;
 const PUSH_DEBOUNCE_MS = 4000;
 const RETRY_BASE_MS = 5000;
@@ -47,6 +47,9 @@ const PARTIAL_SHARE = 0.6;
 const BOT_SUB_PREFIX = 'starbot:';
 const DEVICE_UNLINKED = 'device unlinked';
 const DEVICE_KEY_ISSUED = 'device key already issued';
+const DEVICE_KEY_REQUIRED = 'device key required';
+const RETRY_STATUSES = new Set([401, 403, 404, 408, 409, 423, 425, 429]);
+export const CLOUD_MEDIA_REF = 'ref:';
 
 export interface CloudPlatform {
   transport: CloudTransport;
@@ -65,6 +68,7 @@ export interface CloudPlatform {
   now(): number;
   skipMediaReupload?: boolean;
   argon2id?(password: string, salt: Uint8Array): Promise<Uint8Array>;
+  readMedia?(ref: string): Promise<string | null>;
 }
 
 const kindOf = (key: string): EntryKind => {
@@ -176,6 +180,9 @@ export class CloudService {
   private tooLarge: string[] = [];
   private overQuota: string[] = [];
   private unbackedMedia: string[] = [];
+  private refused: {key: string; code: string}[] = [];
+  private unreadable: {key: string; why: string}[] = [];
+  private mediaHashMemo: Map<string, string> = new Map();
   private lastCheckStartedAt = 0;
   private loaded = false;
   private runGen = 0;
@@ -258,15 +265,20 @@ export class CloudService {
       }
       this.pendingKeys = 0;
       const link = this.link;
-      Promise.resolve()
-        .then(() => this.ensureDeviceKey())
-        .then(() => this.creds(link))
-        .then(vc => this.api().info(vc))
-        .then(info => {
-          if (this.link !== link) return;
-          this.deviceCount = info.devices.length;
-          this.emit();
-        })
+      const read = async (): Promise<Awaited<ReturnType<CloudApi['info']>>> => this.api().info(await this.creds(link));
+      (async () => {
+        await this.ensureDeviceKey();
+        let info: Awaited<ReturnType<CloudApi['info']>>;
+        try {
+          info = await read();
+        } catch (e) {
+          if (this.link !== link || !(await this.recoverDeviceKey(link, e))) throw e;
+          info = await read();
+        }
+        if (this.link !== link) return;
+        this.deviceCount = info.devices.length;
+        this.emit();
+      })()
         .catch(e => (this.link === link && isDeviceGone(e) ? this.dropRemovedDevice() : undefined))
         .catch(() => {});
     }
@@ -396,6 +408,10 @@ export class CloudService {
     this.pendingCreds = null;
     this.lastError = null;
     this.lastErrorCode = null;
+    this.tooLarge = [];
+    this.overQuota = [];
+    this.refused = [];
+    this.unreadable = [];
     this.setPhase('importing', 0);
     try {
       const api = this.api();
@@ -435,6 +451,7 @@ export class CloudService {
         this.link.lastCheckAt = this.p.now();
         await this.p.saveLink(this.link);
       }
+      this.lastError = this.leftOutSummary();
       this.setPhase('idle', 0);
       this.emit();
       this.schedulePush(0);
@@ -542,7 +559,12 @@ export class CloudService {
       try {
         await this.ensureDeviceKey();
         const sub = await this.p.deviceSubId();
-        await this.api().unlinkDevice(await this.creds(), sub);
+        try {
+          await this.api().unlinkDevice(await this.creds(), sub);
+        } catch (e) {
+          if (!this.link || !(await this.recoverDeviceKey(this.link, e))) throw e;
+          await this.api().unlinkDevice(await this.creds(), sub);
+        }
       } catch (e) {
         if (!isDeviceGone(e)) {
           errorCode = cloudErrorCode(e);
@@ -601,6 +623,27 @@ export class CloudService {
       });
     }
     return this.keying;
+  }
+
+  private async recoverDeviceKey(link: CloudLinkState, e: unknown): Promise<boolean> {
+    if (!(e instanceof CloudError) || e.status !== 401 || this.link !== link) return false;
+    if (e.code === DEVICE_KEY_REQUIRED) {
+      link.deviceKey = undefined;
+      await this.ensureDeviceKey();
+      return this.link === link && !!link.deviceKey;
+    }
+    if (e.code !== DEVICE_UNLINKED || !link.deviceKey) return false;
+    const sub = await this.p.deviceSubId();
+    const vc: VaultCreds = {lookupId: link.lookupId, authSecret: link.authSecret};
+    const reg = await this.api().linkDevice(vc, sub, this.p.deviceLabel());
+    if (this.link !== link) return false;
+    if (reg.existed && reg.deviceKey) {
+      link.deviceKey = reg.deviceKey;
+      await this.p.saveLink(link);
+      return true;
+    }
+    await this.api().unlinkDevice({...vc, deviceId: sub, deviceKey: reg.deviceKey}, sub).catch(() => {});
+    return false;
   }
 
   private async dropRemovedDevice(): Promise<void> {
@@ -692,18 +735,22 @@ export class CloudService {
     this.lastCheckStartedAt = this.p.now();
     const run = (async () => {
       this.setPhase(phase, 0);
+      const link = this.link;
       try {
         this.tooLarge = [];
         this.overQuota = [];
         this.unbackedMedia = [];
-        await this.syncOnce(gen);
+        this.refused = [];
+        this.unreadable = [];
+        try {
+          await this.syncOnce(gen);
+        } catch (e) {
+          if (gen !== this.runGen || !link || !(await this.recoverDeviceKey(link, e))) throw e;
+          await this.syncOnce(gen);
+        }
         if (gen !== this.runGen) return;
         this.retryAttempt = 0;
-        this.lastError = this.tooLarge.length
-          ? `Left out, larger than ${Math.round(OBJECT_MAX_BYTES / (1024 * 1024))} MB: ${this.tooLarge.join(', ')}`
-          : this.overQuota.length
-            ? `Left out, over the vault's space: ${this.overQuota.join(', ')}`
-            : null;
+        this.lastError = this.leftOutSummary();
         this.lastErrorCode = null;
       } catch (e) {
         if (gen !== this.runGen) return;
@@ -721,6 +768,37 @@ export class CloudService {
     })();
     this.syncing = run;
     return run;
+  }
+
+  private leftOutSummary(): string | null {
+    const lines: string[] = [];
+    if (this.tooLarge.length) lines.push(`Left out, larger than ${Math.round(OBJECT_MAX_BYTES / (1024 * 1024))} MB: ${this.tooLarge.join(', ')}`);
+    if (this.overQuota.length) lines.push(`Left out, over the vault's space: ${this.overQuota.join(', ')}`);
+    if (this.refused.length) lines.push(`Left out, the cloud refused them: ${this.refused.map(r => `${r.key} (${r.code})`).join(', ')}`);
+    if (this.unreadable.length) lines.push(`Could not be read from the cloud: ${this.unreadable.map(u => `${u.key} (${u.why})`).join(', ')}`);
+    return lines.length ? lines.join('\n') : null;
+  }
+
+  private noteUnreadable(key: string, why: string): void {
+    if (!this.unreadable.some(u => u.key === key)) this.unreadable.push({key, why});
+  }
+
+  private async resolveMedia(raw: string): Promise<string | null> {
+    if (!raw.startsWith(CLOUD_MEDIA_REF)) return raw;
+    if (!this.p.readMedia) return null;
+    return this.p.readMedia(raw.slice(CLOUD_MEDIA_REF.length));
+  }
+
+  private async localKeyHash(key: string, raw: string): Promise<string | null> {
+    if (!raw.startsWith(CLOUD_MEDIA_REF)) return this.keyHash(key, raw);
+    const memo = this.mediaHashMemo.get(raw);
+    if (memo !== undefined) return memo;
+    const data = await this.resolveMedia(raw);
+    if (data === null) return null;
+    const h = await this.keyHash(key, data);
+    if (this.mediaHashMemo.size >= 4096) this.mediaHashMemo.clear();
+    this.mediaHashMemo.set(raw, h);
+    return h;
   }
 
   private openManifest(ciphertext: Uint8Array, key: Uint8Array = this.key()): VaultManifest {
@@ -757,13 +835,21 @@ export class CloudService {
         missing.add(k);
         continue;
       }
-      localHashes[k] = await this.keyHash(k, local[k]);
-      sinceYield += local[k].length;
+      const h = await this.localKeyHash(k, local[k]);
+      this.stopIfStale(gen);
+      if (h === null) {
+        missing.add(k);
+        continue;
+      }
+      localHashes[k] = h;
+      sinceYield += local[k].startsWith(CLOUD_MEDIA_REF) ? HASH_YIELD_CHARS : local[k].length;
       if (sinceYield >= HASH_YIELD_CHARS) {
         sinceYield = 0;
         await new Promise<void>(r => setTimeout(r, 0));
       }
     }
+    const forceUpload = new Set<string>();
+    const dropRemote = new Set<string>();
 
     for (let attempt = 0; attempt < 3; attempt++) {
       this.stopIfStale(gen);
@@ -774,7 +860,7 @@ export class CloudService {
         : {v: MANIFEST_V, version: 0, created: this.p.now(), updated: this.p.now(), devices: [], entries: []};
       const remoteVersion = remote ? remote.version : 0;
       const remoteObjects = new Set((remote?.objects || []).map(o => o.id));
-      const R = new Map(remoteManifest.entries.map(e => [e.path, e]));
+      const R = new Map(remoteManifest.entries.filter(e => !dropRemote.has(e.path)).map(e => [e.path, e]));
       this.unbackedMedia = [...missing].filter(k => !R.has(k));
       const K = this.link.known;
       const reupload = !this.p.skipMediaReupload;
@@ -827,6 +913,10 @@ export class CloudService {
         }
       }
 
+      for (const k of forceUpload) {
+        if (k in localHashes && !toUpload.includes(k)) toUpload.push(k);
+      }
+
       this.pendingKeys = toUpload.length;
       this.emit();
 
@@ -873,6 +963,17 @@ export class CloudService {
           newVersion = await api.putManifest(vc, remoteVersion, this.sealManifest(next), refs);
         } catch (e) {
           if (e instanceof CloudError && e.status === 409) continue;
+          if (e instanceof CloudError && e.status === 400 && Array.isArray(e.extra?.missing)) {
+            const gone = new Set((e.extra!.missing as unknown[]).map(String));
+            for (const [path, entry] of merged) {
+              if (!gone.has(entry.id)) continue;
+              if (path in localHashes) forceUpload.add(path);
+              else dropRemote.add(path);
+            }
+            const sent = this.link.sent;
+            if (sent) for (const k of Object.keys(sent)) if (gone.has(sent[k].entry.id)) delete sent[k];
+            continue;
+          }
           throw e;
         }
         this.stopIfStale(gen);
@@ -929,7 +1030,9 @@ export class CloudService {
     let enc: number | undefined;
     let canonical = hash;
     if (isMediaKey(key)) {
-      const encoded = await this.p.reencodeImage(raw, key);
+      const data = await this.resolveMedia(raw);
+      if (data === null) return null;
+      const encoded = await this.p.reencodeImage(data, key);
       const parts = splitDataUri(encoded);
       if (!parts) return null;
       plain = parts.bytes;
@@ -951,8 +1054,15 @@ export class CloudService {
     try {
       await api.putObject(vc, id, tier, ct);
     } catch (e) {
-      if (e instanceof CloudError && e.status === 413 && /quota/i.test(e.code)) {
-        if (!this.overQuota.includes(key)) this.overQuota.push(key);
+      if (e instanceof CloudError && e.status === 413) {
+        const list = /quota/i.test(e.code) ? this.overQuota : this.tooLarge;
+        if (!list.includes(key)) list.push(key);
+        this.dropSealed(key);
+        return null;
+      }
+      if (e instanceof CloudError && e.status >= 400 && e.status < 500 && !RETRY_STATUSES.has(e.status)) {
+        if (!this.refused.some(r => r.key === key)) this.refused.push({key, code: e.code});
+        this.dropSealed(key);
         return null;
       }
       throw e;
@@ -995,11 +1105,27 @@ export class CloudService {
     let tombstonesRaw: string | null = null;
     let done = 0;
     for (const e of entries) {
-      const ct = await api.getObject(vc, e.id);
+      let ct: Uint8Array;
+      try {
+        ct = await api.getObject(vc, e.id);
+      } catch (err) {
+        if (!(err instanceof CloudError) || err.status !== 404 || err.code !== 'not found') throw err;
+        this.noteUnreadable(e.path, 'missing from the cloud');
+        done++;
+        continue;
+      }
       this.stopIfStale(gen);
-      if (objectIdOf(ct) !== e.id) throw new CloudError(0, 'object hash mismatch', `Downloaded object ${e.id} did not match its ID.`);
+      if (objectIdOf(ct) !== e.id) {
+        this.noteUnreadable(e.path, 'damaged');
+        done++;
+        continue;
+      }
       const plain = decryptBytes(this.key(), ct);
-      if (!plain) throw new CloudError(0, 'object undecryptable', `Object ${e.id} could not be decrypted.`);
+      if (!plain) {
+        this.noteUnreadable(e.path, 'cannot be decrypted');
+        done++;
+        continue;
+      }
       let raw: string;
       if (isMediaKey(e.path)) raw = joinDataUri(e.mime || 'image/jpeg', plain);
       else raw = unpackData(plain);
