@@ -17,7 +17,7 @@ import {BUILTIN_PALETTES, deriveTheme} from './src/theme';
 import type {CustomPalette, ThemeColors} from './src/theme';
 import {store, KEYS, storageLooksWiped, restoreAllBackups, storageReadFailures, anyPsKeysExist} from './src/storage';
 import {SystemInfo, Member, MemberGroup, FrontTier, FrontTierKey, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, DeviceCodes, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER, DEFAULT_CHANNELS, findOpenFrontInHistory, migrateFrontState, uid, makeDefaultCustomFronts, allFrontMemberIds, singletStatuses, generateFriendCode, generateSyncCode} from './src/utils';
-import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars, restoreMissingMediaFiles} from './src/utils/mediaUtils';
+import {migrateInlineAvatars, clearAllMedia, migrateStaleMediaPaths, downsizeExistingAvatars, restoreMissingMediaFiles, backgroundImageUri} from './src/utils/mediaUtils';
 import {clearFrontNotification, setEmergencyNotificationInfo, rescheduleMedicationReminders, rescheduleAppointmentReminders, reschedulePlannerNotifications} from './src/services/NotificationService';
 import {waitForProtectedData} from './src/services/LiveActivityService';
 
@@ -49,6 +49,7 @@ import {AppErrorBoundary} from './src/components/AppErrorBoundary';
 import {SplashView} from './src/components/SplashView';
 import {AppHeader} from './src/components/AppHeader';
 import {TabBar, Tab, TAB_IDS} from './src/components/TabBar';
+import {BackgroundImage} from './src/components/BackgroundImage';
 import {TabActiveContext, createTabActiveSources} from './src/hooks/useTabActive';
 import {useFrontNotifications} from './src/hooks/useFrontNotifications';
 import {useNoteboardNotifications} from './src/hooks/useNoteboardNotifications';
@@ -221,9 +222,10 @@ function MainAppContent() {
     const allPals = [...BUILTIN_PALETTES, ...palettes];
     const pal = allPals.find(p => p.id === activePaletteId) || BUILTIN_PALETTES[0];
     const theme = deriveTheme(pal.bg, pal.accent, pal.text, pal.mid);
+    if (backgroundImageUri(appSettings.backgroundImage)) theme.canvas = 'transparent';
     theme.textScale = appSettings.textScale || 1;
     return theme;
-  }, [activePaletteId, palettes, appSettings.textScale, dyslexicTick]);
+  }, [activePaletteId, palettes, appSettings.textScale, appSettings.backgroundImage, dyslexicTick]);
 
   const loadAll = useCallback(async () => {
     const hadAnyPsKeys = await anyPsKeysExist();
@@ -844,6 +846,7 @@ const FrozenTab = React.memo(
 );
 
 function TabHost({C, isSinglet, screens, memory, controlRef, onReselectHub}: {C: ThemeColors; isSinglet: boolean; screens: Record<Tab, React.ReactNode>; memory: React.RefObject<TabMemory>; controlRef: React.RefObject<TabHostControl | null>; onReselectHub: () => void}) {
+  const backgroundImage = useAppStore(s => s.appSettings.backgroundImage);
   const [tab, setTab] = useState<Tab>(memory.current.tab);
   const [shownTab, setShownTab] = useState<Tab>(memory.current.tab);
   const [mountedTabs, setMountedTabs] = useState<Tab[]>(memory.current.mounted);
@@ -877,6 +880,7 @@ function TabHost({C, isSinglet, screens, memory, controlRef, onReselectHub}: {C:
   return (
     <>
       <View style={styles.content}>
+        <BackgroundImage filename={backgroundImage} theme={C} />
         {TAB_IDS.map(id => mountedTabs.includes(id) ? (
           <View key={id} style={[StyleSheet.absoluteFill, shownTab === id ? null : styles.hiddenTab]} pointerEvents={shownTab === id ? 'auto' : 'none'}
             importantForAccessibility={shownTab === id ? 'auto' : 'no-hide-descendants'} accessibilityElementsHidden={shownTab !== id}>

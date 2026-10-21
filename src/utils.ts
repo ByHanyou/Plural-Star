@@ -654,6 +654,7 @@ export interface AppSettings {
   tierNames?: Record<string, string>;
   persistentFrontNotif?: boolean;
   activePaletteId: string;
+  backgroundImage?: string;
   textScale: TextScale;
   memberSortMode?: MemberSortMode;
   groupSortMode?: MemberSortMode;

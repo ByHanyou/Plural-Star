@@ -646,7 +646,7 @@ export const NetworkScreen = ({theme: T}: Props) => {
   };
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border}} accessibilityRole="tablist">
         <TabBtn selected={tab} onSelect={setTab} T={T} id="friends" label={t('network.tabFriends')} />
         <TabBtn selected={tab} onSelect={setTab} T={T} id="privacy" label={t('network.tabPrivacy')} />

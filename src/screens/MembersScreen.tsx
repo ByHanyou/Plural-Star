@@ -901,7 +901,7 @@ export const MembersScreen = ({theme: T, initialSortMode, archiveOnly = false, o
       keyExtractor={(m: Member) => m.id}
       extraData={flashExtraData}
       maintainVisibleContentPosition={{disabled: true}}
-      contentContainerStyle={{padding: 16, paddingBottom: 32, backgroundColor: T.bg}}
+      contentContainerStyle={{padding: 16, paddingBottom: 32, backgroundColor: T.canvas}}
       keyboardShouldPersistTaps="handled"
       scrollEnabled={!dragging}
       onScroll={e => setShowTop((e.nativeEvent.contentOffset?.y || 0) > 500)}

@@ -303,7 +303,7 @@ export const FrontScreen = ({
   return (
     <View style={{flex: 1}}>
       <ScrollView
-        style={{flex: 1, backgroundColor: T.bg}}
+        style={{flex: 1, backgroundColor: T.canvas}}
         scrollEnabled={!dragging}
         contentContainerStyle={{
           padding: 16,

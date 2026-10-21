@@ -430,6 +430,13 @@ export const saveAppSettings = async (d: AppSettings) => {
   if (filesJustEnabled) { await requestFilesPermission(); }
 };
 
+export const setBackgroundImage = async (backgroundImage?: string) => {
+  const {appSettings} = useAppStore.getState();
+  await store.set(KEYS.settings, {...appSettings, backgroundImage});
+  const state = useAppStore.getState();
+  state.setAppSettings({...state.appSettings, backgroundImage});
+};
+
 export const ensureSelfMember = async (): Promise<Member> => {
   const {members, appSettings, system} = useAppStore.getState();
   const selfMember = members.find(m => m.id === appSettings.selfMemberId && !m.isCustomFront && !m.isFacet)

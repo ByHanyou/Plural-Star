@@ -437,7 +437,7 @@ export const HistoryScreen = ({theme: T, singlet = false, selfId, onEditEntry, r
   const pickerCustomFronts = singlet ? [] : members.filter(m => m.isCustomFront && !m.deleted);
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: landscape ? 6 : 16}}>
         <Text
           accessibilityRole="header"

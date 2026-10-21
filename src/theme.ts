@@ -2,6 +2,7 @@ import {Platform} from 'react-native';
 
 export interface ThemeColors {
   bg: string;
+  canvas: string;
   surface: string;
   card: string;
   border: string;
@@ -135,6 +136,7 @@ export const deriveTheme = (bg: string, accent: string, text: string, mid: strin
 
   return {
     bg,
+    canvas: bg,
     surface,
     card,
     border,
@@ -178,6 +180,7 @@ export const profileTheme = (base: ThemeColors, color: string): ThemeColors => {
   return {
     ...base,
     bg: color,
+    canvas: color,
     surface,
     card: color,
     border: mix(color, ink, 0.3),

@@ -615,7 +615,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
 
   if (showChannelList) {
     return (
-      <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}} bottomOffset={24}>
+      <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 32}} bottomOffset={24}>
         <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
           <Text accessibilityRole="header" style={{flex: 1, fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('chat.channels')}</Text>
           <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
@@ -729,7 +729,7 @@ export const ChatScreen = ({theme: T, onMentionPress}: Props) => {
   }
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg, paddingBottom: keyboardLift}}>
+    <View style={{flex: 1, backgroundColor: T.canvas, paddingBottom: keyboardLift}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <TouchableOpacity onPress={() => setShowChannelList(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.channels')} hitSlop={{top: 12, bottom: 12, left: 12, right: 12}} style={{marginRight: 10}}>
           <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: T.dim}}>☰</Text>
