@@ -8,6 +8,34 @@ import {MIRROR_GIF_MAX_BYTES, MIRROR_GIF_MAX_B64, mirrorGifDataB64, mirrorGifHas
 const AVATAR_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars`;
 const CHAT_MEDIA_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_chat_media`;
 const BIO_IMAGE_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_bio_images`;
+const BACKGROUND_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_backgrounds`;
+
+export const backgroundImageUri = (filename?: string): string | undefined =>
+  typeof filename === 'string' && /^background-[a-z0-9-]+\.png$/.test(filename)
+    ? `file://${BACKGROUND_DIR}/${filename}`
+    : undefined;
+
+export const removeBackgroundImage = async (filename?: string): Promise<void> => {
+  const uri = backgroundImageUri(filename);
+  if (!uri) return;
+  try {
+    const path = uri.slice('file://'.length);
+    if (await ReactNativeBlobUtil.fs.exists(path)) await ReactNativeBlobUtil.fs.unlink(path);
+  } catch (e) { logError('background', e); }
+};
+
+export const saveBackgroundImageFromUri = async (sourceUri: string): Promise<string> => {
+  if (!sourceUri.startsWith('file://') && !sourceUri.startsWith('content://')) throw new Error('Invalid background image');
+  await ensureDir(BACKGROUND_DIR);
+  const filename = `background-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+  try {
+    await downscaleOrCopy(sourceUri, `${BACKGROUND_DIR}/${filename}`, 1920);
+    return filename;
+  } catch (e) {
+    await removeBackgroundImage(filename);
+    throw e;
+  }
+};
 
 const ensureDir = async (dir: string) => {
   const exists = await ReactNativeBlobUtil.fs.exists(dir);
@@ -17,14 +45,14 @@ const ensureDir = async (dir: string) => {
 const AVATAR_MAX = 256;
 
 const downscaleOrCopy = async (sourceUri: string, destPath: string, max = AVATAR_MAX): Promise<string> => {
-  const readPath = sourceUri.replace('file://', '').split('#')[0].split('?')[0];
+  const readPath = sourceUri.startsWith('content://') ? sourceUri : sourceUri.replace('file://', '').split('#')[0].split('?')[0];
   const original = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
   if (original.startsWith('R0lGO')) {
     await ReactNativeBlobUtil.fs.writeFile(destPath, original, 'base64');
     return `file://${destPath}?t=${Date.now()}`;
   }
   try {
-    const resized = await ImageResizer.createResizedImage(`file://${readPath}`, max, max, 'PNG', 100, 0);
+    const resized = await ImageResizer.createResizedImage(readPath.startsWith('content://') ? readPath : `file://${readPath}`, max, max, 'PNG', 100, 0);
     const resizedPath = resized.uri.replace('file://', '');
     const bytes = await ReactNativeBlobUtil.fs.readFile(resizedPath, 'base64');
     await ReactNativeBlobUtil.fs.writeFile(destPath, bytes, 'base64');
@@ -688,7 +716,7 @@ export const clearMirrorGifs = async (peerId?: string): Promise<void> => {
 };
 
 export const clearAllMedia = async (): Promise<void> => {
-  for (const dir of [AVATAR_DIR, AVATAR_FULL_DIR, CHAT_MEDIA_DIR, BIO_IMAGE_DIR, BANNER_DIR]) {
+  for (const dir of [AVATAR_DIR, AVATAR_FULL_DIR, CHAT_MEDIA_DIR, BIO_IMAGE_DIR, BANNER_DIR, BACKGROUND_DIR]) {
     try {
       if (await ReactNativeBlobUtil.fs.exists(dir)) await ReactNativeBlobUtil.fs.unlink(dir);
     } catch {}

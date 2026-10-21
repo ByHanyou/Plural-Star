@@ -11,6 +11,7 @@ import type {SupportedLanguage} from '../i18n/i18n';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
 import {ColorPickerModal} from '../components/ColorPickerModal';
+import {BackgroundSettings} from './BackgroundSettings';
 
 const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => {
   const fs = fontScale(T);
@@ -205,6 +206,8 @@ export const SystemModal = ({visible, theme: T, system, settings, palettes, acti
         <Text style={{fontSize: fs(10), color: T.muted, marginTop: 6}}>{t('modal.paletteSlots', {used: userPalettes.length, max: MAX_CUSTOM_PALETTES})}</Text>
         </>)}
       </View>
+
+      <BackgroundSettings theme={T} />
 
       <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14}}>
         <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.globalJournalPassword')}</Text><TouchableOpacity hitSlop={{top: 12, bottom: 12, left: 12, right: 12}} onPress={() => {setShowJournalPw(!showJournalPw); if (showJournalPw) setJournalPw('');}} accessibilityRole="button" accessibilityLabel={t(showJournalPw ? 'modal.removeJournalPassword' : 'modal.addJournalPassword')}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showJournalPw ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>

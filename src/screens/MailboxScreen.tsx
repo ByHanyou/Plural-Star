@@ -155,7 +155,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
     const owner = byId(openId);
     const msgs = inboxMsgs(openId);
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setOpenId(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -214,7 +214,7 @@ export const MailboxScreen = ({theme: T, onBack}: Props) => {
   }
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 4}}>
           <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>

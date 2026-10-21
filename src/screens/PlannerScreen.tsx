@@ -226,7 +226,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
 
   if (apptOpen) {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         {formHeader(apptId ? t('planner.editAppt') : t('planner.addAppt'), () => setApptOpen(false))}
         <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
           <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 32}} keyboardShouldPersistTaps="handled">
@@ -297,7 +297,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
 
   if (remOpen) {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         {formHeader(remId ? t('planner.editReminder') : t('planner.addReminder'), () => setRemOpen(false))}
         <KeyboardAvoidingView style={{flex: 1}} behavior={behavior}>
           <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 32}} keyboardShouldPersistTaps="handled">
@@ -363,7 +363,7 @@ export const PlannerScreen = ({theme: T, onBack}: Props) => {
   }
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 7, bottom: 7}} style={{padding: 4, marginRight: 12}}>
           <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>

@@ -367,7 +367,7 @@ export const ShareScreen = ({theme: T, onDataImported, onAddJournalEntry, onDele
         </View>
       </View>
     </Modal>
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', gap: 6, marginBottom: 4}}>
         <SectionBtn selected={section} onSelect={setSection} T={T} id="export" label={t('share.export')} />
         <SectionBtn selected={section} onSelect={setSection} T={T} id="import" label={t('share.import')} />

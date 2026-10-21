@@ -279,7 +279,7 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
   };
 
   return (
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} bottomOffset={24}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 40}} bottomOffset={24}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16}}>
         <RangeBtn selected={range} onSelect={setRange} T={T} id="all" label={t('stats.allTime')} />
         <RangeBtn selected={range} onSelect={setRange} T={T} id="7d" label={t('stats.last7')} />

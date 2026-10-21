@@ -404,7 +404,7 @@ const RetroHistoryScreen = ({T, members, history, front, onSaveHistory, onSetFro
   );
 
   return (
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 40}} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 16}}>
         <TouchableOpacity onPress={onBack} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
           <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -529,7 +529,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'share') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -555,7 +555,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'statistics') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -569,7 +569,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'chat') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -583,7 +583,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'customFields') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -597,7 +597,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'systemManager') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -611,7 +611,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'archive') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -625,7 +625,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'polls') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -639,7 +639,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'systemMap') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -654,7 +654,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'mailbox') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         {renderMailboxScreen(closeTile)}
       </View>
     );
@@ -662,7 +662,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'whiteboard') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         {renderWhiteboardScreen(closeTile)}
       </View>
     );
@@ -670,7 +670,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'planner') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <PlannerScreen theme={T} onBack={() => setActiveTile(null)} />
       </View>
     );
@@ -678,7 +678,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'colors') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         {renderColorsScreen(closeTile)}
       </View>
     );
@@ -686,7 +686,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'network') {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -704,7 +704,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
       {name: 'sparklecatdev', role: t('hub.creditIos'), url: 'https://github.com/sparklecatdev'},
     ];
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8}}>
           <TouchableOpacity onPress={() => setActiveTile(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.back')} hitSlop={{top: 9, bottom: 9, left: 9, right: 9}} style={{padding: 4, marginRight: 12}}>
             <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(18), color: T.dim}}>←</Text>
@@ -839,7 +839,7 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
   const tileHeight = Math.max(104, Math.round(10 + fs(32) * iconCap + 6 + labelReserve + 10 + 4));
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}} scrollEnabled={!tileDrag}>
+    <ScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 32}} scrollEnabled={!tileDrag}>
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 20}}>
         <Text
           accessibilityRole="header"

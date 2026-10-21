@@ -762,7 +762,7 @@ export const SystemMapScreen = ({theme: T, onViewMember, onRelCountChange, focus
   const selectedTd = typeById.get(typeId);
 
   return (
-    <View ref={hostRef} onLayout={measureHost} style={{flex: 1, backgroundColor: T.bg}}>
+    <View ref={hostRef} onLayout={measureHost} style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
         <TouchableOpacity onPress={() => {setShowMemberPicker(true); setMemberPickerSearch(''); measureHost();}} activeOpacity={0.7}
           disabled={addableCount === 0}
