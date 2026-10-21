@@ -145,6 +145,8 @@ const buildExportBase = async (
   }
 
   const membersForExport = members.map(({avatar: _a, banner: _b, ...rest}) => rest as Member);
+  // Background images are device-local and are not included in exports.
+  const {backgroundImage: _backgroundImage, ...exportSettings} = settings || {};
 
   return {
     _meta: {
@@ -160,7 +162,7 @@ const buildExportBase = async (
     chatChannels: cat.chat ? (channels || []) : [],
     chatCategories: cat.chat ? (chatCats || []) : [],
     chatMessages: cat.chat ? chatMessages : {},
-    settings: cat.settings ? (settings || undefined) : undefined,
+    settings: cat.settings && settings ? exportSettings : undefined,
     front: cat.frontHistory ? (front || undefined) : undefined,
     palettes: cat.palettes ? (palettes || []) : [],
     customMoods: cat.moods ? (settings?.customMoods || []) : [],
