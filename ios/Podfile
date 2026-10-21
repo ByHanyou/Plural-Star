@@ -31,6 +31,18 @@ target 'PluralSpace' do
       :mac_catalyst_enabled => false,
     )
 
+    # Argon2Swift's podspec exposes its C module only to its own target.
+    # RNArgon2 also needs it when Swift scans transitive module dependencies.
+    installer.pods_project.targets.each do |pod_target|
+      next unless pod_target.name == 'RNArgon2'
+
+      pod_target.build_configurations.each do |build_config|
+        module_path = '"$(PODS_ROOT)/Argon2Swift/Sources/Modules"'
+        paths = Array(build_config.build_settings['SWIFT_INCLUDE_PATHS'] || '$(inherited)')
+        build_config.build_settings['SWIFT_INCLUDE_PATHS'] = (paths + [module_path]).uniq
+      end
+    end
+
     fmt_support_files = [
       'Target Support Files/fmt/fmt.debug.xcconfig',
       'Target Support Files/fmt/fmt.release.xcconfig',

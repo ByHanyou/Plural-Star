@@ -7,7 +7,7 @@ import {NetworkManager} from '../network/NetworkManager';
 import {MirrorFeature, MirrorCacheEntry, MirrorMember, MirrorGroup, MirrorSystemProfile, MIRROR_SYSTEM_AVATAR_ID, MIRROR_SYSTEM_BANNER_ID} from '../network/types';
 import {SystemProfileCard} from '../components/SystemProfileCard';
 import Svg, {Path} from 'react-native-svg';
-import {ThemeColors, fontScale, initialOn} from '../theme';
+import {ThemeColors, fontScale, initialOn, profileWindowTheme, normalizeProfilePalette} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, CustomFieldType, JournalEntry, HistoryEntry, fmtTime, fmtClock, getInitials} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
 import {useAppStore} from '../store/appStore';
@@ -26,13 +26,15 @@ interface Props {
   onClose: () => void;
 }
 
-export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, onClose}: Props) => {
+export const MirrorScreen = ({theme: baseT, visible, peerId, displayName, feature, onClose}: Props) => {
   const groupSortMode = useAppStore(s => s.appSettings.groupSortMode);
   const {t} = useTranslation();
-  const fs = fontScale(T);
+  const fs = fontScale(baseT);
   const insets = useSafeAreaInsets();
   const kbHeight = useKeyboardHeight();
   const [entry, setEntry] = useState<MirrorCacheEntry | null>(null);
+  const systemProfile = feature === 'systemProfile' && !entry?.none ? entry?.data as MirrorSystemProfile | undefined : undefined;
+  const T = profileWindowTheme(baseT, systemProfile?.profilePalette);
   const [memberCache, setMemberCache] = useState<MirrorMember[]>([]);
   const [memberMedia, setMemberMedia] = useState<Record<string, string>>({});
   const [groupCache, setGroupCache] = useState<{groups: MirrorGroup[]; membership: Record<string, {id: string; name: string}[]>} | null>(null);
@@ -136,6 +138,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     pronouns: mm.pronouns || '',
     role: mm.role || '',
     color: mm.color || '',
+    profileBg: mm.profileBg === true,
+    profilePalette: normalizeProfilePalette(mm.profilePalette),
     description: '',
   }));
 
@@ -176,6 +180,8 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
     pronouns: mm.pronouns || '',
     role: mm.role || '',
     color: mm.color || '',
+    profileBg: mm.profileBg === true,
+    profilePalette: normalizeProfilePalette(mm.profilePalette),
     description: mm.description || '',
     archived: mm.archived,
     avatar: mirrorMedia[mm.id],
@@ -432,6 +438,7 @@ export const MirrorScreen = ({theme: T, visible, peerId, displayName, feature, o
         <SystemProfileCard
           T={T}
           name={sp.name || displayName}
+          palette={sp.profilePalette}
           description={sp.description}
           avatar={media[MIRROR_SYSTEM_AVATAR_ID]}
           banner={media[MIRROR_SYSTEM_BANNER_ID]}

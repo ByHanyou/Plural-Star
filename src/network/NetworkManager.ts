@@ -1,4 +1,5 @@
 import { Platform, AppState } from 'react-native';
+import { normalizeProfilePalette } from '../theme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReactNativeBlobUtil from 'react-native-blob-util';
 import { saveAvatar, saveBannerFromBase64, saveBioImage, saveChatMedia, mirrorThumbDataUri, rebaseDocumentUri, mirrorGifProbe, mirrorGifBase64, mirrorGifFiles, pruneMirrorGifs, saveMirrorGif, clearMirrorGifs } from '../utils/mediaUtils';
@@ -2225,6 +2226,7 @@ class NetworkManagerImpl {
         if (bannerGif) gifSrc.set(MIRROR_SYSTEM_BANNER_ID, {h: bannerGif, src: sys.banner});
         payload = JSON.stringify({
           name: String(sys?.name || ''),
+          profilePalette: normalizeProfilePalette(sys?.profilePalette),
           description: sys?.description ? String(sys.description) : undefined,
           hasAvatar: hasAvatar || undefined,
           hasBanner: hasBanner || undefined,
@@ -2341,6 +2343,8 @@ class NetworkManagerImpl {
             pronouns: m.pronouns || undefined,
             role: m.role || undefined,
             color: m.color || undefined,
+            profileBg: m.profileBg === true || undefined,
+            profilePalette: normalizeProfilePalette(m.profilePalette),
             description: m.description || undefined,
             archived: m.archived || undefined,
             hasAvatar: mirrorMediaSource(m.avatar) ? true : undefined,

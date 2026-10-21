@@ -2,7 +2,7 @@ import React, {useState, useMemo} from 'react';
 import {View, ScrollView, StyleSheet, TouchableOpacity, Image} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors, initialOn, profileTheme} from '../theme';
+import {Fonts, fontScale, ThemeColors, initialOn, profileWindowTheme, normalizeProfilePalette} from '../theme';
 import {AccentText} from '../components/AccentText';
 import {RichText} from '../components/MarkdownRenderer';
 import {Member, getInitials, allFrontMemberIds, singletStatuses, isValidHex, colorName} from '../utils';
@@ -18,16 +18,17 @@ interface Props {
   onEditStatus: (m: Member) => void;
 }
 
-export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onEditStatus}: Props) => {
+export const ProfileScreen = ({theme: baseT, member, onEditProfile, onAddStatus, onEditStatus}: Props) => {
   const front = useAppStore(s => s.front);
   const members = useAppStore(s => s.members);
   const statuses = singletStatuses(members);
   const {t} = useTranslation();
-  const fs = fontScale(T);
+  const fs = fontScale(baseT);
   const [subTab, setSubTab] = useState<SubTab>('profile');
   const activeIds = allFrontMemberIds(front);
-  const bgOn = !!member?.profileBg && isValidHex(member.color);
-  const P = useMemo(() => (bgOn && member ? profileTheme(T, member.color) : T), [bgOn, T, member?.color]);
+  const bgOn = !!normalizeProfilePalette(member?.profilePalette) || (!!member?.profileBg && isValidHex(member.color));
+  const P = useMemo(() => profileWindowTheme(baseT, member?.profilePalette, member?.profileBg ? member.color : undefined), [baseT, member?.profilePalette, member?.profileBg, member?.color]);
+  const T = subTab === 'profile' ? P : baseT;
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>

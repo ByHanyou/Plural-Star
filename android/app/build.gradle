@@ -36,9 +36,9 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('../../plural-space.keystore')
+            storeFile rootProject.file(keystoreProps['PLURALSPACE_STORE_FILE'] ?: '../plural-space.keystore')
             storePassword keystoreProps['PLURALSPACE_STORE_PASSWORD'] ?: (project.findProperty('PLURALSPACE_STORE_PASSWORD') ?: '')
-            keyAlias 'pluralspace'
+            keyAlias keystoreProps['PLURALSPACE_KEY_ALIAS'] ?: 'pluralspace'
             keyPassword keystoreProps['PLURALSPACE_KEY_PASSWORD'] ?: (project.findProperty('PLURALSPACE_KEY_PASSWORD') ?: '')
         }
     }

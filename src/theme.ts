@@ -31,6 +31,26 @@ export interface CustomPalette {
   mid: string;
 }
 
+export type ProfilePalette = Pick<CustomPalette, 'bg' | 'accent' | 'text' | 'mid'>;
+
+// Store colors on the profile so it is independent of the owner's saved palettes.
+// Also validate palettes received from friends or restored from backups.
+export const normalizeProfilePalette = (value: unknown): ProfilePalette | undefined => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const p = value as Record<string, unknown>;
+  const hex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
+  if (!hex(p.bg) || !hex(p.accent) || !hex(p.text) || !hex(p.mid)) return undefined;
+  return {bg: p.bg.toUpperCase(), accent: p.accent.toUpperCase(), text: p.text.toUpperCase(), mid: p.mid.toUpperCase()};
+};
+
+export const sameProfilePalette = (a: unknown, b: unknown): boolean => {
+  const left = normalizeProfilePalette(a);
+  const right = normalizeProfilePalette(b);
+  return left && right
+    ? left.bg === right.bg && left.accent === right.accent && left.text === right.text && left.mid === right.mid
+    : !left && !right;
+};
+
 const hexToRgb = (hex: string): [number, number, number] => {
   const raw = String(hex ?? '').replace('#', '');
   const h = (raw.length === 3 ? raw.split('').map(c => c + c).join('') : raw).padEnd(6, '0');
@@ -196,6 +216,13 @@ export const profileTheme = (base: ThemeColors, color: string): ThemeColors => {
     infoBg: surface,
     isLight: ink === '#000000',
   };
+};
+
+export const profileWindowTheme = (base: ThemeColors, palette: unknown, legacyColor?: string): ThemeColors => {
+  const p = normalizeProfilePalette(palette);
+  if (p) return {...deriveTheme(p.bg, p.accent, p.text, p.mid), textScale: base.textScale};
+  if (typeof legacyColor === 'string' && /^#[0-9a-f]{6}$/i.test(legacyColor)) return profileTheme(base, legacyColor);
+  return base;
 };
 
 export const DARK_PALETTE: CustomPalette = {

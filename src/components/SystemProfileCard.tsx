@@ -4,12 +4,13 @@ import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
 import {RichText} from './MarkdownRenderer';
 import {getInitials} from '../utils';
-import {fontScale, initialOn} from '../theme';
-import type {ThemeColors} from '../theme';
+import {fontScale, initialOn, profileWindowTheme, normalizeProfilePalette} from '../theme';
+import type {ThemeColors, ProfilePalette} from '../theme';
 
 interface Props {
   T: ThemeColors;
   name: string;
+  palette?: ProfilePalette;
   description?: string;
   avatar?: string;
   banner?: string;
@@ -18,15 +19,17 @@ interface Props {
   embedded?: boolean;
 }
 
-export const SystemProfileCard = ({T, name, description, avatar, banner, children, bottomInset = 0, embedded = false}: Props) => {
+export const SystemProfileCard = ({T: baseT, palette, name, description, avatar, banner, children, bottomInset = 0, embedded = false}: Props) => {
   const {t} = useTranslation();
+  const colored = !!normalizeProfilePalette(palette);
+  const T = profileWindowTheme(baseT, palette);
   const fs = fontScale(T);
   const inner = (
     <>
       {banner ? (
         <Image source={{uri: banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', aspectRatio: 3}} resizeMode="cover" />
       ) : null}
-      <View style={{paddingHorizontal: embedded ? 0 : 16, paddingTop: banner ? 0 : embedded ? 0 : 20}}>
+      <View style={{paddingHorizontal: embedded && !colored ? 0 : 16, paddingTop: banner ? 0 : embedded && !colored ? 0 : 20}}>
         <View style={{alignItems: 'center', marginTop: banner ? -36 : 0, marginBottom: 14}}>
           {avatar ? (
             <Image source={{uri: avatar}} accessibilityRole="image" accessibilityLabel={name || t('systemProfile.title')}
@@ -55,9 +58,10 @@ export const SystemProfileCard = ({T, name, description, avatar, banner, childre
       </View>
     </>
   );
-  if (embedded) return inner;
+  if (embedded && !colored) return inner;
+  if (embedded) return <View style={{backgroundColor: T.bg, borderRadius: 14, overflow: 'hidden', paddingBottom: 14}}>{inner}</View>;
   return (
-    <ScrollView style={{flex: 1}} contentContainerStyle={{paddingBottom: 24 + bottomInset}}>
+    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{paddingBottom: 24 + bottomInset}}>
       {inner}
     </ScrollView>
   );

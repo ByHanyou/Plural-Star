@@ -1579,6 +1579,15 @@
     "levelN": "Energy level {{n}}",
     "outOfTen": "{{n}}/10"
   },
+  "profilePalette": {
+    "title": "Profile Palette",
+    "hint": "Choose a saved palette or customize its colors for this profile window. Friends you share this profile with will see the same palette.",
+    "custom": "Custom Palette",
+    "appTheme": "Use App Theme",
+    "colorBackground": "Color Background",
+    "preview": "Palette Preview",
+    "previewText": "This palette applies only to this profile."
+  },
   "systemProfile": {
     "read": "Read",
     "unnamed": "Unnamed System",

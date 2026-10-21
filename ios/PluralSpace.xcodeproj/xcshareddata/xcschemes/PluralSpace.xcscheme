@@ -14,20 +14,6 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E3378B7A83229E3E94BA274E507C1C4D"
-               BuildableName = "libPods-PluralSpace.a"
-               BlueprintName = "Pods-PluralSpace"
-               ReferencedContainer = "container:Pods/Pods.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
                BuildableName = "PluralSpace.app"
                BlueprintName = "PluralSpace"
@@ -42,20 +28,10 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "PluralSpaceTests.xctest"
-               BlueprintName = "PluralSpaceTests"
-               ReferencedContainer = "container:PluralSpace.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
-      buildConfiguration = "Release"
+      buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       launchStyle = "0"
