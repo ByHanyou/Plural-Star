@@ -4,10 +4,11 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {SystemProfileCard} from '../components/SystemProfileCard';
+import {ProfilePalettePicker} from '../components/ProfilePalettePicker';
 import {pickImageForUpload} from '../utils/imagePicker';
 import {ImageCropHost} from '../components/ImageCropModal';
 import {saveBannerImage, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
-import {fontScale} from '../theme';
+import {fontScale, profileWindowTheme, normalizeProfilePalette, sameProfilePalette} from '../theme';
 import type {ThemeColors} from '../theme';
 import {Btn, Field} from './shared';
 import {useDraft, clearDraft} from '../hooks/useDraft';
@@ -22,10 +23,11 @@ interface Props {
   onClose: () => void;
 }
 
-export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}: Props) => {
+export const SystemProfileModal = ({visible, theme: baseT, system, onSave, onClose}: Props) => {
   const {t} = useTranslation();
-  const fs = fontScale(T);
+  const fs = fontScale(baseT);
   const [mode, setMode] = useState<Mode>('read');
+  const T = mode === 'read' ? profileWindowTheme(baseT, system?.profilePalette) : baseT;
   const [f, setF] = useState<any>({...system});
   const [showAvatarLink, setShowAvatarLink] = useState(false);
   const [avatarLinkInput, setAvatarLinkInput] = useState('');
@@ -44,7 +46,8 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
     (f?.name || '') !== (system?.name || '') ||
     (f?.description || '') !== (system?.description || '') ||
     (f?.avatar || '') !== (system?.avatar || '') ||
-    (f?.banner || '') !== (system?.banner || '');
+    (f?.banner || '') !== (system?.banner || '') ||
+    !sameProfilePalette(f?.profilePalette, system?.profilePalette);
 
   useDraft<any>('systemProfile', 'systemProfile', visible, f, d => {
     setF((cur: any) => ({...d, avatar: cur?.avatar || d?.avatar, banner: cur?.banner || d?.banner}));
@@ -52,7 +55,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
   });
 
   const commit = () => {
-    onSave({...system, name: f.name, description: f.description, avatar: f.avatar, banner: f.banner});
+    onSave({...system, name: f.name, description: f.description, avatar: f.avatar, banner: f.banner, profilePalette: normalizeProfilePalette(f.profilePalette)});
     clearDraft('systemProfile', 'systemProfile');
     setMode('read');
   };
@@ -128,6 +131,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
           description={system?.description}
           avatar={system?.avatar}
           banner={system?.banner}
+          palette={system?.profilePalette}
         />
       ) : (
         <>
@@ -138,6 +142,12 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
             onChange={(v: string) => setF((x: any) => ({...x, description: v}))}
             placeholder={t('modal.descriptionFieldPlaceholder')}
             multiline numberOfLines={3} T={T} />
+
+          <ProfilePalettePicker T={T} value={f.profilePalette}
+            onChange={profilePalette => setF((x: any) => ({...x, profilePalette}))} />
+          <View style={{marginBottom: 14}}>
+            <SystemProfileCard T={T} embedded name={f.name} description={f.description} avatar={f.avatar} banner={f.banner} palette={f.profilePalette} />
+          </View>
 
           <View style={{flexDirection: 'row', gap: 12, marginBottom: 14, alignItems: 'flex-start'}}>
             <TouchableOpacity onPress={() => pickInto('avatar')} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.changeAvatar')}>

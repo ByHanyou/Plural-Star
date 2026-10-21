@@ -8,8 +8,9 @@ import {Sheet} from '../components/Sheet';
 import {Avatar} from '../components/Avatar';
 import {PlusMinusIcon} from '../components/Glyphs';
 import {ColorCarousel} from '../components/ColorCarousel';
+import {ProfilePalettePicker} from '../components/ProfilePalettePicker';
 import {ColorPickerModal} from '../components/ColorPickerModal';
-import {PALETTE, fontScale, ensureReadable, initialOn, inkOn, profileTheme} from '../theme';
+import {PALETTE, fontScale, ensureReadable, initialOn, inkOn, profileWindowTheme, normalizeProfilePalette, sameProfilePalette} from '../theme';
 import {Member, MemberGroup, CustomFieldDef, uid, getInitials, sortGroupsForDisplay, groupKind, groupParent, nameCompare, childrenOf, descendantsOf, Relationship, RelationshipTypeDef, allRelationshipTypes, DEFAULT_REL_COLOR, isValidHex, tagKey, linkedSubsystemsOf, setSubsystemLinks, normalizeMemberEmoji} from '../utils';
 import {store, KEYS} from '../storage';
 import {useAppStore} from '../store/appStore';
@@ -49,8 +50,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
   const [linking, setLinking] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
-  const bgOn = readOnly && !!f.profileBg && isValidHex(f.color);
-  const T = React.useMemo(() => (bgOn ? profileTheme(baseT, f.color) : baseT), [bgOn, baseT, f.color]);
+  const bgOn = readOnly && (!!normalizeProfilePalette(f.profilePalette) || (!!f.profileBg && isValidHex(f.color)));
+  const T = React.useMemo(() => readOnly ? profileWindowTheme(baseT, f.profilePalette, f.profileBg ? f.color : undefined) : baseT, [readOnly, baseT, f.profilePalette, f.profileBg, f.color]);
   const mc = bgOn ? T.text : ensureReadable(f.color || T.accent, T.card, 3);
   const edge = bgOn ? T.border : `${f.color}40`;
 
@@ -74,9 +75,11 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
       if (cur.id !== member.id) return cur;
       const had = cur.customFields || [];
       const next = member.customFields || [];
-      const same = cur.banner === member.banner && cur.avatar === member.avatar && had.length === next.length
+      const same = cur.banner === member.banner && cur.avatar === member.avatar
+        && cur.color === member.color && cur.profileBg === member.profileBg
+        && sameProfilePalette(cur.profilePalette, member.profilePalette) && had.length === next.length
         && had.every((c: any, i: number) => c.fieldId === next[i].fieldId && c.value === next[i].value);
-      return same ? cur : {...cur, banner: member.banner, avatar: member.avatar, customFields: member.customFields};
+      return same ? cur : {...cur, banner: member.banner, avatar: member.avatar, color: member.color, profileBg: member.profileBg, profilePalette: normalizeProfilePalette(member.profilePalette), customFields: member.customFields};
     });
   }, [visible, lockRead, member]);
   const draftId = isNew ? 'new' : (member?.id || f.id);
@@ -132,6 +135,8 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
       role: cloneSel.role ? (f.role || '') : '',
       color: cloneSel.color ? f.color : PALETTE[0],
       emoji: cloneSel.color ? f.emoji : undefined,
+      profilePalette: cloneSel.color ? normalizeProfilePalette(f.profilePalette) : undefined,
+      profileBg: cloneSel.color ? f.profileBg : undefined,
       description: cloneSel.description ? (f.description || '') : '',
       tags: [],
       groupIds: [],
@@ -477,7 +482,7 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
                 style={{width: 30, height: 30, borderRadius: 15, backgroundColor: 'transparent', borderWidth: 2, borderColor: f.avatarTransparent ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
                 <Text style={{fontSize: 15, color: f.avatarTransparent ? '#fff' : T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⊘</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => set('profileBg', !f.profileBg)} activeOpacity={0.8}
+              <TouchableOpacity onPress={() => { set('profilePalette', undefined); set('profileBg', !f.profileBg); }} activeOpacity={0.8}
                 accessibilityRole="switch" accessibilityState={{checked: !!f.profileBg}} accessibilityLabel={t('modal.palBg')}
                 hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
                 style={{width: 30, height: 30, borderRadius: 15, backgroundColor: f.profileBg && isValidHex(f.color) ? f.color : T.surface, borderWidth: 2, borderColor: f.profileBg ? '#fff' : T.border, alignItems: 'center', justifyContent: 'center'}}>
@@ -500,6 +505,9 @@ export const MemberModal = ({visible, theme: baseT, member, members, groups, set
             <Text style={{fontSize: fs(13), color: T.dim, fontFamily: 'monospace'}}>{f.color}</Text>
           </View>
         )}
+
+        {!readOnly && <ProfilePalettePicker T={T} value={f.profilePalette} legacyBackground={!!f.profileBg}
+          onChange={profilePalette => { set('profilePalette', profilePalette); set('profileBg', false); }} />}
 
         {(groups || []).length > 0 && (() => {
           const visibleGroups = sortGroupsForDisplay(

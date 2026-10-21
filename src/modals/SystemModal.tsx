@@ -4,35 +4,13 @@ import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {BUILTIN_PALETTES, MAX_CUSTOM_PALETTES, FONT_OPTIONS, fontScale, ensureReadable, textFloor} from '../theme';
-import type {CustomPalette, FontChoice, ThemeColors} from '../theme';
+import type {CustomPalette, FontChoice} from '../theme';
 import {uid, isValidHex, normalizeHex, TextScale, TEXT_SCALE_OPTIONS} from '../utils';
 import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
 import {Btn, Field} from './shared';
 import {ToggleSwitch} from '../components/ToggleSwitch';
-import {ColorPickerModal} from '../components/ColorPickerModal';
-
-const HexField = ({label, value, onChange, T}: {label: string; value: string; onChange: (v: string) => void; T: ThemeColors}) => {
-  const fs = fontScale(T);
-  const [open, setOpen] = useState(false);
-  const valid = isValidHex(normalizeHex(value));
-  return (
-    <View style={{flex: 1}}>
-      <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
-      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.7}
-        accessibilityRole="button" accessibilityLabel={label} accessibilityValue={{text: value}}
-        hitSlop={{top: 15, bottom: 15}} style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-        <View style={{width: 20, height: 20, borderRadius: 4, backgroundColor: valid ? normalizeHex(value) : '#333', borderWidth: 1, borderColor: T.border}} />
-        <View style={{flex: 1, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5}}>
-          <Text style={{fontSize: fs(12), fontFamily: 'monospace', color: T.text}} numberOfLines={1}>{value}</Text>
-        </View>
-      </TouchableOpacity>
-      <ColorPickerModal visible={open} title={label} value={value} T={T}
-        onSave={hex => { onChange(hex); setOpen(false); }}
-        onClose={() => setOpen(false)} />
-    </View>
-  );
-};
+import {PaletteColorField as HexField} from '../components/PaletteColorField';
 
 export const SystemModal = ({visible, theme: T, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onOpenProfile, onClose}: any) => {
   const fs = fontScale(T);

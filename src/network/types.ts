@@ -1,3 +1,4 @@
+import type {ProfilePalette} from '../theme';
 export interface NetworkDef {
   id: string;
   name: string;
@@ -92,6 +93,8 @@ export interface MirrorGifAsk {
 }
 
 export interface MirrorMember {
+  profilePalette?: ProfilePalette;
+  profileBg?: boolean;
   id: string;
   name: string;
   pronouns?: string;
@@ -107,6 +110,7 @@ export interface MirrorMember {
 }
 
 export interface MirrorSystemProfile {
+  profilePalette?: ProfilePalette;
   name: string;
   description?: string;
   hasAvatar?: boolean;

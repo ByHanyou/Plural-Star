@@ -700,8 +700,8 @@ export const HubScreen = ({theme: T, singlet = false, selfId, renderShareScreen,
 
   if (activeTile === 'credits') {
     const credits: {name: string; role: string; url: string}[] = [
+      {name: 'sparklecatdev', role: t('hub.creditCoDeveloper'), url: 'https://github.com/sparklecatdev'},
       {name: 'The Loud House System', role: t('hub.creditLogo'), url: 'https://x.com/theloudhousesys?s=21'},
-      {name: 'sparklecatdev', role: t('hub.creditIos'), url: 'https://github.com/sparklecatdev'},
     ];
     return (
       <View style={{flex: 1, backgroundColor: T.bg}}>

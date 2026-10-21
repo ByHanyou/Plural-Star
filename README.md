@@ -177,13 +177,13 @@ Download Plural Star from the [App Store](https://apps.apple.com/in/app/plural-s
 
 ```bash
 # Requirements:
-# - Node 22+
+# - Node 22.13+ (Node 22 is selected by .nvmrc)
 # - JDK 17
 # - Android SDK for Android builds
 # - Xcode, Ruby 3.4+, and CocoaPods for iOS builds
 git clone https://github.com/ByHanyou/Plural-Star.git
 cd Plural-Star
-npm install --legacy-peer-deps
+npm ci --legacy-peer-deps
 ```
 
 **Android release APK**
@@ -202,6 +202,14 @@ bundle exec pod install
 cd ..
 npm run ios
 ```
+
+The shared scheme launches Debug builds. Choose a simulator in Xcode or pass
+`--simulator "<installed simulator name>"` to `npm run ios --`. No development
+team or distribution certificate is needed for simulator builds.
+
+For Xcode selection, local Node paths, personal device signing, and troubleshooting,
+see [Development](wiki/Development.md). The project uses relative paths and the
+selected SDK; each developer keeps signing overrides in an ignored local file.
 
 **iOS release build from the command line**
 
