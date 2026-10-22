@@ -1,4 +1,5 @@
 import Clipboard from '@react-native-clipboard/clipboard';
+import {log} from './log';
 
 export const readClipboardImage = async (): Promise<{base64: string; ext: string} | null> => {
   try {
@@ -11,7 +12,8 @@ export const readClipboardImage = async (): Promise<{base64: string; ext: string
     const base64 = data.slice(idx + 7);
     if (!base64) return null;
     return {base64, ext};
-  } catch {
+  } catch (e) {
+    log.debug('clipboard', e);
     return null;
   }
 };

@@ -1,2 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/ic_stat_notif,@drawable/ic_notif,@mipmap/ic_launcher,@mipmap/ic_launcher_round,@mipmap/ic_launcher_foreground" />
+<resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/ic_stat_notification,@mipmap/ic_launcher,@mipmap/ic_launcher_round,@mipmap/ic_launcher_foreground" />

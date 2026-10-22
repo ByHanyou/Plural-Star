@@ -2,18 +2,19 @@ import React from 'react';
 import {View, Modal, TouchableOpacity, StyleSheet, ActivityIndicator} from 'react-native';
 import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
-import {fontScale, ThemeColors} from '../theme';
+import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
 import {ImportProgress, progressFraction} from '../import/progress';
 import {fmtPercent, fmtNum} from '../utils';
 
 interface Props {
   visible: boolean;
   progress: ImportProgress | null;
-  theme: ThemeColors;
   onCancel?: () => void;
 }
 
-export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props) => {
+export const ImportWaitOverlay = ({visible, progress, onCancel}: Props) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   const fraction = progressFraction(progress);
@@ -37,7 +38,7 @@ export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props
             </Text>
           )}
 
-          {fraction === null ? (
+          {pct === null ? (
             <ActivityIndicator
               color={T.accent}
               style={{marginVertical: 14}}
@@ -48,8 +49,8 @@ export const ImportWaitOverlay = ({visible, progress, theme: T, onCancel}: Props
             <View
               style={[s.track, {backgroundColor: T.border}]}
               accessibilityRole="progressbar"
-              accessibilityValue={{min: 0, max: 100, now: pct ?? 0}}>
-              <View style={[s.fill, {backgroundColor: T.accent, width: `${pct ?? 0}%` as const}]} />
+              accessibilityValue={{min: 0, max: 100, now: pct}}>
+              <View style={[s.fill, {backgroundColor: T.accent, width: `${pct}%` as const}]} />
             </View>
           )}
 

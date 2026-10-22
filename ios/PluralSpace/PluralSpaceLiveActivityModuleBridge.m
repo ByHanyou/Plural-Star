@@ -9,7 +9,8 @@ RCT_EXTERN_METHOD(startOrUpdate:(NSDictionary *)payload
 RCT_EXTERN_METHOD(endActivity:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
-RCT_EXTERN_METHOD(getFriendsPushToken:(RCTPromiseResolveBlock)resolve
+RCT_EXTERN_METHOD(getFriendsPushToken:(NSString *)title
+                  resolver:(RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
 
 RCT_EXTERN_METHOD(endFriendsActivity:(RCTPromiseResolveBlock)resolve

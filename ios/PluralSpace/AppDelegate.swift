@@ -21,7 +21,7 @@ class AppDelegate: RCTAppDelegate {
     _ application: UIApplication,
     didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
   ) {
-    PushTokenHolder.shared.set(deviceToken.map { String(format: "%02x", $0) }.joined())
+    PushTokenHolder.shared.set(deviceToken.hexEncoded)
   }
 
   override func application(

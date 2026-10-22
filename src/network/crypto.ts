@@ -1,6 +1,8 @@
 import './secureRandom';
 import nacl from 'tweetnacl';
-import { encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } from './bytes';
+import { asRecord } from '../utils';
+import { log } from '../utils/log';
+import { concatBytes, encodeBase64, decodeBase64, encodeUTF8, decodeUTF8 } from './bytes';
 import { Identity, FriendIdentity } from './identity';
 import { peerIdFromEd25519PublicKey } from './peerid';
 import { NetMessage } from './types';
@@ -13,11 +15,11 @@ interface Envelope {
   sig: string;
 }
 
-const concat = (a: Uint8Array, b: Uint8Array): Uint8Array => {
-  const out = new Uint8Array(a.length + b.length);
-  out.set(a, 0);
-  out.set(b, a.length);
-  return out;
+const isEnvelope = (v: unknown): v is Envelope => {
+  const e = asRecord(v);
+  const from = asRecord(e?.from);
+  return !!e && e.v === 1 && !!from && typeof from.ed === 'string' && typeof from.box === 'string'
+    && typeof e.n === 'string' && typeof e.ct === 'string' && typeof e.sig === 'string';
 };
 
 export const sealMessage = (
@@ -29,7 +31,7 @@ export const sealMessage = (
   const plaintext = decodeUTF8(JSON.stringify(subId ? {...message, dev: subId} : message));
   const nonce = nacl.randomBytes(nacl.box.nonceLength);
   const ct = nacl.box(plaintext, nonce, recipientBoxPublicKey, self.boxSecretKey);
-  const sig = nacl.sign.detached(concat(nonce, ct), self.edSecretKey);
+  const sig = nacl.sign.detached(concatBytes(nonce, ct), self.edSecretKey);
   const envelope: Envelope = {
     v: 1,
     from: { ed: encodeBase64(self.edPublicKey), box: encodeBase64(self.boxPublicKey) },
@@ -51,13 +53,14 @@ export const openMessage = (
   senderPeerId: string,
   payloadBase64: string,
 ): OpenedMessage | null => {
-  let envelope: Envelope;
+  let parsed: unknown;
   try {
-    envelope = JSON.parse(encodeUTF8(decodeBase64(payloadBase64)));
+    parsed = JSON.parse(encodeUTF8(decodeBase64(payloadBase64)));
   } catch {
     return null;
   }
-  if (!envelope || envelope.v !== 1 || !envelope.from) return null;
+  if (!isEnvelope(parsed)) return null;
+  const envelope = parsed;
 
   let edPub: Uint8Array;
   let boxPub: Uint8Array;
@@ -73,45 +76,37 @@ export const openMessage = (
   } catch {
     return null;
   }
-  if (edPub.length !== 32 || boxPub.length !== 32) return null;
+  if (edPub.length !== 32 || boxPub.length !== 32 || nonce.length !== nacl.box.nonceLength || sig.length !== nacl.sign.signatureLength) return null;
 
-  let derivedPeerId: string;
-  try {
-    derivedPeerId = peerIdFromEd25519PublicKey(edPub);
-  } catch {
-    return null;
-  }
+  const derivedPeerId = peerIdFromEd25519PublicKey(edPub);
   if (derivedPeerId !== senderPeerId) {
-    console.warn('[NETWORK] sender peer_id does not match signed identity - dropping');
+    log.warn('network', 'sender peer_id does not match signed identity - dropping');
     return null;
   }
 
-  let sigOk = false;
-  try { sigOk = nacl.sign.detached.verify(concat(nonce, ct), sig, edPub); } catch { sigOk = false; }
-  if (!sigOk) {
-    console.warn('[NETWORK] envelope signature invalid - dropping');
+  if (!nacl.sign.detached.verify(concatBytes(nonce, ct), sig, edPub)) {
+    log.warn('network', 'envelope signature invalid - dropping');
     return null;
   }
 
-  let plaintext: Uint8Array | null = null;
-  try { plaintext = nacl.box.open(ct, nonce, boxPub, self.boxSecretKey); } catch { plaintext = null; }
+  const plaintext = nacl.box.open(ct, nonce, boxPub, self.boxSecretKey);
   if (!plaintext) {
-    console.warn('[NETWORK] box.open failed - dropping');
+    log.warn('network', 'box.open failed - dropping');
     return null;
   }
 
-  let message: NetMessage;
+  let body: unknown;
   try {
-    message = JSON.parse(encodeUTF8(plaintext));
+    body = JSON.parse(encodeUTF8(plaintext));
   } catch {
     return null;
   }
-
-  const dev = typeof (message as any)?.dev === 'string' ? (message as any).dev as string : undefined;
+  const message = asRecord(body);
+  if (!message) return null;
 
   return {
     sender: { peerId: derivedPeerId, edPublicKey: edPub, boxPublicKey: boxPub },
-    message,
-    dev,
+    message: message as NetMessage,
+    dev: typeof message.dev === 'string' ? message.dev : undefined,
   };
 };

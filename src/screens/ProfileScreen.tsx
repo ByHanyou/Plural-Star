@@ -2,23 +2,27 @@ import React, {useState, useMemo} from 'react';
 import {View, ScrollView, StyleSheet, TouchableOpacity, Image} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors, initialOn, profileTheme} from '../theme';
+import {Fonts, fontScale, initialOn, profileTheme} from '../theme';
+import {ThemeProvider, useTheme} from '../themeContext';
 import {AccentText} from '../components/AccentText';
 import {RichText} from '../components/MarkdownRenderer';
 import {Member, getInitials, allFrontMemberIds, singletStatuses, isValidHex, colorName} from '../utils';
 import {useAppStore} from '../store/appStore';
+import {useUiStore} from '../store/uiStore';
+import {profileHeading} from '../components/headings';
 
 type SubTab = 'profile' | 'statuses';
 
 interface Props {
-  theme: ThemeColors;
   member?: Member;
-  onEditProfile: () => void;
-  onAddStatus: () => void;
-  onEditStatus: (m: Member) => void;
 }
 
-export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onEditStatus}: Props) => {
+export const ProfileScreen = ({member}: Props) => {
+  const T = useTheme();
+  const onEditProfile = useUiStore(s => s.openProfileEditor);
+  const openCustomFront = useUiStore(s => s.openCustomFront);
+  const onAddStatus = () => openCustomFront(null);
+  const onEditStatus = openCustomFront;
   const front = useAppStore(s => s.front);
   const members = useAppStore(s => s.members);
   const statuses = singletStatuses(members);
@@ -26,8 +30,9 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
   const fs = fontScale(T);
   const [subTab, setSubTab] = useState<SubTab>('profile');
   const activeIds = allFrontMemberIds(front);
-  const bgOn = !!member?.profileBg && isValidHex(member.color);
-  const P = useMemo(() => (bgOn && member ? profileTheme(T, member.color) : T), [bgOn, T, member?.color]);
+  const bgColor = member?.profileBg && isValidHex(member.color) ? member.color : null;
+  const bgOn = !!bgColor;
+  const P = useMemo(() => (bgColor ? profileTheme(T, bgColor) : T), [bgColor, T]);
 
   return (
     <View style={{flex: 1, backgroundColor: T.bg}}>
@@ -36,24 +41,17 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
           <Text accessibilityRole="header" style={[s.heading, {color: T.text, flex: 1, fontSize: fs(22)}]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
             {t('tabs.profile')}
           </Text>
-          {subTab === 'profile' ? (
-            <TouchableOpacity onPress={onEditProfile} accessibilityRole="button" accessibilityLabel={t('profile.edit')}
-              hitSlop={{top: 8, bottom: 8}} style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
-              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={onAddStatus} accessibilityRole="button" accessibilityLabel={t('status.add')}
-              hitSlop={{top: 8, bottom: 8}} style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
-              <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('profile.addStatus')}</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={subTab === 'profile' ? onEditProfile : onAddStatus} accessibilityRole="button" accessibilityLabel={subTab === 'profile' ? t('profile.edit') : t('status.add')}
+            hitSlop={{top: 8, bottom: 8}} style={[s.btn, {backgroundColor: T.accentBg, borderColor: `${T.accent}40`}]}>
+            <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{subTab === 'profile' ? t('common.edit') : t('profile.addStatus')}</Text>
+          </TouchableOpacity>
         </View>
         <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border, marginTop: 4}}>
           {(['profile', 'statuses'] as SubTab[]).map(tab => (
             <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
               accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
               hitSlop={{top: 6, bottom: 6}} style={[s.subtab, {flex: 1, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: subTab === tab ? T.accent : 'transparent'}]}>
-              <AccentText T={T} numberOfLines={2} maxFontSizeMultiplier={1.3} style={{fontSize: fs(13), textAlign: 'center', fontWeight: subTab === tab ? '600' : '400', color: subTab === tab ? T.accent : T.dim}}>
+              <AccentText numberOfLines={2} maxFontSizeMultiplier={1.3} style={{fontSize: fs(13), textAlign: 'center', fontWeight: subTab === tab ? '600' : '400', color: subTab === tab ? T.accent : T.dim}}>
                 {tab === 'profile' ? t('tabs.profile') : t('profile.statuses')}
               </AccentText>
             </TouchableOpacity>
@@ -81,7 +79,7 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
               {member?.pronouns ? <Text style={{fontSize: fs(14), color: P.dim, marginTop: 3}}>{member.pronouns}</Text> : null}
               {member ? (
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
-                  <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: P.dim, fontWeight: '600'}}>{t('profile.favoriteColor')}</Text>
+                  <Text style={profileHeading(fs, P.dim)}>{t('profile.favoriteColor')}</Text>
                   <View accessible accessibilityLabel={colorName(member.color || T.accent, t)} style={{width: 16, height: 16, borderRadius: 8, backgroundColor: member.color || T.accent, borderWidth: 1, borderColor: bgOn ? P.border : 'rgba(255,255,255,0.2)'}} />
                   {member.emoji ? <Text style={{fontSize: fs(16)}} accessibilityLabel={t('a11y.labelValue', {label: t('modal.emoji'), value: member.emoji})}>{member.emoji}</Text> : null}
                 </View>
@@ -90,7 +88,7 @@ export const ProfileScreen = ({theme: T, member, onEditProfile, onAddStatus, onE
 
             <View style={[s.card, {backgroundColor: bgOn ? P.surface : T.card, borderColor: P.border, padding: 14}]}>
               {member?.description ? (
-                <RichText text={member.description} T={P} />
+                <ThemeProvider value={P}><RichText text={member.description} /></ThemeProvider>
               ) : (
                 <Text style={{fontSize: fs(12), color: P.muted, fontStyle: 'italic'}}>{t('profile.noDescription')}</Text>
               )}

@@ -3,10 +3,10 @@ import {View, TouchableOpacity} from 'react-native';
 import type {GestureResponderHandlers} from 'react-native';
 import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
-import {ThemeColors, fontScale} from '../theme';
+import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
 
-export const DragHandle = ({T, active, panHandlers, name, position, count, onStep}: {
-  T: ThemeColors;
+export const DragHandle = ({active, panHandlers, name, position, count, onStep}: {
   active: boolean;
   panHandlers: GestureResponderHandlers;
   name?: string;
@@ -14,6 +14,7 @@ export const DragHandle = ({T, active, panHandlers, name, position, count, onSte
   count?: number;
   onStep?: (dir: 1 | -1) => void;
 }) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   return (
@@ -35,7 +36,8 @@ export const DragHandle = ({T, active, panHandlers, name, position, count, onSte
   );
 };
 
-export const ReorderLockButton = ({T, on, onToggle}: {T: ThemeColors; on: boolean; onToggle: () => void}) => {
+export const ReorderLockButton = ({on, onToggle}: {on: boolean; onToggle: () => void}) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   return (

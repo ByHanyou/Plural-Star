@@ -1,3 +1,5 @@
+import {clamp, pushTo} from '../utils';
+
 export const traceEnclosedRegion = (
   wx: number,
   wy: number,
@@ -25,8 +27,8 @@ export const traceEnclosedRegion = (
   const W = Math.min(1024, Math.ceil((maxX - minX) / cell) + 1);
   const H = Math.min(1024, Math.ceil((maxY - minY) / cell) + 1);
   const grid = new Uint8Array(W * H);
-  const toCX = (x: number) => Math.max(0, Math.min(W - 1, Math.floor((x - minX) / cell)));
-  const toCY = (y: number) => Math.max(0, Math.min(H - 1, Math.floor((y - minY) / cell)));
+  const toCX = (x: number) => clamp(Math.floor((x - minX) / cell), 0, W - 1);
+  const toCY = (y: number) => clamp(Math.floor((y - minY) / cell), 0, H - 1);
 
   for (const s of walls) {
     const r = Math.max(1, Math.round(s.w / 2 / cell));
@@ -81,12 +83,7 @@ export const traceEnclosedRegion = (
 
   const edges = new Map<number, number[]>();
   const vkey = (x: number, y: number) => y * (W + 1) + x;
-  const addEdge = (x1: number, y1: number, x2: number, y2: number) => {
-    const k = vkey(x1, y1);
-    const list = edges.get(k);
-    if (list) list.push(vkey(x2, y2));
-    else edges.set(k, [vkey(x2, y2)]);
-  };
+  const addEdge = (x1: number, y1: number, x2: number, y2: number) => pushTo(edges, vkey(x1, y1), vkey(x2, y2));
   const flooded = (x: number, y: number) => x >= 0 && x < W && y >= 0 && y < H && grid[y * W + x] === 2;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {

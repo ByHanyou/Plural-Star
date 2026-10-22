@@ -1,295 +1,95 @@
 import {Platform} from 'react-native';
+import type {FrontTierKey} from './utils';
+import {deriveColors, profileColors, readableAccentColor, DARK_PALETTE} from './themeColors';
+import type {ThemeColorSet} from './themeColors';
 
-export interface ThemeColors {
-  bg: string;
-  surface: string;
-  card: string;
-  border: string;
-  borderLt: string;
-  accent: string;
-  accentBg: string;
-  text: string;
-  dim: string;
-  muted: string;
-  toggleOff: string;
-  danger: string;
-  dangerBg: string;
-  success: string;
-  successBg: string;
-  info: string;
-  infoBg: string;
-  isLight: boolean;
+export {hexToRgb, initialOn, ensureReadable, textFloor, inkOn, DARK_PALETTE, LIGHT_PALETTE, BUILTIN_PALETTES, MAX_CUSTOM_PALETTES, PALETTE} from './themeColors';
+export type {CustomPalette} from './themeColors';
+
+export interface ThemeColors extends ThemeColorSet {
   textScale: number;
 }
 
-export interface CustomPalette {
-  id: string;
-  name: string;
-  bg: string;
-  accent: string;
-  text: string;
-  mid: string;
-}
+export const deriveTheme = (bg: string, accent: string, text: string, mid: string): ThemeColors => ({...deriveColors(bg, accent, text, mid), textScale: 1});
 
-const hexToRgb = (hex: string): [number, number, number] => {
-  const raw = String(hex ?? '').replace('#', '');
-  const h = (raw.length === 3 ? raw.split('').map(c => c + c).join('') : raw).padEnd(6, '0');
-  const n = (s: string) => { const v = parseInt(s, 16); return Number.isFinite(v) ? v : 0; };
-  return [n(h.slice(0, 2)), n(h.slice(2, 4)), n(h.slice(4, 6))];
-};
+export const profileTheme = (base: ThemeColors, color: string): ThemeColors => ({...base, ...profileColors(base, color)});
 
-const rgbToHex = (r: number, g: number, b: number): string =>
-  '#' + [r, g, b].map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('');
+export const DEFAULT_THEME: ThemeColors = deriveTheme(DARK_PALETTE.bg, DARK_PALETTE.accent, DARK_PALETTE.text, DARK_PALETTE.mid);
 
-const mix = (c1: string, c2: string, t: number): string => {
-  const [r1, g1, b1] = hexToRgb(c1);
-  const [r2, g2, b2] = hexToRgb(c2);
-  return rgbToHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
-};
+export const scaledFont = (textScale?: number) => (s: number) => Math.round(s * (textScale || 1));
 
-const luminance = (hex: string): number => {
-  const [r, g, b] = hexToRgb(hex).map(v => v / 255);
-  return 0.299 * r + 0.587 * g + 0.114 * b;
-};
+export const fontScale = (T: ThemeColors) => scaledFont(T?.textScale);
 
-export const initialOn = (bg: string): string =>
-  luminance(bg) > 0.35 ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.92)';
+export const tierAccent = (T: ThemeColors, tier: FrontTierKey): string => tier === 'primary' ? T.accent : tier === 'coFront' ? T.info : T.success;
 
-const contrastRatio = (hexA: string, hexB: string): number => {
-  const lum = (hex: string): number => {
-    const h = (hex || '').replace('#', '');
-    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : (h + '000000').slice(0, 6);
-    const n = parseInt(full, 16) || 0;
-    const chan = (v: number) => {
-      const s = v / 255;
-      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-    };
-    return 0.2126 * chan((n >> 16) & 255) + 0.7152 * chan((n >> 8) & 255) + 0.0722 * chan(n & 255);
-  };
-  const la = lum(hexA);
-  const lb = lum(hexB);
-  const hi = Math.max(la, lb);
-  const lo = Math.min(la, lb);
-  return (hi + 0.05) / (lo + 0.05);
-};
-
-export const ensureReadable = (color: string, bg: string, min: number): string => {
-  if (contrastRatio(color, bg) >= min) return color;
-  const preferred = luminance(color) <= luminance(bg) ? '#000000' : '#FFFFFF';
-  const other = preferred === '#000000' ? '#FFFFFF' : '#000000';
-  const pole = contrastRatio(preferred, bg) >= min
-    ? preferred
-    : contrastRatio(other, bg) >= min
-      ? other
-      : (contrastRatio(preferred, bg) >= contrastRatio(other, bg) ? preferred : other);
-  if (contrastRatio(pole, bg) < min) return pole;
-  let lo = 0;
-  let hi = 1;
-  for (let i = 0; i < 8; i++) {
-    const t = (lo + hi) / 2;
-    if (contrastRatio(mix(color, pole, t), bg) >= min) hi = t;
-    else lo = t;
-  }
-  return mix(color, pole, hi);
-};
-
-export const textFloor = (bg: string): number =>
-  Math.max(contrastRatio('#000000', bg), contrastRatio('#FFFFFF', bg)) >= 7 ? 4.5 : 3;
-
-export const deriveTheme = (bg: string, accent: string, text: string, mid: string): ThemeColors => {
-  const lum = luminance(bg);
-  const isLight = lum > 0.3;
-  const floor = textFloor(bg);
-
-  const surfaceT = isLight ? 0.04 : 0.08;
-  const cardT = isLight ? 0.07 : 0.14;
-  const borderT = isLight ? 0.12 : 0.20;
-  const borderLtT = isLight ? 0.18 : 0.30;
-
-  const surface = mix(bg, mid, surfaceT);
-  const card = mix(bg, mid, cardT);
-  const border = mix(bg, mid, borderT);
-  const borderLt = mix(bg, mid, borderLtT);
-
-  const effText = ensureReadable(text, bg, floor);
-  const dim = ensureReadable(mix(effText, mid, 0.12), bg, floor);
-  const muted = ensureReadable(mix(effText, mid, 0.30), bg, 3);
-  const toggleOff = mix(bg, mid, 0.22);
-
-  const accentRgb = hexToRgb(accent);
-  const bgRgb = hexToRgb(bg);
-  const accentBg = rgbToHex(
-    bgRgb[0] + (accentRgb[0] - bgRgb[0]) * 0.12,
-    bgRgb[1] + (accentRgb[1] - bgRgb[1]) * 0.12,
-    bgRgb[2] + (accentRgb[2] - bgRgb[2]) * 0.12,
-  );
-
-  const dangerBase = '#d9534f';
-  const successBase = isLight ? '#2e7a5a' : '#4caf8a';
-  const infoBase = isLight ? '#2a5aaa' : '#7B9FE8';
-
-  const dangerBgRgb = hexToRgb(dangerBase);
-  const successBgRgb = hexToRgb(successBase);
-  const infoBgRgb = hexToRgb(infoBase);
-  const opacity = isLight ? 0.15 : 0.12;
-
-  return {
-    bg,
-    surface,
-    card,
-    border,
-    borderLt,
-    accent,
-    accentBg,
-    text: effText,
-    dim,
-    muted,
-    toggleOff,
-    danger: dangerBase,
-    dangerBg: rgbToHex(
-      bgRgb[0] + (dangerBgRgb[0] - bgRgb[0]) * opacity,
-      bgRgb[1] + (dangerBgRgb[1] - bgRgb[1]) * opacity,
-      bgRgb[2] + (dangerBgRgb[2] - bgRgb[2]) * opacity,
-    ),
-    success: successBase,
-    successBg: rgbToHex(
-      bgRgb[0] + (successBgRgb[0] - bgRgb[0]) * opacity,
-      bgRgb[1] + (successBgRgb[1] - bgRgb[1]) * opacity,
-      bgRgb[2] + (successBgRgb[2] - bgRgb[2]) * opacity,
-    ),
-    info: infoBase,
-    infoBg: rgbToHex(
-      bgRgb[0] + (infoBgRgb[0] - bgRgb[0]) * opacity,
-      bgRgb[1] + (infoBgRgb[1] - bgRgb[1]) * opacity,
-      bgRgb[2] + (infoBgRgb[2] - bgRgb[2]) * opacity,
-    ),
-    isLight,
-    textScale: 1,
-  };
-};
-
-export const inkOn = (bg: string): string =>
-  contrastRatio('#000000', bg) >= contrastRatio('#FFFFFF', bg) ? '#000000' : '#FFFFFF';
-
-export const profileTheme = (base: ThemeColors, color: string): ThemeColors => {
-  const ink = inkOn(color);
-  const surface = mix(color, ink === '#000000' ? '#FFFFFF' : '#000000', 0.18);
-  const readable = (c: string, min: number) => ensureReadable(ensureReadable(c, surface, min), color, min);
-  return {
-    ...base,
-    bg: color,
-    surface,
-    card: color,
-    border: mix(color, ink, 0.3),
-    borderLt: mix(color, ink, 0.4),
-    accent: readable(base.accent, 4.5),
-    accentBg: surface,
-    text: ink,
-    dim: readable(mix(ink, color, 0.2), 4.5),
-    muted: readable(mix(ink, color, 0.35), 3),
-    toggleOff: mix(color, ink, 0.35),
-    danger: readable(base.danger, 4.5),
-    dangerBg: surface,
-    success: readable(base.success, 4.5),
-    successBg: surface,
-    info: readable(base.info, 4.5),
-    infoBg: surface,
-    isLight: ink === '#000000',
-  };
-};
-
-export const DARK_PALETTE: CustomPalette = {
-  id: '__dark__',
-  name: 'Obsidian',
-  bg: '#0A1F2E',
-  accent: '#DAA520',
-  text: '#C0C0C0',
-  mid: '#7A8A99',
-};
-
-const LIGHT_PALETTE: CustomPalette = {
-  id: '__light__',
-  name: 'Steel',
-  bg: '#7A8A99',
-  accent: '#DAA520',
-  text: '#0A1F2E',
-  mid: '#C0C0C0',
-};
-
-export const T: ThemeColors = deriveTheme(DARK_PALETTE.bg, DARK_PALETTE.accent, DARK_PALETTE.text, DARK_PALETTE.mid);
-
-export const BUILTIN_PALETTES: CustomPalette[] = [DARK_PALETTE, LIGHT_PALETTE];
-
-export const MAX_CUSTOM_PALETTES = 20;
-
-export const PALETTE = [
-  '#DAA520', '#7B9FE8', '#E87BA8', '#7BE8C4',
-  '#A87BE8', '#E8A87B', '#6EC9A9', '#E87B7B',
-  '#85B4E8', '#C97BE8', '#B4E885', '#E8C97B',
-];
-
-export const fontScale = (T: ThemeColors) => (s: number) => Math.round(s * (T?.textScale || 1));
-
-export const readableAccent = (T: ThemeColors): string =>
-  contrastRatio(T.accent, T.bg) >= 3 ? T.accent : T.text;
+export const readableAccent = (T: ThemeColors): string => readableAccentColor(T.accent, T.bg, T.text);
 
 export const DYSLEXIC_FONT = 'OpenDyslexic';
 
-export const Fonts = {
-  display: 'OpenDyslexic',
-  body: 'System',
-  mono: 'monospace',
-};
+export const Fonts = {display: DYSLEXIC_FONT};
 
 export type FontChoice = 'default' | 'opendyslexic' | 'atkinson' | 'lexend' | 'comicneue' | 'cause' | 'gelasio' | 'anton';
 
-const fontFam =(android: string, ios: string): string => (Platform.OS === 'android' ? android : ios);
+const fontFam = (android: string, ios: string): string => (Platform.OS === 'android' ? android : ios);
+
+const ATKINSON = fontFam('AtkinsonHyperlegible_400Regular', 'AtkinsonHyperlegible-Regular');
+const LEXEND = fontFam('Lexend_400Regular', 'Lexend-Regular');
+const COMIC_NEUE = fontFam('ComicNeue_400Regular', 'ComicNeue-Regular');
+const CAUSE = fontFam('Cause_400Regular', 'Cause-Regular');
+const GELASIO = fontFam('Gelasio_400Regular', 'Gelasio-Regular');
+const ANTON = fontFam('Anton_400Regular', 'Anton-Regular');
 
 export const FONT_OPTIONS: {value: FontChoice; label: string; family: string | null}[] = [
   {value: 'default', label: 'Default', family: null},
   {value: 'opendyslexic', label: 'OpenDyslexic', family: 'OpenDyslexic'},
-  {value: 'atkinson', label: 'Atkinson Hyperlegible', family: fontFam('AtkinsonHyperlegible_400Regular', 'AtkinsonHyperlegible-Regular')},
-  {value: 'lexend', label: 'Lexend', family: fontFam('Lexend_400Regular', 'Lexend-Regular')},
-  {value: 'comicneue', label: 'Comic Neue', family: fontFam('ComicNeue_400Regular', 'ComicNeue-Regular')},
-  {value: 'cause', label: 'Cause', family: fontFam('Cause_400Regular', 'Cause-Regular')},
-  {value: 'gelasio', label: 'Gelasio', family: fontFam('Gelasio_400Regular', 'Gelasio-Regular')},
-  {value: 'anton', label: 'Anton', family: fontFam('Anton_400Regular', 'Anton-Regular')},
+  {value: 'atkinson', label: 'Atkinson Hyperlegible', family: ATKINSON},
+  {value: 'lexend', label: 'Lexend', family: LEXEND},
+  {value: 'comicneue', label: 'Comic Neue', family: COMIC_NEUE},
+  {value: 'cause', label: 'Cause', family: CAUSE},
+  {value: 'gelasio', label: 'Gelasio', family: GELASIO},
+  {value: 'anton', label: 'Anton', family: ANTON},
 ];
 
 export const fontFamilyForChoice = (c?: FontChoice): string | null =>
   FONT_OPTIONS.find(o => o.value === c)?.family ?? null;
 
-interface FontVariants{ regular: string; bold?: string; italic?: string; boldItalic?: string; }
+interface FontVariants {
+  regular: string;
+  bold?: string;
+  italic?: string;
+  boldItalic?: string;
+}
+
 const FONT_VARIANTS: Record<string, FontVariants> = {
-  [fontFam('AtkinsonHyperlegible_400Regular', 'AtkinsonHyperlegible-Regular')]: {
-    regular: fontFam('AtkinsonHyperlegible_400Regular', 'AtkinsonHyperlegible-Regular'),
+  [ATKINSON]: {
+    regular: ATKINSON,
     italic: fontFam('AtkinsonHyperlegible_400Regular_Italic', 'AtkinsonHyperlegible-Italic'),
     bold: fontFam('AtkinsonHyperlegible_700Bold', 'AtkinsonHyperlegible-Bold'),
     boldItalic: fontFam('AtkinsonHyperlegible_700Bold_Italic', 'AtkinsonHyperlegible-BoldItalic'),
   },
-  [fontFam('ComicNeue_400Regular', 'ComicNeue-Regular')]: {
-    regular: fontFam('ComicNeue_400Regular', 'ComicNeue-Regular'),
+  [COMIC_NEUE]: {
+    regular: COMIC_NEUE,
     italic: fontFam('ComicNeue_400Regular_Italic', 'ComicNeue-Italic'),
     bold: fontFam('ComicNeue_700Bold', 'ComicNeue-Bold'),
     boldItalic: fontFam('ComicNeue_700Bold_Italic', 'ComicNeue-BoldItalic'),
   },
-  [fontFam('Gelasio_400Regular', 'Gelasio-Regular')]: {
-    regular: fontFam('Gelasio_400Regular', 'Gelasio-Regular'),
+  [GELASIO]: {
+    regular: GELASIO,
     italic: fontFam('Gelasio_400Regular_Italic', 'Gelasio-Italic'),
     bold: fontFam('Gelasio_700Bold', 'Gelasio-Bold'),
     boldItalic: fontFam('Gelasio_700Bold_Italic', 'Gelasio-BoldItalic'),
   },
-  [fontFam('Lexend_400Regular', 'Lexend-Regular')]: {
-    regular: fontFam('Lexend_400Regular', 'Lexend-Regular'),
+  [LEXEND]: {
+    regular: LEXEND,
     bold: fontFam('Lexend_700Bold', 'Lexend-Bold'),
   },
-  [fontFam('Cause_400Regular', 'Cause-Regular')]: {
-    regular: fontFam('Cause_400Regular', 'Cause-Regular'),
+  [CAUSE]: {
+    regular: CAUSE,
     bold: fontFam('Cause_700Bold', 'Cause-Bold'),
   },
 };
 
-export const resolveFontVariant =(
+export const resolveFontVariant = (
   family: string,
   opts: {bold?: boolean; italic?: boolean},
 ): {family: string; hasBold: boolean; hasItalic: boolean} => {

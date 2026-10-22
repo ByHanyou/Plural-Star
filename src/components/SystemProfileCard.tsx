@@ -5,10 +5,9 @@ import {useTranslation} from 'react-i18next';
 import {RichText} from './MarkdownRenderer';
 import {getInitials} from '../utils';
 import {fontScale, initialOn} from '../theme';
-import type {ThemeColors} from '../theme';
+import {useTheme} from '../themeContext';
 
 interface Props {
-  T: ThemeColors;
   name: string;
   description?: string;
   avatar?: string;
@@ -18,7 +17,8 @@ interface Props {
   embedded?: boolean;
 }
 
-export const SystemProfileCard = ({T, name, description, avatar, banner, children, bottomInset = 0, embedded = false}: Props) => {
+export const SystemProfileCard = ({name, description, avatar, banner, children, bottomInset = 0, embedded = false}: Props) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   const inner = (
@@ -26,7 +26,7 @@ export const SystemProfileCard = ({T, name, description, avatar, banner, childre
       {banner ? (
         <Image source={{uri: banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', aspectRatio: 3}} resizeMode="cover" />
       ) : null}
-      <View style={{paddingHorizontal: embedded ? 0 : 16, paddingTop: banner ? 0 : embedded ? 0 : 20}}>
+      <View style={{paddingHorizontal: embedded ? 0 : 16, paddingTop: banner || embedded ? 0 : 20}}>
         <View style={{alignItems: 'center', marginTop: banner ? -36 : 0, marginBottom: 14}}>
           {avatar ? (
             <Image source={{uri: avatar}} accessibilityRole="image" accessibilityLabel={name || t('systemProfile.title')}
@@ -46,7 +46,7 @@ export const SystemProfileCard = ({T, name, description, avatar, banner, childre
 
         <View style={[s.card, {backgroundColor: T.card, borderColor: T.border, padding: 14}]}>
           {description ? (
-            <RichText text={description} T={T} />
+            <RichText text={description} />
           ) : (
             <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic'}}>{t('systemProfile.noDescription')}</Text>
           )}

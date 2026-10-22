@@ -1,12 +1,13 @@
 import {NativeModules, Platform} from 'react-native';
 import type {FrontState, Member} from '../utils';
-import {fmtDur, frontSessionStart, translateMood} from '../utils';
+import {TIER_I18N_KEY, fmtDur, frontSessionStart, translateMood} from '../utils';
 import i18n from '../i18n/i18n';
+import {log, logError} from '../utils/log';
 
 type LiveActivityModule = {
   startOrUpdate(payload: Record<string, unknown>): Promise<unknown>;
   endActivity(): Promise<unknown>;
-  getFriendsPushToken?(): Promise<string | null>;
+  getFriendsPushToken?(title: string): Promise<string | null>;
   endFriendsActivity?(): Promise<unknown>;
   waitForProtectedData?(): Promise<boolean>;
   getAPNsDeviceToken?(): Promise<string | null>;
@@ -18,41 +19,40 @@ const nativeModule: LiveActivityModule | null =
 const resolveNames = (ids: string[], members: Member[]): string =>
   ids.map(id => members.find(m => m.id === id)?.name || '?').join(', ');
 
-export const getFriendsPushToken = async (): Promise<string | null> => {
-  if (!nativeModule || typeof nativeModule.getFriendsPushToken !== 'function') return null;
+const PROTECTED_DATA_WAIT_MS = 32000;
+
+const readToken = async (read: (m: LiveActivityModule) => Promise<string | null> | undefined): Promise<string | null> => {
+  if (!nativeModule) return null;
   try {
-    return (await nativeModule.getFriendsPushToken()) || null;
-  } catch {
+    return (await read(nativeModule)) || null;
+  } catch (e) {
+    log.debug('liveActivity', e);
     return null;
   }
 };
 
-export const getAPNsDeviceToken = async (): Promise<string | null> => {
-  if (!nativeModule || typeof nativeModule.getAPNsDeviceToken !== 'function') return null;
-  try {
-    return (await nativeModule.getAPNsDeviceToken()) || null;
-  } catch {
-    return null;
-  }
-};
+export const getFriendsPushToken = (): Promise<string | null> => readToken(m => m.getFriendsPushToken?.(i18n.t('network.friends')));
+
+export const getAPNsDeviceToken = (): Promise<string | null> => readToken(m => m.getAPNsDeviceToken?.());
 
 export const endFriendsActivity = async (): Promise<void> => {
-  if (!nativeModule || typeof nativeModule.endFriendsActivity !== 'function') return;
   try {
-    await nativeModule.endFriendsActivity();
-  } catch {}
+    await nativeModule?.endFriendsActivity?.();
+  } catch (e) {
+    logError('liveActivity', e);
+  }
 };
 
 export const waitForProtectedData = async (): Promise<boolean> => {
-  if (Platform.OS !== 'ios') return true;
-  if (!nativeModule || typeof nativeModule.waitForProtectedData !== 'function') return true;
+  if (!nativeModule?.waitForProtectedData) return true;
   try {
     const raced = await Promise.race<boolean | 'timeout'>([
-      nativeModule.waitForProtectedData() as Promise<boolean>,
-      new Promise<'timeout'>(r => setTimeout(() => r('timeout'), 32000)),
+      nativeModule.waitForProtectedData(),
+      new Promise<'timeout'>(r => setTimeout(() => r('timeout'), PROTECTED_DATA_WAIT_MS)),
     ]);
     return raced === true;
-  } catch {
+  } catch (e) {
+    log.debug('liveActivity', e);
     return true;
   }
 };
@@ -69,10 +69,9 @@ export const updateFrontLiveActivity = async (
     return;
   }
 
-  const tierIds = (tier: any): string[] => (Array.isArray(tier?.memberIds) ? tier.memberIds : []);
-  const primaryIds = tierIds(front.primary);
-  const coFrontIds = tierIds(front.coFront);
-  const coConsciousIds = tierIds(front.coConscious);
+  const primaryIds = front.primary.memberIds;
+  const coFrontIds = front.coFront.memberIds;
+  const coConsciousIds = front.coConscious.memberIds;
   const primaryText = resolveNames(primaryIds, members);
   if (!primaryText && coFrontIds.length === 0 && coConsciousIds.length === 0) {
     await nativeModule.endActivity();
@@ -91,6 +90,12 @@ export const updateFrontLiveActivity = async (
     startTime: since,
     statusLine: fmtDur(since),
     friendsText: friendsText || undefined,
+    frontLabel: i18n.t('tabs.front'),
+    coFrontLabel: i18n.t(TIER_I18N_KEY.coFront),
+    coConsciousLabel: i18n.t(TIER_I18N_KEY.coConscious),
+    moodLabel: i18n.t('modal.mood'),
+    locationLabel: i18n.t('notification.atLabel'),
+    friendsLabel: i18n.t('network.friends'),
   });
 };
 

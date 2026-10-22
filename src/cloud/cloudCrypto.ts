@@ -113,13 +113,7 @@ export const wrapMasterKey = (masterKey: Uint8Array, kek: Uint8Array): string =>
   bytesToBase64(seal(kek, masterKey));
 
 export const unwrapMasterKey = (wrappedB64: string, kek: Uint8Array): Uint8Array | null => {
-  let sealed: Uint8Array;
-  try {
-    sealed = base64ToBytes(wrappedB64);
-  } catch {
-    return null;
-  }
-  const mk = open(kek, sealed);
+  const mk = open(kek, base64ToBytes(wrappedB64));
   return mk && mk.length === nacl.secretbox.keyLength ? mk : null;
 };
 
@@ -135,11 +129,10 @@ export const unpackData = (bytes: Uint8Array): string => strFromU8(gunzipSync(by
 
 export const contentHashHex = (raw: string): string => bytesToHex(blake2b(strToU8(raw), {dkLen: 16}));
 
-const B64 ='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const B64_REV = (() => {
-  const r = new Int16Array(256).fill(-1);
+  const r = new Uint8Array(256);
   for (let i = 0; i < B64.length; i++) r[B64.charCodeAt(i)] = i;
-  r['='.charCodeAt(0)] = 0;
   return r;
 })();
 const CHUNK = 8190;
@@ -180,7 +173,6 @@ export const base64ToBytes = (b64: string): Uint8Array => {
     const c1 = i + 1 < s.length ? B64_REV[s.charCodeAt(i + 1)] : 0;
     const c2 = i + 2 < s.length ? B64_REV[s.charCodeAt(i + 2)] : 0;
     const c3 = i + 3 < s.length ? B64_REV[s.charCodeAt(i + 3)] : 0;
-    if (c0 < 0 || c1 < 0 || c2 < 0 || c3 < 0) throw new Error('invalid base64');
     out[o++] = (c0 << 2) | (c1 >> 4);
     if (o < outLen) out[o++] = ((c1 & 15) << 4) | (c2 >> 2);
     if (o < outLen) out[o++] = ((c2 & 3) << 6) | c3;
@@ -196,11 +188,7 @@ export interface DataUriParts {
 export const splitDataUri = (uri: string): DataUriParts | null => {
   const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(uri);
   if (!m || !m[2]) return null;
-  try {
-    return {mime: m[1] || 'application/octet-stream', bytes: base64ToBytes(m[3])};
-  } catch {
-    return null;
-  }
+  return {mime: m[1] || 'application/octet-stream', bytes: base64ToBytes(m[3])};
 };
 
 export const joinDataUri = (mime: string, bytes: Uint8Array): string => `data:${mime};base64,${bytesToBase64(bytes)}`;

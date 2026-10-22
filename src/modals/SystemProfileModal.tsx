@@ -1,60 +1,62 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {View, TouchableOpacity, Image, Alert} from 'react-native';
-import {Text, TextInput} from '../components/AppText';
+import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {SystemProfileCard} from '../components/SystemProfileCard';
-import {pickImageForUpload} from '../utils/imagePicker';
+import {pickAndSaveImage} from '../utils/imagePicker';
+import {reportSaveError} from '../utils/saveError';
 import {ImageCropHost} from '../components/ImageCropModal';
-import {saveBannerImage, saveAvatarFromUri, saveAvatarFromUrl} from '../utils/mediaUtils';
+import {saveBioImageFromUri, saveAvatarFromUri} from '../utils/mediaUtils';
+import {SystemInfo} from '../utils';
 import {fontScale} from '../theme';
-import type {ThemeColors} from '../theme';
-import {Btn, Field} from './shared';
+import {useTheme} from '../themeContext';
+import {AvatarLink, Btn, Field, confirmRemoveImage} from '../components/controls';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
 type Mode = 'read' | 'edit';
 
 interface Props {
   visible: boolean;
-  theme: ThemeColors;
-  system: any;
-  onSave: (next: any) => void;
+  system: SystemInfo;
+  onSave: (next: SystemInfo) => Promise<void>;
   onClose: () => void;
 }
 
-export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}: Props) => {
+export const SystemProfileModal = ({visible, system, onSave, onClose}: Props) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [mode, setMode] = useState<Mode>('read');
-  const [f, setF] = useState<any>({...system});
-  const [showAvatarLink, setShowAvatarLink] = useState(false);
-  const [avatarLinkInput, setAvatarLinkInput] = useState('');
-  const [avatarLinking, setAvatarLinking] = useState(false);
+  const [f, setF] = useState<SystemInfo>({...system});
 
+  const systemRef = useRef(system);
+  systemRef.current = system;
   useEffect(() => {
     if (!visible) return;
     setMode('read');
-    setF({...system});
-    setShowAvatarLink(false);
-    setAvatarLinkInput('');
-    setAvatarLinking(false);
-  }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
+    setF({...systemRef.current});
+  }, [visible]);
 
   const dirty =
-    (f?.name || '') !== (system?.name || '') ||
-    (f?.description || '') !== (system?.description || '') ||
-    (f?.avatar || '') !== (system?.avatar || '') ||
-    (f?.banner || '') !== (system?.banner || '');
+    (f.name || '') !== (system.name || '') ||
+    (f.description || '') !== (system.description || '') ||
+    (f.avatar || '') !== (system.avatar || '') ||
+    (f.banner || '') !== (system.banner || '');
 
-  useDraft<any>('systemProfile', 'systemProfile', visible, f, d => {
-    setF((cur: any) => ({...d, avatar: cur?.avatar || d?.avatar, banner: cur?.banner || d?.banner}));
+  useDraft<SystemInfo>('systemProfile', 'systemProfile', visible, f, d => {
+    setF(cur => ({...d, avatar: cur.avatar || d.avatar, banner: cur.banner || d.banner}));
     setMode('edit');
   });
 
-  const commit = () => {
-    onSave({...system, name: f.name, description: f.description, avatar: f.avatar, banner: f.banner});
-    clearDraft('systemProfile', 'systemProfile');
-    setMode('read');
+  const commit = async () => {
+    try {
+      await onSave({...system, name: f.name, description: f.description, avatar: f.avatar, banner: f.banner});
+      clearDraft('systemProfile', 'systemProfile');
+      setMode('read');
+    } catch (e) {
+      reportSaveError(e);
+    }
   };
 
   const leaveEdit = () => {
@@ -69,35 +71,9 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
     ]);
   };
 
-  const applyAvatarLink = async () => {
-    const url = avatarLinkInput.trim();
-    if (!/^https?:\/\//i.test(url)) { Alert.alert(t('modal.pfpFailed')); return; }
-    setAvatarLinking(true);
-    try {
-      const uri = await saveAvatarFromUrl('system-avatar', url);
-      if (uri) { setF((x: any) => ({...x, avatar: uri})); setShowAvatarLink(false); setAvatarLinkInput(''); }
-      else { Alert.alert(t('modal.pfpFailed')); }
-    } catch (e: any) {
-      Alert.alert(t('modal.pfpFailed'), e?.message || '');
-    } finally {
-      setAvatarLinking(false);
-    }
-  };
-
   const pickInto = async (which: 'avatar' | 'banner') => {
-    try {
-      const img = await pickImageForUpload();
-      if (!img) return;
-      const sourceFileUri = img.uri.startsWith('file://') || img.uri.startsWith('content://')
-        ? img.uri
-        : `file://${img.uri}`;
-      const uri = which === 'avatar'
-        ? await saveAvatarFromUri('system-avatar', sourceFileUri)
-        : await saveBannerImage('system-banner', sourceFileUri);
-      setF((x: any) => ({...x, [which]: uri}));
-    } catch (e: any) {
-      Alert.alert(t('modal.pfpFailed'));
-    }
+    const uri = await pickAndSaveImage(src => (which === 'avatar' ? saveAvatarFromUri('system-avatar', src) : saveBioImageFromUri('system-banner', src)));
+    if (uri) setF(x => ({...x, [which]: uri}));
   };
 
   const switchTo = (next: Mode) => {
@@ -111,33 +87,31 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
     <Sheet
       visible={visible}
       title={t('systemProfile.title')}
-      theme={T}
       onClose={onClose}
       headerAction={
-        <Btn T={T} onPress={() => switchTo(mode === 'read' ? 'edit' : 'read')} style={{paddingHorizontal: 12, paddingVertical: 6, marginRight: 8}}>
+        <Btn onPress={() => switchTo(mode === 'read' ? 'edit' : 'read')} style={{paddingHorizontal: 12, paddingVertical: 6, marginRight: 8}}>
           {mode === 'read' ? t('common.edit') : t('systemProfile.read')}
         </Btn>
       }
-      footer={mode === 'edit' ? <Btn instant T={T} onPress={commit}>{t('common.save')}</Btn> : undefined}>
+      footer={mode === 'edit' ? <Btn instant onPress={commit}>{t('common.save')}</Btn> : undefined}>
 
       {mode === 'read' ? (
         <SystemProfileCard
-          T={T}
           embedded
-          name={system?.name}
-          description={system?.description}
-          avatar={system?.avatar}
-          banner={system?.banner}
+          name={system.name}
+          description={system.description}
+          avatar={system.avatar}
+          banner={system.banner}
         />
       ) : (
         <>
           <Field label={t('modal.systemName')} value={f.name}
-            onChange={(v: string) => setF((x: any) => ({...x, name: v}))}
-            placeholder={t('modal.systemNamePlaceholder')} T={T} />
+            onChange={(v: string) => setF(x => ({...x, name: v}))}
+            placeholder={t('modal.systemNamePlaceholder')} />
           <Field label={t('modal.descriptionLabel')} value={f.description}
-            onChange={(v: string) => setF((x: any) => ({...x, description: v}))}
+            onChange={(v: string) => setF(x => ({...x, description: v}))}
             placeholder={t('modal.descriptionFieldPlaceholder')}
-            multiline numberOfLines={3} T={T} />
+            multiline numberOfLines={3} />
 
           <View style={{flexDirection: 'row', gap: 12, marginBottom: 14, alignItems: 'flex-start'}}>
             <TouchableOpacity onPress={() => pickInto('avatar')} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('a11y.changeAvatar')}>
@@ -157,10 +131,7 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
               </TouchableOpacity>
               {f.banner ? (
                 <TouchableOpacity hitSlop={{top: 4, bottom: 12, left: 8, right: 8}} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeBanner')}
-                  onPress={() => Alert.alert(t('systemProfile.removeBanner'), t('modal.removeImageMsg'), [
-                    {text: t('common.cancel'), style: 'cancel'},
-                    {text: t('common.remove'), style: 'destructive', onPress: () => setF((x: any) => ({...x, banner: undefined}))},
-                  ])}>
+                  onPress={() => confirmRemoveImage(t, t('systemProfile.removeBanner'), () => setF(x => ({...x, banner: undefined})))}>
                   <Text style={{fontSize: fs(10), color: T.danger, marginTop: 4}}>{t('systemProfile.removeBanner')}</Text>
                 </TouchableOpacity>
               ) : null}
@@ -169,32 +140,17 @@ export const SystemProfileModal = ({visible, theme: T, system, onSave, onClose}:
 
           {f.avatar ? (
             <TouchableOpacity activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('systemProfile.removeAvatar')} hitSlop={{top: 12, bottom: 12, left: 8, right: 8}} style={{marginBottom: 8}}
-              onPress={() => Alert.alert(t('systemProfile.removeAvatar'), t('modal.removeImageMsg'), [
-                {text: t('common.cancel'), style: 'cancel'},
-                {text: t('common.remove'), style: 'destructive', onPress: () => setF((x: any) => ({...x, avatar: undefined}))},
-              ])}>
+              onPress={() => confirmRemoveImage(t, t('systemProfile.removeAvatar'), () => setF(x => ({...x, avatar: undefined})))}>
               <Text style={{fontSize: fs(10), color: T.danger}}>{t('systemProfile.removeAvatar')}</Text>
             </TouchableOpacity>
           ) : null}
 
-          <TouchableOpacity onPress={() => setShowAvatarLink(!showAvatarLink)} activeOpacity={0.7} accessibilityRole="button"
-            accessibilityState={{expanded: showAvatarLink}} accessibilityLabel={t('modal.linkPfp')} hitSlop={{top: 8, bottom: 12, left: 8, right: 8}} style={{marginBottom: 8}}>
-            <Text style={{fontSize: fs(11), color: T.accent}}>🔗 {t('modal.linkPfp')}</Text>
-          </TouchableOpacity>
-          {showAvatarLink && (
-            <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 10}}>
-              <TextInput value={avatarLinkInput} onChangeText={setAvatarLinkInput} accessibilityLabel={t('modal.linkPfp')}
-                placeholder="https://…" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url"
-                style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}}
-                onSubmitEditing={applyAvatarLink} returnKeyType="done" />
-              <Btn T={T} disabled={avatarLinking || !avatarLinkInput.trim()} onPress={applyAvatarLink} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
-            </View>
-          )}
+          <AvatarLink ownerId="system-avatar" onLinked={uri => setF(x => ({...x, avatar: uri}))} toggleStyle={{marginBottom: 8}} rowStyle={{marginBottom: 10}} />
 
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(16), marginTop: 4}}>{t('systemProfile.shareHint')}</Text>
         </>
       )}
-      {visible && <ImageCropHost theme={T} />}
+      {visible && <ImageCropHost />}
     </Sheet>
   );
 };

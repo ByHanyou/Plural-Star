@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-const { config } = require('dotenv-defaults');
-config()
+const {config} = require('dotenv-defaults');
+config();
 
 const {spawn, spawnSync} = require('child_process');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const ANDROID_DIR = path.join(ROOT, 'android');
-const PACKAGE = 'com.pluralspace.app';
-const ACTIVITY = `${PACKAGE}/.MainActivity`;
+const NAMESPACE = 'com.pluralspace.app';
+const PACKAGE = `${NAMESPACE}.debug`;
+const ACTIVITY = `${PACKAGE}/${NAMESPACE}.MainActivity`;
+const START_METRO = process.env.START_METRO !== 'false';
 const IS_WIN = process.platform === 'win32';
 const GRADLE = IS_WIN ? 'gradlew.bat' : 'bash';
 const GRADLE_ARGS = IS_WIN ? ['assembleDebug'] : ['./gradlew', 'assembleDebug'];
@@ -52,14 +54,16 @@ if (ready.length === 0) {
 }
 console.log(`Targeting: ${ready.map(d => d.serial).join(', ')}`);
 
-console.log('Starting Metro in a new window…');
-if (IS_WIN) {
+if (!START_METRO) {
+  console.log('START_METRO=false: not starting Metro. Run `npm start` yourself.');
+} else if (IS_WIN) {
+  console.log('Starting Metro in a new window…');
   spawn('cmd.exe', ['/c', 'start', '"Metro"', 'cmd', '/k', 'npx react-native start'], {
     detached: true, stdio: 'ignore',
   }).unref();
 } else {
-  const child = spawn('npx', ['react-native', 'start'], {detached: true, stdio: 'ignore'});
-  child.unref();
+  console.log('Starting Metro in the background…');
+  spawn('npx', ['react-native', 'start'], {detached: true, stdio: 'ignore'}).unref();
 }
 
 console.log('Building debug APK…');
@@ -77,4 +81,4 @@ for (const d of ready) {
   spawnSync(ADB, ['-s', d.serial, 'shell', 'am', 'start', '-n', ACTIVITY], {stdio: 'inherit'});
 }
 
-console.log('\nApp installed and launched. Metro is running in a separate window.');
+console.log(`\nApp installed and launched. ${!START_METRO ? 'Metro was not started.' : `Metro is running ${IS_WIN ? 'in a separate window' : 'in the background'}.`}`);
