@@ -31,6 +31,16 @@ target 'PluralSpace' do
       :mac_catalyst_enabled => false,
     )
 
+    argon2_module_dir = '"${PODS_ROOT}/Argon2Swift/Sources/Modules"'
+    installer.pods_project.targets.each do |target|
+      next unless %w[Argon2Swift RNArgon2].include?(target.name)
+
+      target.build_configurations.each do |config|
+        config.build_settings['SWIFT_INCLUDE_PATHS'] = "$(inherited) #{argon2_module_dir}"
+        config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
+      end
+    end
+
     fmt_support_files = [
       'Target Support Files/fmt/fmt.debug.xcconfig',
       'Target Support Files/fmt/fmt.release.xcconfig',
