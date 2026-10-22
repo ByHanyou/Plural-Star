@@ -2,21 +2,21 @@ import React, {useState, useEffect} from 'react';
 import {View, Image} from 'react-native';
 import {Text} from './AppText';
 import {Member, getInitials} from '../utils';
-import type {ThemeColors} from '../theme';
+import {useTheme} from '../themeContext';
 import {initialOn} from '../theme';
 
 interface AvatarProps {
   member?: Member | null;
   size?: number;
   pulse?: boolean;
-  T: ThemeColors;
 }
 
-export const Avatar = React.memo(function Avatar({member, size = 28, pulse = false, T}: AvatarProps) {
+export const Avatar = React.memo(function Avatar({member, size = 28, pulse = false}: AvatarProps) {
+  const T = useTheme();
   const [imgError, setImgError] = useState(false);
   useEffect(() => { setImgError(false); }, [member?.id, member?.avatar]);
 
-  const radius = Math.round(size * 0.22);
+  const fill = member?.color || T.toggleOff;
 
   const pulseStyle = pulse
     ? {
@@ -32,17 +32,11 @@ export const Avatar = React.memo(function Avatar({member, size = 28, pulse = fal
         elevation: 0,
       };
 
+  const box = {width: size, height: size, borderRadius: Math.round(size * 0.22), overflow: 'hidden' as const, ...pulseStyle};
+
   if (member?.avatar && !imgError) {
     return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: radius,
-          overflow: 'hidden',
-          backgroundColor: member.avatarTransparent ? 'transparent' : (member?.color || T.toggleOff),
-          ...pulseStyle,
-        }}>
+      <View style={{...box, backgroundColor: member.avatarTransparent ? 'transparent' : fill}}>
         <Image
           source={{uri: member.avatar}}
           style={{width: size, height: size}}
@@ -56,22 +50,12 @@ export const Avatar = React.memo(function Avatar({member, size = 28, pulse = fal
   }
 
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: radius,
-        overflow: 'hidden',
-        backgroundColor: member?.color || T.toggleOff,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...pulseStyle,
-      }}>
+    <View style={{...box, backgroundColor: fill, alignItems: 'center', justifyContent: 'center'}}>
       <Text
         style={{
           fontSize: size * 0.35,
           fontWeight: '700',
-          color: initialOn(member?.color || T.toggleOff),
+          color: initialOn(fill),
           includeFontPadding: false,
           textAlign: 'center',
           textAlignVertical: 'center',

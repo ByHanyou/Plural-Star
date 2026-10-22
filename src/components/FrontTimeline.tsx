@@ -3,99 +3,33 @@ import {View, TouchableOpacity, Alert} from 'react-native';
 import {Text} from './AppText';
 import {Avatar} from './Avatar';
 import {useTranslation} from 'react-i18next';
-import {fontScale, ThemeColors} from '../theme';
+import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
 import {FlashList} from '@shopify/flash-list';
-import {HistoryEntry, Member, FrontTierKey, fmtTime, fmtDur, getLocale, nameCompare, buildEffectiveEnd} from '../utils';
-
-type RangeKey = 'day' | 'week' | 'month' | 'quarter';
-const RANGE_MS: Record<RangeKey, number> = {
-  day: 86400000,
-  week: 7 * 86400000,
-  month: 30 * 86400000,
-  quarter: 90 * 86400000,
-};
-const RANGE_KEYS: RangeKey[] = ['day', 'week', 'month', 'quarter'];
-const RANGE_LABEL: Record<RangeKey, string> = {day: 'history.tlDay', week: 'history.tlWeek', month: 'history.tlMonth', quarter: 'history.tlQuarter'};
-
-type Span = {start: number; end: number; tier: FrontTierKey; open: boolean};
-type Row = {member: Member; spans: Span[]; total: number};
+import {HistoryEntry, Member, fmtTime, fmtDur, getLocale, TIER_I18N_KEY} from '../utils';
+import {RANGE_MS, RANGE_KEYS, RANGE_LABEL, TIER_BAR, buildTimelineRows} from '../stats/timeline';
+import type {RangeKey, Span, Row} from '../stats/timeline';
 
 const LABEL_W = 96;
 const ROW_H = 34;
 
-const TIER_BAR: Record<FrontTierKey, {height: number; opacity: number}> = {
-  primary: {height: 16, opacity: 1},
-  coFront: {height: 16, opacity: 0.75},
-  coConscious: {height: 7, opacity: 0.45},
-};
-
-const buildTimelineRows = (
-  history: HistoryEntry[],
-  members: Member[],
-  start: number,
-  end: number,
-  now: number,
-): Row[] => {
-  const memberMap = new Map<string, Member>();
-  for (const m of members) if (m && !m.deleted) memberMap.set(m.id, m);
-  const effEnd = buildEffectiveEnd(history);
-  const byMember = new Map<string, Span[]>();
-  for (const e of history) {
-    if (!e || (e.changeType && e.changeType !== 'front')) continue;
-    if (!e.startTime) continue;
-    const eff = effEnd(e);
-    const open = eff == null;
-    const rawEnd = eff ?? now;
-    if (e.startTime >= end || rawEnd <= start) continue;
-    const s = Math.max(e.startTime, start);
-    const en = Math.min(rawEnd, end);
-    if (en <= s) continue;
-    const tiers: [FrontTierKey, string[] | undefined][] = [
-      ['primary', e.memberIds],
-      ['coFront', e.coFrontIds],
-      ['coConscious', e.coConsciousIds],
-    ];
-    for (const [tier, ids] of tiers) {
-      for (const id of ids || []) {
-        if (!memberMap.has(id)) continue;
-        let list = byMember.get(id);
-        if (!list) { list = []; byMember.set(id, list); }
-        list.push({start: s, end: en, tier, open});
-      }
-    }
-  }
-  const rows: Row[] = [];
-  for (const [id, spans] of byMember) {
-    const member = memberMap.get(id)!;
-    const total = spans.reduce((acc, sp) => acc + (sp.tier === 'coConscious' ? 0 : sp.end - sp.start), 0);
-    rows.push({member, spans, total});
-  }
-  rows.sort((a, b) => b.total - a.total || nameCompare(a.member.name, b.member.name));
-  return rows;
-};
-
-export const FrontTimeline = ({T, history, members, singlet = false}: {
-  T: ThemeColors;
+export const FrontTimeline = ({history, members, singlet = false}: {
   history: HistoryEntry[];
   members: Member[];
   singlet?: boolean;
 }) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [range, setRange] = useState<RangeKey>('week');
   const [endAnchor, setEndAnchor] = useState<number | null>(null);
 
-  const now = Date.now();
   const span = RANGE_MS[range];
-  const end = endAnchor ?? now;
+  const end = endAnchor ?? Math.ceil(Date.now() / 60000) * 60000;
   const start = end - span;
   const live = endAnchor === null;
 
-  const rows = useMemo(
-    () => buildTimelineRows(history, members, start, end, now),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [history, members, start, end],
-  );
+  const rows = useMemo(() => buildTimelineRows(history, members, start, end, Date.now()), [history, members, start, end]);
 
   const tickLabel = (ts: number): string => range === 'day'
     ? new Date(ts).toLocaleTimeString(getLocale(), {hour: 'numeric', minute: '2-digit'})
@@ -104,14 +38,14 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
   const goEarlier = () => setEndAnchor(end - span);
   const goLater = () => {
     const next = end + span;
-    if (next >= Date.now()) setEndAnchor(null); else setEndAnchor(next);
+    setEndAnchor(next >= Date.now() ? null : next);
   };
 
   const spanLabel = (sp: Span): string =>
-    `${fmtTime(sp.start)} → ${sp.open && live ? t('history.now') : fmtTime(sp.end)} (${fmtDur(sp.start, sp.end)})`;
+    t('history.tlSpan', {start: fmtTime(sp.start), end: sp.open && live ? t('history.now') : fmtTime(sp.end), dur: fmtDur(sp.start, sp.end)});
 
   const tierLineOf = (sp: Span): string | null =>
-    singlet ? null : t(sp.tier === 'primary' ? 'tier.primaryFront' : sp.tier === 'coFront' ? 'tier.coFront' : 'tier.coConscious');
+    singlet ? null : t(TIER_I18N_KEY[sp.tier]);
 
   const showSpan = (member: Member, sp: Span) => {
     const tierLine = tierLineOf(sp);
@@ -121,7 +55,7 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
   const renderRow = ({item}: {item: Row}) => (
     <View style={{flexDirection: 'row', alignItems: 'center', height: ROW_H}}>
       <View style={{width: LABEL_W, flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 6}}>
-        <Avatar member={item.member} size={20} T={T} />
+        <Avatar member={item.member} size={20} />
         <Text style={{flex: 1, fontSize: fs(11), color: T.text}} numberOfLines={1}>{item.member.name}</Text>
       </View>
       <View style={{flex: 1, height: ROW_H, justifyContent: 'center'}}>
@@ -160,6 +94,8 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
     borderColor: selected ? `${T.accent}50` : T.border,
   } as const);
 
+  const navBtn = {paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface};
+
   return (
     <View style={{flex: 1, paddingHorizontal: 16}}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12}}>
@@ -175,16 +111,16 @@ export const FrontTimeline = ({T, history, members, singlet = false}: {
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 8}}>
         <TouchableOpacity onPress={goEarlier} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('history.tlEarlier')}
           hitSlop={{top: 8, bottom: 8}}
-          style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface}}>
+          style={navBtn}>
           <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">‹</Text>
         </TouchableOpacity>
         <Text style={{flex: 1, textAlign: 'center', fontSize: fs(11), color: T.dim}} numberOfLines={1} accessibilityLiveRegion="polite">
-          {`${tickLabel(start)} → ${live ? t('history.tlNow') : tickLabel(end)}`}
+          {t('history.tlRange', {start: tickLabel(start), end: live ? t('history.tlNow') : tickLabel(end)})}
         </Text>
         <TouchableOpacity onPress={goLater} disabled={live} activeOpacity={0.7} accessibilityRole="button"
           accessibilityState={{disabled: live}} accessibilityLabel={t('history.tlLater')}
           hitSlop={{top: 8, bottom: 8}}
-          style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, opacity: live ? 0.4 : 1}}>
+          style={[navBtn, {opacity: live ? 0.4 : 1}]}>
           <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
         </TouchableOpacity>
         {!live && (

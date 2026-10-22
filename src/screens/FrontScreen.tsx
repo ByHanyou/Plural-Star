@@ -1,52 +1,33 @@
-import React, {useState, useEffect} from 'react';
+
+
+import React from 'react';
 import {
   View,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  AccessibilityInfo,
   Alert,
 } from 'react-native';
-import type {GestureResponderHandlers} from 'react-native';
 import {Text} from '../components/AppText';
-import {Avatar} from '../components/Avatar';
-import {DragHandle} from '../components/DragHandle';
-import {useTranslation, Trans} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {useTranslation} from 'react-i18next';
+import {reportSaveError} from '../utils/saveError';
+import {announceMove} from '../utils/announce';
+import {Fonts, fontScale} from '../theme';
+import {useTheme} from '../themeContext';
 import {useAppStore} from '../store/appStore';
+import {useUiStore} from '../store/uiStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
 import {useDragReorder} from '../hooks/useDragReorder';
-import type {DragReorderState} from '../hooks/useDragReorder';
 import {removeFromFront, saveFrontSortMode, saveFrontCustomOrder} from '../store/actions';
 import {
-  FrontState,
   FrontTier,
-  FrontTierKey,
   FrontSortMode,
-  Member,
-  fmtTime,
-  fmtDur,
-  fmtNum,
-  frontSessionStart,
   isFrontEmpty,
-  translateMood,
-  upperText,
   orderFronters,
   placeInCustomOrder,
+  FRONT_TIER_KEYS,
 } from '../utils';
-
-interface Props {
-  theme: ThemeColors;
-  onSetFront: () => void;
-  onEditDetails: (tier: FrontTierKey) => void;
-  onOpenMember?: (id: string) => void;
-}
-
-const TIER_I18N_KEY: Record<FrontTierKey, string> = {
-  primary: 'tier.primaryFront',
-  coFront: 'tier.coFront',
-  coConscious: 'tier.coConscious',
-};
+import {TierCard} from './front/TierCard';
 
 const FRONT_SORTS: [FrontSortMode, string][] = [
   ['added', 'frontSort.added'],
@@ -55,200 +36,11 @@ const FRONT_SORTS: [FrontSortMode, string][] = [
   ['custom', 'frontSort.custom'],
 ];
 
-const dragKey = (tierKey: FrontTierKey, id: string) => `${tierKey}|${id}`;
-
-const TierCard = ({
-  tier,
-  tierKey,
-  T,
-  getMember,
-  front,
-  onEditDetails,
-  onQuickRemove,
-  onOpenMember,
-  ids,
-  custom,
-  drag,
-  dragging,
-  registerHeight,
-  makeHandlePanHandlers,
-  onStep,
-}: {
-  tier: FrontTier;
-  tierKey: FrontTierKey;
-  T: ThemeColors;
-  getMember: (id: string) => Member | undefined;
-  front: FrontState;
-  onEditDetails: (tier: FrontTierKey) => void;
-  onQuickRemove: (memberId: string) => void;
-  onOpenMember?: (id: string) => void;
-  ids: string[];
-  custom: boolean;
-  drag: DragReorderState;
-  dragging: boolean;
-  registerHeight: (key: string, h: number) => void;
-  makeHandlePanHandlers: (key: string, siblings: () => string[]) => GestureResponderHandlers;
-  onStep: (ids: string[], id: string, dir: 1 | -1) => void;
-}) => {
-  const {t} = useTranslation();
-
-  const fs = fontScale(T);
-
-  const [note, setNote] = useState(tier.note || '');
-
-  useEffect(() => {
-    setNote(tier.note || '');
-  }, [tier.note]);
-
-  const fronters = ids
-    .map(getMember)
-    .filter(Boolean) as Member[];
-  const canDrag = custom && fronters.length > 1;
-
-  const isPrimary = tierKey === 'primary';
-  const label = t(TIER_I18N_KEY[tierKey]);
-  const accentColor =
-    isPrimary ? T.accent : tierKey === 'coFront' ? T.info : T.success;
-
-  return (
-    <View style={{marginBottom: 14}}>
-      <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8}}>
-        <View
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: accentColor,
-          }}
-        />
-        <Text
-          accessibilityRole="header"
-          style={{
-            fontSize: fs(10),
-            letterSpacing: 1,
-            textTransform: 'uppercase',
-            color: accentColor,
-            fontWeight: '700',
-          }}>
-          {label}
-        </Text>
-        <View style={{flex: 1, height: 1, backgroundColor: T.border}} />
-      </View>
-
-      <View
-        style={[
-          s.tierCard,
-          {backgroundColor: T.card, borderColor: `${accentColor}40`},
-        ]}>
-        <View style={{gap: 12, marginBottom: 10}}>
-          {fronters.length > 0 ? (
-            fronters.map((m, idx) => {
-              const key = dragKey(tierKey, m.id);
-              const isDropTarget = dragging && drag.key !== key && drag.siblings[drag.target] === key;
-              return (
-              <View key={m.id}
-                onLayout={canDrag ? e => registerHeight(key, e.nativeEvent.layout.height) : undefined}
-                style={{flexDirection: 'row', alignItems: 'center', gap: 12,
-                  ...(canDrag ? {borderTopWidth: 2, borderTopColor: isDropTarget ? T.accent : 'transparent'} : null),
-                  ...(drag.key === key ? {transform: [{translateY: drag.dy}], zIndex: 10, elevation: 6} : null)}}>
-                {canDrag && (
-                  <DragHandle T={T} active panHandlers={makeHandlePanHandlers(key, () => fronters.map(x => dragKey(tierKey, x.id)))} name={m.name}
-                    position={idx + 1} count={fronters.length}
-                    onStep={dir => onStep(fronters.map(x => x.id), m.id, dir)} />
-                )}
-                <TouchableOpacity onPress={onOpenMember ? () => onOpenMember(m.id) : undefined} activeOpacity={onOpenMember ? 0.7 : 1} disabled={!onOpenMember} accessible={!!onOpenMember}
-                  accessibilityRole={onOpenMember ? 'button' : undefined} accessibilityLabel={onOpenMember ? [m.name, m.pronouns, m.role, t('systemMap.viewProfile')].filter(Boolean).join(', ') : undefined}
-                  hitSlop={{top: 6, bottom: 6}} style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12}}>
-                  <Avatar member={m} size={isPrimary ? 48 : 40} T={T} />
-                  <View style={{flex: 1}}>
-                    <Text style={{fontSize: isPrimary ? fs(16) : fs(14), fontWeight: '500', color: T.text}}>
-                      {m.name}
-                    </Text>
-                    {m.pronouns ? (
-                      <Text style={{fontSize: fs(12), color: T.dim}}>
-                        {m.pronouns}
-                      </Text>
-                    ) : null}
-                    {m.role ? (
-                      <Text style={{fontSize: fs(10), fontWeight: '600', letterSpacing: 1, marginTop: 1, color: m.color}}>
-                        {upperText(m.role)}
-                      </Text>
-                    ) : null}
-                  </View>
-                </TouchableOpacity>
-                <Text style={{fontSize: fs(11), color: T.muted}} accessibilityLabel={t('front.frontingForA11y', {name: m.name, dur: fmtDur(front.memberSince?.[m.id] ?? front.startTime)})}>
-                  {fmtDur(front.memberSince?.[m.id] ?? front.startTime)}
-                </Text>
-                <TouchableOpacity onPress={() => onQuickRemove(m.id)} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={t('front.quickRemove', {name: m.name})}
-                  style={{padding: 8}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
-                  <Text style={{fontSize: fs(14), color: T.dim}} accessibilityElementsHidden importantForAccessibility="no">✕</Text>
-                </TouchableOpacity>
-              </View>
-              );
-            })
-          ) : (
-            <Text style={{fontSize: fs(12), color: T.muted}}>
-              {t('front.noOneFronting')}
-            </Text>
-          )}
-        </View>
-
-        {isPrimary && (
-          <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8, marginBottom: 8}}>
-            <Text style={{fontSize: fs(11), color: T.muted}}>
-              <Trans i18nKey="front.frontingForSince" values={{dur: fmtDur(frontSessionStart(front)), time: fmtTime(frontSessionStart(front))}} components={{b: <Text style={{color: T.accent}} />}} />
-            </Text>
-          </View>
-        )}
-
-        {(tier.mood || tier.location || tier.energyLevel) ? (
-          <View style={{flexDirection: 'row', gap: 16, borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8, marginBottom: 8}}>
-            {tier.mood ? (
-              <View style={{flex: 1}}>
-                <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t('modal.mood')}</Text>
-                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={2}>{translateMood(tier.mood, t)}</Text>
-              </View>
-            ) : null}
-            {tier.location ? (
-              <View style={{flex: 1}}>
-                <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t('modal.location')}</Text>
-                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}} numberOfLines={2}>{tier.location}</Text>
-              </View>
-            ) : null}
-            {tier.energyLevel ? (
-              <View>
-                <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t('energy.label')}</Text>
-                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.text}}>{t('energy.outOfTen', {n: fmtNum(tier.energyLevel, 0)})}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        <TouchableOpacity onPress={() => onEditDetails(tierKey)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={`${t('tier.editTier', {tier: label})}, ${note || t('front.noNote')}`} hitSlop={{top: 8, bottom: 11}} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 8}}>
-          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-            <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim}}>
-              {t('front.frontNote')}
-            </Text>
-            <View style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text>
-            </View>
-          </View>
-          <Text style={{fontSize: fs(12), color: note ? T.text : T.muted, marginTop: 4}}>
-            {note || t('front.noNote')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
-export const FrontScreen = ({
-  theme: T,
-  onSetFront,
-  onEditDetails,
-  onOpenMember,
-}: Props) => {
+export const FrontScreen = () => {
+  const T = useTheme();
+  const onSetFront = useUiStore(s => s.openSetFront);
+  const onEditDetails = useUiStore(s => s.openEditFrontDetail);
+  const onOpenMember = useUiStore(s => s.openMemberById);
   const front = useAppStore(s => s.front);
   const members = useAppStore(s => s.members);
   const frontSortMode: FrontSortMode = useAppStore(s => s.appSettings.frontSortMode) || 'added';
@@ -265,7 +57,7 @@ export const FrontScreen = ({
   const commitOrder = (ordered: string[]) => {
     const live = useAppStore.getState();
     const keep = (id: string) => live.members.some(m => m.id === id && !m.deleted);
-    saveFrontCustomOrder(placeInCustomOrder(live.appSettings.frontCustomOrder, ordered, keep)).catch(() => {});
+    saveFrontCustomOrder(placeInCustomOrder(live.appSettings.frontCustomOrder, ordered, keep)).catch(reportSaveError);
   };
   const onDropFronter = (_key: string, from: number, to: number, siblings: string[]) => {
     const ids = siblings.map(k => k.slice(k.indexOf('|') + 1));
@@ -282,13 +74,7 @@ export const FrontScreen = ({
     next.splice(from, 1);
     next.splice(to, 0, id);
     commitOrder(next);
-    const neighbor = getMember(ids[to])?.name || '';
-    AccessibilityInfo.announceForAccessibility(
-      to === 0 ? t('common.movedToTop')
-        : to === ids.length - 1 ? t('common.movedToBottom')
-        : dir === -1 ? t('common.movedAbove', {name: neighbor})
-        : t('common.movedBelow', {name: neighbor}),
-    );
+    announceMove(to, ids.length, getMember(ids[to])?.name, dir === -1);
   };
   const dragProps = {custom: customOn, drag, dragging, registerHeight, makeHandlePanHandlers, onStep: stepFronter};
 
@@ -296,7 +82,7 @@ export const FrontScreen = ({
     const name = getMember(memberId)?.name || '';
     Alert.alert(t('front.quickRemove', {name}), t('members.removeFromFrontMsg', {name}), [
       {text: t('common.cancel'), style: 'cancel'},
-      {text: t('network.remove'), style: 'destructive', onPress: () => { removeFromFront(memberId).catch((e: any) => Alert.alert(t('modal.saveFailed'), String(e?.message || e || ''))); }},
+      {text: t('network.remove'), style: 'destructive', onPress: () => { removeFromFront(memberId).catch(reportSaveError); }},
     ]);
   };
 
@@ -341,7 +127,7 @@ export const FrontScreen = ({
               {FRONT_SORTS.map(([mode, key]) => {
                 const sel = frontSortMode === mode;
                 return (
-                  <TouchableOpacity key={mode} onPress={() => { if (!sel) saveFrontSortMode(mode).catch(() => {}); }} activeOpacity={0.7}
+                  <TouchableOpacity key={mode} onPress={() => { if (!sel) saveFrontSortMode(mode).catch(reportSaveError); }} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={t('a11y.labelValue', {label: t('frontSort.label'), value: t(key)})}
                     hitSlop={{top: 9, bottom: 9}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1,
                       backgroundColor: sel ? `${T.accent}20` : T.surface,
@@ -356,54 +142,26 @@ export const FrontScreen = ({
           </ScrollView>
         )}
 
-        {empty ? (
+        {empty || !front ? (
           <View style={[s.emptyCard, {backgroundColor: T.card, borderColor: T.border}]}>
             <Text style={{color: T.muted, fontSize: fs(13)}}>
               {t('front.noOneFronting')}
             </Text>
           </View>
-        ) : (
-          <>
-            <TierCard
-              tier={front!.primary}
-              tierKey="primary"
-              T={T}
-              getMember={getMember}
-              front={front!}
-              onEditDetails={onEditDetails}
-              onQuickRemove={quickRemove}
-              onOpenMember={onOpenMember}
-              ids={orderedIds(front!.primary)}
-              {...dragProps}
-            />
-
-            <TierCard
-              tier={front!.coFront}
-              tierKey="coFront"
-              T={T}
-              getMember={getMember}
-              front={front!}
-              onEditDetails={onEditDetails}
-              onQuickRemove={quickRemove}
-              onOpenMember={onOpenMember}
-              ids={orderedIds(front!.coFront)}
-              {...dragProps}
-            />
-
-            <TierCard
-              tier={front!.coConscious}
-              tierKey="coConscious"
-              T={T}
-              getMember={getMember}
-              front={front!}
-              onEditDetails={onEditDetails}
-              onQuickRemove={quickRemove}
-              onOpenMember={onOpenMember}
-              ids={orderedIds(front!.coConscious)}
-              {...dragProps}
-            />
-          </>
-        )}
+        ) : FRONT_TIER_KEYS.map(tierKey => (
+          <TierCard
+            key={tierKey}
+            tier={front[tierKey]}
+            tierKey={tierKey}
+            getMember={getMember}
+            front={front}
+            onEditDetails={onEditDetails}
+            onQuickRemove={quickRemove}
+            onOpenMember={onOpenMember}
+            ids={orderedIds(front[tierKey])}
+            {...dragProps}
+          />
+        ))}
 
       </ScrollView>
     </View>
@@ -411,12 +169,6 @@ export const FrontScreen = ({
 };
 
 const s = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
   heading: {
     fontFamily: Fonts.display,
     fontSize: 22,
@@ -432,11 +184,6 @@ const s = StyleSheet.create({
   btnText: {
     fontSize: 13,
     fontWeight: '500',
-  },
-  tierCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 16,
   },
   emptyCard: {
     borderRadius: 16,

@@ -1,290 +1,105 @@
 import React, {useState, useMemo, useEffect} from 'react';
-import {View, ScrollView, TouchableOpacity} from 'react-native';
+import {log} from '../utils/log';
+import {View, TouchableOpacity} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {fontScale, ThemeColors} from '../theme';
+import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
 import {useAppStore} from '../store/appStore';
 import {loadChatMessages} from '../store/actions';
-import {Member, HistoryEntry, fmtDur, fmtNum, fmtPercent, fmtClock, translateMood, isSingletHiddenStatus, buildEffectiveEnd} from '../utils';
+import {FrontTierKey, Member, DAY_MS, fmtDur, fmtNum, translateMood, isSingletHiddenStatus} from '../utils';
+import {StatsRange, computeStats, memberDetail, memberKind, statsWindow} from '../stats/compute';
+import type {MemberKind} from '../stats/compute';
 import {DateTimeEditor} from '../components/DateTimeEditor';
 import {Avatar} from '../components/Avatar';
+import {MemberPicker} from '../components/MemberPicker';
+import {pickerPool} from '../picker/memberPicker';
+import type {PickerPool} from '../picker/memberPicker';
 import {getTierNameOverride} from '../i18n/terminology';
-import type {TierNameKey} from '../i18n/terminology';
-
-type TimeRange = 'all' | '7d' | '30d' | 'custom';
-
-const MAX_BOARD = 25;
-const nextBoardLimit = (cur: number) => (cur < 10 ? 10 : MAX_BOARD);
+import {sectionLabel} from '../components/controls';
+import {CoGroup, HourChart, Leaderboard, MemberStatDetail, RangeBtn, StatCard, TierBoard, hourSummary, nextBoardLimit} from './stats/StatsParts';
 
 interface Props {
-  theme: ThemeColors;
   singlet?: boolean;
   selfId?: string;
 }
 
-export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
+export const StatsScreen = ({singlet = false, selfId}: Props) => {
+  const T = useTheme();
   const history = useAppStore(s => s.history);
   const members = useAppStore(s => s.members);
   const chatMessages = useAppStore(s => s.allChatMessages);
   const chatChannels = useAppStore(s => s.chatChannels);
   useEffect(() => {
-    let cancelled = false;
-    if (chatChannels.length === 0) return;
-    loadChatMessages(chatChannels).catch(e => console.error('[PS] stats chat load:', e));
-    return () => { cancelled = true; void cancelled; };
+    if (chatChannels.length > 0) loadChatMessages(chatChannels).catch(e => log.error('stats', 'chat load:', e));
   }, [chatChannels]);
   const {t} = useTranslation();
   const fs = fontScale(T);
-  const tierHeading = (tier: TierNameKey, stock: string): string => {
+  const tierHeading = (tier: FrontTierKey, stock: string): string => {
     const custom = getTierNameOverride(tier);
     return custom ? t('stats.topTier', {tier: custom}) : stock;
   };
-  const [range, setRange] = useState<TimeRange>('all');
-  const [customStart, setCustomStart] = useState<number>(Date.now() - 30 * 86400000);
+  const [range, setRange] = useState<StatsRange>('all');
+  const [customStart, setCustomStart] = useState<number>(Date.now() - 30 * DAY_MS);
   const [customEnd, setCustomEnd] = useState<number>(Date.now());
   const [selectedStatMember, setSelectedStatMember] = useState<string | null>(null);
   const [boardLimits, setBoardLimits] = useState<Record<string, number>>({});
   const limitFor = (k: string) => boardLimits[k] ?? 5;
   const expandBoard = (k: string) => setBoardLimits(p => ({...p, [k]: nextBoardLimit(p[k] ?? 5)}));
 
-  const rangeStart = useMemo(() => {
-    if (range === '7d') return Date.now() - 7 * 86400000;
-    if (range === '30d') return Date.now() - 30 * 86400000;
-    if (range === 'custom') {
-      const d = new Date(customStart);
-      d.setHours(0, 0, 0, 0);
-      return d.getTime();
-    }
-    return 0;
-  }, [range, customStart]);
+  const timeWindow = useMemo(() => statsWindow(range, customStart, customEnd), [range, customStart, customEnd]);
 
-  const rangeEnd = useMemo(() => {
-    if (range === 'custom') {
-      const d = new Date(customEnd);
-      d.setHours(23, 59, 59, 999);
-      return d.getTime();
-    }
-    return Date.now();
-  }, [range, customEnd]);
+  const stats = useMemo(
+    () => computeStats({history, chatMessages, members, period: timeWindow, singlet, selfId}),
+    [history, chatMessages, members, timeWindow, singlet, selfId],
+  );
+  const statPools: PickerPool[] = useMemo(() => {
+    const eligible = (m: Member) => !m.archived && (!singlet || (m.isCustomFront && !isSingletHiddenStatus(m)));
+    return [
+      {kind: 'members', label: '', members: members.filter(m => !m.isFacet && (singlet || !m.isCustomFront) && eligible(m))},
+      pickerPool('facets', members.filter(m => m.isFacet && eligible(m)), t),
+      pickerPool('customFronts', singlet ? [] : members.filter(m => m.isCustomFront && !m.isFacet && eligible(m)), t),
+    ];
+  }, [members, singlet, t]);
 
-  const filteredHistory = useMemo(() =>
-    history.filter(e => {
-      const frontOnly = !e.changeType || e.changeType === 'front';
-      const inRange = e.startTime >= rangeStart && e.startTime <= rangeEnd;
-      return frontOnly && inRange;
-    }),
-  [history, rangeStart, rangeEnd]);
+  const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
+  const getMember = (id: string) => memberById.get(id);
 
-  const filteredChat = useMemo(() =>
-    chatMessages.filter(m => m.timestamp >= rangeStart && m.timestamp <= rangeEnd),
-  [chatMessages, rangeStart, rangeEnd]);
+  const statDetail = useMemo(() => {
+    if (!selectedStatMember) return null;
+    const detail = memberDetail(stats.entries, selectedStatMember, singlet, selfId);
+    const coOfKind = (kind: MemberKind) => detail.coMembers.filter(([id]) => memberKind(memberById.get(id)) === kind);
+    const coGroups: CoGroup[] = singlet
+      ? [{key: 'coMembers', label: t('stats.coStatuses'), all: detail.coMembers}]
+      : [
+        {key: 'coMembers', label: t('stats.topCoMembers'), all: coOfKind('member')},
+        {key: 'coFacets', label: t('members.facets'), all: coOfKind('facet')},
+        {key: 'coCustomFronts', label: t('members.customFronts'), all: coOfKind('customFront')},
+      ];
+    return {detail, coGroups};
+  }, [stats.entries, selectedStatMember, singlet, selfId, memberById, t]);
 
-  const stats = useMemo(() => {
-    const customFrontIds = new Set(members.filter(m => m.isCustomFront).map(m => m.id));
-    const hiddenStatusIds = new Set(members.filter(m => m.isCustomFront && isSingletHiddenStatus(m)).map(m => m.id));
-    const rankExclude = (id: string): boolean => singlet
-      ? (id === selfId || !customFrontIds.has(id) || hiddenStatusIds.has(id))
-      : customFrontIds.has(id);
-    const effEnd = buildEffectiveEnd(history);
-    const entryDur = (e: HistoryEntry): number => Math.max(0, (effEnd(e) ?? Date.now()) - e.startTime);
-    const totalMs = filteredHistory.reduce((sum, e) => sum + entryDur(e), 0);
-
-    const frontCounts: Record<string, {time: number; sessions: number}> = {};
-    const coFrontCounts: Record<string, number> = {};
-    const coConCounts: Record<string, number> = {};
-    const moodCounts: Record<string, number> = {};
-    const locCounts: Record<string, number> = {};
-    const locDisplay: Record<string, string> = {};
-    const countLocation = (raw: string) => {
-      const trimmed = raw.trim();
-      if (!trimmed) return;
-      const norm = trimmed.toLocaleLowerCase();
-      const disp = locDisplay[norm] || (locDisplay[norm] = trimmed);
-      locCounts[disp] = (locCounts[disp] || 0) + 1;
-    };
-
-    const lastSeen: Record<string, {end: number | null; tier: string}> = {};
-    [...filteredHistory].sort((a, b) => a.startTime - b.startTime).forEach(e => {
-      const dur = entryDur(e);
-      const entryEnd = e.endTime ?? effEnd(e) ?? null;
-      const isNewSession = (id: string, tier: string): boolean => {
-        const prev = lastSeen[id];
-        const contiguous = !!prev && prev.tier === tier && prev.end !== null && Math.abs(e.startTime - prev.end) <= 1000;
-        lastSeen[id] = {end: entryEnd, tier};
-        return !contiguous;
-      };
-      (e.memberIds || []).forEach(id => {
-        if (!frontCounts[id]) frontCounts[id] = {time: 0, sessions: 0};
-        frontCounts[id].time += dur;
-        if (isNewSession(id, 'primary')) frontCounts[id].sessions += 1;
-      });
-      (e.coFrontIds || []).forEach(id => { if (isNewSession(id, 'coFront')) coFrontCounts[id] = (coFrontCounts[id] || 0) + 1; });
-      (e.coConsciousIds || []).forEach(id => { if (isNewSession(id, 'coConscious')) coConCounts[id] = (coConCounts[id] || 0) + 1; });
-      if (e.mood) moodCounts[e.mood] = (moodCounts[e.mood] || 0) + 1;
-      if (e.location) countLocation(e.location);
-    });
-
-    const chatCounts: Record<string, number> = {};
-    filteredChat.forEach(m => { chatCounts[m.authorId] = (chatCounts[m.authorId] || 0) + 1; });
-
-    const energyMap: Record<string, {sum: number; count: number}> = {};
-    const peakHoursArr = new Array(24).fill(0);
-    const energyHourSum = new Array(24).fill(0);
-    const energyHourCount = new Array(24).fill(0);
-    filteredHistory.forEach(e => {
-      const hour = new Date(e.startTime).getHours();
-      peakHoursArr[hour]++;
-      if (e.energyLevel) {
-        energyHourSum[hour] += e.energyLevel; energyHourCount[hour]++;
-        (e.memberIds || []).forEach(id => {
-          if (!energyMap[id]) energyMap[id] = {sum: 0, count: 0};
-          energyMap[id].sum += e.energyLevel!; energyMap[id].count++;
-        });
-      }
-      if (e.coFrontEnergy) {
-        energyHourSum[hour] += e.coFrontEnergy; energyHourCount[hour]++;
-        (e.coFrontIds || []).forEach(id => {
-          if (!energyMap[id]) energyMap[id] = {sum: 0, count: 0};
-          energyMap[id].sum += e.coFrontEnergy!; energyMap[id].count++;
-        });
-      }
-    });
-    const energyByHour = energyHourSum.map((s, h) => energyHourCount[h] > 0 ? Math.round((s / energyHourCount[h]) * 10) / 10 : 0);
-
-    const energyAvgs = Object.entries(energyMap)
-      .filter(([id]) => !rankExclude(id))
-      .map(([id, {sum, count}]) => ({id, avg: Math.round((sum / count) * 10) / 10}))
-      .sort((a, b) => b.avg - a.avg);
-
-    const topN = (obj: Record<string, number>, n: number) =>
-      Object.entries(obj).filter(([id]) => !rankExclude(id)).sort((a, b) => b[1] - a[1]).slice(0, n);
-
-    const topNPlain = (obj: Record<string, number>, n: number) =>
-      Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, n);
-
-    const topFronters = Object.entries(frontCounts)
-      .filter(([id]) => !rankExclude(id))
-      .sort((a, b) => b[1].time - a[1].time)
-      .slice(0, MAX_BOARD)
-      .map(([id, data]) => ({id, ...data}));
-
-    return {
-      totalMs,
-      totalSessions: filteredHistory.length,
-      topFronters,
-      topCoFronters: topN(coFrontCounts, MAX_BOARD),
-      topCoCon: topN(coConCounts, MAX_BOARD),
-      topMoods: topNPlain(moodCounts, MAX_BOARD),
-      topLocations: topNPlain(locCounts, MAX_BOARD),
-      topChatters: topN(chatCounts, MAX_BOARD),
-      totalMessages: filteredChat.length,
-      energyAvgs,
-      peakHours: peakHoursArr,
-      energyByHour,
-    };
-  }, [filteredHistory, filteredChat, members, history, singlet, selfId]);
-
-  const getMember = (id: string) => members.find(m => m.id === id);
-
-  const rankColor = (i: number) => i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : T.dim;
-
-  const ShowMoreRow = ({boardKey, total, limit}: {boardKey: string; total: number; limit: number}) => {
-    if (total <= limit || limit >= MAX_BOARD) return null;
-    return (
-      <TouchableOpacity onPress={() => expandBoard(boardKey)} activeOpacity={0.7}
-        accessibilityRole="button"
-        accessibilityLabel={t('stats.showMoreN', {shown: fmtNum(limit, 0), total: fmtNum(total, 0)})}
-        hitSlop={{top: 6, bottom: 6}} style={{paddingVertical: 9, alignItems: 'center', borderTopWidth: 1, borderTopColor: T.border}}>
-        <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>
-          {t('stats.showMoreShort', {shown: fmtNum(Math.min(limit, total), 0), total: fmtNum(total, 0)})}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
-  const Leaderboard = ({title, boardKey, entries, renderValue, formatKey}: {title: string; boardKey: string; entries: [string, number][]; renderValue: (v: number) => string; formatKey?: (k: string) => string}) => {
-    if (entries.length === 0) return null;
-    const limit = limitFor(boardKey);
-    const shown = entries.slice(0, limit);
-    const max = Math.max(...shown.map(([, v]) => v), 1);
-    const total = entries.reduce((s, [, v]) => s + v, 0) || 1;
-    return (
-      <View style={{marginBottom: 18}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{title}</Text>
-        <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border}}>
-          {shown.map(([key, value], i) => {
-            const member = getMember(key);
-            const isLast = i === shown.length - 1;
-            const pct = Math.max(4, Math.round((value / max) * 100));
-            const barColor = member?.color || T.accent;
-            return (
-              <View key={key} style={{padding: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: T.border}}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
-                  <Text style={{fontSize: fs(13), fontWeight: '700', color: rankColor(i), width: 22, textAlign: 'center'}}>{i + 1}</Text>
-                  {member ? <Avatar member={member} size={24} T={T} /> : null}
-                  <Text style={{flex: 1, fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>
-                    {member ? member.name : (formatKey ? formatKey(key) : key)}
-                  </Text>
-                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{`${fmtPercent(value / total, 1, 1)} / ${renderValue(value)}`}</Text>
-                </View>
-                <View style={{height: 6, borderRadius: 3, backgroundColor: T.surface, overflow: 'hidden'}}>
-                  <View style={{height: 6, width: `${pct}%`, borderRadius: 3, backgroundColor: barColor}} />
-                </View>
-              </View>
-            );
-          })}
-          <ShowMoreRow boardKey={boardKey} total={entries.length} limit={limit} />
-        </View>
-      </View>
-    );
-  };
-
-  const FrontLeaderboard = () => {
-    if (stats.topFronters.length === 0) return null;
-    const limit = limitFor('fronters');
-    const shown = stats.topFronters.slice(0, limit);
-    const maxT = Math.max(...shown.map(e => e.time), 1);
-    const totalT = stats.topFronters.reduce((s, e) => s + e.time, 0) || 1;
-    return (
-      <View style={{marginBottom: 18}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.topStatuses') : tierHeading('primary', t('stats.topFronters'))}</Text>
-        <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border}}>
-          {shown.map((entry, i) => {
-            const member = getMember(entry.id);
-            const isLast = i === shown.length - 1;
-            const pct = Math.max(4, Math.round((entry.time / maxT) * 100));
-            const barColor = member?.color || T.accent;
-            return (
-              <View key={entry.id} style={{padding: 10, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: T.border}}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6}}>
-                  <Text style={{fontSize: fs(13), fontWeight: '700', color: rankColor(i), width: 22, textAlign: 'center'}}>{i + 1}</Text>
-                  {member ? <Avatar member={member} size={24} T={T} /> : null}
-                  <View style={{flex: 1}}>
-                    <Text style={{fontSize: fs(13), color: T.text, fontWeight: '500'}} numberOfLines={1}>{member ? member.name : entry.id}</Text>
-                    <Text style={{fontSize: fs(10), color: T.muted}}>{t('stats.sessionsCount', {count: entry.sessions})}</Text>
-                  </View>
-                  <Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{`${fmtPercent(entry.time / totalT, 1, 1)} / ${fmtDur(0, entry.time)}`}</Text>
-                </View>
-                <View style={{height: 6, borderRadius: 3, backgroundColor: T.surface, overflow: 'hidden'}}>
-                  <View style={{height: 6, width: `${pct}%`, borderRadius: 3, backgroundColor: barColor}} />
-                </View>
-              </View>
-            );
-          })}
-          <ShowMoreRow boardKey="fronters" total={stats.topFronters.length} limit={limit} />
-        </View>
-      </View>
-    );
+  const board = {onExpand: expandBoard, getMember};
+  const peakMax = Math.max(...stats.peakHours, 1);
+  const quickRange = (label: string, apply: () => void) => (
+    <TouchableOpacity onPress={apply} activeOpacity={0.7} accessibilityRole="button"
+      hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
+      <Text style={{fontSize: fs(11), color: T.dim}}>{label}</Text>
+    </TouchableOpacity>
+  );
+  const rangeFrom = (start: number) => {
+    setCustomStart(start);
+    setCustomEnd(Date.now());
   };
 
   return (
     <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 40}} bottomOffset={24}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16}}>
-        <RangeBtn selected={range} onSelect={setRange} T={T} id="all" label={t('stats.allTime')} />
-        <RangeBtn selected={range} onSelect={setRange} T={T} id="7d" label={t('stats.last7')} />
-        <RangeBtn selected={range} onSelect={setRange} T={T} id="30d" label={t('stats.last30')} />
-        <RangeBtn selected={range} onSelect={setRange} T={T} id="custom" label={t('stats.customRange')} />
+        <RangeBtn selected={range} onSelect={setRange} id="all" label={t('stats.allTime')} />
+        <RangeBtn selected={range} onSelect={setRange} id="7d" label={t('stats.last7')} />
+        <RangeBtn selected={range} onSelect={setRange} id="30d" label={t('stats.last30')} />
+        <RangeBtn selected={range} onSelect={setRange} id="custom" label={t('stats.customRange')} />
       </View>
 
       {range === 'custom' && (
@@ -298,7 +113,6 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
             }}
             mode="date"
             label={t('stats.rangeStart')}
-            T={T}
           />
           <DateTimeEditor
             date={new Date(customEnd)}
@@ -309,59 +123,36 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
             }}
             mode="date"
             label={t('stats.rangeEnd')}
-            T={T}
           />
           <View style={{flexDirection: 'row', gap: 8, marginTop: 4}}>
-            <TouchableOpacity onPress={() => {
-              const now = Date.now();
-              setCustomStart(now - 30 * 86400000);
-              setCustomEnd(now);
-            }} activeOpacity={0.7} accessibilityRole="button"
-              hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
-              <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.last30')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => {
-              const now = new Date();
-              const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-              setCustomStart(start);
-              setCustomEnd(Date.now());
-            }} activeOpacity={0.7} accessibilityRole="button"
-              hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
-              <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisMonth')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => {
-              const start = new Date(new Date().getFullYear(), 0, 1).getTime();
-              setCustomStart(start);
-              setCustomEnd(Date.now());
-            }} activeOpacity={0.7} accessibilityRole="button"
-              hitSlop={{top: 7, bottom: 7}} style={{flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 8, borderWidth: 1, backgroundColor: T.surface, borderColor: T.border}}>
-              <Text style={{fontSize: fs(11), color: T.dim}}>{t('stats.thisYear')}</Text>
-            </TouchableOpacity>
+            {quickRange(t('stats.last30'), () => rangeFrom(Date.now() - 30 * DAY_MS))}
+            {quickRange(t('stats.thisMonth'), () => { const now = new Date(); rangeFrom(new Date(now.getFullYear(), now.getMonth(), 1).getTime()); })}
+            {quickRange(t('stats.thisYear'), () => rangeFrom(new Date(new Date().getFullYear(), 0, 1).getTime()))}
           </View>
         </View>
       )}
 
       <View style={{flexDirection: 'row', gap: 8, marginBottom: 16}}>
-        <StatCard T={T} label={t('stats.totalTime')} value={fmtDur(0, stats.totalMs)} accent />
-        <StatCard T={T} label={t('stats.sessions')} value={fmtNum(stats.totalSessions, 0)} />
-        {!singlet && <StatCard T={T} label={t('stats.messages')} value={fmtNum(stats.totalMessages, 0)} />}
+        <StatCard label={t('stats.totalTime')} value={fmtDur(0, stats.totalMs)} accent />
+        <StatCard label={t('stats.sessions')} value={fmtNum(stats.totalSessions, 0)} />
+        {!singlet && <StatCard label={t('stats.messages')} value={fmtNum(stats.totalMessages, 0)} />}
       </View>
 
-      <FrontLeaderboard />
-      {!singlet && <Leaderboard title={tierHeading('coFront', t('stats.topCoFronters'))} boardKey="cofronters" entries={stats.topCoFronters} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} />}
-      {!singlet && <Leaderboard title={tierHeading('coConscious', t('stats.topCoCon'))} boardKey="cocon" entries={stats.topCoCon} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} />}
-      {!singlet && <Leaderboard title={t('stats.topChatters')} boardKey="chatters" entries={stats.topChatters} renderValue={v => t('stats.msgsCount', {count: v})} />}
-      <Leaderboard title={t('stats.topMoods')} boardKey="moods" entries={stats.topMoods} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} formatKey={m => translateMood(m, t)} />
-      <Leaderboard title={t('stats.topLocations')} boardKey="locations" entries={stats.topLocations} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} />
+      <TierBoard {...board} title={singlet ? t('stats.topStatuses') : tierHeading('primary', t('stats.topFronters'))} boardKey="fronters" limit={limitFor('fronters')} entries={stats.fronters} />
+      {!singlet && <TierBoard {...board} title={tierHeading('coFront', t('stats.topCoFronters'))} boardKey="cofronters" limit={limitFor('cofronters')} entries={stats.coFronters} />}
+      {!singlet && <TierBoard {...board} title={tierHeading('coConscious', t('stats.topCoCon'))} boardKey="cocon" limit={limitFor('cocon')} entries={stats.coConscious} />}
+      {!singlet && <Leaderboard {...board} title={t('stats.topChatters')} boardKey="chatters" limit={limitFor('chatters')} entries={stats.chatters} renderValue={v => t('stats.msgsCount', {count: v})} />}
+      <Leaderboard {...board} title={t('stats.topMoods')} boardKey="moods" limit={limitFor('moods')} entries={stats.moods} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} formatKey={m => translateMood(m, t)} />
+      <Leaderboard {...board} title={t('stats.topLocations')} boardKey="locations" limit={limitFor('locations')} entries={stats.locations} renderValue={v => t('stats.timesCount', {count: fmtNum(v, 0)})} />
 
       {stats.energyAvgs.length > 0 && (
         <View style={{marginBottom: 16}}>
-          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('energy.avgEnergy')}</Text>
+          <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 8})}>{t('energy.avgEnergy')}</Text>
           {stats.energyAvgs.slice(0, 8).map(({id, avg}) => {
             const m = getMember(id);
             return (
               <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6}}>
-                <Avatar member={m} size={22} T={T} />
+                <Avatar member={m} size={22} />
                 <Text style={{flex: 1, fontSize: fs(12), color: T.text}}>{m?.name || '?'}</Text>
                 <View style={{width: 80, height: 6, backgroundColor: T.surface, borderRadius: 3, overflow: 'hidden'}}>
                   <View style={{height: '100%', width: `${(avg / 10) * 100}%`, backgroundColor: m?.color || T.accent, borderRadius: 3}} />
@@ -373,195 +164,37 @@ export const StatsScreen = ({theme: T, singlet = false, selfId}: Props) => {
         </View>
       )}
 
-      {stats.peakHours.some((v: number) => v > 0) && (
+      {stats.peakHours.some(v => v > 0) && (
         <View style={{marginBottom: 16}}>
-          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{t('stats.peakHours')}</Text>
-          <View accessible accessibilityRole="image"
-            accessibilityLabel={t('a11y.labelValue', {label: t('stats.peakHours'), value: (stats.peakHours as number[]).map((c, h) => c > 0 ? `${fmtClock(h, 0)} (${fmtNum(c)})` : '').filter(Boolean).join(', ')})}
-            style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
-            {stats.peakHours.map((count: number, h: number) => {
-              const max = Math.max(...stats.peakHours as number[], 1);
-              return (
-                <View key={h} style={{flex: 1, justifyContent: 'flex-end', height: '100%'}}>
-                  <View style={{width: '100%', height: Math.max((count / max) * 45, 1), backgroundColor: count === max && count > 0 ? T.accent : `${T.dim}40`, borderRadius: 1}} />
-                </View>
-              );
-            })}
-          </View>
-          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            {stats.peakHours.map((_: number, h: number) => (
-              <View key={h} style={{flex: 1, alignItems: 'center'}}>
-                <Text style={{fontSize: fs(7), color: T.muted}}>{h % 6 === 0 ? h : ''}</Text>
-              </View>
-            ))}
-          </View>
+          <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 8})}>{t('stats.peakHours')}</Text>
+          <HourChart values={stats.peakHours}
+            a11yLabel={t('a11y.labelValue', {label: t('stats.peakHours'), value: hourSummary(stats.peakHours, c => fmtNum(c))})}
+            bar={count => ({height: Math.max((count / peakMax) * 45, 1), color: count === peakMax && count > 0 ? T.accent : `${T.dim}40`})} />
         </View>
       )}
 
-      {stats.energyByHour.some((v: number) => v > 0) && (
+      {stats.energyByHour.some(v => v > 0) && (
         <View style={{marginBottom: 16}}>
           <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8}}>
-            <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('stats.energyByHour')}</Text>
+            <Text accessibilityRole="header" style={sectionLabel(T)}>{t('stats.energyByHour')}</Text>
             <Text style={{fontSize: fs(9), color: T.muted}}>{t('energy.outOf10')}</Text>
           </View>
-          <View accessible accessibilityRole="image"
-            accessibilityLabel={`${t('stats.energyByHour')}, ${t('a11y.labelValue', {label: t('energy.outOf10'), value: (stats.energyByHour as number[]).map((avg, h) => avg > 0 ? `${fmtClock(h, 0)} (${fmtNum(avg, 1)})` : '').filter(Boolean).join(', ')})}`}
-            style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 1}}>
-            {stats.energyByHour.map((avg: number, h: number) => (
-              <View key={h} style={{flex: 1, justifyContent: 'flex-end', height: '100%'}}>
-                <View style={{width: '100%', height: avg > 0 ? Math.max((avg / 10) * 45, 2) : 1, backgroundColor: avg > 0 ? T.accent : `${T.dim}40`, borderRadius: 1}} />
-              </View>
-            ))}
-          </View>
-          <View style={{flexDirection: 'row', gap: 1, marginTop: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            {stats.energyByHour.map((_: number, h: number) => (
-              <View key={h} style={{flex: 1, alignItems: 'center'}}>
-                <Text style={{fontSize: fs(7), color: T.muted}}>{h % 6 === 0 ? h : ''}</Text>
-              </View>
-            ))}
-          </View>
+          <HourChart values={stats.energyByHour}
+            a11yLabel={`${t('stats.energyByHour')}, ${t('a11y.labelValue', {label: t('energy.outOf10'), value: hourSummary(stats.energyByHour, avg => fmtNum(avg, 1))})}`}
+            bar={avg => ({height: avg > 0 ? Math.max((avg / 10) * 45, 2) : 1, color: avg > 0 ? T.accent : `${T.dim}40`})} />
         </View>
       )}
 
       <View style={{marginBottom: 16}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>{singlet ? t('stats.statusDetails') : t('stats.memberDetails')}</Text>
-        {(() => {
-          const eligible = (m: Member) => !m.archived && (!singlet || (m.isCustomFront && !isSingletHiddenStatus(m)));
-          const chip = (m: Member) => (
-            <TouchableOpacity key={m.id} onPress={() => setSelectedStatMember(selectedStatMember === m.id ? null : m.id)} activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={m.name} accessibilityState={{selected: selectedStatMember === m.id}}
-              hitSlop={{top: 10, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-                backgroundColor: selectedStatMember === m.id ? `${m.color}20` : T.surface,
-                borderColor: selectedStatMember === m.id ? `${m.color}50` : T.border}}>
-              <Text style={{fontSize: fs(11), color: selectedStatMember === m.id ? m.color : T.dim}}>{m.name}</Text>
-            </TouchableOpacity>
-          );
-          const facets = members.filter((m: Member) => m.isFacet && eligible(m));
-          const customFronts = singlet ? [] : members.filter((m: Member) => m.isCustomFront && !m.isFacet && eligible(m));
-          const mainRow = members.filter((m: Member) => !m.isFacet && (singlet || !m.isCustomFront) && eligible(m));
-          const subRow = (label: string, list: Member[]) => list.length > 0 && (
-            <>
-              <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 4}}>{label}</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
-                <View style={{flexDirection: 'row', gap: 6}}>{list.map(chip)}</View>
-              </ScrollView>
-            </>
-          );
-          return (
-            <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: facets.length > 0 || customFronts.length > 0 ? 4 : 10, flexGrow: 0}}>
-                <View style={{flexDirection: 'row', gap: 6}}>
-                  {mainRow.map(chip)}
-                </View>
-              </ScrollView>
-              {subRow(t('members.facets'), facets)}
-              {subRow(t('members.customFronts'), customFronts)}
-            </>
-          );
-        })()}
+        <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 8})}>{singlet ? t('stats.statusDetails') : t('stats.memberDetails')}</Text>
+        <MemberPicker pools={statPools} selected={selectedStatMember} onPick={m => setSelectedStatMember(selectedStatMember === m.id ? null : m.id)}
+          variant="chips" showSearch={false} keepOrder maxResults={Infinity} />
 
-        {selectedStatMember && (() => {
-          const entries = filteredHistory.filter(e =>
-            (e.memberIds || []).includes(selectedStatMember) ||
-            (e.coFrontIds || []).includes(selectedStatMember) ||
-            (e.coConsciousIds || []).includes(selectedStatMember)
-          );
-          const coMembers: Record<string, number> = {};
-          const moods: Record<string, number> = {};
-          let eSum = 0; let eCount = 0;
-          entries.forEach(e => {
-            [...(e.memberIds || []), ...(e.coFrontIds || []), ...(e.coConsciousIds || [])].forEach(id => {
-              if (id !== selectedStatMember && !(singlet && id === selfId)) coMembers[id] = (coMembers[id] || 0) + 1;
-            });
-            if (e.mood) moods[e.mood] = (moods[e.mood] || 0) + 1;
-            if (e.energyLevel && (e.memberIds || []).includes(selectedStatMember)) { eSum += e.energyLevel; eCount++; }
-            if (e.coFrontEnergy && (e.coFrontIds || []).includes(selectedStatMember)) { eSum += e.coFrontEnergy; eCount++; }
-          });
-          const sm = getMember(selectedStatMember);
-          const topCoAll = Object.entries(coMembers).sort((a, b) => b[1] - a[1]);
-          const coKind = (id: string): 'member' | 'facet' | 'customFront' => {
-            const cm = getMember(id);
-            if (cm?.isFacet) return 'facet';
-            if (cm?.isCustomFront) return 'customFront';
-            return 'member';
-          };
-          const coGroups: {key: string; label: string; all: [string, number][]}[] = singlet
-            ? [{key: 'coMembers', label: t('stats.coStatuses'), all: topCoAll}]
-            : [
-              {key: 'coMembers', label: t('members.title'), all: topCoAll.filter(([id]) => coKind(id) === 'member')},
-              {key: 'coFacets', label: t('members.facets'), all: topCoAll.filter(([id]) => coKind(id) === 'facet')},
-              {key: 'coCustomFronts', label: t('members.customFronts'), all: topCoAll.filter(([id]) => coKind(id) === 'customFront')},
-            ];
-          const topMdAll = Object.entries(moods).sort((a, b) => b[1] - a[1]);
-          const mdLimit = limitFor('coMoods');
-          const topMd = topMdAll.slice(0, mdLimit);
-          const avgE = eCount > 0 ? Math.round((eSum / eCount) * 10) / 10 : null;
-
-          return (
-            <View style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12}}>
-              <View style={{flexDirection: 'row', gap: 16, marginBottom: 10}}>
-                <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{fmtNum(entries.length, 0)}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('stats.sessionsSuffix', {count: entries.length})}</Text></View>
-                {avgE !== null && <View><Text style={{fontSize: fs(18), fontWeight: '700', color: sm?.color || T.accent}}>{fmtNum(avgE, 1)}</Text><Text style={{fontSize: fs(10), color: T.muted}}>{t('energy.outOf10')}</Text></View>}
-              </View>
-              {coGroups.map(g => {
-                if (g.all.length === 0) return null;
-                const limit = limitFor(g.key);
-                const rows = g.all.slice(0, limit);
-                return (
-                  <View key={g.key} style={{marginBottom: 8}}>
-                    <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{g.label}</Text>
-                    {rows.map(([id, count]) => {
-                      const cm = getMember(id);
-                      return (
-                        <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
-                          <Avatar member={cm} size={18} T={T} />
-                          <Text style={{flex: 1, fontSize: fs(12), color: T.text}}>{cm?.name || '?'}</Text>
-                          <Text style={{fontSize: fs(11), color: T.muted}}>{t('stats.timesCount', {count: fmtNum(count, 0)})}</Text>
-                        </View>
-                      );
-                    })}
-                    <ShowMoreRow boardKey={g.key} total={g.all.length} limit={limit} />
-                  </View>
-                );
-              })}
-              {topMd.length > 0 && (
-                <View>
-                  <Text accessibilityRole="header" style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.muted, marginBottom: 6}}>{t('stats.topMoods')}</Text>
-                  {topMd.map(([mood, count]) => (
-                    <View key={mood} style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
-                      <Text style={{flex: 1, fontSize: fs(12), color: T.text}}>{translateMood(mood, t)}</Text>
-                      <Text style={{fontSize: fs(11), color: T.muted}}>{t('stats.timesCount', {count: fmtNum(count, 0)})}</Text>
-                    </View>
-                  ))}
-                  <ShowMoreRow boardKey="coMoods" total={topMdAll.length} limit={mdLimit} />
-                </View>
-              )}
-            </View>
-          );
-        })()}
+        {selectedStatMember && statDetail && (
+          <MemberStatDetail color={getMember(selectedStatMember)?.color || T.accent} detail={statDetail.detail} coGroups={statDetail.coGroups}
+            getMember={getMember} limitFor={limitFor} onExpand={expandBoard} />
+        )}
       </View>
     </KeyboardAwareScrollView>
   );
 };
-
-function RangeBtn({id, label, selected, onSelect, T}: {id: TimeRange; label: string; selected: TimeRange; onSelect: (id: TimeRange) => void; T: ThemeColors}) {
-  const fs = fontScale(T);
-  return (
-  <TouchableOpacity onPress={() => onSelect(id)} activeOpacity={0.7}
-    accessibilityRole="button" accessibilityState={{selected: selected === id}}
-    hitSlop={{top: 6, bottom: 9}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
-      backgroundColor: selected === id ? `${T.accent}20` : T.surface, borderColor: selected === id ? `${T.accent}60` : T.border}}>
-    <Text style={{fontSize: fs(12), color: selected === id ? T.accent : T.dim, fontWeight: selected === id ? '600' : '400'}}>{label}</Text>
-  </TouchableOpacity>
-  );
-}
-
-function StatCard({label, value, accent, T}: {label: string; value: string; accent?: boolean; T: ThemeColors}) {
-  const fs = fontScale(T);
-  return (
-  <View style={{flex: 1, backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 12}}>
-    <Text style={{fontSize: fs(9), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 4, fontWeight: '600'}}>{label}</Text>
-    <Text style={{fontSize: fs(16), fontWeight: '700', color: accent ? T.accent : T.text}}>{value}</Text>
-  </View>
-  );
-}

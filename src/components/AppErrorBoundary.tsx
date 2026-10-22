@@ -2,22 +2,21 @@ import React from 'react';
 import {View, TouchableOpacity} from 'react-native';
 import {Text} from './AppText';
 import i18n from '../i18n/i18n';
+import {log} from '../utils/log';
 
 export class AppErrorBoundary extends React.Component<{children: React.ReactNode}, {error: Error | null}> {
-  state = {error: null as Error | null};
+  state: {error: Error | null} = {error: null};
   static getDerivedStateFromError(error: Error) {
     return {error};
   }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    if (typeof console !== 'undefined' && console.error) {
-      console.error('AppErrorBoundary caught:', error, info?.componentStack);
-    }
+    log.error('errorBoundary', 'caught:', error, info?.componentStack);
   }
   reset = () => this.setState({error: null});
   render() {
     if (!this.state.error) return this.props.children;
-    const err = this.state.error as Error;
-    const msg = err?.message || String(err);
+    const err = this.state.error;
+    const msg = err.message || String(err);
     return (
       <View style={{flex: 1, backgroundColor: '#0a0a0a', padding: 24, justifyContent: 'center', alignItems: 'center'}}>
         <Text style={{color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 12, textAlign: 'center'}} accessibilityRole="header">

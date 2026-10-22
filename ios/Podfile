@@ -63,7 +63,7 @@ target 'PluralSpace' do
       contents = File.read(fmt_base_header)
       updated = contents.gsub(
         "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#if !defined(__cpp_lib_is_constant_evaluated)",
-        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#ifdef FMT_USE_CONSTEVAL\n// Use the provided definition.\n#elif !defined(__cpp_lib_is_constant_evaluated)"
+        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#ifdef FMT_USE_CONSTEVAL\n#elif !defined(__cpp_lib_is_constant_evaluated)"
       )
       File.write(fmt_base_header, updated) if updated != contents
     end

@@ -1,13 +1,16 @@
-import {Alert} from 'react-native';
-import {store, KEYS} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, ChatChannel, ChatCategory, ChatMessage, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, isFrontEmpty, frontToHistoryEntry, withMemberSince, uid, mergeTags} from '../utils';
+import {store, KEYS, chatMsgKey} from '../storage';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, NoteboardEntry, Relationship, allFrontMemberIds, ChatChannel, ChatCategory, ChatMessage, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, closeOpenFrontEntry, frontTiersWith, frontTiersWithout, pruneFrontOfGone, detailChangeEntries, frontToHistoryEntry, tierDetailChanges, withMemberSince, computeFrontUpdate, mergeTags, findSelfMember, newSelfMember, upsertById} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
-import {logError} from '../utils/log';
+import {log, logError} from '../utils/log';
+import {Emitter} from '../utils/emitter';
 import type {CustomPalette} from '../theme';
-import {migrateInlineChatMedia, rebaseChatMessageMedia, deleteAvatar} from '../utils/mediaUtils';
-import { reschedulePlannerNotifications} from '../services/NotificationService';
+import {LIGHT_PALETTE} from '../theme';
+import {deleteAvatar} from '../utils/mediaUtils';
+import {migrateInlineChatMedia, rebaseChatMessageMedia} from '../utils/mediaMigrations';
+import {reschedulePlannerNotifications} from '../services/reminders';
+import {mailCountsFor} from '../mailbox/mailbox';
 import {useAppStore} from './appStore';
 
 export const loadChatMessages = async (channels: ChatChannel[]) => {
@@ -15,16 +18,15 @@ export const loadChatMessages = async (channels: ChatChannel[]) => {
   const allMsgs: ChatMessage[] = [];
   for (const ch of channels) {
     try {
-      const msgs = await store.get<ChatMessage[]>(`ps:chat:${ch.id}`, []);
+      const msgs = await store.get<ChatMessage[]>(chatMsgKey(ch.id), []);
       if (msgs) {
-        const {messages: migrated, changed} = await migrateInlineChatMedia(msgs);
-        const {messages: rebased, changed: rebasedChanged} = rebaseChatMessageMedia(changed ? migrated : msgs);
-        const finalMsgs = rebasedChanged ? rebased : (changed ? migrated : msgs);
-        if (changed || rebasedChanged) await store.set(`ps:chat:${ch.id}`, finalMsgs);
-        if (!ch.archived) for (const m of finalMsgs) allMsgs.push(m);
+        const migrated = await migrateInlineChatMedia(msgs);
+        const rebased = rebaseChatMessageMedia(migrated.messages);
+        if (migrated.changed || rebased.changed) await store.set(chatMsgKey(ch.id), rebased.messages);
+        if (!ch.archived) for (const m of rebased.messages) allMsgs.push(m);
       }
     } catch (e) {
-      console.error('[PS] chat load error:', ch.id, e);
+      log.error('store', 'chat load error:', ch.id, e);
     }
   }
   setAllChatMessages(allMsgs);
@@ -35,38 +37,25 @@ export const saveSystem = async (d: SystemInfo) => {
   setSystem(d); await store.set(KEYS.system, d);
 };
 
-const pruneFrontOfGone = (d: Member[], front: FrontState | null): FrontState | null | undefined => {
-  if (!front) return undefined;
-  const gone = new Set(d.filter(m => m.archived || m.deleted).map(m => m.id));
-  if (gone.size === 0) return undefined;
-  const pruneTier = (tier: any) => tier ? {...tier, memberIds: (tier.memberIds || []).filter((id: string) => !gone.has(id))} : tier;
-  const next: any = {...front, primary: pruneTier(front.primary), coFront: pruneTier(front.coFront), coConscious: pruneTier(front.coConscious)};
-  const count = (f: any) => (f?.primary?.memberIds?.length || 0) + (f?.coFront?.memberIds?.length || 0) + (f?.coConscious?.memberIds?.length || 0);
-  if (count(next) === count(front)) return undefined;
-  return isFrontEmpty(next) ? null : next;
-};
-
-export const pruneFrontOfRemovedMembers = async () => {
-  const {members, front, setFront} = useAppStore.getState();
+const pruneFrontFor = async (members: Member[]) => {
+  const {front, setFront} = useAppStore.getState();
   const cleaned = pruneFrontOfGone(members, front);
   if (cleaned === undefined) return;
   setFront(cleaned);
   await store.set(KEYS.front, cleaned);
 };
 
+export const pruneFrontOfRemovedMembers = () => pruneFrontFor(useAppStore.getState().members);
+
 export const saveMembers = async (d: Member[]) => {
-  const {loaded, front, setMembers, setFront} = useAppStore.getState();
+  const {loaded, setMembers} = useAppStore.getState();
   if (!loaded && d.length === 0) {
-    console.warn('[PS] Blocked pre-load save of empty members');
+    log.warn('store', 'Blocked pre-load save of empty members');
     return;
   }
   setMembers(d);
   await store.set(KEYS.members, d);
-  const cleaned = pruneFrontOfGone(d, front);
-  if (cleaned !== undefined) {
-    setFront(cleaned);
-    await store.set(KEYS.front, cleaned);
-  }
+  await pruneFrontFor(d);
 };
 
 export const saveHistory = async (d: HistoryEntry[]) => {
@@ -133,21 +122,21 @@ export const savePlanner = async (d: PlannerData) => {
 export const selectPalette = async (id: string) => {
   const {appSettings, setActivePaletteId, setAppSettings} = useAppStore.getState();
   setActivePaletteId(id);
-  const updated = {...appSettings, activePaletteId: id, lightMode: id === '__light__'};
+  const updated = {...appSettings, activePaletteId: id, lightMode: id === LIGHT_PALETTE.id};
   setAppSettings(updated);
   await store.set(KEYS.settings, updated);
-  await store.set(KEYS.lightMode, id === '__light__');
+  await store.set(KEYS.lightMode, id === LIGHT_PALETTE.id);
 };
 
 const updateLastLocation = async (loc: string | undefined) => {
   const {setLastKnownLocation} = useAppStore.getState();
-  if (loc) { setLastKnownLocation(loc); await store.set('ps:lastLocation', loc); }
+  if (loc) { setLastKnownLocation(loc); await store.set(KEYS.lastLocation, loc); }
 };
 
 const clearLastLocation = async () => {
   const {setLastKnownLocation} = useAppStore.getState();
   setLastKnownLocation(undefined);
-  await store.remove('ps:lastLocation');
+  await store.remove(KEYS.lastLocation);
 };
 
 const maybeGPS = async (manualLocation?: string): Promise<string | undefined> => {
@@ -158,116 +147,51 @@ const maybeGPS = async (manualLocation?: string): Promise<string | undefined> =>
   return undefined;
 };
 
+const frontMail = new Emitter<[names: string]>('front');
+
+export const onFrontersHaveMail = (fn: (names: string) => void): (() => void) => frontMail.on(fn);
+
 export const updateFront = async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
   const {front, history, members, appSettings, setFront} = useAppStore.getState();
   const now = Date.now();
-  const cleanTier = (tier: FrontTier): FrontTier =>
-    tier.memberIds.length === 0
-      ? {memberIds: [], mood: undefined, note: '', location: undefined, energyLevel: undefined}
-      : tier;
-  const cleanPrimary = cleanTier(primary);
-  const cleanCoFront = cleanTier(coFront);
-  const cleanCoConscious = cleanTier(coConscious);
-  const isEmpty = cleanPrimary.memberIds.length === 0 && cleanCoFront.memberIds.length === 0 && cleanCoConscious.memberIds.length === 0;
-
-  const sameMembers = (a: string[] = [], b: string[] = []) =>
-    a.length === b.length && [...a].sort().join('|') === [...b].sort().join('|');
-  const continuing = !!front && !isEmpty
-    && sameMembers(front.primary.memberIds, cleanPrimary.memberIds)
-    && sameMembers(front.coFront.memberIds, cleanCoFront.memberIds)
-    && sameMembers(front.coConscious.memberIds, cleanCoConscious.memberIds);
-
-  const explicitLocation = cleanPrimary.location?.trim() || undefined;
-  const nf: FrontState | null = isEmpty ? null : withMemberSince({primary: {...cleanPrimary, location: explicitLocation}, coFront: cleanCoFront, coConscious: cleanCoConscious, startTime: continuing ? front!.startTime : now}, front, now);
-
-  let newHistory = [...history];
-  if (front && !continuing) {
-    newHistory = newHistory.map(e =>
-      e.endTime === null && e.startTime === front.startTime && (!e.changeType || e.changeType === 'front') ? {...e, endTime: now} : e);
-  }
-
-  let finalFront = nf;
-  if (nf) {
-    if (continuing) {
-      const extras: HistoryEntry[] = [];
-      const moodChanged = (nf.primary.mood || undefined) !== (front!.primary.mood || undefined);
-      const locChanged = (nf.primary.location || undefined) !== (front!.primary.location || undefined);
-      const noteChanged = (nf.primary.note || undefined) !== (front!.primary.note || undefined);
-      if (moodChanged || locChanged) {
-        const entry = frontToHistoryEntry(nf, null, moodChanged ? 'mood' : 'location');
-        entry.changeTime = now;
-        extras.push(entry);
-      }
-      if (noteChanged) {
-        const entry = frontToHistoryEntry(nf, null, 'note');
-        entry.changeTime = now + 1;
-        extras.push(entry);
-      }
-      const tierTracked = (a: FrontTier, b: FrontTier) =>
-        (a.mood || undefined) !== (b.mood || undefined) || (a.energyLevel ?? undefined) !== (b.energyLevel ?? undefined);
-      const segment = tierTracked(nf.primary, front!.primary) || tierTracked(nf.coFront, front!.coFront)
-        || tierTracked(nf.coConscious, front!.coConscious) || locChanged;
-      if (segment) {
-        finalFront = {...nf, startTime: now};
-        const segEntry = frontToHistoryEntry(finalFront, null, 'front');
-        newHistory = newHistory.map(e =>
-          e.endTime === null && e.startTime === front!.startTime && (!e.changeType || e.changeType === 'front') ? {...e, endTime: now} : e);
-        newHistory = [segEntry, ...extras, ...newHistory];
-      } else {
-        const frontEntry = frontToHistoryEntry(nf, null, 'front');
-        newHistory = newHistory.map(e =>
-          e.endTime === null && e.startTime === front!.startTime && (!e.changeType || e.changeType === 'front') ? frontEntry : e);
-        newHistory = [...extras, ...newHistory];
-      }
-    } else {
-      const frontEntry = frontToHistoryEntry(nf, null, 'front');
-      newHistory = [frontEntry, ...newHistory];
-    }
-  }
+  const {front: finalFront, history: newHistory} = computeFrontUpdate(front, history, primary, coFront, coConscious, now);
+  const explicitLocation = primary.memberIds.length > 0 ? (primary.location?.trim() || undefined) : undefined;
 
   setFront(finalFront);
   await store.set(KEYS.front, finalFront);
   await saveHistory(newHistory);
 
-  if (nf) {
-    const allFrontIds = [...nf.primary.memberIds, ...nf.coFront.memberIds, ...nf.coConscious.memberIds];
+  if (finalFront) {
+    const allFrontIds = allFrontMemberIds(finalFront);
     if (allFrontIds.length > 0) {
       try {
-        const notes = await store.get<any[]>(KEYS.noteboards) || [];
-        if (notes && notes.length > 0) {
-          const memberNotes: Record<string, number> = {};
-          for (const n of notes) {
-            if (allFrontIds.includes(n.memberId)) {
-              memberNotes[n.memberId] = (memberNotes[n.memberId] || 0) + 1;
-            }
-          }
-          const withNotes = Object.entries(memberNotes);
-          if (withNotes.length > 0) {
-            const names = withNotes.map(([id, count]) => {
-              const m = members.find(mm => mm.id === id);
-              return `${m?.name || '?'} (${count})`;
-            }).join(', ');
-            Alert.alert(i18n.t('mailbox.title'), i18n.t('mailbox.frontersHaveMail', {names}));
-          }
+        const notes = await store.get<NoteboardEntry[]>(KEYS.noteboards) || [];
+        const withNotes = [...mailCountsFor(notes, allFrontIds)];
+        if (withNotes.length > 0) {
+          const names = withNotes.map(([id, count]) => {
+            const m = members.find(mm => mm.id === id);
+            return `${m?.name || '?'} (${count})`;
+          }).join(', ');
+          frontMail.emit(names);
         }
       } catch (e) { logError('front', e); }
     }
   }
 
-  if (nf && appSettings.gpsEnabled && !cleanPrimary.location?.trim()) {
+  if (finalFront && appSettings.gpsEnabled && !explicitLocation) {
     try {
       const gpsLocation = await getGPSLocation();
       const live = useAppStore.getState().front;
-      if (gpsLocation && gpsLocation !== explicitLocation && live && finalFront && live.startTime === finalFront.startTime && !live.primary.location?.trim()) {
+      if (gpsLocation && live && live.startTime === finalFront.startTime && !live.primary.location?.trim()) {
         const patched: FrontState = {...live, primary: {...live.primary, location: gpsLocation}};
         useAppStore.getState().setFront(patched);
         await store.set(KEYS.front, patched);
         await updateLastLocation(gpsLocation);
       }
-    } catch (e) { console.error('[PS] GPS post-save error:', e); }
+    } catch (e) { log.error('store', 'GPS post-save error:', e); }
   } else if (explicitLocation) {
     await updateLastLocation(explicitLocation);
-  } else if (nf) {
+  } else if (finalFront) {
     await clearLastLocation();
   }
 };
@@ -279,64 +203,46 @@ export const updateFrontDetails = async (tier: FrontTierKey, mood?: string, loca
   const now = Date.now();
   const tierData = front[tier];
   const updatedTier = {...tierData, mood, location: resolvedLocation, note: note ?? tierData.note, energyLevel};
-  const moodChanged = (mood || undefined) !== (tierData.mood || undefined);
-  const locChanged = (resolvedLocation || undefined) !== (tierData.location || undefined);
-  const noteChanged = note !== undefined && (note || undefined) !== (tierData.note || undefined);
-  const segment = moodChanged || locChanged;
+  const changed = tierDetailChanges(tierData, updatedTier);
+  const segment = changed.mood || changed.location;
   const updated = segment ? {...front, [tier]: updatedTier, startTime: now} : {...front, [tier]: updatedTier};
   setFront(updated); await store.set(KEYS.front, updated);
   if (tier === 'primary') {
     if (resolvedLocation) await updateLastLocation(resolvedLocation);
     else await clearLastLocation();
   }
-  const extras: HistoryEntry[] = [];
-  if (moodChanged || locChanged) { const entry = frontToHistoryEntry(updated, null, moodChanged ? 'mood' : 'location', tier); entry.changeTime = now; extras.push(entry); }
-  if (noteChanged) { const entry = frontToHistoryEntry(updated, null, 'note', tier); entry.changeTime = now + 1; extras.push(entry); }
-  let newHistory = [...history];
+  const extras = detailChangeEntries(updated, changed, now, tier);
   if (segment) {
     const segEntry = frontToHistoryEntry(updated, null, 'front');
-    newHistory = newHistory.map(e =>
-      e.endTime === null && e.startTime === front.startTime && (!e.changeType || e.changeType === 'front') ? {...e, endTime: now} : e);
-    newHistory = [segEntry, ...extras, ...newHistory];
-    await saveHistory(newHistory);
+    await saveHistory([segEntry, ...extras, ...closeOpenFrontEntry(history, front.startTime, now)]);
   } else if (extras.length > 0) {
-    await saveHistory([...extras, ...newHistory]);
+    await saveHistory([...extras, ...history]);
   }
 };
 
 export const quickAddToFront = async (id: string, tierKey: FrontTierKey) => {
-  const {front} = useAppStore.getState();
-  const strip = (tier: FrontTier): FrontTier => ({...tier, memberIds: tier.memberIds.filter(x => x !== id)});
-  const tiers: Record<FrontTierKey, FrontTier> = {
-    primary: front ? strip(front.primary) : {memberIds: [], note: ''},
-    coFront: front ? strip(front.coFront) : {memberIds: [], note: ''},
-    coConscious: front ? strip(front.coConscious) : {memberIds: [], note: ''},
-  };
-  tiers[tierKey] = {...tiers[tierKey], memberIds: [...tiers[tierKey].memberIds, id]};
+  const tiers = frontTiersWith(useAppStore.getState().front, id, tierKey);
   await updateFront(tiers.primary, tiers.coFront, tiers.coConscious);
 };
 
 export const removeFromFront = async (id: string) => {
   const {front} = useAppStore.getState();
   if (!front) return;
-  await updateFront(
-    {...front.primary, memberIds: front.primary.memberIds.filter(x => x !== id)},
-    {...front.coFront, memberIds: front.coFront.memberIds.filter(x => x !== id)},
-    {...front.coConscious, memberIds: front.coConscious.memberIds.filter(x => x !== id)},
-  );
+  const tiers = frontTiersWithout(front, id);
+  await updateFront(tiers.primary, tiers.coFront, tiers.coConscious);
 };
 
 export const saveMember = async (m: Member) => {
   const {members} = useAppStore.getState();
   const prev = members.find(x => x.id === m.id);
-  const u = prev ? members.map(x => (x.id === m.id ? m : x)) : [...members, m];
+  const u = upsertById(members, m);
   await saveMembers(u);
   if (prev?.avatar && !m.avatar) deleteAvatar(m.id).catch(e => logError('saveMember: avatar', e));
 };
 
 const forgetMemberLinks = async (id: string): Promise<void> => {
   try {
-    const rels = (await store.get<any[]>(KEYS.relationships, [])) || [];
+    const rels = (await store.get<Relationship[]>(KEYS.relationships, [])) || [];
     const keep = rels.filter(r => r && r.fromId !== id && r.toId !== id);
     if (keep.length !== rels.length) await store.set(KEYS.relationships, keep);
   } catch (e) { logError('deleteMember: relationships', e); }
@@ -346,67 +252,45 @@ const forgetMemberLinks = async (id: string): Promise<void> => {
   } catch (e) { logError('deleteMember: map members', e); }
   try {
     const pos = (await store.get<Record<string, unknown>>(KEYS.systemMapPositions, {})) || {};
-    if (id in pos) { const {[id]: _drop, ...rest} = pos; await store.set(KEYS.systemMapPositions, rest); }
+    if (id in pos) { const rest = {...pos}; delete rest[id]; await store.set(KEYS.systemMapPositions, rest); }
   } catch (e) { logError('deleteMember: map positions', e); }
 };
 
-export const deleteMember = async (id: string) => {
-  await forgetMemberLinks(id);
-  const {members} = useAppStore.getState();
-  return saveMembers(members.map(m => m.id === id ? {...m, archived: true, deleted: true} : m));
-};
-
-export const restoreDeletedMember = async (id: string) => {
-  const {members} = useAppStore.getState();
-  return saveMembers(members.map(m => m.id === id ? {...m, deleted: false, archived: false} : m));
-};
-
-export const bulkSetFacet = async (ids: string[], toFacet: boolean) => {
-  const {members} = useAppStore.getState();
+const updateMembers = (ids: Iterable<string>, change: (m: Member) => Member): Promise<void> => {
   const idSet = new Set(ids);
-  await saveMembers(members.map(m => idSet.has(m.id) && !m.isCustomFront ? {...m, isFacet: toFacet} : m));
+  return saveMembers(useAppStore.getState().members.map(m => (idSet.has(m.id) ? change(m) : m)));
 };
 
-export const bulkSetArchived = async (ids: string[], archived: boolean) => {
-  const {members} = useAppStore.getState();
-  const idSet = new Set(ids);
-  await saveMembers(members.map(m => idSet.has(m.id) ? {...m, archived} : m));
-};
+export const restoreDeletedMember = (id: string) => updateMembers([id], m => ({...m, deleted: false, archived: false}));
+
+export const bulkSetFacet = (ids: string[], toFacet: boolean) => updateMembers(ids, m => (m.isCustomFront ? m : {...m, isFacet: toFacet}));
+
+export const bulkSetArchived = (ids: string[], archived: boolean) => updateMembers(ids, m => ({...m, archived}));
 
 export const bulkDeleteMembers = async (ids: string[]) => {
   for (const id of ids) await forgetMemberLinks(id);
-  const {members} = useAppStore.getState();
-  const idSet = new Set(ids);
-  await saveMembers(members.map(m => idSet.has(m.id) ? {...m, archived: true, deleted: true} : m));
+  await updateMembers(ids, m => ({...m, archived: true, deleted: true}));
 };
 
-export const bulkAddGroups = async (ids: string[], groupIds: string[]) => {
-  const {members} = useAppStore.getState();
-  const idSet = new Set(ids);
-  await saveMembers(members.map(m => idSet.has(m.id) ? {...m, groupIds: [...new Set([...(m.groupIds || []), ...groupIds])]} : m));
-};
+export const deleteMember = (id: string) => bulkDeleteMembers([id]);
+
+export const bulkAddGroups = (ids: string[], groupIds: string[]) =>
+  updateMembers(ids, m => ({...m, groupIds: [...new Set([...(m.groupIds || []), ...groupIds])]}));
 
 export const bulkAddTags = async (ids: string[], tags: string[]) => {
   if (ids.length === 0 || tags.length === 0) return;
-  const {members} = useAppStore.getState();
-  const idSet = new Set(ids);
-  await saveMembers(members.map(m => {
-    if (!idSet.has(m.id)) return m;
+  await updateMembers(ids, m => {
     const next = mergeTags(m.tags, tags);
     return next.length === (m.tags || []).length ? m : {...m, tags: next};
-  }));
+  });
 };
 
-export const bulkRemoveFromGroup = async (ids: string[], groupId: string) => {
-  const {members} = useAppStore.getState();
-  const idSet = new Set(ids);
-  await saveMembers(members.map(m => idSet.has(m.id) ? {...m, groupIds: (m.groupIds || []).filter(g => g !== groupId)} : m));
-};
+export const bulkRemoveFromGroup = (ids: string[], groupId: string) =>
+  updateMembers(ids, m => ({...m, groupIds: (m.groupIds || []).filter(g => g !== groupId)}));
 
 export const saveEntry = async (e: JournalEntry) => {
   const {journal} = useAppStore.getState();
-  const u = journal.find(x => x.id === e.id) ? journal.map(x => (x.id === e.id ? e : x)) : [e, ...journal];
-  await saveJournal(u);
+  await saveJournal(upsertById(journal, e, true));
 };
 
 export const deleteEntry = async (id: string) => {
@@ -430,18 +314,40 @@ export const saveAppSettings = async (d: AppSettings) => {
   if (filesJustEnabled) { await requestFilesPermission(); }
 };
 
-export const ensureSelfMember = async (): Promise<Member> => {
-  const {members, appSettings, system} = useAppStore.getState();
-  const selfMember = members.find(m => m.id === appSettings.selfMemberId && !m.isCustomFront && !m.isFacet)
-    || members.find(m => !m.isCustomFront && !m.isFacet && !m.archived);
-  if (selfMember) {
-    if (selfMember.id !== appSettings.selfMemberId) await saveAppSettings({...appSettings, selfMemberId: selfMember.id});
-    return selfMember;
-  }
-  const nm: Member = {id: uid(), name: system.name || i18n.t('share.system'), pronouns: '', role: '', color: '#DAA520', description: '', tags: [], groupIds: [], customFields: [], createdAt: Date.now()};
+const resolveSelfMember = async (selfMemberId: string | undefined): Promise<Member> => {
+  const {members, system} = useAppStore.getState();
+  const existing = findSelfMember(members, selfMemberId);
+  if (existing) return existing;
+  const nm = newSelfMember(system.name || i18n.t('share.system'));
   await saveMembers([...members, nm]);
-  await saveAppSettings({...useAppStore.getState().appSettings, selfMemberId: nm.id});
   return nm;
+};
+
+export const ensureSelfMember = async (): Promise<Member> => {
+  const {appSettings} = useAppStore.getState();
+  const self = await resolveSelfMember(appSettings.selfMemberId);
+  if (self.id !== appSettings.selfMemberId) await saveAppSettings({...useAppStore.getState().appSettings, selfMemberId: self.id});
+  return self;
+};
+
+export const saveSettingsWithSelf = async (s: AppSettings): Promise<void> => {
+  if (s.accountMode !== 'singlet') return saveAppSettings(s);
+  const self = await resolveSelfMember(s.selfMemberId);
+  await saveAppSettings({...s, selfMemberId: self.id});
+};
+
+export const completeSetup = async ({name, description, singlet}: {name: string; description: string; singlet?: boolean}): Promise<void> => {
+  await saveSystem({name, description});
+  if (!singlet) return;
+  const self = newSelfMember(name);
+  const {members, appSettings} = useAppStore.getState();
+  await saveMembers([...members, self]);
+  await saveAppSettings({...appSettings, accountMode: 'singlet', selfMemberId: self.id});
+};
+
+export const loadLastLocation = async (): Promise<void> => {
+  const loc = await store.get<string>(KEYS.lastLocation);
+  if (loc) useAppStore.getState().setLastKnownLocation(loc);
 };
 
 export const applyFrontState = async (f: FrontState | null, since?: number) => {
@@ -452,30 +358,20 @@ export const applyFrontState = async (f: FrontState | null, since?: number) => {
   await store.set(KEYS.front, next);
 };
 
-export const saveMemberListFields = async (next: {groups?: boolean; descriptions?: boolean; pronouns?: boolean; roles?: boolean}) => {
+const patchAppSettings = async (patch: Partial<AppSettings>) => {
   const {appSettings, setAppSettings} = useAppStore.getState();
-  const sNext = {...appSettings, memberListFields: next}; setAppSettings(sNext); await store.set(KEYS.settings, sNext);
+  const next = {...appSettings, ...patch}; setAppSettings(next); await store.set(KEYS.settings, next);
 };
 
-export const saveMemberSortMode = async (mode: MemberSortMode) => {
-  const {appSettings, setAppSettings} = useAppStore.getState();
-  const next = {...appSettings, memberSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
-};
+export const saveMemberListFields = (next: NonNullable<AppSettings['memberListFields']>) => patchAppSettings({memberListFields: next});
 
-export const saveGroupSortMode = async (mode: MemberSortMode) => {
-  const {appSettings, setAppSettings} = useAppStore.getState();
-  const next = {...appSettings, groupSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
-};
+export const saveMemberSortMode = (mode: MemberSortMode) => patchAppSettings({memberSortMode: mode});
 
-export const saveFrontSortMode = async (mode: FrontSortMode) => {
-  const {appSettings, setAppSettings} = useAppStore.getState();
-  const next = {...appSettings, frontSortMode: mode}; setAppSettings(next); await store.set(KEYS.settings, next);
-};
+export const saveGroupSortMode = (mode: MemberSortMode) => patchAppSettings({groupSortMode: mode});
 
-export const saveFrontCustomOrder = async (order: string[]) => {
-  const {appSettings, setAppSettings} = useAppStore.getState();
-  const next = {...appSettings, frontCustomOrder: order}; setAppSettings(next); await store.set(KEYS.settings, next);
-};
+export const saveFrontSortMode = (mode: FrontSortMode) => patchAppSettings({frontSortMode: mode});
+
+export const saveFrontCustomOrder = (order: string[]) => patchAppSettings({frontCustomOrder: order});
 
 export const reorderMember = async (id: string, direction: 'up' | 'down') => {
   const {members} = useAppStore.getState();

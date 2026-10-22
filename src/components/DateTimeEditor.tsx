@@ -2,9 +2,10 @@ import React, {useState, useEffect, useRef} from 'react';
 import {View, TouchableOpacity} from 'react-native';
 import {Text, TextInput} from './AppText';
 import {fontScale} from '../theme';
-import type {ThemeColors} from '../theme';
+import {useTheme} from '../themeContext';
 import i18n from '../i18n/i18n';
-import {getLocale, uses12HourClock, dayPeriodLabel} from '../utils';
+import {clamp, daysInMonth, getLocale, uses12HourClock, dayPeriodLabel} from '../utils';
+import {sectionLabel} from './controls';
 
 type DateTimeEditorMode =
   | 'datetime'
@@ -20,7 +21,6 @@ interface Props {
   onChange: (d: Date) => void;
   label?: string;
   a11yLabel?: string;
-  T: ThemeColors;
   mode?: DateTimeEditorMode;
   collapsible?: boolean;
   readOnly?: boolean;
@@ -28,12 +28,9 @@ interface Props {
 
 const MIN_YEAR = 1900;
 const MAX_YEAR = 2200;
-const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
-const lastDayOfMonth = (year: number, monthZeroIndexed: number) =>
-  new Date(year, monthZeroIndexed + 1, 0).getDate();
 
 const EditableCell = ({
-  value, pad, min, max, onCommit, onStep, width, label, a11yLabel, T,
+  value, pad, min, max, onCommit, onStep, width, label, a11yLabel,
 }: {
   value: number;
   pad: number;
@@ -44,8 +41,8 @@ const EditableCell = ({
   width: number;
   label?: string;
   a11yLabel?: string;
-  T: ThemeColors;
 }) => {
+  const T = useTheme();
   const fs = fontScale(T);
   const display = String(value).padStart(pad, '0');
   const [text, setText] = useState(display);
@@ -96,7 +93,8 @@ const EditableCell = ({
   );
 };
 
-export const DateTimeEditor = ({date, onChange, label, a11yLabel, T, mode = 'datetime', collapsible = true, readOnly = false}: Props) => {
+export const DateTimeEditor = ({date, onChange, label, a11yLabel, mode = 'datetime', collapsible = true, readOnly = false}: Props) => {
+  const T = useTheme();
   const fs = fontScale(T);
   const [expanded, setExpanded] = useState(!collapsible && !readOnly);
 
@@ -114,60 +112,35 @@ export const DateTimeEditor = ({date, onChange, label, a11yLabel, T, mode = 'dat
   const showYear  = mode === 'datetime' || mode === 'date' || mode === 'monthYear' || mode === 'year';
   const showTime  = mode === 'datetime' || mode === 'time';
 
-  const stepBy = (field: 'month' | 'day' | 'year' | 'hour' | 'minute', delta: number) => {
+  const edit = (apply: (d: Date) => void) => {
     const d = new Date(date);
+    apply(d);
+    onChange(d);
+  };
+
+  const stepBy = (field: 'month' | 'day' | 'year' | 'hour' | 'minute', delta: number) => edit(d => {
     if (field === 'month') d.setMonth(d.getMonth() + delta);
     else if (field === 'day') d.setDate(d.getDate() + delta);
     else if (field === 'year') d.setFullYear(d.getFullYear() + delta);
     else if (field === 'hour') d.setHours(d.getHours() + delta);
-    else if (field === 'minute') d.setMinutes(d.getMinutes() + delta);
-    onChange(d);
-  };
+    else d.setMinutes(d.getMinutes() + delta);
+  });
 
-  const commitMonth = (m1: number) => {
-    const d = new Date(date);
+  const commitMonth = (m1: number) => edit(d => {
     const newMonth = clamp(m1, 1, 12) - 1;
-    const cappedDay = Math.min(day, lastDayOfMonth(year, newMonth));
     d.setDate(1);
     d.setMonth(newMonth);
-    d.setDate(cappedDay);
-    onChange(d);
-  };
-  const commitDay = (dy: number) => {
-    const d = new Date(date);
-    const capped = Math.min(dy, lastDayOfMonth(year, month));
-    d.setDate(capped);
-    onChange(d);
-  };
-  const commitYear = (y: number) => {
-    const d = new Date(date);
-    const cappedDay = Math.min(day, lastDayOfMonth(y, month));
+    d.setDate(Math.min(day, daysInMonth(year, newMonth)));
+  });
+  const commitDay = (dy: number) => edit(d => d.setDate(Math.min(dy, daysInMonth(year, month))));
+  const commitYear = (y: number) => edit(d => {
     d.setFullYear(y);
-    d.setDate(cappedDay);
-    onChange(d);
-  };
-  const commitHour12 = (h12: number) => {
-    const d = new Date(date);
-    const h24 = (h12 % 12) + (isPM ? 12 : 0);
-    d.setHours(h24);
-    onChange(d);
-  };
-  const commitHour24 = (h24: number) => {
-    const d = new Date(date);
-    d.setHours(clamp(h24, 0, 23));
-    onChange(d);
-  };
-  const commitMinute = (m: number) => {
-    const d = new Date(date);
-    d.setMinutes(m);
-    onChange(d);
-  };
-
-  const toggleAmPm = () => {
-    const d = new Date(date);
-    d.setHours(d.getHours() + (isPM ? -12 : 12));
-    onChange(d);
-  };
+    d.setDate(Math.min(day, daysInMonth(y, month)));
+  });
+  const commitHour12 = (h12: number) => edit(d => d.setHours((h12 % 12) + (isPM ? 12 : 0)));
+  const commitHour24 = (h24: number) => edit(d => d.setHours(clamp(h24, 0, 23)));
+  const commitMinute = (m: number) => edit(d => d.setMinutes(m));
+  const toggleAmPm = () => edit(d => d.setHours(d.getHours() + (isPM ? -12 : 12)));
 
   const fmtSummary = () => {
     const loc = getLocale();
@@ -194,7 +167,7 @@ export const DateTimeEditor = ({date, onChange, label, a11yLabel, T, mode = 'dat
   return (
     <View style={{marginBottom: 14}}>
       {label ? (
-        <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 6, fontWeight: '600'}}>{label}</Text>
+        <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={sectionLabel(T, {marginBottom: 6})}>{label}</Text>
       ) : null}
       {headerToggle}
       {expanded && !readOnly && (
@@ -204,21 +177,21 @@ export const DateTimeEditor = ({date, onChange, label, a11yLabel, T, mode = 'dat
               <EditableCell
                 value={month + 1} pad={2} min={1} max={12}
                 onCommit={commitMonth} onStep={d => stepBy('month', d)}
-                width={44} label={i18n.t('dateFormat.month')} a11yLabel={i18n.t('a11y.month')} T={T}
+                width={44} label={i18n.t('dateFormat.month')} a11yLabel={i18n.t('a11y.month')}
               />
             )}
             {showDay && (
               <EditableCell
-                value={day} pad={2} min={1} max={lastDayOfMonth(year, month)}
+                value={day} pad={2} min={1} max={daysInMonth(year, month)}
                 onCommit={commitDay} onStep={d => stepBy('day', d)}
-                width={44} label={i18n.t('dateFormat.day')} a11yLabel={i18n.t('a11y.day')} T={T}
+                width={44} label={i18n.t('dateFormat.day')} a11yLabel={i18n.t('a11y.day')}
               />
             )}
             {showYear && (
               <EditableCell
                 value={year} pad={4} min={MIN_YEAR} max={MAX_YEAR}
                 onCommit={commitYear} onStep={d => stepBy('year', d)}
-                width={60} label={i18n.t('dateFormat.year')} a11yLabel={i18n.t('a11y.year')} T={T}
+                width={60} label={i18n.t('dateFormat.year')} a11yLabel={i18n.t('a11y.year')}
               />
             )}
             {showTime && (
@@ -227,13 +200,13 @@ export const DateTimeEditor = ({date, onChange, label, a11yLabel, T, mode = 'dat
                 <EditableCell
                   value={displayHour} pad={2} min={twelveHour ? 1 : 0} max={twelveHour ? 12 : 23}
                   onCommit={twelveHour ? commitHour12 : commitHour24} onStep={d => stepBy('hour', d)}
-                  width={44} label={i18n.t('dateFormat.hour')} a11yLabel={i18n.t('a11y.hour')} T={T}
+                  width={44} label={i18n.t('dateFormat.hour')} a11yLabel={i18n.t('a11y.hour')}
                 />
                 <Text style={{fontSize: fs(18), color: T.dim, fontWeight: '700', marginHorizontal: 2}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">:</Text>
                 <EditableCell
                   value={minutes} pad={2} min={0} max={59}
                   onCommit={commitMinute} onStep={d => stepBy('minute', d)}
-                  width={44} label={i18n.t('dateFormat.minute')} a11yLabel={i18n.t('a11y.minute')} T={T}
+                  width={44} label={i18n.t('dateFormat.minute')} a11yLabel={i18n.t('a11y.minute')}
                 />
                 {twelveHour && (
                   <TouchableOpacity onPress={toggleAmPm} activeOpacity={0.6}

@@ -1,3 +1,6 @@
+import type { HistoryEntry, JournalEntry, WhiteboardStroke } from '../utils';
+import { CLOUD_LINK_KEY } from '../cloud/cloudTypes';
+
 export interface NetworkDef {
   id: string;
   name: string;
@@ -32,9 +35,6 @@ export const PROTO_VERSION = 2;
 
 export type FriendNotifyLevel = 'full' | 'alerts' | 'off';
 
-export const friendNotifyLevel = (f: Friend): FriendNotifyLevel =>
-  f.notifyLevel ?? (f.showInNotification ? 'full' : 'alerts');
-
 export interface FrontShare {
   fronters: string;
   primary?: string;
@@ -46,6 +46,9 @@ export interface FrontShare {
   startTime?: number;
 }
 
+export const IDENTITY_STORAGE_KEY = 'ps:networkIdentity';
+export const IDENTITY_UNREADABLE_KEY = `${IDENTITY_STORAGE_KEY}.unreadable`;
+export const IDENTITY_RESET_KEY = 'ps:networkIdentityReset';
 export const FRIENDS_STORAGE_KEY = 'ps:networkFriends';
 export const NETWORK_SETTINGS_KEY = 'ps:networkSettings';
 
@@ -63,7 +66,55 @@ export interface NetworkSettings {
   token?: string;
 }
 
-export type MirrorFeature = 'members' | 'groups' | 'medical' | 'journal' | 'history' | 'systemProfile' | 'whiteboard' | 'planner';
+export interface StoredIdentity {
+  v: number;
+  edSecretKey: string;
+  boxSecretKey: string;
+}
+
+export interface SyncValue {
+  v: string;
+  h: string;
+}
+
+export type SyncKeys = Record<string, SyncValue>;
+
+export interface SyncChunk {
+  key: string;
+  h: string;
+  seq: number;
+  total: number;
+  data: string;
+  init?: boolean;
+  resolved?: boolean;
+}
+
+export const MIRROR_FEATURES = ['members', 'groups', 'medical', 'journal', 'history', 'systemProfile', 'whiteboard', 'planner'] as const;
+
+export type MirrorFeature = (typeof MIRROR_FEATURES)[number];
+
+export interface MirrorPayloadMessage {
+  feature: MirrorFeature;
+  seq: number;
+  total: number;
+  data: string;
+  none?: boolean;
+}
+
+export interface MirrorMediaMessage {
+  feature: MirrorFeature;
+  memberId: string;
+  data: string;
+}
+
+export interface MirrorGifMessage {
+  feature: MirrorFeature;
+  memberId: string;
+  h: string;
+  seq: number;
+  total: number;
+  data: string;
+}
 
 export type NetMessage =
   | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target'; v?: number }
@@ -71,20 +122,20 @@ export type NetMessage =
   | { t: 'ping'; n?: string }
   | { t: 'front'; status: FrontShare | null; at?: number }
   | { t: 'front_req' }
-  | { t: 'device_adopt'; identity: {v: number; edSecretKey: string; boxSecretKey: string}; friends: Friend[] }
+  | { t: 'device_adopt'; identity: StoredIdentity; friends: Friend[] }
   | { t: 'friends_push'; friends: Friend[]; removed?: FriendTombstone[] }
   | { t: 'not_friends' }
-  | { t: 'sync'; keys: Record<string, {v: string; h: string}>; init?: boolean; initDone?: boolean; resolved?: boolean }
-  | { t: 'sync_chunk'; key: string; h: string; seq: number; total: number; data: string; init?: boolean; resolved?: boolean }
+  | { t: 'sync'; keys: SyncKeys; init?: boolean; initDone?: boolean; resolved?: boolean }
+  | ({ t: 'sync_chunk' } & SyncChunk)
   | { t: 'sync_req'; hashes: Record<string, string> }
   | { t: 'dm'; body: string; ts: number }
   | { t: 'mirror_req'; feature: MirrorFeature; v?: number }
-  | { t: 'mirror'; feature: MirrorFeature; seq: number; total: number; data: string; none?: boolean }
-  | { t: 'mirror_media'; feature: MirrorFeature; memberId: string; data: string }
+  | ({ t: 'mirror' } & MirrorPayloadMessage)
+  | ({ t: 'mirror_media' } & MirrorMediaMessage)
   | { t: 'mirror_media_req'; feature: MirrorFeature; ids: string[] }
   | { t: 'mirror_media_done'; feature: MirrorFeature }
   | { t: 'mirror_gif_req'; feature: MirrorFeature; items: MirrorGifAsk[] }
-  | { t: 'mirror_gif'; feature: MirrorFeature; memberId: string; h: string; seq: number; total: number; data: string };
+  | ({ t: 'mirror_gif' } & MirrorGifMessage);
 
 export interface MirrorGifAsk {
   id: string;
@@ -123,76 +174,10 @@ export const MIRROR_GIF_PART = 384 * 1024;
 export const MIRROR_GIF_MIN_PART = 96 * 1024;
 export const MIRROR_GIF_MAX_PARTS = Math.ceil(MIRROR_GIF_MAX_B64 / MIRROR_GIF_PART);
 export const MIRROR_GIF_ASK_MAX = 200;
+export const MIRROR_MEDIA_MAX = 600 * 1024;
+export const MIRROR_MEDIA_REQ_MAX = 400;
 
-const MIRROR_GIF_HASH_RE = /^[A-Za-z0-9-]{1,64}$/;
-
-export const isMirrorGifHash = (h: unknown): h is string => typeof h === 'string' && MIRROR_GIF_HASH_RE.test(h);
-
-export const mirrorGifHash = (b64: string): string => {
-  const n = b64.length;
-  const step = Math.max(1, Math.floor(n / 8192));
-  let h = 0x811c9dc5;
-  for (let i = 0; i < n; i += step) {
-    h ^= b64.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  for (let i = Math.max(0, n - 512); i < n; i++) {
-    h ^= b64.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return `${n.toString(36)}-${(h >>> 0).toString(16)}`;
-};
-
-export const isMirrorGifB64 = (b64: string): boolean => {
-  const n = b64.length;
-  if (n === 0 || n > MIRROR_GIF_MAX_B64 || n % 4 !== 0 || !b64.startsWith('R0lGOD')) return false;
-  const valid = (i: number): boolean => {
-    const c = b64.charCodeAt(i);
-    return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || c === 43 || c === 47 || (c === 61 && i >= n - 2);
-  };
-  const step = Math.max(1, Math.floor(n / 4096));
-  for (let i = 0; i < n; i += step) if (!valid(i)) return false;
-  for (let i = Math.max(0, n - 4); i < n; i++) if (!valid(i)) return false;
-  return true;
-};
-
-export const mirrorGifDataB64 = (src: unknown): string | null => {
-  if (typeof src !== 'string' || !src.startsWith('data:')) return null;
-  const comma = src.indexOf(',');
-  if (comma < 0 || !src.slice(0, comma).endsWith(';base64')) return null;
-  const b64 = src.slice(comma + 1);
-  return b64.startsWith('R0lGOD') && b64.length <= MIRROR_GIF_MAX_B64 ? b64 : null;
-};
-
-export const mirrorGifWants = (feature: MirrorFeature, data: unknown): Map<string, string> => {
-  const out = new Map<string, string>();
-  if (feature === 'members' && Array.isArray(data)) {
-    for (const mm of data as MirrorMember[]) {
-      if (!mm || typeof mm.id !== 'string' || !mm.id) continue;
-      if (isMirrorGifHash(mm.bannerGif)) out.set(`${mm.id}#banner`, mm.bannerGif);
-      for (const cf of Array.isArray(mm.customFields) ? mm.customFields : []) {
-        if (cf && cf.type === 'image' && typeof cf.fieldId === 'string' && cf.fieldId && isMirrorGifHash(cf.gif)) out.set(`${mm.id}#cf:${cf.fieldId}`, cf.gif);
-      }
-    }
-  } else if (feature === 'systemProfile' && data && typeof data === 'object') {
-    const sp = data as MirrorSystemProfile;
-    if (isMirrorGifHash(sp.bannerGif)) out.set(MIRROR_SYSTEM_BANNER_ID, sp.bannerGif);
-  }
-  return out;
-};
-
-export const sanitizeMirrorGifAsk = (v: unknown): MirrorGifAsk[] => {
-  if (!Array.isArray(v)) return [];
-  const out: MirrorGifAsk[] = [];
-  for (const x of v.slice(0, MIRROR_GIF_ASK_MAX)) {
-    if (!x || typeof x !== 'object') continue;
-    const id = (x as MirrorGifAsk).id;
-    const h = (x as MirrorGifAsk).h;
-    if (typeof id !== 'string' || !id || id.length > 128 || !isMirrorGifHash(h)) continue;
-    out.push({id, h});
-  }
-  return out;
-};
+export const GIF_B64_MAGIC = 'R0lGOD';
 
 export interface MirrorGroup {
   id: string;
@@ -203,11 +188,49 @@ export interface MirrorGroup {
   sortOrder?: number;
 }
 
+export interface MirrorGroupsPayload {
+  groups: MirrorGroup[];
+  membership: Record<string, {id: string; name: string}[]>;
+}
+
+export interface MirrorAppointment {
+  id: string;
+  title: string;
+  time: number;
+  location?: string;
+  notes?: string;
+  repeat?: string;
+  color?: string;
+}
+
+export interface MirrorReminder {
+  id: string;
+  title: string;
+  times: string[];
+  enabled: boolean;
+  notes?: string;
+  repeat?: string;
+}
+
+export interface MirrorPlannerPayload {
+  appointments: MirrorAppointment[];
+  reminders: MirrorReminder[];
+}
+
+export type MirrorPayload =
+  | MirrorMember[]
+  | MirrorGroupsPayload
+  | HistoryEntry[]
+  | JournalEntry[]
+  | MirrorSystemProfile
+  | WhiteboardStroke[]
+  | MirrorPlannerPayload;
+
 export interface MirrorCacheEntry {
   feature: MirrorFeature;
   fetchedAt: number;
   none?: boolean;
-  data: any;
+  data: MirrorPayload | null;
   media?: Record<string, string>;
 }
 
@@ -216,17 +239,19 @@ export const MIRROR_CACHE_PREFIX = 'ps:friendMirror:';
 export const MIRROR_SERVED_KEY = 'ps:friendMirror:served';
 export const MIRROR_SENT_KEY = 'ps:friendMirror:sent';
 
+export const SYNC_STATE_KEY = 'ps:networkSyncState';
+
 export const SYNC_EXCLUDE_KEYS = [
-  'ps:networkIdentity',
-  'ps:networkSettings',
-  'ps:networkFriends',
-  'ps:networkSyncState',
-  'ps:deviceCodes',
+  IDENTITY_STORAGE_KEY,
+  NETWORK_SETTINGS_KEY,
+  FRIENDS_STORAGE_KEY,
+  SYNC_STATE_KEY,
+  IDENTITY_UNREADABLE_KEY,
+  IDENTITY_RESET_KEY,
   'ps:medical',
-  'ps:cloudVault',
+  CLOUD_LINK_KEY,
 ];
 
-export const SYNC_STATE_KEY = 'ps:networkSyncState';
 export const PENDING_FRONTS_KEY = 'ps.pendingFronts';
 export const GW_REGISTERED_KEY = 'ps.gwRegistered';
 
@@ -272,20 +297,6 @@ export interface FrontVisibility {
   location: boolean;
   note: boolean;
 }
-
-export const frontVisibilityFor = (buckets: PrivacyBucket[], peerId: string): FrontVisibility => {
-  const mine = buckets.filter(b => b && Array.isArray(b.friendPeerIds) && b.friendPeerIds.includes(peerId));
-  if (mine.length === 0) return {show: true, mood: true, location: true, note: true};
-  const v: FrontVisibility = {show: false, mood: false, location: false, note: false};
-  for (const b of mine) {
-    if (b.front && b.front.mode === 'none') continue;
-    v.show = true;
-    if (b.frontMood !== false) v.mood = true;
-    if (b.frontLocation !== false) v.location = true;
-    if (b.frontNote !== false) v.note = true;
-  }
-  return v;
-};
 
 export const PRIVACY_BUCKETS_KEY = 'ps:privacyBuckets';
 

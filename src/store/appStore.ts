@@ -1,12 +1,9 @@
 import {create} from 'zustand';
-import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, MemberGroup, ChatChannel, ChatCategory, ChatMessage, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER} from '../utils';
+import {SystemInfo, Member, FrontState, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, MemberGroup, ChatChannel, ChatCategory, ChatMessage, MedicalData, DEFAULT_MEDICAL, PlannerData, DEFAULT_PLANNER, EMPTY_SYSTEM, DEFAULT_SHARE, DEFAULT_SETTINGS} from '../utils';
 import type {CustomPalette} from '../theme';
+import {DARK_PALETTE} from '../theme';
 
-export const DEFAULT_SETTINGS: AppSettings = {locations: [], customMoods: [], lightMode: false, gpsEnabled: false, filesEnabled: true, language: 'en', notificationsEnabled: true, noteboardNotifications: true, activePaletteId: '__dark__', textScale: 1.0, useDyslexicFont: false};
-
-type AppStore = {
-  loaded: boolean;
-  setLoaded: (v: boolean) => void;
+type AppData = {
   system: SystemInfo;
   members: Member[];
   front: FrontState | null;
@@ -23,6 +20,30 @@ type AppStore = {
   allChatMessages: ChatMessage[];
   medical: MedicalData;
   planner: PlannerData;
+};
+
+const EMPTY_DATA: AppData = {
+  system: EMPTY_SYSTEM,
+  members: [],
+  front: null,
+  history: [],
+  journal: [],
+  journalTemplates: [],
+  shareSettings: DEFAULT_SHARE,
+  appSettings: DEFAULT_SETTINGS,
+  groups: [],
+  palettes: [],
+  activePaletteId: DARK_PALETTE.id,
+  chatChannels: [],
+  chatCategories: [],
+  allChatMessages: [],
+  medical: DEFAULT_MEDICAL,
+  planner: DEFAULT_PLANNER,
+};
+
+type AppStore = AppData & {
+  loaded: boolean;
+  setLoaded: (v: boolean) => void;
   lastKnownLocation: string | undefined;
   setSystem: (v: SystemInfo) => void;
   setMembers: (v: Member[]) => void;
@@ -41,27 +62,13 @@ type AppStore = {
   setMedical: (v: MedicalData) => void;
   setPlanner: (v: PlannerData) => void;
   setLastKnownLocation: (v: string | undefined) => void;
+  resetData: () => void;
 };
 
 export const useAppStore = create<AppStore>()(set => ({
+  ...EMPTY_DATA,
   loaded: false,
   setLoaded: v => set({loaded: v}),
-  system: {name: '', description: ''},
-  members: [],
-  front: null,
-  history: [],
-  journal: [],
-  journalTemplates: [],
-  shareSettings: {showFront: true, showMembers: true, showDescriptions: false},
-  appSettings: DEFAULT_SETTINGS,
-  groups: [],
-  palettes: [],
-  activePaletteId: '__dark__',
-  chatChannels: [],
-  chatCategories: [],
-  allChatMessages: [],
-  medical: DEFAULT_MEDICAL,
-  planner: DEFAULT_PLANNER,
   lastKnownLocation: undefined,
   setSystem: v => set({system: v}),
   setMembers: v => set({members: v}),
@@ -80,4 +87,5 @@ export const useAppStore = create<AppStore>()(set => ({
   setMedical: v => set({medical: v}),
   setPlanner: v => set({planner: v}),
   setLastKnownLocation: v => set({lastKnownLocation: v}),
+  resetData: () => set(EMPTY_DATA),
 }));

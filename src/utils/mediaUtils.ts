@@ -1,184 +1,99 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
-import ImageResizer from '@bam.tech/react-native-image-resizer';
+import type {FetchBlobResponse} from 'react-native-blob-util';
 import i18n from '../i18n/i18n';
-import {logError} from './log';
-import {parallelMap, withTimeout} from './concurrency';
-import {MIRROR_GIF_MAX_BYTES, MIRROR_GIF_MAX_B64, mirrorGifDataB64, mirrorGifHash} from '../network/types';
+import {log, logError} from './log';
+import {withTimeout} from './concurrency';
+import {fs, AVATAR_DIR, AVATAR_FULL_DIR, BANNER_DIR, BIO_IMAGE_DIR, CHAT_MEDIA_DIR, IMAGE_EXTS, MIME_BY_EXT, downscaleOrCopy, ensureDir, fileUri, filePathOf, rawBase64, removeIfExists, removeVariants, safeExt, sniffImageExt, writeBase64} from './mediaFiles';
 
-const AVATAR_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars`;
-const CHAT_MEDIA_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_chat_media`;
-const BIO_IMAGE_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_bio_images`;
+const AVATAR_FULL_MAX = 1024;
+const DOWNLOAD_TIMEOUT_MS = 7000;
+const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5';
 
-const ensureDir = async (dir: string) => {
-  const exists = await ReactNativeBlobUtil.fs.exists(dir);
-  if (!exists) await ReactNativeBlobUtil.fs.mkdir(dir);
+const CHAT_MEDIA_EXT: Record<string, string> = {};
+for (const ext of Object.keys(MIME_BY_EXT)) if (ext !== 'jpeg') CHAT_MEDIA_EXT[MIME_BY_EXT[ext]] = ext;
+
+const chatMediaExt = (dataUri: string): string => {
+  const mime = /^data:([^;,]+)/.exec(dataUri)?.[1] || 'application/octet-stream';
+  return CHAT_MEDIA_EXT[mime] || mime.split('/')[1] || 'bin';
 };
 
-const AVATAR_MAX = 256;
-
-const downscaleOrCopy = async (sourceUri: string, destPath: string, max = AVATAR_MAX): Promise<string> => {
-  const readPath = sourceUri.replace('file://', '').split('#')[0].split('?')[0];
-  const original = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
-  if (original.startsWith('R0lGO')) {
-    await ReactNativeBlobUtil.fs.writeFile(destPath, original, 'base64');
-    return `file://${destPath}?t=${Date.now()}`;
-  }
-  try {
-    const resized = await ImageResizer.createResizedImage(`file://${readPath}`, max, max, 'PNG', 100, 0);
-    const resizedPath = resized.uri.replace('file://', '');
-    const bytes = await ReactNativeBlobUtil.fs.readFile(resizedPath, 'base64');
-    await ReactNativeBlobUtil.fs.writeFile(destPath, bytes, 'base64');
-    try { await ReactNativeBlobUtil.fs.unlink(resizedPath); } catch {}
-    return `file://${destPath}?t=${Date.now()}`;
-  } catch {
-    await ReactNativeBlobUtil.fs.writeFile(destPath, original, 'base64');
-    return `file://${destPath}?t=${Date.now()}`;
-  }
-};
-
-const MIRROR_THUMB_MAX = 128;
-export const mirrorThumbDataUri = async (sourceUri: string, maxDim: number = MIRROR_THUMB_MAX): Promise<string | null> => {
-  if (!sourceUri) return null;
-  if (sourceUri.startsWith('data:')) {
-    return sourceUri.length <= 200 * 1024 ? sourceUri : null;
-  }
-  if (!sourceUri.startsWith('file://')) return null;
-  const path = (rebaseDocumentUri(sourceUri) || sourceUri).replace('file://', '').split('#')[0].split('?')[0];
-  try {
-    const resized = await ImageResizer.createResizedImage(`file://${path}`, maxDim, maxDim, 'JPEG', 70, 0);
-    const resizedPath = resized.uri.replace('file://', '');
-    const b64 = await ReactNativeBlobUtil.fs.readFile(resizedPath, 'base64');
-    try { await ReactNativeBlobUtil.fs.unlink(resizedPath); } catch {}
-    return `data:image/jpeg;base64,${b64}`;
-  } catch (e) {
-    logError('media', e);
-    try {
-      const raw = await ReactNativeBlobUtil.fs.readFile(path, 'base64');
-      if (raw.length > 200 * 1024) return null;
-      const ext = (path.split('.').pop() || 'jpg').toLowerCase();
-      const mime = ext === 'png' ? 'image/png' : ext === 'gif' ? 'image/gif' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-      return `data:${mime};base64,${raw}`;
-    } catch {
-      return null;
-    }
-  }
-};
+const avatarFullPath = (memberId: string): string => `${AVATAR_FULL_DIR}/${memberId}.png`;
 
 export const saveAvatar = async (memberId: string, base64: string): Promise<string> => {
-  await ensureDir(AVATAR_DIR);
-  const raw = base64.includes(',') ? base64.split(',')[1] : base64;
-  let ext = 'jpg';
-  if (raw.startsWith('iVBOR')) ext = 'png';
-  else if (raw.startsWith('R0lGO')) ext = 'gif';
-  else if (raw.startsWith('UklGR')) ext = 'webp';
-  const path = `${AVATAR_DIR}/${memberId}.${ext}`;
-  await ReactNativeBlobUtil.fs.writeFile(path, raw, 'base64');
-  for (const other of ['jpg', 'png', 'gif', 'webp']) {
-    if (other === ext) continue;
-    try {
-      const stale = `${AVATAR_DIR}/${memberId}.${other}`;
-      if (await ReactNativeBlobUtil.fs.exists(stale)) await ReactNativeBlobUtil.fs.unlink(stale);
-    } catch {}
-  }
-  return `file://${path}?t=${Date.now()}`;
+  const raw = rawBase64(base64);
+  const ext = sniffImageExt(raw) ?? 'jpg';
+  const uri = await writeBase64(AVATAR_DIR, `${memberId}.${ext}`, raw);
+  await removeVariants(AVATAR_DIR, memberId, ext);
+  return uri;
 };
 
-export const saveBannerFromBase64 = async (memberId: string, base64: string): Promise<string> => {
-  await ensureDir(BIO_IMAGE_DIR);
-  const raw = base64.includes(',') ? base64.split(',')[1] : base64;
-  let ext = 'png';
-  if (raw.startsWith('/9j/')) ext = 'jpg';
-  else if (raw.startsWith('R0lGO')) ext = 'gif';
-  else if (raw.startsWith('UklGR')) ext = 'webp';
-  const path = `${BIO_IMAGE_DIR}/banner-${memberId}.${ext}`;
-  await ReactNativeBlobUtil.fs.writeFile(path, raw, 'base64');
-  return `file://${path}?t=${Date.now()}`;
+const contentTypeExt = (contentType: string): string => {
+  if (contentType.includes('png')) return 'png';
+  if (contentType.includes('webp')) return 'webp';
+  if (contentType.includes('gif')) return 'gif';
+  if (contentType.includes('jpeg') || contentType.includes('jpg')) return 'jpg';
+  return '';
 };
 
-const BANNER_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_banners`;
+const urlImageExt = (url: string): string => {
+  const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
+  if (ext === 'jpeg') return 'jpg';
+  return IMAGE_EXTS.includes(ext) ? ext : 'jpg';
+};
 
-const DOWNLOAD_TIMEOUT_MS = 7000;
-
-const downloadViaBlobUtil = async (
-  baseDir: string,
-  id: string,
-  url: string,
-): Promise<string | undefined> => {
+const downloadViaBlobUtil = async (baseDir: string, id: string, url: string): Promise<string | undefined> => {
   try {
     await ensureDir(baseDir);
     const tempPath = `${baseDir}/${id}.tmp`;
-    try { if (await ReactNativeBlobUtil.fs.exists(tempPath)) await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
+    await removeIfExists(tempPath);
     const downloadTask = ReactNativeBlobUtil.config({
       path: tempPath,
       fileCache: false,
       followRedirect: true,
     }).fetch('GET', url, {
-      Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5',
+      Accept: IMAGE_ACCEPT,
       'User-Agent': 'PluralStar (https://github.com/ByHanyou/Plural-Star) avatar-import',
     });
-    const result = await new Promise<any>((resolve, reject) => {
+    const result = await new Promise<FetchBlobResponse>((resolve, reject) => {
       let settled = false;
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
-        try { (downloadTask as any).cancel?.(() => {}); } catch {}
+        try { downloadTask.cancel(() => {}); } catch {}
         reject(new Error(i18n.t('share.couldNotConnect')));
       }, DOWNLOAD_TIMEOUT_MS);
       downloadTask.then(
-        (v: any) => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); },
-        (e: any) => { if (settled) return; settled = true; clearTimeout(timer); reject(e); },
+        v => { if (settled) return; settled = true; clearTimeout(timer); resolve(v); },
+        (e: unknown) => { if (settled) return; settled = true; clearTimeout(timer); reject(e); },
       );
     });
-    const info = result.info() as any;
-    const status = info.status;
-    if (status < 200 || status >= 300) {
-      try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
+    const info = result.info();
+    if (info.status < 200 || info.status >= 300) {
+      await removeIfExists(tempPath);
       return undefined;
     }
-    const headers = info.headers || {};
-    const contentType = String(
-      headers['Content-Type'] || headers['content-type'] || '',
-    ).toLowerCase();
-    let ext = '';
-    if (contentType.includes('png')) ext = 'png';
-    else if (contentType.includes('webp')) ext = 'webp';
-    else if (contentType.includes('gif')) ext = 'gif';
-    else if (contentType.includes('jpeg') || contentType.includes('jpg')) ext = 'jpg';
+    const headers: Record<string, unknown> = info.headers || {};
+    let ext = contentTypeExt(String(headers['Content-Type'] || headers['content-type'] || '').toLowerCase());
     if (!ext) {
-      try {
-        const head = await ReactNativeBlobUtil.fs.readFile(tempPath, 'base64');
-        if (head.startsWith('iVBOR')) ext = 'png';
-        else if (head.startsWith('R0lGO')) ext = 'gif';
-        else if (head.startsWith('UklGR')) ext = 'webp';
-        else if (head.startsWith('/9j/')) ext = 'jpg';
-      } catch {}
+      try { ext = sniffImageExt(await fs.readFile(tempPath, 'base64')) ?? ''; } catch {}
     }
-    if (!ext) {
-      const urlExt = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
-      if (urlExt === 'jpeg') ext = 'jpg';
-      else if (['png', 'gif', 'webp', 'jpg'].includes(urlExt)) ext = urlExt;
-      else ext = 'jpg';
-    }
-    for (const oldExt of ['jpg', 'png', 'gif', 'webp']) {
-      const p = `${baseDir}/${id}.${oldExt}`;
-      try { if (await ReactNativeBlobUtil.fs.exists(p)) await ReactNativeBlobUtil.fs.unlink(p); } catch {}
-    }
+    if (!ext) ext = urlImageExt(url);
+    await removeVariants(baseDir, id);
     const finalPath = `${baseDir}/${id}.${ext}`;
-    await ReactNativeBlobUtil.fs.cp(tempPath, finalPath);
-    try { await ReactNativeBlobUtil.fs.unlink(tempPath); } catch {}
-    return `file://${finalPath}?t=${Date.now()}`;
-  } catch { return undefined; }
+    await fs.cp(tempPath, finalPath);
+    await removeIfExists(tempPath);
+    return fileUri(finalPath);
+  } catch (e) {
+    log.debug('media', 'avatar download error:', e);
+    return undefined;
+  }
 };
 
-const downloadViaFetchFallback = async (
-  baseDir: string,
-  id: string,
-  url: string,
-): Promise<string | undefined> => {
+const downloadViaFetchFallback = async (baseDir: string, id: string, url: string): Promise<string | undefined> => {
   try {
-    const res = await withTimeout(fetch(url, {headers: {Accept: 'image/png,image/jpeg,image/webp,image/gif,image/*;q=0.8,*/*;q=0.5'}}), DOWNLOAD_TIMEOUT_MS, 'image download');
+    const res = await withTimeout(fetch(url, {headers: {Accept: IMAGE_ACCEPT}}), DOWNLOAD_TIMEOUT_MS, 'image download');
     if (!res.ok) return undefined;
-    const blob: any = await withTimeout(res.blob(), DOWNLOAD_TIMEOUT_MS, 'image download');
+    const blob = await withTimeout(res.blob(), DOWNLOAD_TIMEOUT_MS, 'image download');
     const dataUrl: string = await new Promise((resolve, reject) => {
       const fr = new FileReader();
       fr.onloadend = () => resolve(String(fr.result || ''));
@@ -189,509 +104,95 @@ const downloadViaFetchFallback = async (
     if (comma < 0) return undefined;
     const raw = dataUrl.slice(comma + 1);
     if (!raw) return undefined;
-    let ext = 'jpg';
-    if (raw.startsWith('iVBOR')) ext = 'png';
-    else if (raw.startsWith('R0lGO')) ext = 'gif';
-    else if (raw.startsWith('UklGR')) ext = 'webp';
-    await ensureDir(baseDir);
-    for (const oldExt of ['jpg', 'png', 'gif', 'webp']) {
-      const p = `${baseDir}/${id}.${oldExt}`;
-      try { if (await ReactNativeBlobUtil.fs.exists(p)) await ReactNativeBlobUtil.fs.unlink(p); } catch {}
-    }
-    const finalPath = `${baseDir}/${id}.${ext}`;
-    await ReactNativeBlobUtil.fs.writeFile(finalPath, raw, 'base64');
-    return `file://${finalPath}?t=${Date.now()}`;
+    const ext = sniffImageExt(raw) ?? 'jpg';
+    await removeVariants(baseDir, id);
+    return await writeBase64(baseDir, `${id}.${ext}`, raw);
   } catch (e) {
-    if (__DEV__) console.error('[PS] avatar fetch fallback error:', e);
+    log.debug('media', 'avatar fetch fallback error:', e);
     return undefined;
   }
 };
 
-const downloadImageWithExtSniff = async (
-  baseDir: string,
-  id: string,
-  url: string,
-): Promise<string | undefined> => {
+const downloadImageWithExtSniff = async (baseDir: string, id: string, url: string): Promise<string | undefined> => {
   if (!url || !url.startsWith('http')) return undefined;
-  const primary = await downloadViaBlobUtil(baseDir, id, url);
-  if (primary) return primary;
-  return downloadViaFetchFallback(baseDir, id, url);
+  return (await downloadViaBlobUtil(baseDir, id, url)) || downloadViaFetchFallback(baseDir, id, url);
 };
 
 export const saveAvatarFromUrl = async (memberId: string, url: string): Promise<string | undefined> => {
   const uri = await downloadImageWithExtSniff(AVATAR_DIR, memberId, url);
   if (!uri) return uri;
-  const path = uri.replace('file://', '').split('?')[0];
-  try { return await downscaleOrCopy(`file://${path}`, path); } catch { return uri; }
+  try { return await downscaleOrCopy(uri, filePathOf(uri)); } catch (e) { log.debug('media', e); return uri; }
 };
 
 export const saveBannerFromUrl = (memberId: string, url: string): Promise<string | undefined> =>
   downloadImageWithExtSniff(BANNER_DIR, memberId, url);
 
 export const deleteAvatar = async (memberId: string): Promise<void> => {
-  try {
-    for (const ext of ['jpg', 'png', 'gif', 'webp']) {
-      const path = `${AVATAR_DIR}/${memberId}.${ext}`;
-      const exists = await ReactNativeBlobUtil.fs.exists(path);
-      if (exists) await ReactNativeBlobUtil.fs.unlink(path);
-    }
-  } catch {}
-  try {
-    const full = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars_full/${memberId}.png`;
-    if (await ReactNativeBlobUtil.fs.exists(full)) await ReactNativeBlobUtil.fs.unlink(full);
-  } catch {}
+  await removeVariants(AVATAR_DIR, memberId);
+  await removeIfExists(avatarFullPath(memberId));
 };
 
-export const saveChatMedia = async (messageId: string, base64: string, ext: string = 'jpg'): Promise<string> => {
-  await ensureDir(CHAT_MEDIA_DIR);
-  const raw = base64.includes(',') ? base64.split(',')[1] : base64;
-  const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '') || 'bin';
-  const path = `${CHAT_MEDIA_DIR}/${messageId}.${safeExt}`;
-  await ReactNativeBlobUtil.fs.writeFile(path, raw, 'base64');
-  return `file://${path}?t=${Date.now()}`;
-};
+export const saveChatMedia = (messageId: string, base64: string, ext: string = 'jpg'): Promise<string> =>
+  writeBase64(CHAT_MEDIA_DIR, `${messageId}.${safeExt(ext)}`, base64);
+
+export const saveChatMediaDataUri = (messageId: string, dataUri: string): Promise<string> =>
+  saveChatMedia(messageId, dataUri, chatMediaExt(dataUri));
 
 export const deleteChatMediaFile = async (uri: string): Promise<void> => {
   if (!uri || !uri.startsWith('file://')) return;
-  const path = uri.replace(/^file:\/\//, '').split('?')[0];
-  if (!path.startsWith(CHAT_MEDIA_DIR)) return;
+  const path = filePathOf(uri);
+  if (path.startsWith(CHAT_MEDIA_DIR)) await removeIfExists(path);
+};
+
+export const deleteChatMediaFor = async (messageId: string): Promise<void> => {
   try {
-    if (await ReactNativeBlobUtil.fs.exists(path)) await ReactNativeBlobUtil.fs.unlink(path);
-  } catch {}
+    for (const f of await fs.ls(CHAT_MEDIA_DIR)) if (f.startsWith(`${messageId}.`)) await fs.unlink(`${CHAT_MEDIA_DIR}/${f}`);
+  } catch (e) {
+    log.debug('media', e);
+  }
 };
 
-export const getChatMediaFileName = (uri: string): string => {
-  if (!uri) return i18n.t('chat.attachment');
-  const noProto = uri.replace(/^file:\/\//, '');
-  const noQuery = noProto.split('?')[0];
-  const basename = noQuery.split('/').pop() || '';
-  return basename || i18n.t('chat.attachment');
+export const getChatMediaFileName = (uri: string): string =>
+  (uri && filePathOf(uri).split('/').pop()) || i18n.t('chat.attachment');
+
+export const saveBioImage = async (imageId: string, base64: string, ext: string = 'png'): Promise<string> => {
+  const safe = safeExt(ext);
+  const uri = await writeBase64(BIO_IMAGE_DIR, `${imageId}.${safe}`, base64);
+  await removeVariants(BIO_IMAGE_DIR, imageId, safe);
+  return uri;
 };
 
-export const saveBioImage = async (
-  imageId: string,
-  base64: string,
-  ext: string = 'png'
-): Promise<string> => {
-  await ensureDir(BIO_IMAGE_DIR);
-  const raw = base64.includes(',') ? base64.split(',')[1] : base64;
-  const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '') || 'bin';
-  const path = `${BIO_IMAGE_DIR}/${imageId}.${safeExt}`;
-  await ReactNativeBlobUtil.fs.writeFile(path, raw, 'base64');
-  return `file://${path}?t=${Date.now()}`;
-};
+export const saveBannerFromBase64 = (memberId: string, base64: string): Promise<string> =>
+  saveBioImage(`banner-${memberId}`, base64, sniffImageExt(rawBase64(base64)) ?? 'png');
 
-const persistImage = async (sourceUri: string, destPath: string): Promise<string> => {
-  const readPath = sourceUri
-    .replace('file://', '')
-    .split('#')[0]
-    .split('?')[0];
-  const raw = await ReactNativeBlobUtil.fs.readFile(readPath, 'base64');
-  await ReactNativeBlobUtil.fs.writeFile(destPath, raw, 'base64');
-  return `file://${destPath}?t=${Date.now()}`;
-};
-
-export const saveBannerImage = async (
-  imageId: string,
-  sourceUri: string
-): Promise<string> => {
+export const saveBioImageFromUri = async (imageId: string, sourceUri: string): Promise<string> => {
   await ensureDir(BIO_IMAGE_DIR);
   const destPath = `${BIO_IMAGE_DIR}/${imageId}.png`;
-  try { await ReactNativeBlobUtil.fs.unlink(destPath); } catch {}
-  return persistImage(sourceUri, destPath);
-};
-
-const AVATAR_FULL_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_avatars_full`;
-const AVATAR_FULL_MAX = 1024;
-
-const saveAvatarFull = async (memberId: string, sourceUri: string): Promise<void> => {
-  try {
-    await ensureDir(AVATAR_FULL_DIR);
-    await downscaleOrCopy(sourceUri, `${AVATAR_FULL_DIR}/${memberId}.png`, AVATAR_FULL_MAX);
-  } catch {}
+  await removeVariants(BIO_IMAGE_DIR, imageId);
+  await fs.writeFile(destPath, await fs.readFile(filePathOf(sourceUri), 'base64'), 'base64');
+  return fileUri(destPath);
 };
 
 export const avatarFullUri = async (memberId: string): Promise<string | null> => {
   if (!memberId) return null;
   try {
-    const p = `${AVATAR_FULL_DIR}/${memberId}.png`;
-    return (await ReactNativeBlobUtil.fs.exists(p)) ? `file://${p}?t=${Date.now()}` : null;
-  } catch {
+    const p = avatarFullPath(memberId);
+    return (await fs.exists(p)) ? fileUri(p) : null;
+  } catch (e) {
+    log.debug('media', e);
     return null;
   }
 };
 
 export const saveAvatarFromUri = async (memberId: string, sourceUri: string): Promise<string> => {
   await ensureDir(AVATAR_DIR);
-  for (const ext of ['jpg', 'png', 'gif', 'webp']) {
-    const p = `${AVATAR_DIR}/${memberId}.${ext}`;
-    try { if (await ReactNativeBlobUtil.fs.exists(p)) await ReactNativeBlobUtil.fs.unlink(p); } catch {}
+  await removeVariants(AVATAR_DIR, memberId);
+  try {
+    await ensureDir(AVATAR_FULL_DIR);
+    await downscaleOrCopy(sourceUri, avatarFullPath(memberId), AVATAR_FULL_MAX);
+  } catch (e) {
+    logError('media', e);
   }
-  await saveAvatarFull(memberId, sourceUri);
   return downscaleOrCopy(sourceUri, `${AVATAR_DIR}/${memberId}.png`);
 };
 
-export const saveBioImageFromUri = async (imageId: string, sourceUri: string): Promise<string> => {
-  await ensureDir(BIO_IMAGE_DIR);
-  const destPath = `${BIO_IMAGE_DIR}/${imageId}.png`;
-  try { await ReactNativeBlobUtil.fs.unlink(destPath); } catch {}
-  return persistImage(sourceUri, destPath);
-};
-
-export const rebaseDocumentUri = (uri?: string | null): string | undefined => {
-  if (!uri || typeof uri !== 'string' || !uri.startsWith('file://')) return uri || undefined;
-  const docMarker = '/Documents/';
-  const idx = uri.indexOf(docMarker);
-  if (idx === -1) return uri;
-  const tail = uri.slice(idx + docMarker.length);
-  const currentBase = ReactNativeBlobUtil.fs.dirs.DocumentDir.replace(/\/+$/, '');
-  const rebased = `file://${currentBase}/${tail}`;
-  return rebased;
-};
-
-export const migrateStaleMediaPaths = async (
-  members: any[],
-  system: any | null,
-): Promise<{members: any[]; system: any | null; changed: boolean}> => {
-  let changed = false;
-  const fix = (uri?: string): string | undefined => {
-    const next = rebaseDocumentUri(uri);
-    if (next && next !== uri) changed = true;
-    return next;
-  };
-  const fixText = (text?: string): string | undefined => {
-    if (!text || typeof text !== 'string' || !text.includes('file://')) return text ?? undefined;
-    const next = text.replace(/file:\/\/[^\s)"'\]]+/g, u => rebaseDocumentUri(u) || u);
-    if (next !== text) changed = true;
-    return next;
-  };
-  const fixCustomFields = (cfs: any): any => {
-    if (!Array.isArray(cfs)) return cfs;
-    let cfChanged = false;
-    const mapped = cfs.map((cv: any) => {
-      if (!cv || typeof cv.value !== 'string') return cv;
-      const nv = fixText(cv.value);
-      if (nv === cv.value) return cv;
-      cfChanged = true;
-      return {...cv, value: nv};
-    });
-    return cfChanged ? mapped : cfs;
-  };
-  const updatedMembers = (members || []).map((m: any) => {
-    if (!m) return m;
-    const newAvatar = fix(m.avatar);
-    const newBanner = fix(m.banner);
-    const newDesc = fixText(m.description);
-    const newCfs = fixCustomFields(m.customFields);
-    if (newAvatar === m.avatar && newBanner === m.banner && newDesc === m.description && newCfs === m.customFields) return m;
-    return {...m, avatar: newAvatar, banner: newBanner, description: newDesc, customFields: newCfs};
-  });
-  let updatedSystem = system;
-  if (system) {
-    const newAvatar = fix(system.avatar);
-    const newBanner = fix(system.banner);
-    const newDesc = fixText(system.description);
-    if (newAvatar !== system.avatar || newBanner !== system.banner || newDesc !== system.description) {
-      updatedSystem = {...system, avatar: newAvatar, banner: newBanner, description: newDesc};
-    }
-  }
-  return {members: updatedMembers, system: updatedSystem, changed};
-};
-
-export const restoreMissingMediaFiles = async (
-  members: any[],
-): Promise<{members: any[]; changed: boolean}> => {
-  let changed = false;
-  let attempts = 0;
-  const MAX_ATTEMPTS = 12;
-  const fileMissing = async (uri?: string): Promise<boolean> => {
-    if (!uri || typeof uri !== 'string' || !uri.startsWith('file://')) return false;
-    const path = uri.replace('file://', '').split('?')[0];
-    try { return !(await ReactNativeBlobUtil.fs.exists(path)); } catch { return false; }
-  };
-  const out: any[] = [];
-  for (const m of members || []) {
-    if (!m || attempts >= MAX_ATTEMPTS) { out.push(m); continue; }
-    let next = m;
-    if (m.pkAvatarUrl && (await fileMissing(m.avatar))) {
-      attempts++;
-      try {
-        const fresh = await saveAvatarFromUrl(m.id, m.pkAvatarUrl);
-        if (fresh) { next = {...next, avatar: fresh}; changed = true; }
-      } catch {}
-    }
-    if (m.pkBannerUrl && attempts < MAX_ATTEMPTS && (await fileMissing(next.banner))) {
-      attempts++;
-      try {
-        const fresh = await saveBannerFromUrl(m.id, m.pkBannerUrl);
-        if (fresh) { next = {...next, banner: fresh}; changed = true; }
-      } catch {}
-    }
-    out.push(next);
-  }
-  return {members: out, changed};
-};
-
-export const rebaseChatMessageMedia = (messages: any[]): {messages: any[]; changed: boolean} => {
-  let changed = false;
-  const out = (messages || []).map((msg: any) => {
-    if (!msg || (msg.type !== 'image' && msg.type !== 'file')) return msg;
-    const next = rebaseDocumentUri(msg.content);
-    if (next && next !== msg.content) { changed = true; return {...msg, content: next}; }
-    return msg;
-  });
-  return {messages: out, changed};
-};
-
-const inlineImageExt = (dataUri: string): string => {
-  const m = dataUri.match(/^data:image\/([a-zA-Z0-9]+)/);
-  const t = (m ? m[1] : 'png').toLowerCase();
-  return t === 'jpeg' ? 'jpg' : t;
-};
-
-const isInlineData = (v: unknown): v is string => typeof v === 'string' && v.startsWith('data:');
-
-const needsInlineMigration = (m: any): boolean =>
-  !!m && (isInlineData(m.avatar) || isInlineData(m.banner)
-    || (Array.isArray(m.customFields) && m.customFields.some((c: any) => c && c.fieldId && isInlineData(c.value) && c.value.startsWith('data:image/'))));
-
-export const migrateInlineAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
-  if (!members.some(needsInlineMigration)) return {members, changed: false};
-  let changed = false;
-  await ensureDir(AVATAR_DIR);
-  const updated = await parallelMap(members, async (m: any) => {
-    if (!needsInlineMigration(m)) return m;
-    let next = m;
-    let moved = false;
-    if (isInlineData(m.avatar)) {
-      try {
-        next = {...next, avatar: await saveAvatar(m.id, m.avatar)};
-        moved = true;
-      } catch (e) {
-        logError('media', e);
-      }
-    }
-    if (isInlineData(m.banner)) {
-      try {
-        next = {...next, banner: await saveBannerFromBase64(m.id, m.banner)};
-        moved = true;
-      } catch (e) {
-        logError('media', e);
-      }
-    }
-    if (Array.isArray(m.customFields)) {
-      const fields: any[] = [];
-      for (const c of m.customFields) {
-        if (c && c.fieldId && isInlineData(c.value) && c.value.startsWith('data:image/')) {
-          try {
-            fields.push({...c, value: await saveBioImage(`cf-${m.id}-${c.fieldId}`, c.value, inlineImageExt(c.value))});
-            moved = true;
-          } catch (e) {
-            logError('media', e);
-            fields.push(c);
-          }
-        } else {
-          fields.push(c);
-        }
-      }
-      if (moved) next = {...next, customFields: fields};
-    }
-    if (moved) changed = true;
-    return moved ? next : m;
-  }, 4);
-  return {members: updated, changed};
-};
-
-const DOWNSIZE_SKIP_BYTES = 150 * 1024;
-
-export const downsizeExistingAvatars = async (members: any[]): Promise<{members: any[]; changed: boolean}> => {
-  let changed = false;
-  await ensureDir(AVATAR_DIR);
-  const updated = await parallelMap(members, async (m: any) => {
-    const av = m?.avatar;
-    if (!av || typeof av !== 'string' || !av.startsWith('file://')) return m;
-    const path = av.replace('file://', '').split('?')[0];
-    try {
-      const stat = await ReactNativeBlobUtil.fs.stat(path).catch(() => null);
-      if (!stat) return m;
-      if (Number(stat.size) <= DOWNSIZE_SKIP_BYTES) return m;
-      const next = await downscaleOrCopy(`file://${path}`, path);
-      changed = true;
-      return {...m, avatar: next};
-    } catch (e) { logError('media', e); }
-    return m;
-  }, 4);
-  return {members: updated, changed};
-};
-
-const needsChatMediaMigration = (msg: any): boolean =>
-  !!msg && (msg.type === 'image' || msg.type === 'file')
-  && typeof msg.content === 'string' && msg.content.startsWith('data:');
-
-export const migrateInlineChatMedia = async (messages: any[]): Promise<{messages: any[]; changed: boolean}> => {
-  const list = messages || [];
-  if (!list.some(needsChatMediaMigration)) return {messages: list, changed: false};
-
-  let changed = false;
-  await ensureDir(CHAT_MEDIA_DIR);
-  const updated = await parallelMap(list, async (msg: any) => {
-    if (!needsChatMediaMigration(msg)) return msg;
-    try {
-      const mimeMatch = msg.content.match(/^data:([^;]+);/);
-      const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
-      const extMap: Record<string, string> = {
-        'image/jpeg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
-        'application/pdf': 'pdf', 'text/plain': 'txt', 'application/json': 'json',
-      };
-      const ext = extMap[mime] || mime.split('/')[1] || 'bin';
-      const uri = await saveChatMedia(msg.id, msg.content, ext);
-      changed = true;
-      return {...msg, content: uri};
-    } catch {
-      return msg;
-    }
-  }, 4);
-  return {messages: updated, changed};
-};
-
-const MIRROR_GIF_DIR = `${ReactNativeBlobUtil.fs.dirs.DocumentDir}/ps_mirror_gifs`;
-
-const gifProbeCache = new Map<string, {size: number; mtime: number; h: string | null}>();
-
-const localPathOf = (uri: string): string =>
-  (rebaseDocumentUri(uri) || uri).replace(/^file:\/\//, '').split('#')[0].split('?')[0];
-
-const ensureDirSafe = async (dir: string): Promise<void> => {
-  if (await ReactNativeBlobUtil.fs.exists(dir)) return;
-  try {
-    await ReactNativeBlobUtil.fs.mkdir(dir);
-  } catch (e) {
-    if (!(await ReactNativeBlobUtil.fs.exists(dir))) throw e;
-  }
-};
-
-export const mirrorGifProbe = async (src: string): Promise<string | null> => {
-  if (!src || typeof src !== 'string') return null;
-  if (src.startsWith('data:')) {
-    const b64 = mirrorGifDataB64(src);
-    return b64 ? mirrorGifHash(b64) : null;
-  }
-  if (!src.startsWith('file://')) return null;
-  const path = localPathOf(src);
-  try {
-    const st = await ReactNativeBlobUtil.fs.stat(path);
-    const size = Number(st.size) || 0;
-    const mtime = Number(st.lastModified) || 0;
-    if (size < 6 || size > MIRROR_GIF_MAX_BYTES) return null;
-    const hit = gifProbeCache.get(path);
-    if (hit && hit.size === size && hit.mtime === mtime) return hit.h;
-    const head = `${ReactNativeBlobUtil.fs.dirs.CacheDir}/ps_gif_head_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
-    let isGif = false;
-    try {
-      await ReactNativeBlobUtil.fs.slice(path, head, 0, 6);
-      isGif = (await ReactNativeBlobUtil.fs.readFile(head, 'base64')).startsWith('R0lGOD');
-    } finally {
-      ReactNativeBlobUtil.fs.unlink(head).catch(() => {});
-    }
-    const h = isGif ? await ReactNativeBlobUtil.fs.hash(path, 'md5') : null;
-    if (gifProbeCache.size >= 2048) {
-      const oldest = gifProbeCache.keys().next().value;
-      if (oldest !== undefined) gifProbeCache.delete(oldest);
-    }
-    gifProbeCache.set(path, {size, mtime, h});
-    return h;
-  } catch {
-    return null;
-  }
-};
-
-export const mirrorGifBase64 = async (src: string): Promise<string | null> => {
-  if (!src || typeof src !== 'string') return null;
-  if (src.startsWith('data:')) return mirrorGifDataB64(src);
-  if (!src.startsWith('file://')) return null;
-  try {
-    const path = localPathOf(src);
-    const st = await ReactNativeBlobUtil.fs.stat(path);
-    if ((Number(st.size) || 0) > MIRROR_GIF_MAX_BYTES) return null;
-    const b64 = await ReactNativeBlobUtil.fs.readFile(path, 'base64');
-    return b64.startsWith('R0lGOD') && b64.length <= MIRROR_GIF_MAX_B64 ? b64 : null;
-  } catch {
-    return null;
-  }
-};
-
-const mirrorGifPeerDir = (peerId: string): string => `${MIRROR_GIF_DIR}/${peerId.replace(/[^A-Za-z0-9]/g, '_')}`;
-
-const mirrorGifName = (feature: string, id: string, h: string): string => {
-  let t = 0x811c9dc5;
-  for (let i = 0; i < id.length; i++) {
-    t ^= id.charCodeAt(i);
-    t = Math.imul(t, 0x01000193);
-  }
-  return `${feature}-${(t >>> 0).toString(16)}-${h}.gif`;
-};
-
-export const mirrorGifFiles = async (peerId: string, feature: string, wants: Map<string, string>): Promise<Record<string, string>> => {
-  const out: Record<string, string> = {};
-  if (wants.size === 0) return out;
-  const dir = mirrorGifPeerDir(peerId);
-  try {
-    if (!(await ReactNativeBlobUtil.fs.exists(dir))) return out;
-    const have = new Set(await ReactNativeBlobUtil.fs.ls(dir));
-    wants.forEach((h, id) => {
-      const name = mirrorGifName(feature, id, h);
-      if (have.has(name)) out[id] = `file://${dir}/${name}`;
-    });
-  } catch (e) {
-    logError('media', e);
-  }
-  return out;
-};
-
-export const pruneMirrorGifs = async (peerId: string, feature: string, wants: Map<string, string>): Promise<void> => {
-  const dir = mirrorGifPeerDir(peerId);
-  try {
-    if (!(await ReactNativeBlobUtil.fs.exists(dir))) return;
-    const keep = new Set<string>();
-    wants.forEach((h, id) => keep.add(mirrorGifName(feature, id, h)));
-    for (const name of await ReactNativeBlobUtil.fs.ls(dir)) {
-      if (!name.startsWith(`${feature}-`) || keep.has(name)) continue;
-      await ReactNativeBlobUtil.fs.unlink(`${dir}/${name}`).catch(() => {});
-    }
-  } catch (e) {
-    logError('media', e);
-  }
-};
-
-export const saveMirrorGif = async (peerId: string, feature: string, id: string, h: string, b64: string): Promise<boolean> => {
-  try {
-    await ensureDirSafe(MIRROR_GIF_DIR);
-    const dir = mirrorGifPeerDir(peerId);
-    await ensureDirSafe(dir);
-    const dest = `${dir}/${mirrorGifName(feature, id, h)}`;
-    const tmp = `${dest}.part`;
-    await ReactNativeBlobUtil.fs.writeFile(tmp, b64, 'base64');
-    if (await ReactNativeBlobUtil.fs.exists(dest)) await ReactNativeBlobUtil.fs.unlink(dest);
-    await ReactNativeBlobUtil.fs.mv(tmp, dest);
-    return true;
-  } catch (e) {
-    logError('media', e);
-    return false;
-  }
-};
-
-export const clearMirrorGifs = async (peerId?: string): Promise<void> => {
-  const dir = peerId ? mirrorGifPeerDir(peerId) : MIRROR_GIF_DIR;
-  try {
-    if (await ReactNativeBlobUtil.fs.exists(dir)) await ReactNativeBlobUtil.fs.unlink(dir);
-  } catch {}
-};
-
-export const clearAllMedia = async (): Promise<void> => {
-  for (const dir of [AVATAR_DIR, AVATAR_FULL_DIR, CHAT_MEDIA_DIR, BIO_IMAGE_DIR, BANNER_DIR]) {
-    try {
-      if (await ReactNativeBlobUtil.fs.exists(dir)) await ReactNativeBlobUtil.fs.unlink(dir);
-    } catch {}
-  }
-  try { await clearMirrorGifs(); } catch {}
-};

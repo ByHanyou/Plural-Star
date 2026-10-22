@@ -1,5 +1,6 @@
 import {useEffect, useRef} from 'react';
 import {store} from '../storage';
+import {logError} from '../utils/log';
 
 const draftKey = (kind: string, id: string): string => `ps.draft:${kind}:${id}`;
 
@@ -7,7 +8,7 @@ const cleared = new Set<string>();
 
 export const clearDraft = (kind: string, id: string): void => {
   cleared.add(draftKey(kind, id));
-  store.remove(draftKey(kind, id)).catch(() => {});
+  store.remove(draftKey(kind, id)).catch(e => logError('draft', e));
 };
 
 export function useDraft<T>(
@@ -31,7 +32,7 @@ export function useDraft<T>(
         if (!cleared.has(key)) {
           const serialized = JSON.stringify(latest.current ?? null);
           if (serialized !== baseline.current) {
-            store.set(key, latest.current).catch(() => {});
+            store.set(key, latest.current).catch(e => logError('draft', e));
           }
         }
       }
@@ -41,7 +42,7 @@ export function useDraft<T>(
     if (openedFor.current === id) return;
     openedFor.current = id;
     cleared.delete(draftKey(kind, id));
-    baseline.current = JSON.stringify(current ?? null);
+    baseline.current = JSON.stringify(latest.current ?? null);
     let cancelled = false;
     store
       .get<T | null>(draftKey(kind, id), null)
@@ -50,7 +51,7 @@ export function useDraft<T>(
         if (JSON.stringify(draft) === baseline.current) return;
         restoreRef.current(draft);
       })
-      .catch(() => {});
+      .catch(e => logError('draft', e));
     return () => {
       cancelled = true;
     };
@@ -62,7 +63,7 @@ export function useDraft<T>(
       const value = latest.current;
       const serialized = JSON.stringify(value ?? null);
       if (serialized === baseline.current) return;
-      store.set(draftKey(kind, id), value).catch(() => {});
+      store.set(draftKey(kind, id), value).catch(e => logError('draft', e));
     }, 500);
     return () => clearTimeout(timer);
   }, [visible, id, kind, current]);

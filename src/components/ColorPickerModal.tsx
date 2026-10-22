@@ -3,8 +3,9 @@ import {View, TouchableOpacity, Modal} from 'react-native';
 import {Text} from './AppText';
 import {useTranslation} from 'react-i18next';
 import {ColorPicker} from './ColorPicker';
-import {fontScale, ThemeColors} from '../theme';
-import {isValidHex, normalizeHex} from '../utils';
+import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
+import {hexOr, isValidHex, normalizeHex} from '../utils';
 import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
@@ -13,19 +14,16 @@ interface Props {
   value: string;
   onSave: (hex: string) => void;
   onClose: () => void;
-  T: ThemeColors;
+  onClear?: () => void;
+  clearLabel?: string;
 }
 
-const safeHex = (v: string) => {
-  const n = normalizeHex(v || '');
-  return isValidHex(n) ? n : '#FF0000';
-};
-
-const PickerCard = ({title, value, onSave, onClose, T}: Omit<Props, 'visible'>) => {
+const PickerCard = ({title, value, onSave, onClose, onClear, clearLabel}: Omit<Props, 'visible'>) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   const kb = useKeyboardHeight();
-  const [draft, setDraft] = useState(() => safeHex(value));
+  const [draft, setDraft] = useState(() => hexOr(value, '#FF0000'));
   const save = () => {
     const n = normalizeHex(draft);
     if (isValidHex(n)) onSave(n.toUpperCase());
@@ -35,8 +33,14 @@ const PickerCard = ({title, value, onSave, onClose, T}: Omit<Props, 'visible'>) 
       <View accessibilityViewIsModal onAccessibilityEscape={onClose}
         style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, padding: 16}}>
         <Text accessibilityRole="header" style={{fontSize: fs(14), fontWeight: '600', color: T.text, marginBottom: 12}}>{title}</Text>
-        <ColorPicker value={draft} onChange={setDraft} T={T} />
+        <ColorPicker value={draft} onChange={setDraft} />
         <View style={{flexDirection: 'row', gap: 8, marginTop: 14}}>
+          {onClear && clearLabel ? (
+            <TouchableOpacity onPress={onClear} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={clearLabel} hitSlop={{top: 6, bottom: 6}}
+              style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: `${T.danger}40`, backgroundColor: T.dangerBg}}>
+              <Text style={{fontSize: fs(12), fontWeight: '600', color: T.danger}}>{clearLabel}</Text>
+            </TouchableOpacity>
+          ) : null}
           <View style={{flex: 1}} />
           <TouchableOpacity onPress={onClose} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')} hitSlop={{top: 6, bottom: 6}}
             style={{paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
@@ -52,8 +56,8 @@ const PickerCard = ({title, value, onSave, onClose, T}: Omit<Props, 'visible'>) 
   );
 };
 
-export const ColorPickerModal = ({visible, title, value, onSave, onClose, T}: Props) => (
+export const ColorPickerModal = ({visible, title, value, onSave, onClose, onClear, clearLabel}: Props) => (
   <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-    {visible && <PickerCard title={title} value={value} onSave={onSave} onClose={onClose} T={T} />}
+    {visible && <PickerCard title={title} value={value} onSave={onSave} onClose={onClose} onClear={onClear} clearLabel={clearLabel} />}
   </Modal>
 );
