@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {View, TouchableOpacity, Text as RawText} from 'react-native';
+import {View, TouchableOpacity, Text as RawText, Alert, Platform} from 'react-native';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
@@ -13,6 +13,7 @@ import {Btn, Field, PasswordSection, SectionHead, ToggleRow, sectionLabel} from 
 import {ChipListEditor, Dropdown} from './system/SettingsControls';
 import {PaletteSection} from './system/PaletteSection';
 import {DevSettings} from '../components/DevSettings';
+import {validRestMode} from '../model/restMode';
 import {reportSaveError} from '../utils/saveError';
 import {TERMINOLOGY_FIELDS, TIER_NAME_FIELDS} from '../i18n/terminology';
 
@@ -25,6 +26,9 @@ interface SettingsDraft {
   moods: string[];
   lang: SupportedLanguage;
   notifEnabled: boolean;
+  restEnabled: boolean;
+  restStart: string;
+  restEnd: string;
   persistFront: boolean;
   frontCheckInterval: number;
   notifRefreshMins: number;
@@ -49,6 +53,9 @@ const draftFrom = (system: SystemInfo, settings: AppSettings): SettingsDraft => 
   moods: settings.customMoods || [],
   lang: settings.language || 'en',
   notifEnabled: settings.notificationsEnabled ?? true,
+  restEnabled: settings.restMode?.enabled ?? false,
+  restStart: settings.restMode?.start ?? '22:00',
+  restEnd: settings.restMode?.end ?? '08:00',
   persistFront: settings.persistentFrontNotif !== false,
   frontCheckInterval: settings.frontCheckInterval || 0,
   notifRefreshMins: settings.notificationRefreshMinutes || 0,
@@ -88,9 +95,14 @@ export const SystemModal = ({visible, system, settings, palettes, activePaletteI
   const sectionBox = {borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 14};
 
   const save = async () => {
+    const restMode = {enabled: d.restEnabled, start: d.restStart.trim(), end: d.restEnd.trim()};
+    if (!validRestMode(restMode)) {
+      Alert.alert(t('notification.restMode'), t('notification.restInvalid'));
+      return;
+    }
     try {
       await onSave({...system, ...(d.singletMode ? {name: d.sysName, description: d.sysDesc} : {}), journalPassword: d.showJournalPw && d.journalPw ? d.journalPw : undefined});
-      await onSaveSettings({...settings, accountMode: d.singletMode ? 'singlet' : 'system', locations: d.locs, customMoods: d.moods, language: d.lang, notificationsEnabled: d.notifEnabled, persistentFrontNotif: d.persistFront, filesEnabled: d.filesEnabled, gpsEnabled: d.gpsEnabled, textScale: d.textScale, fontChoice: d.fontChoice, useDyslexicFont: d.fontChoice === 'opendyslexic', frontCheckInterval: d.frontCheckInterval, notificationRefreshMinutes: d.notifRefreshMins, noteboardNotifications: d.noteboardNotifs, terminology: d.termMap, tierNames: d.tierMap, appLockPassword: d.showAppLockPw && d.appLockPw ? d.appLockPw : undefined});
+      await onSaveSettings({...settings, accountMode: d.singletMode ? 'singlet' : 'system', locations: d.locs, customMoods: d.moods, language: d.lang, notificationsEnabled: d.notifEnabled, restMode, persistentFrontNotif: d.persistFront, filesEnabled: d.filesEnabled, gpsEnabled: d.gpsEnabled, textScale: d.textScale, fontChoice: d.fontChoice, useDyslexicFont: d.fontChoice === 'opendyslexic', frontCheckInterval: d.frontCheckInterval, notificationRefreshMinutes: d.notifRefreshMins, noteboardNotifications: d.noteboardNotifs, terminology: d.termMap, tierNames: d.tierMap, appLockPassword: d.showAppLockPw && d.appLockPw ? d.appLockPw : undefined});
       onClose();
     } catch (e) {
       reportSaveError(e);
@@ -124,6 +136,14 @@ export const SystemModal = ({visible, system, settings, palettes, activePaletteI
         {d.notifEnabled && (
           <ToggleRow label={t('modal.persistentFrontNotif')} desc={t('modal.persistentFrontNotifDesc')} value={d.persistFront} onToggle={() => put('persistFront', !d.persistFront)} style={{marginTop: 10}} />
         )}
+
+        <ToggleRow label={t('notification.restMode')} desc={t('notification.restModeDesc')} value={d.restEnabled} onToggle={() => put('restEnabled', !d.restEnabled)} style={{marginTop: 14}} />
+        {d.restEnabled && (<>
+          <Field label={t('notification.restStart')} value={d.restStart} onChange={v => put('restStart', v)} placeholder="22:00" />
+          <Field label={t('notification.restEnd')} value={d.restEnd} onChange={v => put('restEnd', v)} placeholder="08:00" />
+          {Platform.OS === 'android' && Number(Platform.Version) < 26 && <Text style={{color: T.muted, fontSize: fs(12)}}>{t('notification.restAndroidLimit')}</Text>}
+          {Platform.OS === 'ios' && <Text style={{color: T.muted, fontSize: fs(12)}}>{t('notification.restIOSLimit')}</Text>}
+        </>)}
 
         <View style={{marginTop: 12}}>
           <SectionHead label={checkTitle} desc={d.singletMode ? t('notification.statusCheckDesc') : t('notification.frontCheckDesc')} style={{marginBottom: 8}} />

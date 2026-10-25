@@ -6,6 +6,7 @@ import {Friend} from '../network/types';
 import {friendNotifyLevel} from '../network/friendState';
 import {frontShareLines} from '../network/frontShare';
 import i18n from '../i18n/i18n';
+import {notificationsAllowed} from './restMode';
 import {ANDROID_BASE, durSuffix} from './notify';
 
 const FRIEND_ALERT_CHANNEL_ID = 'plural-space-friend-alerts';
@@ -21,6 +22,7 @@ const setupFriendAlertChannel = async () => {
 };
 
 export const showFriendUpdateAlert = async (f: Friend) => {
+  if (!(await notificationsAllowed())) return;
   if (!NetworkManager.getState().enabled) return;
   if (friendNotifyLevel(f) === 'off') return;
   const s = f.lastStatus;

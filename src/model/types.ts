@@ -1,3 +1,4 @@
+import type {RestMode} from './restMode';
 import type {SupportedLanguage} from '../i18n/i18n';
 import type {CustomPalette} from '../themeColors';
 import type {FontChoice} from '../theme';
@@ -286,6 +287,7 @@ export interface AppSettings {
   filesEnabled: boolean;
   language: SupportedLanguage;
   notificationsEnabled: boolean;
+  restMode?: RestMode;
   notificationRefreshMinutes?: number;
   terminology?: Record<string, string>;
   tierNames?: Record<string, string>;

@@ -199,6 +199,39 @@ index bda1ee4..2edbac9 100644
      } catch (Exception e) {
        String msg =
            "react-native-notify-kit: defensive startForeground() failed. "
+diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java
+index 1549dce..03aee5f 100644
+--- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java
++++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/NotificationManager.java
+@@ -28,6 +28,7 @@ import android.app.Notification;
+ import android.app.PendingIntent;
+ import android.content.Context;
+ import android.content.Intent;
++import android.content.SharedPreferences;
+ import android.content.pm.PackageManager;
+ import android.graphics.Bitmap;
+ import android.net.Uri;
+@@ -672,3 +673,20 @@ class NotificationManager {
++                SharedPreferences rest = getApplicationContext()
++                    .getSharedPreferences("plural_star_rest", Context.MODE_PRIVATE);
++                long untilRest = rest.getBoolean("enabled", false)
++                    ? RestMode.untilStart(rest.getInt("start", -1), rest.getInt("end", -1), System.currentTimeMillis())
++                    : 0;
++                if (!rest.getBoolean("notifications", true) || untilRest < 0) {
++                  // Let trigger consumers rearm their next allowed refresh without posting an alert.
++                  if (triggerBundle != null) EventBus.post(
++                      new NotificationEvent(NotificationEvent.TYPE_DELIVERED, notificationModel));
++                  return Futures.immediateFuture(null);
++                }
++                if (untilRest > 0) {
++                  Long existingTimeout = notificationModel.getAndroid().getTimeoutAfter();
++                  builder.setTimeoutAfter(existingTimeout != null && existingTimeout > 0
++                      ? Math.min(existingTimeout, untilRest) : untilRest);
++                }
++
+                 // Add the following extras for `getDisplayedNotifications()`
+                 Bundle extrasBundle = new Bundle();
+                 extrasBundle.putBundle(EXTRA_NOTIFEE_NOTIFICATION, notificationModel.toBundle());
 diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java
 index 736e3eb..6e78a32 100644
 --- a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/ReceiverService.java
@@ -217,3 +250,31 @@ index 736e3eb..6e78a32 100644
      EventBus.post(new NotificationEvent(TYPE_DISMISSED, notificationModel));
    }
  
+diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java
+new file mode 100644
+index 0000000..ecfe35b
+--- /dev/null
++++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java
+@@ -0,0 +1,22 @@
++package app.notifee.core;
++
++import java.util.Calendar;
++
++/** Local-clock quiet hours, evaluated at delivery even without a running JS runtime. */
++final class RestMode {
++  // -1 means suppress; otherwise return the lifetime until the next rest period.
++  static long untilStart(int start, int end, long now) {
++    if (start < 0 || start >= 1440 || end < 0 || end >= 1440 || start == end) return -1;
++    Calendar clock = Calendar.getInstance();
++    clock.setTimeInMillis(now);
++    int minute = clock.get(Calendar.HOUR_OF_DAY) * 60 + clock.get(Calendar.MINUTE);
++    boolean resting = start < end ? minute >= start && minute < end : minute >= start || minute < end;
++    if (resting) return -1;
++    if (minute >= start) clock.add(Calendar.DATE, 1);
++    clock.set(Calendar.HOUR_OF_DAY, start / 60);
++    clock.set(Calendar.MINUTE, start % 60);
++    clock.set(Calendar.SECOND, 0);
++    clock.set(Calendar.MILLISECOND, 0);
++    return Math.max(1, clock.getTimeInMillis() - now);
++  }
++}
