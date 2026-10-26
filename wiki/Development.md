@@ -132,6 +132,15 @@ two path/alias overrides, the existing `plural-space.keystore` in the repository
 root and `pluralspace` alias remain the defaults. The checked-in debug keystore
 is only for Debug builds.
 
+Android debug builds install as `com.pluralspace.app.debug`, next to the store build. `npm run android` reads `.env.defaults`, overridden by `.env`: `JAVA_HOME` picks the JDK Gradle runs on, and `START_METRO=false` stops the script from starting Metro, so you run `npm start` yourself.
+
+## Check
+
+```bash
+npm run typecheck
+npm run audit:check
+```
+
 ## Build
 
 ```bash
@@ -142,9 +151,11 @@ npm run build-android-release
 ## Important Files
 
 - `package.json`: scripts and dependency versions.
-- `tsconfig.json`: TypeScript config.
+- `tsconfig.json`: TypeScript config; `tsconfig.check.json` adds the unused-code checks used by `npm run typecheck`.
 - `babel.config.js`, `metro.config.js`: bundler config.
 - `react-native.config.js`: asset linking config.
+- `patches/`: patch-package fixes applied on install.
+- `scripts/`: the Android run helper and the audit gate.
 
 ## Documentation
 

@@ -5,10 +5,10 @@ import {useTranslation} from 'react-i18next';
 import {RichText} from './MarkdownRenderer';
 import {getInitials} from '../utils';
 import {fontScale, initialOn, profileWindowTheme, normalizeProfilePalette} from '../theme';
-import type {ThemeColors, ProfilePalette} from '../theme';
+import type {ProfilePalette} from '../theme';
+import {ThemeProvider, useTheme} from '../themeContext';
 
 interface Props {
-  T: ThemeColors;
   name: string;
   palette?: ProfilePalette;
   description?: string;
@@ -19,17 +19,18 @@ interface Props {
   embedded?: boolean;
 }
 
-export const SystemProfileCard = ({T: baseT, palette, name, description, avatar, banner, children, bottomInset = 0, embedded = false}: Props) => {
-  const {t} = useTranslation();
+export const SystemProfileCard = ({name, palette, description, avatar, banner, children, bottomInset = 0, embedded = false}: Props) => {
+  const baseT = useTheme();
   const colored = !!normalizeProfilePalette(palette);
   const T = profileWindowTheme(baseT, palette);
+  const {t} = useTranslation();
   const fs = fontScale(T);
   const inner = (
-    <>
+    <ThemeProvider value={T}>
       {banner ? (
         <Image source={{uri: banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', aspectRatio: 3}} resizeMode="cover" />
       ) : null}
-      <View style={{paddingHorizontal: embedded && !colored ? 0 : 16, paddingTop: banner ? 0 : embedded && !colored ? 0 : 20}}>
+      <View style={{paddingHorizontal: embedded && !colored ? 0 : 16, paddingTop: banner || (embedded && !colored) ? 0 : 20}}>
         <View style={{alignItems: 'center', marginTop: banner ? -36 : 0, marginBottom: 14}}>
           {avatar ? (
             <Image source={{uri: avatar}} accessibilityRole="image" accessibilityLabel={name || t('systemProfile.title')}
@@ -49,14 +50,14 @@ export const SystemProfileCard = ({T: baseT, palette, name, description, avatar,
 
         <View style={[s.card, {backgroundColor: T.card, borderColor: T.border, padding: 14}]}>
           {description ? (
-            <RichText text={description} T={T} />
+            <RichText text={description} />
           ) : (
             <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic'}}>{t('systemProfile.noDescription')}</Text>
           )}
         </View>
         {children}
       </View>
-    </>
+    </ThemeProvider>
   );
   if (embedded && !colored) return inner;
   if (embedded) return <View style={{backgroundColor: T.bg, borderRadius: 14, overflow: 'hidden', paddingBottom: 14}}>{inner}</View>;

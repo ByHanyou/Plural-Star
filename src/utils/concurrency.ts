@@ -1,11 +1,15 @@
+import {logError} from './log';
+
+export const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
+
 export const parallelMap = async <T, U>(
   items: T[],
   worker: (item: T, index: number) => Promise<U>,
   concurrency = 6,
   onProgress?: (done: number, total: number) => void,
-): Promise<U[]> => {
+): Promise<(U | undefined)[]> => {
   const total = items.length;
-  const results: U[] = new Array(total);
+  const results: (U | undefined)[] = new Array(total);
   if (total === 0) return results;
   let nextIndex = 0;
   let completed = 0;
@@ -13,15 +17,10 @@ export const parallelMap = async <T, U>(
     while (true) {
       const i = nextIndex++;
       if (i >= total) return;
-      try {
-        results[i] = await worker(items[i], i);
-      } catch (e) {
-        results[i] = undefined as any;
-      }
+      try { results[i] = await worker(items[i], i); }
+      catch (e) { results[i] = undefined; logError('utils', e); }
       completed++;
-      if (onProgress) {
-        try { onProgress(completed, total); } catch {}
-      }
+      if (onProgress) { try { onProgress(completed, total); } catch (e) { logError('utils', e); } }
     }
   };
   const lanes = Math.max(1, Math.min(concurrency, total));

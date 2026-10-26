@@ -1,58 +1,38 @@
-import {Platform, PermissionsAndroid, AppState} from 'react-native';
+import {Platform, PermissionsAndroid, AppState, type Permission} from 'react-native';
+import {log} from './log';
 import notifee from 'react-native-notify-kit';
 import i18n from '../i18n/i18n';
 import {useAppStore} from '../store/appStore';
 
-export const requestPermissions = async () => {
+const askAndroid = async (permission: Permission, titleKey: string, messageKey: string, label: string): Promise<void> => {
   try {
-    await notifee.requestPermission();
-  } catch (e) { console.error('[PS] notification permission error:', e); }
-  if (Platform.OS !== 'android') return;
-  if (AppState.currentState !== 'active') return;
-  try {
-    if (Platform.Version >= 33) {
-      const result = await PermissionsAndroid.request(
-        'android.permission.POST_NOTIFICATIONS' as any,
-        {
-          title: i18n.t('notification.notifPermTitle'),
-          message: i18n.t('notification.notifPermMsg'),
-          buttonPositive: i18n.t('notification.allow'),
-          buttonNegative: i18n.t('notification.notNow'),
-        },
-      );
-      if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-        console.warn('[PS] POST_NOTIFICATIONS denied:', result);
-      }
-    }
-  } catch (e) { console.error('[PS] POST_NOTIFICATIONS request error:', e); }
-  try {
-    if (useAppStore.getState().appSettings.gpsEnabled) {
-      await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-        {title: i18n.t('notification.locationPermTitle'), message: i18n.t('notification.locationPermMsg'), buttonPositive: i18n.t('notification.allow'), buttonNegative: i18n.t('notification.notNow')});
-    }
-  } catch (e) { console.error('[PS] location permission error:', e); }
+    const result = await PermissionsAndroid.request(permission, {
+      title: i18n.t(titleKey),
+      message: i18n.t(messageKey),
+      buttonPositive: i18n.t('notification.allow'),
+      buttonNegative: i18n.t('notification.notNow'),
+    });
+    if (result !== PermissionsAndroid.RESULTS.GRANTED) log.warn('permissions', `${label} denied:`, result);
+  } catch (e) { log.error('permissions', `${label} request error:`, e); }
 };
 
 export const requestGPSPermission = async () => {
   if (Platform.OS !== 'android') return;
-  try {
-    const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
-      {title: i18n.t('notification.locationPermTitle'), message: i18n.t('notification.locationPermMsg'), buttonPositive: i18n.t('notification.allow'), buttonNegative: i18n.t('notification.notNow')});
-    if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-      console.warn('[PS] GPS permission denied:', result);
-    }
-  } catch (e) { console.error('[PS] GPS permission error:', e); }
+  await askAndroid(PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION, 'notification.locationPermTitle', 'notification.locationPermMsg', 'GPS permission');
 };
 
 export const requestFilesPermission = async () => {
-  if (Platform.OS !== 'android') return;
+  if (Platform.OS !== 'android' || Platform.Version >= 33) return;
+  await askAndroid(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE, 'notification.filePermTitle', 'notification.filePermMsg', 'File permission');
+};
+
+export const requestPermissions = async () => {
   try {
-    if (Platform.Version < 33) {
-      const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-        {title: i18n.t('notification.filePermTitle'), message: i18n.t('notification.filePermMsg'), buttonPositive: i18n.t('notification.allow'), buttonNegative: i18n.t('notification.notNow')});
-      if (result !== PermissionsAndroid.RESULTS.GRANTED) {
-        console.warn('[PS] File permission denied:', result);
-      }
-    }
-  } catch (e) { console.error('[PS] File permission error:', e); }
+    await notifee.requestPermission();
+  } catch (e) { log.error('permissions', 'notification permission error:', e); }
+  if (Platform.OS !== 'android' || AppState.currentState !== 'active') return;
+  if (Platform.Version >= 33) {
+    await askAndroid(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS, 'notification.notifPermTitle', 'notification.notifPermMsg', 'POST_NOTIFICATIONS');
+  }
+  if (useAppStore.getState().appSettings.gpsEnabled) await requestGPSPermission();
 };

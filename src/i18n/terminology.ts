@@ -1,3 +1,5 @@
+import type {FrontTierKey} from '../model/types';
+
 export const TERMINOLOGY_TERMS = ['member', 'members', 'fronter', 'fronters', 'group', 'groups', 'facet', 'facets', 'front', 'fronting', 'system', 'journal', 'hub', 'history', 'archive'] as const;
 export type TerminologyTerm = typeof TERMINOLOGY_TERMS[number];
 export type TerminologyMap = Partial<Record<TerminologyTerm, string>>;
@@ -252,7 +254,7 @@ const TERM_FORMS: Record<string, TermFormsMap> = {
     front: '前台',
     system: '系统',
   },
-  zhHant: {
+  'zh-Hant': {
     journal: '日誌', hub: '中心', history: '歷史', archive: '封存',
     member: ['成員', '腦內夥伴', '夥伴'],
     fronter: '前台者',
@@ -305,14 +307,17 @@ export const setTerminologyOverrides = (map?: TerminologyMap | null): void => {
 
 const hasTerminologyOverrides = (): boolean => Object.keys(overrides).length > 0;
 
-export type TierNameKey = 'primary' | 'coFront' | 'coConscious';
-export type TierNameMap = Partial<Record<TierNameKey, string>>;
+export type TierNameMap = Partial<Record<FrontTierKey, string>>;
+
+export const TERMINOLOGY_FIELDS: TerminologyTerm[][] = [['member', 'members'], ['fronter', 'fronters'], ['group', 'groups'], ['facet', 'facets'], ['front', 'fronting'], ['system', 'hub'], ['journal', 'history'], ['archive']];
+
+export const TIER_NAME_FIELDS: [FrontTierKey, string][] = [['primary', 'tierPrimary'], ['coFront', 'tierCoFront'], ['coConscious', 'tierCoConscious']];
 
 let tierNames: TierNameMap = {};
 
 export const setTierNameOverrides = (map?: TierNameMap | null): void => {
   const clean: TierNameMap = {};
-  for (const k of ['primary', 'coFront', 'coConscious'] as TierNameKey[]) {
+  for (const [k] of TIER_NAME_FIELDS) {
     const v = map?.[k]?.trim();
     if (v) clean[k] = v;
   }
@@ -320,9 +325,9 @@ export const setTierNameOverrides = (map?: TierNameMap | null): void => {
 };
 
 const hasTierNameOverrides = (): boolean => Object.keys(tierNames).length > 0;
-export const getTierNameOverride = (k: TierNameKey): string | undefined => tierNames[k];
+export const getTierNameOverride = (k: FrontTierKey): string | undefined => tierNames[k];
 
-const TIER_LABEL_KEYS: Record<string, TierNameKey> = {
+const TIER_LABEL_KEYS: Record<string, FrontTierKey> = {
   'tier.primaryFront': 'primary',
   'tier.primaryShort': 'primary',
   'tier.coFront': 'coFront',
@@ -330,12 +335,12 @@ const TIER_LABEL_KEYS: Record<string, TierNameKey> = {
   'tier.coConscious': 'coConscious',
   'tier.coConShort': 'coConscious',
 };
-const TIER_BADGE_KEYS: Record<string, TierNameKey> = {
+const TIER_BADGE_KEYS: Record<string, FrontTierKey> = {
   'tier.primaryBadge': 'primary',
   'tier.coFrontBadge': 'coFront',
   'tier.coConBadge': 'coConscious',
 };
-const TIER_LINE_KEYS: Record<string, TierNameKey> = {
+const TIER_LINE_KEYS: Record<string, FrontTierKey> = {
   'notification.primary': 'primary',
   'notification.coFront': 'coFront',
   'notification.cfShort': 'coFront',
@@ -343,16 +348,27 @@ const TIER_LINE_KEYS: Record<string, TierNameKey> = {
   'notification.ccShort': 'coConscious',
 };
 
-const applyTierNames = (value: string, key: string, options: unknown): string => {
+type TierTranslator = {language?: string; translate?: (key: string, options?: Record<string, unknown>) => unknown};
+
+const applyTierNames = (value: string, key: string, options: unknown, translator?: TierTranslator): string => {
   if (!hasTierNameOverrides()) return value;
   const label = TIER_LABEL_KEYS[key];
-  if (label && tierNames[label]) return tierNames[label]!;
+  const labelName = label ? tierNames[label] : undefined;
+  if (labelName) return labelName;
   const badge = TIER_BADGE_KEYS[key];
-  if (badge && tierNames[badge]) return tierNames[badge]!.toLocaleUpperCase();
+  const badgeName = badge ? tierNames[badge] : undefined;
+  if (badgeName) {
+    const lang = translator?.language || 'en';
+    try { return badgeName.toLocaleUpperCase(lang); } catch { return badgeName.toUpperCase(); }
+  }
   const line = TIER_LINE_KEYS[key];
-  if (line && tierNames[line]) {
-    const names = (options as {names?: unknown} | null | undefined)?.names;
-    return `${tierNames[line]}: ${typeof names === 'string' ? names : String(names ?? '')}`;
+  const lineName = line ? tierNames[line] : undefined;
+  if (lineName) {
+    const opts: Record<string, unknown> = typeof options === 'object' && options !== null ? {...options} : {};
+    const nameText = typeof opts.names === 'string' ? opts.names : String(opts.names ?? '');
+    const lng = opts.lng;
+    const out = translator?.translate?.('notification.tierLine', {tier: lineName, names: nameText, applyPostProcessor: false, ...(typeof lng === 'string' ? {lng} : {})});
+    return typeof out === 'string' && out !== 'notification.tierLine' ? out : `${lineName}: ${nameText}`;
   }
   return value;
 };
@@ -430,8 +446,9 @@ const applyTerminology = (value: string, language: string): string => {
   let out = value;
   let lower = value.toLowerCase();
   for (const [term, form, needle] of pairs) {
-    if (lower.indexOf(needle) === -1) continue;
-    const next = replaceTerm(out, form, overrides[term]!, fixArticles);
+    const replacement = overrides[term];
+    if (!replacement || lower.indexOf(needle) === -1) continue;
+    const next = replaceTerm(out, form, replacement, fixArticles);
     if (next !== out) {
       out = next;
       lower = out.toLowerCase();
@@ -445,12 +462,12 @@ const EXEMPT_KEYS = new Set(['modal.systemSettings', 'share.filesDisabled']);
 export const terminologyPostProcessor = {
   type: 'postProcessor' as const,
   name: 'terminology',
-  process(value: unknown, key: string | string[], options: unknown, i18nInstance: {language?: string}): unknown {
+  process(value: unknown, key: string | string[], options: unknown, i18nInstance: TierTranslator): unknown {
     if (typeof value !== 'string') return value;
     const k = Array.isArray(key) ? key[0] : key;
     if (typeof k === 'string' && (k.startsWith('terminology.') || EXEMPT_KEYS.has(k))) return value;
     if (typeof k === 'string') {
-      const tiered = applyTierNames(value, k, options);
+      const tiered = applyTierNames(value, k, options, i18nInstance);
       if (tiered !== value) return tiered;
     }
     if (!hasTerminologyOverrides()) return value;

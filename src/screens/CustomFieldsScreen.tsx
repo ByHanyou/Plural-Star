@@ -5,41 +5,32 @@ import {Text, TextInput} from '../components/AppText';
 import {useDragReorder} from '../hooks/useDragReorder';
 import {DragHandle, ReorderLockButton} from '../components/DragHandle';
 import {useTranslation} from 'react-i18next';
-import {fontScale, ThemeColors} from '../theme';
-import {CustomFieldDef, CustomFieldType, uid} from '../utils';
+import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
+import {CustomFieldDef, CustomFieldType, CUSTOM_FIELD_TYPES, customFieldTypeKey, moveInList, stripCustomField, uid, withSortOrder} from '../utils';
+import {reportSaveError} from '../utils/saveError';
+import {announceMove} from '../utils/announce';
+import {logError} from '../utils/log';
 import {store, KEYS} from '../storage';
 import {NetworkManager} from '../network/NetworkManager';
 import {useAppStore} from '../store/appStore';
 import {saveMembers} from '../store/actions';
+import {reloadAll} from '../app/startup/loadAll';
 
-const FIELD_TYPES: {type: CustomFieldType; icon: string}[] = [
-  {type: 'text', icon: 'Tt'},
-  {type: 'markdown', icon: '¶'},
-  {type: 'image', icon: '🖼'},
-  {type: 'color', icon: '🎨'},
-  {type: 'date', icon: '📅'},
-  {type: 'month', icon: '📅'},
-  {type: 'year', icon: '📅'},
-  {type: 'monthYear', icon: '📅'},
-  {type: 'timestamp', icon: '🕐'},
-  {type: 'monthDay', icon: '📅'},
-  {type: 'dateRange', icon: '📅'},
-  {type: 'number', icon: '#'},
-  {type: 'toggle', icon: '☑'},
-];
+const FIELD_TYPE_ICON: Record<CustomFieldType, string> = {
+  text: 'Tt', markdown: '¶', image: '🖼', color: '🎨', date: '📅', month: '📅', year: '📅', monthYear: '📅',
+  timestamp: '🕐', monthDay: '📅', dateRange: '📅', number: '#', toggle: '☑',
+};
 
-interface Props {
-  theme: ThemeColors;
-  onUpdate: () => void;
-}
+const FIELD_TYPES = CUSTOM_FIELD_TYPES.map(type => ({type, icon: FIELD_TYPE_ICON[type]}));
 
-export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
+export const CustomFieldsScreen = () => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
   const [fields, setFields] = useState<CustomFieldDef[]>([]);
   const [newName, setNewName] = useState('');
   const [newType, setNewType] = useState<CustomFieldType>('text');
-  const [newMarkdown, setNewMarkdown] = useState(false);
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [barH, setBarH] = useState(0);
   const onBarLayout = (e: LayoutChangeEvent) => {
@@ -53,36 +44,29 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
   const [reorderOn, setReorderOn] = useState(false);
 
   const onDropField = (_key: string, from: number, to: number) => {
-    const updated = [...fields];
-    const [moved] = updated.splice(from, 1);
-    updated.splice(to, 0, moved);
-    save(updated.map((f, i) => ({...f, sortOrder: i})));
-    const msg = to === 0
-      ? t('common.movedToTop')
-      : to === updated.length - 1
-        ? t('common.movedToBottom')
-        : t('common.movedBelow', {name: updated[to - 1].name});
-    AccessibilityInfo.announceForAccessibility(msg);
+    const updated = moveInList(fields, from, to);
+    save(withSortOrder(updated));
+    announceMove(to, updated.length, updated[to - 1]?.name, false);
   };
   const {drag, dragging, registerHeight, makeHandlePanHandlers} = useDragReorder({enabled: reorderOn, onDrop: onDropField});
 
   useEffect(() => {
-    const load = () => { store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || [])); };
+    const load = () => { store.get<CustomFieldDef[]>(KEYS.customFieldDefs, []).then(d => setFields(d || [])).catch(e => logError('customFields', e)); };
     load();
     return NetworkManager.onSyncApplied(load);
   }, []);
 
   const save = async (updated: CustomFieldDef[]) => {
     setFields(updated);
-    await store.set(KEYS.customFieldDefs, updated);
-    onUpdate();
+    await store.set(KEYS.customFieldDefs, updated).catch(reportSaveError);
+    reloadAll();
   };
 
   const addField = () => {
     if (!newName.trim()) return;
-    const def: CustomFieldDef = {id: uid(), name: newName.trim(), type: newType, markdown: newMarkdown || undefined, sortOrder: fields.length};
+    const def: CustomFieldDef = {id: uid(), name: newName.trim(), type: newType, sortOrder: fields.length};
     save([...fields, def]);
-    setNewName(''); setNewType('text'); setNewMarkdown(false);
+    setNewName(''); setNewType('text');
   };
 
   const deleteField = (id: string) => {
@@ -90,42 +74,30 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.delete'), style: 'destructive', onPress: () => {
         save(fields.filter(f => f.id !== id));
-        const members = useAppStore.getState().members;
-        const cleaned = members.map(m => (m.customFields || []).some(v => v.fieldId === id) ? {...m, customFields: (m.customFields || []).filter(v => v.fieldId !== id)} : m);
-        if (cleaned.some((m, i) => m !== members[i])) saveMembers(cleaned).catch(() => {});
+        const cleaned = stripCustomField(useAppStore.getState().members, id);
+        if (cleaned) saveMembers(cleaned).catch(reportSaveError);
       }},
     ]);
   };
 
+  const patchField = (id: string, patch: Partial<CustomFieldDef>) => save(fields.map(f => (f.id === id ? {...f, ...patch} : f)));
+
   const renameField = (id: string) => {
     if (!editName.trim()) return;
-    save(fields.map(f => f.id === id ? {...f, name: editName.trim()} : f));
+    patchField(id, {name: editName.trim()});
     setEditId(null);
   };
 
-  const toggleMarkdown = (id: string) => {
-    save(fields.map(f => f.id === id ? {...f, markdown: !f.markdown} : f));
-  };
+  const toggleMarkdown = (fd: CustomFieldDef) => patchField(fd.id, {markdown: !fd.markdown});
 
-  const moveBtnRefs = useRef<Record<string, any>>({});
+  const moveBtnRefs = useRef<Record<string, View | null>>({});
 
   const moveField = (id: string, direction: 'up' | 'down') => {
     const idx = fields.findIndex(f => f.id === id);
-    if (direction === 'up' && idx === 0) return;
-    if (direction === 'down' && idx === fields.length - 1) return;
-    const updated = [...fields];
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
-    const neighbor = fields[swapIdx];
-    [updated[idx], updated[swapIdx]] = [updated[swapIdx], updated[idx]];
-    save(updated.map((f, i) => ({...f, sortOrder: i})));
-    const msg = swapIdx === 0
-      ? t('common.movedToTop')
-      : swapIdx === fields.length - 1
-        ? t('common.movedToBottom')
-        : direction === 'up'
-          ? t('common.movedAbove', {name: neighbor.name})
-          : t('common.movedBelow', {name: neighbor.name});
-    AccessibilityInfo.announceForAccessibility(msg);
+    if (idx < 0 || swapIdx < 0 || swapIdx >= fields.length) return;
+    save(withSortOrder(moveInList(fields, idx, swapIdx)));
+    announceMove(swapIdx, fields.length, fields[swapIdx].name, direction === 'up');
     setTimeout(() => {
       const node = moveBtnRefs.current[id];
       const tag = node ? findNodeHandle(node) : null;
@@ -133,14 +105,14 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
     }, 100);
   };
 
-  const typeLabel = (type: CustomFieldType) => t(`customFields.type${type.charAt(0).toUpperCase() + type.slice(1)}` as any);
+  const typeLabel = (type: CustomFieldType) => t(customFieldTypeKey(type));
 
   return (
     <View style={{flex: 1}}>
       <KeyboardAwareScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingBottom: clearance}} scrollEnabled={!dragging} bottomOffset={clearance}>
         {fields.length > 1 && (
           <View style={{flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10}}>
-            <ReorderLockButton T={T} on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
+            <ReorderLockButton on={reorderOn} onToggle={() => setReorderOn(v => !v)} />
           </View>
         )}
         {fields.length === 0 && (
@@ -163,7 +135,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
               ...(drag.key === fd.id ? {transform: [{translateY: drag.dy}], zIndex: 10, elevation: 6} : null),
             }}>
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-              <DragHandle T={T} active={reorderOn} panHandlers={makeHandlePanHandlers(fd.id, () => fields.map(f => f.id))} name={fd.name}
+              <DragHandle active={reorderOn} panHandlers={makeHandlePanHandlers(fd.id, () => fields.map(f => f.id))} name={fd.name}
                 position={i + 1} count={fields.length}
                 onStep={dir => moveField(fd.id, dir === 1 ? 'down' : 'up')} />
               <View style={{alignItems: 'center', gap: 2}}>
@@ -225,7 +197,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8}}>
                 {FIELD_TYPES.map(ft => (
                   <TouchableOpacity key={ft.type} activeOpacity={0.7}
-                    onPress={() => { save(fields.map(f => f.id === fd.id ? {...f, type: ft.type} : f)); setRetypeId(null); }}
+                    onPress={() => { patchField(fd.id, {type: ft.type}); setRetypeId(null); }}
                     accessibilityRole="menuitem" accessibilityState={{selected: fd.type === ft.type}} accessibilityLabel={typeLabel(ft.type)}
                     hitSlop={{top: 6, bottom: 10}} style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
                       backgroundColor: fd.type === ft.type ? T.accentBg : T.surface, borderColor: fd.type === ft.type ? `${T.accent}50` : T.border}}>
@@ -236,7 +208,7 @@ export const CustomFieldsScreen = ({theme: T, onUpdate}: Props) => {
             )}
 
             {(fd.type === 'text' || fd.type === 'markdown') && (
-              <TouchableOpacity onPress={() => toggleMarkdown(fd.id)} activeOpacity={0.7} accessibilityRole="checkbox" accessibilityState={{checked: !!fd.markdown}} accessibilityLabel={t('customFields.markdownSupport')} hitSlop={{top: 8, bottom: 12}} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
+              <TouchableOpacity onPress={() => toggleMarkdown(fd)} activeOpacity={0.7} accessibilityRole="checkbox" accessibilityState={{checked: !!fd.markdown}} accessibilityLabel={t('customFields.markdownSupport')} hitSlop={{top: 8, bottom: 12}} style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
                 <Text style={{fontSize: fs(16), color: fd.markdown ? T.accent : T.muted}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{fd.markdown ? '☑' : '☐'}</Text>
                 <Text style={{fontSize: fs(12), color: T.dim}}>{t('customFields.markdownSupport')}</Text>
               </TouchableOpacity>

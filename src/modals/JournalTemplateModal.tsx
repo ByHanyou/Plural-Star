@@ -1,16 +1,21 @@
 import React, {useState, useRef} from 'react';
 import {View, TouchableOpacity, Alert} from 'react-native';
-import {Text, TextInput} from '../components/AppText';
+import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
-import {JournalTemplate, uid, tagKey} from '../utils';
+import {JournalTemplate, uid} from '../utils';
 import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
-import {Btn, Field} from './shared';
+import {Btn, Field, TagEditor, sectionLabel} from '../components/controls';
 import {useDraft, clearDraft} from '../hooks/useDraft';
+import {reportSaveError} from '../utils/saveError';
 
-export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDelete, onClose}: any) => {
+export const JournalTemplateModal = ({visible, template, onSave, onDelete, onClose}: {
+  visible: boolean; template: JournalTemplate | null; onSave: (tpl: JournalTemplate) => void | Promise<void>; onDelete?: (id: string) => void; onClose: () => void;
+}) => {
+  const T = useTheme();
   const fs = fontScale(T);
   const {t} = useTranslation();
   const isNew = !template;
@@ -31,17 +36,9 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
   }, [visible, template]);
   const draftId = isNew ? 'new' : (template?.id || f.id);
   useDraft<JournalTemplate>('journalTemplate', draftId, visible, f, d => setF(d));
-  const set = (k: keyof JournalTemplate, v: any) => {
+  const set = <K extends keyof JournalTemplate>(k: K, v: JournalTemplate[K]) => {
     fRef.current = {...fRef.current, [k]: v};
     setF(x => ({...x, [k]: v}));
-  };
-  const addTag = () => {
-    const raw = tagInput.trim().replace(/^#/, '').normalize('NFC');
-    if (!raw) return;
-    const cur = f.hashtags || [];
-    const next = `#${raw}`;
-    if (!cur.some(v => tagKey(v) === tagKey(next))) set('hashtags', [...cur, next]);
-    setTagInput('');
   };
 
   return (
@@ -50,21 +47,24 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
       title={isNew
         ? t('journal.newTemplate')
         : t('journal.editTemplate')}
-      theme={T}
       onClose={onClose}
       footer={
         <>
           {!isNew && (
             confirmDel
-              ? <Btn instant variant="danger" T={T} onPress={() => {clearDraft('journalTemplate', draftId); onDelete?.(f.id); onClose();}}>{t('common.confirm')}</Btn>
-              : <Btn instant variant="ghost" T={T} onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>
+              ? <Btn instant variant="danger" onPress={() => {clearDraft('journalTemplate', draftId); onDelete?.(f.id); onClose();}}>{t('common.confirm')}</Btn>
+              : <Btn instant variant="ghost" onPress={() => setConfirmDel(true)}>{t('common.delete')}</Btn>
           )}
-          <Btn instant T={T} onPress={() => {
+          <Btn instant onPress={async () => {
             const cur = fRef.current;
             if (!(cur.name || '').trim()) { Alert.alert(t('modal.nameRequired')); return; }
-            onSave({...cur, name: cur.name.trim(), title: (cur.title || '').trim()});
-            clearDraft('journalTemplate', draftId);
-            onClose();
+            try {
+              await onSave({...cur, name: cur.name.trim(), title: (cur.title || '').trim()});
+              clearDraft('journalTemplate', draftId);
+              onClose();
+            } catch (e) {
+              reportSaveError(e);
+            }
           }}>{t('common.save')}</Btn>
         </>
       }>
@@ -72,23 +72,21 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
         label={t('journal.templateName')}
         value={f.name}
         onChange={(v: string) => set('name', v)}
-        placeholder={t('journal.templateNamePlaceholder')}
-        T={T} />
+        placeholder={t('journal.templateNamePlaceholder')} />
       <Field
         label={t('journal.templateTitle')}
         value={f.title}
         onChange={(v: string) => set('title', v)}
-        placeholder={t('modal.entryTitlePlaceholder')}
-        T={T} />
+        placeholder={t('modal.entryTitlePlaceholder')} />
       <View style={{marginBottom: 14}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>
+        <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 5})}>
           {t('journal.templateBody')}
         </Text>
         <TouchableOpacity onPress={() => setShowBodyEditor(true)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={t('journal.templateBody')}
           style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 100}}>
           {f.body
-            ? <RichDescription text={f.body} T={T} />
+            ? <RichDescription text={f.body} />
             : <Text style={{fontSize: fs(13), color: T.muted}}>{t('modal.writeHere')}</Text>}
         </TouchableOpacity>
       </View>
@@ -96,32 +94,10 @@ export const JournalTemplateModal = ({visible, theme: T, template, onSave, onDel
         visible={showBodyEditor}
         title={t('journal.templateBody')}
         initialContent={f.body || ''}
-        theme={T}
         onSave={(html: string) => {set('body', html); setShowBodyEditor(false);}}
         onClose={() => setShowBodyEditor(false)} />
-      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
-      {(f.hashtags || []).length > 0 && (
-        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
-          {(f.hashtags || []).map((tag: string) => (
-            <TouchableOpacity key={tag}
-              onPress={() => set('hashtags', (f.hashtags || []).filter((x: string) => x !== tag))}
-              activeOpacity={0.7}
-              accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: tag})}
-              hitSlop={{top: 6, bottom: 6}}
-              style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
-              <Text style={{fontSize: fs(12), color: T.info}}>{tag}</Text>
-              <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-      <View style={{flexDirection: 'row', gap: 8, alignItems: 'center'}}>
-        <TextInput value={tagInput} onChangeText={setTagInput} accessibilityLabel={t('modal.topic')} placeholder={t('modal.topic')} placeholderTextColor={T.muted}
-          autoCapitalize="none" autoCorrect={false}
-          style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}}
-          onSubmitEditing={addTag} returnKeyType="done" />
-        <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
-      </View>
+      <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 8})}>{t('modal.tags')}</Text>
+      <TagEditor tags={f.hashtags || []} onChange={tags => set('hashtags', tags)} input={tagInput} setInput={setTagInput} placeholder={t('modal.topic')} />
     </Sheet>
   );
 };

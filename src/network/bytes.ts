@@ -1,75 +1,14 @@
-const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-
-const B64_CODES: Uint8Array = (() => {
-  const r = new Uint8Array(64);
-  for (let i = 0; i < 64; i++) r[i] = B64.charCodeAt(i);
-  return r;
-})();
-
-const B64_REV: Int16Array = (() => {
-  const r = new Int16Array(256).fill(-1);
-  for (let i = 0; i < B64.length; i++) r[B64.charCodeAt(i)] = i;
-  return r;
-})();
+export {bytesToBase64 as encodeBase64, base64ToBytes as decodeBase64} from '../cloud/cloudCrypto';
 
 const CHUNK = 8190;
 
-const fromCodes = (codes: number[]): string => String.fromCharCode.apply(null, codes as unknown as number[]);
+const fromCodes = (codes: number[]): string => String.fromCharCode.apply(null, codes);
 
 type Utf8Encoder = {encode: (s: string) => Uint8Array};
 type Utf8Decoder = {decode: (b: Uint8Array) => string};
-const g = globalThis as any;
+const g = globalThis as {TextEncoder?: new () => Utf8Encoder; TextDecoder?: new () => Utf8Decoder};
 const textEncoder: Utf8Encoder | null = typeof g.TextEncoder === 'function' ? new g.TextEncoder() : null;
 const textDecoder: Utf8Decoder | null = typeof g.TextDecoder === 'function' ? new g.TextDecoder() : null;
-
-export const encodeBase64 = (bytes: Uint8Array): string => {
-  const parts: string[] = [];
-  const len = bytes.length;
-  let codes: number[] = [];
-  for (let i = 0; i < len; i += 3) {
-    const b0 = bytes[i];
-    const b1 = i + 1 < len ? bytes[i + 1] : 0;
-    const b2 = i + 2 < len ? bytes[i + 2] : 0;
-    codes.push(
-      B64_CODES[b0 >> 2],
-      B64_CODES[((b0 & 3) << 4) | (b1 >> 4)],
-      i + 1 < len ? B64_CODES[((b1 & 15) << 2) | (b2 >> 6)] : 61,
-      i + 2 < len ? B64_CODES[b2 & 63] : 61,
-    );
-    if (codes.length >= CHUNK) {
-      parts.push(fromCodes(codes));
-      codes = [];
-    }
-  }
-  if (codes.length) parts.push(fromCodes(codes));
-  return parts.join('');
-};
-
-export const decodeBase64 = (str: string): Uint8Array => {
-  const s = str.replace(/[^A-Za-z0-9+/]/g, '');
-  const len = s.length;
-  const rem = len % 4;
-  const outLen = ((len - rem) / 4) * 3 + (rem === 3 ? 2 : rem === 2 ? 1 : 0);
-  const out = new Uint8Array(outLen);
-  let o = 0;
-  for (let i = 0; i < len; i += 4) {
-    const c0 = B64_REV[s.charCodeAt(i)];
-    const c1 = i + 1 < len ? B64_REV[s.charCodeAt(i + 1)] : -1;
-    if (c0 < 0 || c1 < 0) break;
-    out[o++] = (c0 << 2) | (c1 >> 4);
-    if (i + 2 < len) {
-      const c2 = B64_REV[s.charCodeAt(i + 2)];
-      if (c2 < 0) break;
-      out[o++] = ((c1 & 15) << 4) | (c2 >> 2);
-      if (i + 3 < len) {
-        const c3 = B64_REV[s.charCodeAt(i + 3)];
-        if (c3 < 0) break;
-        out[o++] = ((c2 & 3) << 6) | c3;
-      }
-    }
-  }
-  return o === outLen ? out : out.slice(0, o);
-};
 
 export const decodeUTF8 = (str: string): Uint8Array => {
   if (textEncoder) return textEncoder.encode(str);
@@ -139,4 +78,16 @@ export const encodeUTF8 = (bytes: Uint8Array): string => {
   }
   if (codes.length) parts.push(fromCodes(codes));
   return parts.join('');
+};
+
+export const concatBytes = (...parts: Uint8Array[]): Uint8Array => {
+  let len = 0;
+  for (const p of parts) len += p.length;
+  const out = new Uint8Array(len);
+  let off = 0;
+  for (const p of parts) {
+    out.set(p, off);
+    off += p.length;
+  }
+  return out;
 };

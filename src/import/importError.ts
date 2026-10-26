@@ -1,4 +1,5 @@
 type T = (key: string, opts?: Record<string, unknown>) => string;
+import {logError} from '../utils/log';
 
 export class ImportUserError extends Error {}
 
@@ -12,6 +13,6 @@ export const importErrorCode = (e: unknown): string => {
 
 export const importErrorText = (e: unknown, t: T): string => {
   if (e instanceof ImportUserError) return e.message;
-  console.warn('[import]', e);
+  logError('import', e);
   return `${t('share.errUnexpected')} ${t('common.errorCode', {code: importErrorCode(e)})}`;
 };

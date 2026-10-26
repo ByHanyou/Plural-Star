@@ -1,30 +1,21 @@
 import React from 'react';
 import {StyleSheet} from 'react-native';
+import type {TextProps, TextStyle} from 'react-native';
 import {Text} from './AppText';
 import {ensureReadable} from '../theme';
-import type {ThemeColors} from '../theme';
+import {useTheme} from '../themeContext';
 
-interface Props {
+type Props = Pick<TextProps, 'style' | 'numberOfLines' | 'adjustsFontSizeToFit' | 'minimumFontScale' | 'maxFontSizeMultiplier' | 'allowFontScaling' | 'accessibilityRole' | 'accessibilityElementsHidden' | 'importantForAccessibility'> & {
   children: React.ReactNode;
-  style?: any;
-  T: ThemeColors;
-  numberOfLines?: number;
-  adjustsFontSizeToFit?: boolean;
-  minimumFontScale?: number;
-  maxFontSizeMultiplier?: number;
-  allowFontScaling?: boolean;
-  accessibilityRole?: any;
-  accessibilityElementsHidden?: boolean;
-  importantForAccessibility?: 'auto' | 'yes' | 'no' | 'no-hide-descendants';
-}
+};
 
 const OUTLINE_MIN_SIZE = 14;
 
-export const AccentText = ({children, style, T, numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling, accessibilityRole, accessibilityElementsHidden, importantForAccessibility}: Props) => {
-  const flat = StyleSheet.flatten(style) || ({} as any);
+export const AccentText = ({children, style, ...textProps}: Props) => {
+  const T = useTheme();
+  const flat: TextStyle = StyleSheet.flatten(style) || {};
   const fontSize = flat.fontSize ?? 12;
   const shouldOutline = T.isLight && fontSize >= OUTLINE_MIN_SIZE;
-  const textProps = {numberOfLines, adjustsFontSizeToFit, minimumFontScale, maxFontSizeMultiplier, allowFontScaling, accessibilityRole, accessibilityElementsHidden, importantForAccessibility};
 
   if (!shouldOutline) {
     return <Text style={style} {...textProps}>{children}</Text>;

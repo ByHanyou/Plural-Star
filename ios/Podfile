@@ -31,15 +31,13 @@ target 'PluralSpace' do
       :mac_catalyst_enabled => false,
     )
 
-    # Argon2Swift's podspec exposes its C module only to its own target.
-    # RNArgon2 also needs it when Swift scans transitive module dependencies.
-    installer.pods_project.targets.each do |pod_target|
-      next unless pod_target.name == 'RNArgon2'
+    argon2_module_dir = '"${PODS_ROOT}/Argon2Swift/Sources/Modules"'
+    installer.pods_project.targets.each do |target|
+      next unless %w[Argon2Swift RNArgon2].include?(target.name)
 
-      pod_target.build_configurations.each do |build_config|
-        module_path = '"$(PODS_ROOT)/Argon2Swift/Sources/Modules"'
-        paths = Array(build_config.build_settings['SWIFT_INCLUDE_PATHS'] || '$(inherited)')
-        build_config.build_settings['SWIFT_INCLUDE_PATHS'] = (paths + [module_path]).uniq
+      target.build_configurations.each do |config|
+        config.build_settings['SWIFT_INCLUDE_PATHS'] = "$(inherited) #{argon2_module_dir}"
+        config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'NO'
       end
     end
 
@@ -65,7 +63,7 @@ target 'PluralSpace' do
       contents = File.read(fmt_base_header)
       updated = contents.gsub(
         "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#if !defined(__cpp_lib_is_constant_evaluated)",
-        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#ifdef FMT_USE_CONSTEVAL\n// Use the provided definition.\n#elif !defined(__cpp_lib_is_constant_evaluated)"
+        "// Detect consteval, C++20 constexpr extensions and std::is_constant_evaluated.\n#ifdef FMT_USE_CONSTEVAL\n#elif !defined(__cpp_lib_is_constant_evaluated)"
       )
       File.write(fmt_base_header, updated) if updated != contents
     end

@@ -1,13 +1,15 @@
 import React, {ReactNode} from 'react';
-import {View, ScrollView, TouchableOpacity} from 'react-native';
+import {View, TouchableOpacity} from 'react-native';
 import {Text} from './AppText';
 import {Avatar} from './Avatar';
+import {SortChips} from './SortChips';
 import {useTranslation} from 'react-i18next';
-import {fontScale, ThemeColors} from '../theme';
-import {Member, MemberGroup, MemberSortMode, childrenOf, groupKind, isRosterMember, sortMembers} from '../utils';
+import {fontScale} from '../theme';
+import {useTheme} from '../themeContext';
+import {Member, MemberGroup, MemberSortMode, childrenOf, groupKind, isCustomFrontMember, isFacetMember, isRosterMember, sortMembers} from '../utils';
+import {sectionLabel} from './controls';
 
 interface GroupBrowserProps {
-  T: ThemeColors;
   groups: MemberGroup[];
   members: Member[];
   browseId: string | null;
@@ -17,14 +19,13 @@ interface GroupBrowserProps {
   headerRight?: ReactNode;
   banner?: ReactNode;
   linkedMember?: Member | null;
-  memberRow?: (m: Member) => ReactNode;
-  memberAction?: (m: Member) => ReactNode;
+  renderMemberRow?: (m: Member) => ReactNode;
+  renderMemberAction?: (m: Member) => ReactNode;
   sortMode?: MemberSortMode;
   onSortModeChange?: (mode: MemberSortMode) => void;
 }
 
 export const GroupBrowser = ({
-  T,
   groups,
   members,
   browseId,
@@ -34,27 +35,47 @@ export const GroupBrowser = ({
   headerRight,
   banner,
   linkedMember,
-  memberRow,
-  memberAction,
+  renderMemberRow,
+  renderMemberAction,
   sortMode,
   onSortModeChange,
 }: GroupBrowserProps) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
+  const sort = sortMode || 'manual';
 
   const listable = members.filter(isRosterMember);
-  const facetListable = members.filter(m => m.isFacet && !m.isCustomFront && !m.deleted);
-  const cfListable = members.filter(m => m.isCustomFront && !m.deleted);
+  const facetListable = members.filter(isFacetMember);
+  const cfListable = members.filter(isCustomFrontMember);
   const countable = [...listable, ...facetListable, ...cfListable];
   const folders = childrenOf(groups, browseId);
   const inFolder = (list: Member[]) => (browseId === null
     ? list.filter(m => !(m.groupIds || []).length)
     : list.filter(m => (m.groupIds || []).includes(browseId)));
   const folderMembersRaw = inFolder(listable);
-  const folderMembers = sortMembers(folderMembersRaw, sortMode || 'manual');
-  const folderFacets = sortMembers(inFolder(facetListable), sortMode || 'manual');
-  const folderCustomFronts = browseId === null ? [] : sortMembers(inFolder(cfListable), sortMode || 'manual');
+  const folderMembers = sortMembers(folderMembersRaw, sort);
+  const folderFacets = sortMembers(inFolder(facetListable), sort);
+  const folderCustomFronts = browseId === null ? [] : sortMembers(inFolder(cfListable), sort);
   const current = browseId ? groups.find(g => g.id === browseId) || null : null;
+
+  const memberLine = (m: Member): ReactNode => {
+    if (renderMemberRow) return <React.Fragment key={m.id}>{renderMemberRow(m)}</React.Fragment>;
+    return (
+      <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
+        <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
+          accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')} hitSlop={{top: 7, bottom: 7}}
+          style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
+          <Avatar member={m} size={30} />
+          <View style={{flex: 1}}>
+            <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
+            {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
+          </View>
+        </TouchableOpacity>
+        {renderMemberAction && renderMemberAction(m)}
+      </View>
+    );
+  };
 
   return (
     <>
@@ -75,9 +96,9 @@ export const GroupBrowser = ({
         <TouchableOpacity onPress={() => onViewMember && onViewMember(linkedMember.id)} activeOpacity={onViewMember ? 0.7 : 1} disabled={!onViewMember}
           accessibilityRole="button" accessibilityState={{disabled: !onViewMember}} accessibilityLabel={t('a11y.labelValue', {label: t('memberGroups.linkedFronter'), value: linkedMember.name})}
           style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface, marginBottom: 12}}>
-          <Avatar member={linkedMember} size={30} T={T} />
+          <Avatar member={linkedMember} size={30} />
           <View style={{flex: 1}}>
-            <Text style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('memberGroups.linkedFronter')}</Text>
+            <Text style={sectionLabel(T)}>{t('memberGroups.linkedFronter')}</Text>
             <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{linkedMember.name}</Text>
           </View>
           {onViewMember ? <Text style={{fontSize: fs(16), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text> : null}
@@ -99,86 +120,21 @@ export const GroupBrowser = ({
           </TouchableOpacity>
         );
       })}
-      {onSortModeChange && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 10, flexGrow: 0}}>
-          <View style={{flexDirection: 'row', gap: 6, paddingHorizontal: 2}}>
-            {(['alphabetical', 'reverse-alphabetical', 'age', 'color', 'role', 'manual'] as const).map(mode => (
-              <TouchableOpacity key={mode} onPress={() => onSortModeChange(mode)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityState={{selected: (sortMode || 'manual') === mode}} accessibilityLabel={t(`memberSort.${mode}`)}
-                hitSlop={{top: 10, bottom: 10}}
-                style={{paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-                  backgroundColor: (sortMode || 'manual') === mode ? `${T.accent}20` : T.surface,
-                  borderColor: (sortMode || 'manual') === mode ? `${T.accent}50` : T.border}}>
-                <Text style={{fontSize: fs(11), color: (sortMode || 'manual') === mode ? T.accent : T.dim, fontWeight: (sortMode || 'manual') === mode ? '600' : '400'}}>
-                  {t(`memberSort.${mode}`)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-      )}
+      {onSortModeChange && <SortChips value={sort} onChange={onSortModeChange} />}
       {folderMembers.length > 0 && (
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 12, marginBottom: 6}}>{t('members.title')}</Text>
+        <Text accessibilityRole="header" style={sectionLabel(T, {marginTop: 12, marginBottom: 6})}>{t('members.title')}</Text>
       )}
-      {folderMembers.map(m => {
-        if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
-        return (
-          <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
-            <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
-              accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')} hitSlop={{top: 7, bottom: 7}}
-              style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
-              <Avatar member={m} size={30} T={T} />
-              <View style={{flex: 1}}>
-                <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
-              </View>
-            </TouchableOpacity>
-            {memberAction && memberAction(m)}
-          </View>
-        );
-      })}
+      {folderMembers.map(memberLine)}
       {folderFacets.length > 0 && (
         <>
-          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 12, marginBottom: 6}}>{t('members.facets')}</Text>
-          {folderFacets.map(m => {
-            if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
-            return (
-              <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
-                <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
-                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')} hitSlop={{top: 7, bottom: 7}}
-                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                  <Avatar member={m} size={30} T={T} />
-                  <View style={{flex: 1}}>
-                    <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                    {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
-                  </View>
-                </TouchableOpacity>
-                {memberAction && memberAction(m)}
-              </View>
-            );
-          })}
+          <Text accessibilityRole="header" style={sectionLabel(T, {marginTop: 12, marginBottom: 6})}>{t('members.facets')}</Text>
+          {folderFacets.map(memberLine)}
         </>
       )}
       {folderCustomFronts.length > 0 && (
         <>
-          <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginTop: 12, marginBottom: 6}}>{t('members.customFronts')}</Text>
-          {folderCustomFronts.map(m => {
-            if (memberRow) return <React.Fragment key={m.id}>{memberRow(m)}</React.Fragment>;
-            return (
-              <View key={m.id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 9, paddingHorizontal: 8, borderRadius: 10, marginBottom: 4}}>
-                <TouchableOpacity onPress={() => onViewMember && onViewMember(m.id)} activeOpacity={onViewMember ? 0.7 : 1}
-                  accessibilityRole="button" accessibilityLabel={[m.name, m.pronouns, m.role].filter(Boolean).join(', ')} hitSlop={{top: 7, bottom: 7}}
-                  style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                  <Avatar member={m} size={30} T={T} />
-                  <View style={{flex: 1}}>
-                    <Text style={{fontSize: fs(14), color: T.text}} numberOfLines={1}>{m.name}</Text>
-                    {[m.pronouns, m.role].filter(Boolean).length > 0 ? <Text style={{fontSize: fs(11), color: T.dim}} numberOfLines={1}>{[m.pronouns, m.role].filter(Boolean).join(' · ')}</Text> : null}
-                  </View>
-                </TouchableOpacity>
-                {memberAction && memberAction(m)}
-              </View>
-            );
-          })}
+          <Text accessibilityRole="header" style={sectionLabel(T, {marginTop: 12, marginBottom: 6})}>{t('members.customFronts')}</Text>
+          {folderCustomFronts.map(memberLine)}
         </>
       )}
       {folders.length === 0 && folderMembers.length === 0 && folderFacets.length === 0 && folderCustomFronts.length === 0 && (

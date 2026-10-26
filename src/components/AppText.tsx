@@ -1,5 +1,6 @@
 import React from 'react';
 import {Text as RNText, TextInput as RNTextInput, TextProps, TextInputProps, StyleSheet, Platform} from 'react-native';
+import type {StyleProp, TextStyle} from 'react-native';
 import {DYSLEXIC_FONT, resolveFontVariant} from '../theme';
 
 let _family: string | null = null;
@@ -7,22 +8,22 @@ export const setAppTextFont = (family: string | null) => { _family = family; };
 
 const DYSLEXIC_SCALE = 0.88;
 
-const applyDyslexicScale = (style: any): any => {
-  const flat: any = StyleSheet.flatten(style);
+const applyDyslexicScale = (style: StyleProp<TextStyle>): StyleProp<TextStyle> => {
+  const flat = StyleSheet.flatten(style);
   if (flat && typeof flat.fontSize === 'number') {
     return {...flat, fontSize: Math.round(flat.fontSize * DYSLEXIC_SCALE)};
   }
   return style;
 };
 
-const isMono =(style: any): boolean => {
-  const flat: any = StyleSheet.flatten(style);
+const isMono = (style: StyleProp<TextStyle>): boolean => {
+  const flat = StyleSheet.flatten(style);
   return !!flat && flat.fontFamily === 'monospace';
 };
 
-const isBoldWeight = (w: any): boolean => w === 'bold' || (w != null && Number(w) >= 600);
+const isBoldWeight = (w: TextStyle['fontWeight'] | undefined): boolean => w === 'bold' || (w != null && Number(w) >= 600);
 
-const androidTailPad = (out: any): any => {
+const androidTailPad = (out: TextStyle | undefined): TextStyle | undefined => {
   if (Platform.OS !== 'android' || !out) return out;
   let pad = 0;
   if (isBoldWeight(out.fontWeight)) pad += 3;
@@ -31,42 +32,35 @@ const androidTailPad = (out: any): any => {
   return {...out, paddingRight: (typeof out.paddingRight === 'number' ? out.paddingRight : 0) + pad};
 };
 
-const defaultStyle = (style: any): any => {
-  const flat: any = StyleSheet.flatten(style);
+const defaultStyle = (style: StyleProp<TextStyle>): StyleProp<TextStyle> => {
+  const flat = StyleSheet.flatten(style);
   if (!flat) return style;
-  const out: any = {...flat};
+  const out: TextStyle = {...flat};
   if (out.fontFamily === DYSLEXIC_FONT) delete out.fontFamily;
   return androidTailPad(out);
 };
 
-const buildCustomStyle =(style: any, family: string): any => {
+const buildCustomStyle = (style: StyleProp<TextStyle>, family: string): StyleProp<TextStyle> => {
   if (isMono(style)) return style;
-  const flat: any = StyleSheet.flatten(style) || {};
+  const flat: TextStyle = StyleSheet.flatten(style) || {};
   const wantBold = isBoldWeight(flat.fontWeight);
   const wantItalic = flat.fontStyle === 'italic';
   const {family: face, hasBold, hasItalic} = resolveFontVariant(family, {bold: wantBold, italic: wantItalic});
-  const next: any = {...flat, fontFamily: face};
+  const next: TextStyle = {...flat, fontFamily: face};
   if (hasBold) delete next.fontWeight;
   if (hasItalic || (Platform.OS === 'android' && wantItalic && !hasItalic)) delete next.fontStyle;
   return androidTailPad(next);
 };
 
-export const Text = React.forwardRef<RNText, TextProps>((props, ref) => {
-  const {style, ...rest} = props;
-  if (!_family) return <RNText ref={ref} style={defaultStyle(style)} {...rest} />;
+const appStyle = (style: StyleProp<TextStyle>): StyleProp<TextStyle> => {
+  if (!_family) return defaultStyle(style);
   if (_family === DYSLEXIC_FONT) {
     const styled = androidTailPad(StyleSheet.flatten(applyDyslexicScale(style)));
-    return <RNText ref={ref} style={isMono(style) ? styled : [styled, {fontFamily: _family}]} {...rest} />;
+    return isMono(style) ? styled : [styled, {fontFamily: _family}];
   }
-  return <RNText ref={ref} style={buildCustomStyle(style, _family)} {...rest} />;
-});
+  return buildCustomStyle(style, _family);
+};
 
-export const TextInput = React.forwardRef<RNTextInput, TextInputProps>((props, ref) => {
-  const {style, ...rest} = props;
-  if (!_family) return <RNTextInput ref={ref} style={defaultStyle(style)} {...rest} />;
-  if (_family === DYSLEXIC_FONT) {
-    const styled = androidTailPad(StyleSheet.flatten(applyDyslexicScale(style)));
-    return <RNTextInput ref={ref} style={isMono(style) ? styled : [styled, {fontFamily: _family}]} {...rest} />;
-  }
-  return <RNTextInput ref={ref} style={buildCustomStyle(style, _family)} {...rest} />;
-});
+export const Text = React.forwardRef<RNText, TextProps>(({style, ...rest}, ref) => <RNText ref={ref} style={appStyle(style)} {...rest} />);
+
+export const TextInput = React.forwardRef<RNTextInput, TextInputProps>(({style, ...rest}, ref) => <RNTextInput ref={ref} style={appStyle(style)} {...rest} />);

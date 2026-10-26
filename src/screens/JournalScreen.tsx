@@ -1,30 +1,36 @@
-import React, {useState, useMemo, useEffect, useCallback, useRef} from 'react';
-import {View, ScrollView, TouchableOpacity, Modal, Alert, StyleSheet, AccessibilityInfo} from 'react-native';
+import React, {useState, useMemo, useEffect, useCallback} from 'react';
+import {View, ScrollView, TouchableOpacity, Alert, StyleSheet, AccessibilityInfo} from 'react-native';
 import type {ScrollViewProps} from 'react-native';
 import {KeyboardAwareScrollView} from 'react-native-keyboard-controller';
 import type {KeyboardAwareScrollViewRef} from 'react-native-keyboard-controller';
-import {FlashList, useMappingHelper} from '@shopify/flash-list';
+import {FlashList} from '@shopify/flash-list';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
+import {errorMessage} from '../utils/log';
+import {Fonts, fontScale, initialOn} from '../theme';
+import {useTheme} from '../themeContext';
 import {useAppStore} from '../store/appStore';
-import {saveJournalTemplates} from '../store/actions';
-import {JournalEntry, JournalTemplate, Member, fmtTime, sortMembersBySearch, memberMatchesSearch, tagKey, nameCompare} from '../utils';
-import {exportEntryTxt, exportEntryMd, exportEntryJSON} from '../export/exportUtils';
-import {RichText} from '../components/MarkdownRenderer';
+import {saveJournalTemplates, saveEntry, deleteEntry} from '../store/actions';
+import {reportSaveError} from '../utils/saveError';
+import {useUiStore} from '../store/uiStore';
+import {JournalEntry, JournalTemplate, tagKey, uniqueTags, upsertById, isRosterMember, isFacetMember} from '../utils';
+import {exportEntry} from '../export/journalExport';
+import type {JournalExportFormat} from '../export/journalExport';
 import {JournalTemplateModal} from '../modals';
-import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
+import {PasswordDialog} from '../components/PasswordDialog';
+import {MemberPicker} from '../components/MemberPicker';
+import {pickerPool} from '../picker/memberPicker';
+import {filterJournal, filterTags, journalAuthorIds} from '../journal/journal';
+import {EntryAction, EntryViewer, ExportMenu, JournalEntryRow, TemplateCards} from './journal/JournalParts';
 
-interface Props {
-  theme: ThemeColors;
-  onAdd: () => void;
-  onEdit: (entry: JournalEntry) => void;
-  onDelete: (id: string) => void;
-  onTogglePin: (entry: JournalEntry) => void;
-  onMentionPress?: (memberId: string) => void;
-}
+const togglePinned = (e: JournalEntry) => { saveEntry({...e, pinned: !e.pinned}).catch(reportSaveError); };
 
 type JournalSubTab = 'entries' | 'templates';
+
+const SUB_TABS: {tab: JournalSubTab; key: string}[] = [
+  {tab: 'entries', key: 'journal.entriesTab'},
+  {tab: 'templates', key: 'journal.templatesTab'},
+];
 
 const JournalScrollView = React.forwardRef<KeyboardAwareScrollViewRef, ScrollViewProps>(function JournalScrollView(props, ref) {
   return <KeyboardAwareScrollView {...props} ref={ref} bottomOffset={24} />;
@@ -35,103 +41,22 @@ const entryKey = (e: JournalEntry) => e.id;
 const NO_ENTRIES: JournalEntry[] = [];
 const NO_ANCHOR = {disabled: true};
 
-interface JournalEntryRowProps {
-  entry: JournalEntry;
-  isLocked: boolean;
-  activeTagKey: string | null;
-  memberById: Map<string, Member>;
-  T: ThemeColors;
-  fs: (n: number) => number;
-  t: (key: string, opts?: any) => string;
-  onMentionPress?: (memberId: string) => void;
-  onTogglePin: (entry: JournalEntry) => void;
-  onEditTap: (entry: JournalEntry) => void;
-  onExportTap: (entry: JournalEntry) => void;
-  onDeleteTap: (entry: JournalEntry) => void;
-  onViewTap: (entry: JournalEntry) => void;
-  onTagPress: (tag: string, selected: boolean) => void;
-}
-
-const JournalEntryRow = React.memo(function JournalEntryRow({
-  entry: e, isLocked, activeTagKey, memberById, T, fs, t,
-  onMentionPress, onTogglePin, onEditTap, onExportTap, onDeleteTap, onViewTap, onTagPress,
-}: JournalEntryRowProps) {
-  const {getMappingKey} = useMappingHelper();
-  const authors = (e.authorIds || []).map(id => memberById.get(id)).filter(Boolean) as Member[];
-  return (
-    <View style={[s.card, {backgroundColor: e.pinned ? `${T.accent}10` : T.card, borderColor: e.pinned ? `${T.accent}50` : T.border}]}>
-      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4}}>
-        <Text style={{fontSize: fs(15), fontWeight: '500', color: T.text, flex: 1, marginRight: 8}} numberOfLines={2}>{e.pinned ? '📌 ' : ''}{e.title || t('common.untitled')}</Text>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-          {isLocked && <Text style={{fontSize: fs(13)}} accessibilityLabel={t('journal.locked')}>🔒</Text>}
-          <TouchableOpacity onPress={() => onTogglePin(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityState={{selected: !!e.pinned}} accessibilityLabel={e.pinned ? t('noteboard.unpin') : t('noteboard.pin')}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(12), color: e.pinned ? T.accent : T.muted}}>📌</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => onEditTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.editItem', {name: e.title || t('common.untitled')})} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}><Text style={{fontSize: fs(11), fontWeight: '500', color: T.accent}} numberOfLines={1} maxFontSizeMultiplier={1.2}>{t('common.edit')}</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => onExportTap(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.exportItem', {name: e.title || t('common.untitled')})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.dim}}>↑</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => onDeleteTap(e)} hitSlop={{top: 9, bottom: 9, left: 4, right: 4}} style={{padding: 4}} accessibilityRole="button" accessibilityLabel={t('common.deleteItem', {name: e.title || t('common.untitled')})}><Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(14), color: T.muted}}>✕</Text></TouchableOpacity>
-        </View>
-      </View>
-      <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 8}}>{fmtTime(e.timestamp)}</Text>
-      {authors.length > 0 && (
-        <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 8}}>
-          {authors.map((m, ai) => (
-            <View key={getMappingKey(m.id, ai)} style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3,
-              borderRadius: 999, borderWidth: 1, backgroundColor: `${m.color}20`, borderColor: `${m.color}45`}}>
-              <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-              <Text style={{fontSize: fs(11), fontWeight: '600', color: m.color}}>{m.name}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-      {isLocked ? (
-        <TouchableOpacity onPress={() => onViewTap(e)} accessibilityRole="button" accessibilityLabel={t('journal.tapToUnlock')} hitSlop={{top: 7, bottom: 7}} style={{paddingVertical: 8, alignItems: 'center'}}>
-          <Text style={{fontSize: fs(12), color: T.muted, fontStyle: 'italic'}}>{t('journal.tapToUnlock')}</Text>
-        </TouchableOpacity>
-      ) : (
-        <>
-          {e.body ? (
-            <TouchableOpacity onPress={() => onViewTap(e)} activeOpacity={0.7} accessibilityRole="button" accessibilityHint={t('journal.openEntryHint')}>
-              <View style={{maxHeight: 80, overflow: 'hidden'}} pointerEvents="none"><RichText text={e.body} T={T} numberOfLines={4} memberById={memberById} onMentionPress={onMentionPress} /></View>
-            </TouchableOpacity>
-          ) : null}
-          {(e.hashtags || []).length > 0 && (
-            <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8}}>
-              {(e.hashtags || []).map((tag, ti) => { const sel = activeTagKey === tagKey(tag); return (
-                <TouchableOpacity key={getMappingKey(`${ti}-${tag}`, ti)} onPress={() => onTagPress(tag, sel)} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={tag}
-                  hitSlop={{top: 5, bottom: 10}} style={[s.tagChip, {backgroundColor: sel ? `${T.info}25` : `${T.info}12`, borderColor: sel ? `${T.info}60` : `${T.info}30`}]}>
-                  <Text style={{fontSize: fs(11), color: T.info}}>{tag}</Text>
-                </TouchableOpacity>
-              ); })}
-            </View>
-          )}
-        </>
-      )}
-    </View>
-  );
-});
-
-export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, onMentionPress}: Props) => {
-  const kbHeight = useKeyboardHeight();
+export const JournalScreen = () => {
+  const T = useTheme();
+  const openJournal = useUiStore(s => s.openJournal);
+  const onMentionPress = useUiStore(s => s.openMemberById);
+  const onAdd = () => openJournal(null);
   const journal = useAppStore(s => s.journal);
   const templates = useAppStore(s => s.journalTemplates);
   const members = useAppStore(s => s.members);
   const systemJournalPassword = useAppStore(s => s.system.journalPassword);
-  const onSaveTemplates = saveJournalTemplates;
   const {t} = useTranslation();
   const fs = useMemo(() => fontScale(T), [T]);
-  const onEditRef = useRef(onEdit);
-  onEditRef.current = onEdit;
-  const onDeleteRef = useRef(onDelete);
-  onDeleteRef.current = onDelete;
-  const onTogglePinRef = useRef(onTogglePin);
-  onTogglePinRef.current = onTogglePin;
-  const onMentionPressRef = useRef(onMentionPress);
-  onMentionPressRef.current = onMentionPress;
   const [journalUnlocked, setJournalUnlocked] = useState(!systemJournalPassword);
   const [globalPwInput, setGlobalPwInput] = useState('');
   const [globalPwError, setGlobalPwError] = useState(false);
   const [unlockedEntries, setUnlockedEntries] = useState<Set<string>>(new Set());
-  const [entryPwModal, setEntryPwModal] = useState<{entry: JournalEntry; mode: 'edit' | 'delete' | 'view' | 'export'} | null>(null);
+  const [entryPwModal, setEntryPwModal] = useState<{entry: JournalEntry; mode: EntryAction} | null>(null);
   const [viewEntry, setViewEntry] = useState<JournalEntry | null>(null);
   const [entryPwInput, setEntryPwInput] = useState('');
   const [entryPwError, setEntryPwError] = useState(false);
@@ -139,70 +64,43 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [activeAuthor, setActiveAuthor] = useState<string | null>(null);
   const [tagSearch, setTagSearch] = useState('');
-  const [authorSearch, setAuthorSearch] = useState('');
   const [showTagResults, setShowTagResults] = useState(false);
-  const [showAuthorResults, setShowAuthorResults] = useState(false);
   const [subTab, setSubTab] = useState<JournalSubTab>('entries');
   const [editingTemplate, setEditingTemplate] = useState<JournalTemplate | 'new' | null>(null);
 
-  const handleSaveTemplate = (tpl: JournalTemplate) => {
-    const existing = templates.find(x => x.id === tpl.id);
-    const next = existing
-      ? templates.map(x => (x.id === tpl.id ? tpl : x))
-      : [...templates, tpl];
-    onSaveTemplates(next);
+  const handleSaveTemplate = async (tpl: JournalTemplate) => {
+    await saveJournalTemplates(upsertById(templates, tpl));
     setEditingTemplate(null);
   };
   const handleDeleteTemplate = (id: string) => {
     Alert.alert(t('common.delete'), t('journal.deleteTemplateMsg'), [
       {text: t('common.cancel'), style: 'cancel'},
       {text: t('common.delete'), style: 'destructive', onPress: () => {
-        onSaveTemplates(templates.filter(x => x.id !== id));
-        setEditingTemplate(null);
+        saveJournalTemplates(templates.filter(x => x.id !== id)).then(() => setEditingTemplate(null), reportSaveError);
       }},
     ]);
   };
 
   const memberById = useMemo(() => new Map(members.map(m => [m.id, m])), [members]);
-  const getMember = (id: string) => memberById.get(id);
-  const allTags = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const tag of journal.flatMap(e => e.hashtags || [])) { const k = tagKey(tag); if (!seen.has(k)) seen.set(k, tag); }
-    return [...seen.values()].sort((a, b) => nameCompare(tagKey(a), tagKey(b)));
-  }, [journal]);
+  const allTags = useMemo(() => uniqueTags(journal.flatMap(e => e.hashtags || [])), [journal]);
   const activeTagKey = activeTag ? tagKey(activeTag) : null;
 
-  const authorIdsInJournal = useMemo(() => {
-    const ids = new Set<string>();
-    for (const e of journal) for (const id of e.authorIds || []) ids.add(id);
-    return ids;
-  }, [journal]);
+  const authorIdsInJournal = useMemo(() => journalAuthorIds(journal), [journal]);
   const activeAuthors = useMemo(
-    () => members.filter(m => !m.deleted && !m.archived && !m.isCustomFront && !m.isFacet && authorIdsInJournal.has(m.id)),
+    () => members.filter(m => isRosterMember(m) && !m.archived && authorIdsInJournal.has(m.id)),
     [members, authorIdsInJournal],
   );
   const facetAuthors = useMemo(
-    () => members.filter(m => !m.deleted && !m.archived && !m.isCustomFront && m.isFacet && authorIdsInJournal.has(m.id)),
+    () => members.filter(m => isFacetMember(m) && !m.archived && authorIdsInJournal.has(m.id)),
     [members, authorIdsInJournal],
   );
 
-  const filteredJournal = useMemo(() => journal.filter(e => {
-    const tagMatch = !activeTagKey || (e.hashtags || []).some(tag => tagKey(tag) === activeTagKey);
-    const authorMatch = !activeAuthor || (e.authorIds || []).includes(activeAuthor);
-    return tagMatch && authorMatch;
-  }).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)), [journal, activeTagKey, activeAuthor]);
+  const filteredJournal = useMemo(() => filterJournal(journal, activeTagKey, activeAuthor), [journal, activeTagKey, activeAuthor]);
 
-  const filteredTags = useMemo(
-    () => { const q = tagKey(tagSearch); return allTags.filter(tag => !q || tagKey(tag).includes(q)); },
-    [allTags, tagSearch],
-  );
-  const filteredAuthors = useMemo(
-    () => sortMembersBySearch(activeAuthors.filter(m => memberMatchesSearch(m, authorSearch)), authorSearch),
-    [activeAuthors, authorSearch],
-  );
-  const filteredFacetAuthors = useMemo(
-    () => sortMembersBySearch(facetAuthors.filter(m => memberMatchesSearch(m, authorSearch)), authorSearch),
-    [facetAuthors, authorSearch],
+  const filteredTags = useMemo(() => filterTags(allTags, tagSearch), [allTags, tagSearch]);
+  const authorPools = useMemo(
+    () => [pickerPool('members', activeAuthors, t), pickerPool('facets', facetAuthors, t)],
+    [activeAuthors, facetAuthors, t],
   );
 
   useEffect(() => { if (!systemJournalPassword) setJournalUnlocked(true); }, [systemJournalPassword]);
@@ -212,57 +110,46 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
     else {setGlobalPwError(true); AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));}
   };
 
-  const handleEntryTap = useCallback((entry: JournalEntry) => {
-    if (!entry.password || unlockedEntries.has(entry.id)) {onEditRef.current(entry);}
-    else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'edit'});}
-  }, [unlockedEntries]);
-
-  const handleViewTap = useCallback((entry: JournalEntry) => {
-    if (!entry.password || unlockedEntries.has(entry.id)) {setViewEntry(entry);}
-    else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'view'});}
-  }, [unlockedEntries]);
-
-  const handleExportTap = useCallback((entry: JournalEntry) => {
-    if (!entry.password || unlockedEntries.has(entry.id)) {setExportMenuEntry(entry);}
-    else {setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'export'});}
-  }, [unlockedEntries]);
-
-  const handleDeleteTap = useCallback((entry: JournalEntry) => {
-    if (!entry.password || unlockedEntries.has(entry.id)) {
-      Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDeleteRef.current(entry.id)}]);
-    } else {
-      setEntryPwInput(''); setEntryPwError(false); setEntryPwModal({entry, mode: 'delete'});
+  const performEntryAction = useCallback((entry: JournalEntry, action: EntryAction) => {
+    if (action === 'edit') openJournal(entry);
+    else if (action === 'view') setViewEntry(entry);
+    else if (action === 'export') setExportMenuEntry(entry);
+    else {
+      Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [
+        {text: t('common.cancel'), style: 'cancel'},
+        {text: t('common.delete'), style: 'destructive', onPress: () => { deleteEntry(entry.id).catch(reportSaveError); }},
+      ]);
     }
-  }, [unlockedEntries, t]);
+  }, [openJournal, t]);
 
-  const togglePin = useCallback((entry: JournalEntry) => onTogglePinRef.current(entry), []);
-  const mentionPress = useCallback((memberId: string) => onMentionPressRef.current?.(memberId), []);
-  const rowMentionPress = onMentionPress ? mentionPress : undefined;
+  const requestEntry = useCallback((entry: JournalEntry, action: EntryAction) => {
+    if (!entry.password || unlockedEntries.has(entry.id)) {
+      performEntryAction(entry, action);
+      return;
+    }
+    setEntryPwInput('');
+    setEntryPwError(false);
+    setEntryPwModal({entry, mode: action});
+  }, [unlockedEntries, performEntryAction]);
+
   const selectTag = useCallback((tag: string, selected: boolean) => {setActiveTag(selected ? null : tag); setTagSearch('');}, []);
 
   const handleEntryPwConfirm = () => {
     if (!entryPwModal) return;
-    if (entryPwInput === entryPwModal.entry.password) {
-      setUnlockedEntries(prev => new Set([...prev, entryPwModal.entry.id]));
-      setEntryPwError(false);
-      if (entryPwModal.mode === 'edit') {onEdit(entryPwModal.entry);}
-      else if (entryPwModal.mode === 'view') {setViewEntry(entryPwModal.entry);}
-      else if (entryPwModal.mode === 'export') {setExportMenuEntry(entryPwModal.entry);}
-      else {Alert.alert(t('journal.deleteEntry'), t('journal.areYouSure'), [{text: t('common.cancel'), style: 'cancel'}, {text: t('common.delete'), style: 'destructive', onPress: () => onDelete(entryPwModal.entry.id)}]);}
-      setEntryPwModal(null);
-    } else {setEntryPwError(true); AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));}
+    if (entryPwInput !== entryPwModal.entry.password) {
+      setEntryPwError(true);
+      AccessibilityInfo.announceForAccessibility(t('journal.incorrectPassword'));
+      return;
+    }
+    setUnlockedEntries(prev => new Set([...prev, entryPwModal.entry.id]));
+    setEntryPwError(false);
+    performEntryAction(entryPwModal.entry, entryPwModal.mode);
+    setEntryPwModal(null);
   };
 
-  const handleEntryExport = (entry: JournalEntry, fmt: 'txt' | 'md' | 'json') => {
+  const handleEntryExport = (entry: JournalEntry, fmt: JournalExportFormat) => {
     setExportMenuEntry(null);
-    const run = async () => {
-      try {
-        if (fmt === 'txt') await exportEntryTxt(entry, members);
-        else if (fmt === 'md') await exportEntryMd(entry, members);
-        else await exportEntryJSON(entry);
-      } catch (e: any) {Alert.alert(t('share.exportFailed'), String(e?.message || e));}
-    };
-    run();
+    exportEntry(entry, members, fmt).catch(e => Alert.alert(t('share.exportFailed'), errorMessage(e)));
   };
 
   const renderEntry = useCallback(({item}: {item: JournalEntry}) => (
@@ -271,22 +158,16 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
       isLocked={!!item.password && !unlockedEntries.has(item.id)}
       activeTagKey={activeTagKey}
       memberById={memberById}
-      T={T}
-      fs={fs}
-      t={t}
-      onMentionPress={rowMentionPress}
-      onTogglePin={togglePin}
-      onEditTap={handleEntryTap}
-      onExportTap={handleExportTap}
-      onDeleteTap={handleDeleteTap}
-      onViewTap={handleViewTap}
+      onMentionPress={onMentionPress}
+      onTogglePin={togglePinned}
+      onAction={requestEntry}
       onTagPress={selectTag}
     />
-  ), [unlockedEntries, activeTagKey, memberById, T, fs, t, rowMentionPress, togglePin, handleEntryTap, handleExportTap, handleDeleteTap, handleViewTap, selectTag]);
+  ), [unlockedEntries, activeTagKey, memberById, onMentionPress, requestEntry, selectTag]);
 
   const listExtraData = useMemo(
-    () => ({unlockedEntries, activeTagKey, memberById, T, t, rowMentionPress}),
-    [unlockedEntries, activeTagKey, memberById, T, t, rowMentionPress],
+    () => ({unlockedEntries, activeTagKey, memberById, T, t, onMentionPress}),
+    [unlockedEntries, activeTagKey, memberById, T, t, onMentionPress],
   );
 
   if (!journalUnlocked) {
@@ -323,159 +204,65 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
           activeOpacity={0.7}
           accessibilityRole="button"
           hitSlop={{top: 8, bottom: 8}} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-          <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>
-            {subTab === 'entries'
-              ? t('journal.new')
-              : t('journal.newTemplate')}
-          </Text>
+          <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{subTab === 'entries' ? t('journal.new') : t('journal.newTemplate')}</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={{flexDirection: 'row', gap: 0, marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
-        {(['entries', 'templates'] as JournalSubTab[]).map(tab => (
+      <View style={{flexDirection: 'row', marginBottom: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
+        {SUB_TABS.map(({tab, key}) => (
           <TouchableOpacity key={tab} onPress={() => setSubTab(tab)} activeOpacity={0.7}
             accessibilityRole="tab" accessibilityState={{selected: subTab === tab}}
             hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 2, borderBottomColor: subTab === tab ? T.accent : 'transparent'}}>
-            <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={{fontSize: fs(13), textAlign: 'center', color: subTab === tab ? T.accent : T.dim, fontWeight: subTab === tab ? '600' : '400'}}>
-              {tab === 'entries'
-                ? t('journal.entriesTab')
-                : t('journal.templatesTab')}
-            </Text>
+            <Text numberOfLines={2} maxFontSizeMultiplier={1.3} style={{fontSize: fs(13), textAlign: 'center', color: subTab === tab ? T.accent : T.dim, fontWeight: subTab === tab ? '600' : '400'}}>{t(key)}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
       {subTab === 'templates' ? (
-        templates.length === 0 ? (
-          <View style={{alignItems: 'center', paddingVertical: 48}}>
-            <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◫</Text>
-            <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 16}}>
-              {t('journal.noTemplates')}
-            </Text>
-            <TouchableOpacity onPress={() => setEditingTemplate('new')} activeOpacity={0.7} accessibilityRole="button"
-              hitSlop={{top: 6, bottom: 6}} style={{paddingHorizontal: 16, paddingVertical: 9, borderRadius: 8, borderWidth: 1, backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-              <Text style={{fontSize: fs(14), fontWeight: '500', color: T.accent}}>
-                {t('journal.newTemplate')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={{gap: 9}}>
-            {templates.map(tpl => (
-              <TouchableOpacity key={tpl.id} onPress={() => setEditingTemplate(tpl)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={`${tpl.name}, ${t('common.edit')}`}
-                style={{backgroundColor: T.card, borderRadius: 10, borderWidth: 1, borderColor: T.border, padding: 14}}>
-                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4}}>
-                  <Text style={{fontSize: fs(14), fontWeight: '600', color: T.text, flex: 1}} numberOfLines={1}>{tpl.name}</Text>
-                  <Text style={{fontSize: fs(11), color: T.muted}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✎</Text>
-                </View>
-                {tpl.title ? (
-                  <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 4}} numberOfLines={1}>{tpl.title}</Text>
-                ) : null}
-                {tpl.body ? (
-                  <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 4}} numberOfLines={2}>
-                    {tpl.body.replace(/<[^>]+>/g, '').replace(/[#*`~_]/g, '').trim()}
-                  </Text>
-                ) : null}
-                {(tpl.hashtags || []).length > 0 && (
-                  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4}}>
-                    {tpl.hashtags.slice(0, 8).map(tag => (
-                      <Text key={tag} style={{fontSize: fs(10), color: T.info, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4, backgroundColor: `${T.info}15`}}>{tag}</Text>
-                    ))}
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )
+        <TemplateCards templates={templates} onEdit={setEditingTemplate} />
       ) : (
-      <>
-
-      {allTags.length > 0 && (
-        <View style={{marginBottom: 8}}>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4}}>
-            {activeTag && (
-              <TouchableOpacity onPress={() => {setActiveTag(null); setTagSearch('');}} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={t('common.clearItem', {name: activeTag})}
-                hitSlop={{top: 10, bottom: 10}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
-                <Text style={{fontSize: fs(11), color: T.info, fontWeight: '600'}}>{activeTag}</Text>
-                <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
-              </TouchableOpacity>
-            )}
-            <TextInput value={tagSearch} onChangeText={v => {setTagSearch(v); setShowTagResults(v.length > 0);}} onFocus={() => setShowTagResults(tagSearch.length > 0)}
-              accessibilityLabel={t('journal.searchTags')} placeholder={t('journal.searchTags')} placeholderTextColor={T.muted}
-              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(12)}} />
-          </View>
-          {showTagResults && filteredTags.length > 0 && (
-            <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
-              <ScrollView nestedScrollEnabled>
-                {filteredTags.map(tag => { const sel = activeTagKey === tagKey(tag); return (
-                  <TouchableOpacity key={tag} onPress={() => {setActiveTag(sel ? null : tag); setTagSearch(''); setShowTagResults(false);}} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={tag}
-                    style={{paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: sel ? `${T.info}12` : 'transparent'}}>
-                    <Text style={{fontSize: fs(12), color: sel ? T.info : T.text}}>{tag}</Text>
+        <>
+          {allTags.length > 0 && (
+            <View style={{marginBottom: 8}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4}}>
+                {activeTag && (
+                  <TouchableOpacity onPress={() => selectTag(activeTag, true)} activeOpacity={0.7}
+                    accessibilityRole="button" accessibilityLabel={t('common.clearItem', {name: activeTag})}
+                    hitSlop={{top: 10, bottom: 10}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}>
+                    <Text style={{fontSize: fs(11), color: T.info, fontWeight: '600'}}>{activeTag}</Text>
+                    <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
                   </TouchableOpacity>
-                ); })}
-              </ScrollView>
+                )}
+                <TextInput value={tagSearch} onChangeText={v => {setTagSearch(v); setShowTagResults(v.length > 0);}} onFocus={() => setShowTagResults(tagSearch.length > 0)}
+                  accessibilityLabel={t('journal.searchTags')} placeholder={t('journal.searchTags')} placeholderTextColor={T.muted}
+                  style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(12)}} />
+              </View>
+              {showTagResults && filteredTags.length > 0 && (
+                <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
+                  <ScrollView nestedScrollEnabled>
+                    {filteredTags.map(tag => {
+                      const sel = activeTagKey === tagKey(tag);
+                      return (
+                        <TouchableOpacity key={tag} onPress={() => {selectTag(tag, sel); setShowTagResults(false);}} activeOpacity={0.7}
+                          accessibilityRole="button" accessibilityState={{selected: sel}} accessibilityLabel={tag}
+                          style={{paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: sel ? `${T.info}12` : 'transparent'}}>
+                          <Text style={{fontSize: fs(12), color: sel ? T.info : T.text}}>{tag}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
             </View>
           )}
-        </View>
-      )}
 
-      {(activeAuthors.length > 0 || facetAuthors.length > 0) && (
-        <View style={{marginBottom: 14}}>
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4}}>
-            {activeAuthor && (() => {
-              const m = getMember(activeAuthor);
-              return m ? (
-                <TouchableOpacity onPress={() => {setActiveAuthor(null); setAuthorSearch('');}} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={t('common.clearItem', {name: m.name})}
-                  hitSlop={{top: 8, bottom: 10}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}18`, borderWidth: 1, borderColor: `${m.color}40`}}>
-                  <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                  <Text style={{fontSize: fs(11), color: m.color, fontWeight: '600'}}>{m.name}</Text>
-                  <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
-                </TouchableOpacity>
-              ) : null;
-            })()}
-            <TextInput value={authorSearch} onChangeText={v => {setAuthorSearch(v); setShowAuthorResults(v.length > 0);}} onFocus={() => setShowAuthorResults(authorSearch.length > 0)}
-              accessibilityLabel={t('journal.searchAuthors')} placeholder={t('journal.searchAuthors')} placeholderTextColor={T.muted}
-              style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7, fontSize: fs(12)}} />
-          </View>
-          {showAuthorResults && filteredAuthors.length > 0 && (
-            <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, maxHeight: 140, overflow: 'hidden', marginBottom: 4}}>
-              <ScrollView nestedScrollEnabled>
-                {filteredAuthors.length > 0 && (
-                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.title')}</Text>
-                )}
-                {filteredAuthors.map(m => (
-                  <TouchableOpacity key={m.id} onPress={() => {setActiveAuthor(activeAuthor === m.id ? null : m.id); setAuthorSearch(''); setShowAuthorResults(false);}} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityState={{selected: activeAuthor === m.id}} accessibilityLabel={m.name}
-                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeAuthor === m.id ? `${m.color}12` : 'transparent'}}>
-                    <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                    <Text style={{fontSize: fs(12), color: activeAuthor === m.id ? m.color : T.text}}>{m.name}</Text>
-                    {activeAuthor === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
-                  </TouchableOpacity>
-                ))}
-                {filteredFacetAuthors.length > 0 && (
-                  <>
-                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 12, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
-                    {filteredFacetAuthors.map(m => (
-                      <TouchableOpacity key={m.id} onPress={() => {setActiveAuthor(activeAuthor === m.id ? null : m.id); setAuthorSearch(''); setShowAuthorResults(false);}} activeOpacity={0.7}
-                        accessibilityRole="button" accessibilityState={{selected: activeAuthor === m.id}} accessibilityLabel={m.name}
-                        style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: activeAuthor === m.id ? `${m.color}12` : 'transparent'}}>
-                        <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m.color}} />
-                        <Text style={{fontSize: fs(12), color: activeAuthor === m.id ? m.color : T.text}}>{m.name}</Text>
-                        {activeAuthor === m.id && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
-                      </TouchableOpacity>
-                    ))}
-                  </>
-                )}
-              </ScrollView>
+          {(activeAuthors.length > 0 || facetAuthors.length > 0) && (
+            <View style={{marginBottom: 14}}>
+              <MemberPicker pools={authorPools} selected={activeAuthor} onPick={m => setActiveAuthor(activeAuthor === m.id ? null : m.id)} requireSearch selectedChips
+                maxResults={Infinity} listMaxHeight={140} searchLabel={t('journal.searchAuthors')} />
             </View>
           )}
-        </View>
-      )}
-      </>
+        </>
       )}
     </>
   );
@@ -513,103 +300,33 @@ export const JournalScreen = ({theme: T, onAdd, onEdit, onDelete, onTogglePin, o
 
       <JournalTemplateModal
         visible={editingTemplate !== null}
-        theme={T}
         template={editingTemplate === 'new' ? null : editingTemplate}
         onSave={handleSaveTemplate}
         onDelete={handleDeleteTemplate}
         onClose={() => setEditingTemplate(null)} />
 
-      <Modal visible={!!exportMenuEntry} transparent animationType="fade" onRequestClose={() => setExportMenuEntry(null)}>
-        <View style={s.overlay}>
-          <View accessibilityViewIsModal onAccessibilityEscape={() => setExportMenuEntry(null)} style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
-            <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text, fontSize: fs(20)}]}>{t('journal.exportEntry')}</Text>
-            <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 16}} numberOfLines={1}>{exportMenuEntry?.title || t('common.untitled')}</Text>
-            <View style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
-              {(['txt', 'md', 'json'] as const).map(fmt => (
-                <TouchableOpacity key={fmt} onPress={() => exportMenuEntry && handleEntryExport(exportMenuEntry, fmt)} activeOpacity={0.7}
-                  accessibilityRole="button" accessibilityLabel={`.${fmt}`}
-                  hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1,
-                    backgroundColor: T.accentBg, borderColor: `${T.accent}40`}}>
-                  <Text style={{fontSize: fs(13), color: T.accent, fontWeight: '500'}}>↓ .{fmt}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity onPress={() => setExportMenuEntry(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-              hitSlop={{top: 6, bottom: 6}} style={{alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
-              <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <ExportMenu entry={exportMenuEntry} onPick={handleEntryExport} onClose={() => setExportMenuEntry(null)} />
 
-      <Modal visible={!!viewEntry} transparent animationType="fade" onRequestClose={() => setViewEntry(null)}>
-        <View style={s.overlay}>
-          <View accessibilityViewIsModal onAccessibilityEscape={() => setViewEntry(null)} style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border, maxWidth: 480, maxHeight: '85%'}]}>
-            <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text, fontSize: fs(20)}]} numberOfLines={2}>{viewEntry?.pinned ? '📌 ' : ''}{viewEntry?.title || t('common.untitled')}</Text>
-            <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 8}}>{viewEntry ? fmtTime(viewEntry.timestamp) : ''}</Text>
-            {viewEntry && (viewEntry.authorIds || []).length > 0 && (
-              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10}}>
-                {(viewEntry.authorIds || []).map(id => getMember(id)).filter(Boolean).map(m => (
-                  <View key={m!.id} style={{flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, borderWidth: 1, backgroundColor: `${m!.color}20`, borderColor: `${m!.color}45`}}>
-                    <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: m!.color}} />
-                    <Text style={{fontSize: fs(11), fontWeight: '600', color: m!.color}}>{m!.name}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-            <ScrollView style={{flexShrink: 1}} contentContainerStyle={{paddingBottom: 4}}>
-              {viewEntry?.body ? <RichText text={viewEntry.body} T={T} memberById={memberById} onMentionPress={onMentionPress} /> : null}
-              {viewEntry && (viewEntry.hashtags || []).length > 0 && (
-                <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 10}}>
-                  {(viewEntry.hashtags || []).map(tag => (
-                    <View key={tag} style={[s.tagChip, {backgroundColor: `${T.info}12`, borderColor: `${T.info}30`}]}>
-                      <Text style={{fontSize: fs(11), color: T.info}}>{tag}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
-            <View style={{flexDirection: 'row', gap: 8, marginTop: 14}}>
-              <TouchableOpacity onPress={() => setViewEntry(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.close')}
-                hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
-                <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.close')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { const e = viewEntry; setViewEntry(null); if (e) handleEntryTap(e); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.edit')}
-                hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`}}>
-                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>{t('common.edit')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <EntryViewer
+        entry={viewEntry}
+        memberById={memberById}
+        onMentionPress={onMentionPress}
+        onClose={() => setViewEntry(null)}
+        onEdit={e => { setViewEntry(null); requestEntry(e, 'edit'); }}
+      />
 
-      <Modal visible={!!entryPwModal} transparent animationType="fade" onRequestClose={() => setEntryPwModal(null)}>
-        <View style={[s.overlay, {paddingBottom: 24 + kbHeight}]}>
-          <View accessibilityViewIsModal onAccessibilityEscape={() => setEntryPwModal(null)} style={[s.modalCard, {backgroundColor: T.card, borderColor: T.border}]}>
-            <Text accessibilityRole="header" style={[s.modalTitle, {color: T.text, fontSize: fs(20)}]}>{t('journal.entryLocked')}</Text>
-            <Text style={{fontSize: fs(13), color: T.dim, marginBottom: 16}}>
-              {entryPwModal?.mode === 'delete' ? t('journal.deletePasswordPrompt') : t('journal.unlockPasswordPrompt')}
-            </Text>
-            <TextInput value={entryPwInput} onChangeText={v => {setEntryPwInput(v); setEntryPwError(false);}}
-              accessibilityLabel={t('journal.password')} placeholder={t('journal.password')} placeholderTextColor={T.muted} secureTextEntry
-              style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: entryPwError ? T.danger : T.border, marginBottom: 6, fontSize: fs(15)}]}
-              onSubmitEditing={handleEntryPwConfirm} />
-            {entryPwError && <Text accessibilityRole="alert" style={{fontSize: fs(12), color: T.danger, marginBottom: 10}}>{t('journal.incorrectPassword')}</Text>}
-            <View style={{flexDirection: 'row', gap: 8, marginTop: 12}}>
-              <TouchableOpacity onPress={() => setEntryPwModal(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.cancel')}
-                hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: T.border}}>
-                <Text style={{fontSize: fs(13), color: T.dim}}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleEntryPwConfirm} activeOpacity={0.7} accessibilityRole="button"
-                hitSlop={{top: 6, bottom: 6}} style={{flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 8, backgroundColor: T.accentBg, borderWidth: 1, borderColor: `${T.accent}40`}}>
-                <Text style={{fontSize: fs(13), fontWeight: '500', color: T.accent}}>
-                  {entryPwModal?.mode === 'delete' ? t('common.delete') : t('journal.unlock')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <PasswordDialog
+        visible={!!entryPwModal}
+        title={t('journal.entryLocked')}
+        hint={entryPwModal?.mode === 'delete' ? t('journal.deletePasswordPrompt') : t('journal.unlockPasswordPrompt')}
+        value={entryPwInput}
+        onChange={v => { setEntryPwInput(v); setEntryPwError(false); }}
+        submitLabel={entryPwModal?.mode === 'delete' ? t('common.delete') : t('journal.unlock')}
+        onSubmit={handleEntryPwConfirm}
+        submitOnEnter
+        error={entryPwError}
+        onCancel={() => setEntryPwModal(null)}
+      />
     </View>
   );
 };
@@ -619,9 +336,4 @@ const s = StyleSheet.create({
   headerRow: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14},
   heading: {fontFamily: Fonts.display, fontSize: 22, fontWeight: '600', fontStyle: 'italic'},
   input: {borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15},
-  card: {borderRadius: 12, borderWidth: 1, padding: 14},
-  tagChip: {paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1},
-  overlay: {flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24},
-  modalCard: {borderRadius: 16, borderWidth: 1, padding: 24, width: '100%', maxWidth: 360},
-  modalTitle: {fontFamily: Fonts.display, fontSize: 20, fontWeight: '600', fontStyle: 'italic', marginBottom: 6},
 });

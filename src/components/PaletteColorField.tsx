@@ -21,10 +21,9 @@ export const PaletteColorField = ({label, value, onChange, T}: {label: string; v
           <Text style={{fontSize: fs(12), fontFamily: 'monospace', color: T.text}} numberOfLines={1}>{value}</Text>
         </View>
       </TouchableOpacity>
-      <ColorPickerModal visible={open} title={label} value={value} T={T}
+      <ColorPickerModal visible={open} title={label} value={value}
         onSave={hex => { onChange(hex); setOpen(false); }}
         onClose={() => setOpen(false)} />
     </View>
   );
 };
-

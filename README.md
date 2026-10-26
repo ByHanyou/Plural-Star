@@ -100,7 +100,7 @@ Write journal entries with the same editor available in member profiles. Entries
 **⇅ Import & Export**  
 Migrating from another app? Import your full system data (members, history, custom fields, and system info) from Simply Plural, PluralKit, Octocon, Ampersand, Ourcana, HiveMind, Tupperbox, Parallax, PluralLog, or PluralSpace, via API token or export file. Co-fronting sessions from Simply Plural are correctly grouped into combined entries. Profile pictures are imported from avatar URLs. Custom field names and values are mapped automatically with bidirectional ID normalization.
 
-Export your full system data as JSON (reimportable), HTML (opens in Google Docs), or send a formatted summary to any email address. Granular per-category toggles. Pick exactly what to export or restore: system info, members, profile pictures, banners, front history, journal, member groups, chat, custom moods, theme palettes, app settings, custom fields, mailbox, polls, journal templates, System Map relationships, whiteboard, and planner. Import `.txt`, `.md`, or `.json` files directly as journal entries.
+Export your full system data as a JSON file or a ZIP bundle that carries the images (both reimportable), as a PluralKit-compatible file, or send a formatted summary to any email address. Granular per-category toggles. Pick exactly what to export or restore: system info, members, profile pictures, banners, front history, journal, member groups, chat, custom moods, theme palettes, app settings, custom fields, mailbox, polls, journal templates, System Map relationships, whiteboard, and planner. Import `.txt`, `.md`, or `.json` files directly as journal entries.
 
 Imports **replace** your roster rather than piling duplicates on top of it, and members that aren't in the incoming file are archived rather than deleted, so their history, chat lines, and map connections keep resolving to a name.
 
@@ -109,7 +109,7 @@ Imports **replace** your roster rather than piling duplicates on top of it, and 
 Full interface available in English, Español, Français, Deutsch, Nederlands, Português, Suomi, Svenska, Norsk, Íslenska, Italiano, Polski, Türkçe, Bahasa Melayu, Tiếng Việt, ไทย, हिन्दी, Afrikaans, 简体中文, 繁體中文, 日本語, 한국어, Русский, and Українська (24 languages total). Auto-detects your device language on first launch, including Traditional vs Simplified Chinese by region. Change anytime via the dropdown in System Settings.
 
 **Other Features**
-- Obsidian Blue dark theme and Steel light theme built-in, plus 10 custom palette slots: define your own four-color theme
+- Obsidian Blue dark theme and Steel light theme built-in, plus 20 custom palette slots: define your own four-color theme
 - Colors hub with 92 named presets across four rows (default, darker, pastel, neon) plus 24 custom color slots, used anywhere a color is picked
 - System Profile with its own banner, description, and markdown formatting, separate from member profiles
 - Profile pictures on member avatars throughout the app; banners shown on member profiles and edit screens
@@ -139,7 +139,7 @@ Screen reader support is treated as a feature, not a checkbox. Every control car
 
 - **Gesture-only UI has a non-gesture path.** Drag handles, the Hub tile grips, and the whiteboard turtle expose adjustable controls with increment/decrement actions, so reordering and drawing work entirely from VoiceOver and TalkBack. Nothing interactive is hidden from a screen reader to make an audit pass. Only genuinely decorative glyphs are.
 - **Every input is named.** Labels stay attached whether or not the field is empty, so the name doesn't disappear the moment you start typing.
-- **Reordering is announced positionally** ("moved to 3 of 12") rather than as a bare "moved".
+- **Reordering is announced with where the item landed**: its position ("Moved to position 3 of 12") or its new neighbour ("Moved above Alex"), rather than a bare "moved".
 - **State is never colour-only**: selected chips, toggles, and tabs report their state to assistive tech as well as showing it.
 - **Adjustable text size** (Normal, Large, Extra Large) with an OpenDyslexic option, and layouts that hold at larger sizes.
 - **Destructive actions confirm** before removing stored data or media; clearing the whiteboard triple-confirms.
@@ -175,12 +175,13 @@ Download Plural Star from the [App Store](https://apps.apple.com/in/app/plural-s
 
 ## Build from Source
 
+Requirements:
+- Node 22+
+- JDK 17
+- Android SDK for Android builds
+- Xcode, Ruby 3.4+, and CocoaPods for iOS builds
+
 ```bash
-# Requirements:
-# - Node 22.13+ (Node 22 is selected by .nvmrc)
-# - JDK 17
-# - Android SDK for Android builds
-# - Xcode, Ruby 3.4+, and CocoaPods for iOS builds
 git clone https://github.com/ByHanyou/Plural-Star.git
 cd Plural-Star
 npm ci --legacy-peer-deps
@@ -221,6 +222,8 @@ xcodebuild \
   -sdk iphoneos \
   build
 ```
+
+Development builds log at `debug` level and print the startup and storage traces; release builds log at `info` and skip them. The bundler also inlines `PS_RELAY_URL`, `PS_GATEWAY_URL`, `PS_LOG_LEVEL`, `PS_VERBOSE_NETWORK`, `PS_STARTUP_TRACE` and `PS_STORAGE_TRACE` from the environment of the Metro process (`PS_LOG_LEVEL=debug npx react-native start --reset-cache`; the cache reset matters because Metro caches transformed files). In a development build the system settings sheet ends with a **Developer** section: relay and gateway URL overrides, the log level, a verbose network log, the startup and storage traces, a JSON field for every sync, mirror, connection, gateway and cloud timing, and the recent log lines. Overrides are stored on the device under `psdev:config`, outside the synced `ps:` keys, and release builds ignore them.
 
 ## Wiki
 

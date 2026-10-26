@@ -1,4 +1,5 @@
 import {createContext, useContext, useEffect, useRef} from 'react';
+import {Emitter} from '../utils/emitter';
 
 type ActiveListener = (active: boolean) => void;
 
@@ -11,19 +12,14 @@ export type TabActiveSwitch = TabActiveSource & {set: (active: boolean) => void}
 
 const createTabActiveSource = (initial: boolean): TabActiveSwitch => {
   let active = initial;
-  const listeners = new Set<ActiveListener>();
+  const changes = new Emitter<[active: boolean]>('tabActive');
   return {
     get: () => active,
-    subscribe: fn => {
-      listeners.add(fn);
-      return () => {
-        listeners.delete(fn);
-      };
-    },
+    subscribe: fn => changes.on(fn),
     set: next => {
       if (next === active) return;
       active = next;
-      Array.from(listeners).forEach(fn => fn(next));
+      changes.emit(next);
     },
   };
 };

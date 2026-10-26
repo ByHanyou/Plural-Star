@@ -1,59 +1,64 @@
-import React, {useState, useRef} from 'react';
+import React, {useState, useRef, useMemo} from 'react';
 import {View, TouchableOpacity, ScrollView, Modal, Keyboard} from 'react-native';
-import {Text, TextInput} from '../components/AppText';
+import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
 import {Fonts, fontScale} from '../theme';
-import {Member, JournalEntry, JournalTemplate, uid, fmtTime, sortMembersBySearch, memberMatchesSearch, tagKey} from '../utils';
+import {useTheme} from '../themeContext';
+import {Member, JournalEntry, JournalTemplate, uid, fmtTime, mergeTags, toggleId} from '../utils';
 import {RichText as RichDescription} from '../components/MarkdownRenderer';
 import {RichTextEditor} from '../components/RichTextEditor';
-import {Btn, Field} from './shared';
+import {Btn, Field, PasswordSection, TagEditor, sectionLabel} from '../components/controls';
 import {useDraft, clearDraft} from '../hooks/useDraft';
+import {MemberPicker} from '../components/MemberPicker';
+import {PICKER_RESULTS_MAX, memberFacetPools} from '../picker/memberPicker';
+import {reportSaveError} from '../utils/saveError';
 
-const AUTHOR_RESULTS_MAX = 20;
+const blankEntry = (): JournalEntry => ({id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()});
 
-export const JournalModal = ({visible, theme: T, entry, members, templates, onSave, onClose, onMentionPress, lockView = false}: any) => {
+export const JournalModal = ({visible, entry, members, templates, onSave, onClose, onMentionPress, lockView = false}: {
+  visible: boolean; entry: JournalEntry | null; members: Member[]; templates: JournalTemplate[]; onSave: (e: JournalEntry) => void | Promise<void>; onClose: () => void; onMentionPress?: (memberId: string) => void; lockView?: boolean;
+}) => {
+  const T = useTheme();
   const fs = fontScale(T);
   const {t} = useTranslation();
   const isNew = !entry;
-  const [f, setF] = useState<JournalEntry>(entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()});
+  const [f, setF] = useState<JournalEntry>(() => entry || blankEntry());
   const fRef = useRef(f);
   fRef.current = f;
   const [showPwField, setShowPwField] = useState(false); const [tagInput, setTagInput] = useState('');
-  const [authorSearch, setAuthorSearch] = useState('');
   const [showBodyEditor, setShowBodyEditor] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [viewMode, setViewMode] = useState(!isNew);
-  React.useEffect(() => { if (visible) { const fresh = entry || {id: uid(), title: '', body: '', authorIds: [], hashtags: [], timestamp: Date.now()}; setF(fresh); setShowPwField(!!fresh.password); setTagInput(''); setAuthorSearch(''); setShowBodyEditor(false); setShowTemplatePicker(false); setViewMode(!!entry); } }, [visible, entry]);
+  React.useEffect(() => { if (visible) { const fresh = entry || blankEntry(); setF(fresh); setShowPwField(!!fresh.password); setTagInput(''); setShowBodyEditor(false); setShowTemplatePicker(false); setViewMode(!!entry); } }, [visible, entry]);
   const draftId = isNew ? 'new' : (entry?.id || f.id);
   useDraft<JournalEntry>('journal', lockView || viewMode ? '' : draftId, visible, f, d => setF(d));
-  const set = (k: keyof JournalEntry, v: any) => {
+  const set = <K extends keyof JournalEntry>(k: K, v: JournalEntry[K]) => {
     fRef.current = {...fRef.current, [k]: v};
     setF(x => ({...x, [k]: v}));
   };
-  const togAuthor = (id: string) => set('authorIds', (f.authorIds || []).includes(id) ? (f.authorIds || []).filter((i: string) => i !== id) : [...(f.authorIds || []), id]);
-  const addTag = () => { const raw = tagInput.trim().replace(/^#/, '').normalize('NFC'); if (!raw) return; const cur = f.hashtags || []; const next = `#${raw}`; if (!cur.some(v => tagKey(v) === tagKey(next))) set('hashtags', [...cur, next]); setTagInput(''); };
+  const togAuthor = (id: string) => set('authorIds', toggleId(f.authorIds || [], id));
+  const authorPools = useMemo(() => memberFacetPools(members, t), [members, t]);
   const applyTemplate = (tpl: JournalTemplate) => {
-    setF(x => ({...x, title: tpl.title || x.title, body: tpl.body || x.body, hashtags: [...(x.hashtags || []), ...(tpl.hashtags || []).filter(h => !(x.hashtags || []).some(v => tagKey(v) === tagKey(h)))]}));
+    setF(x => ({...x, title: tpl.title || x.title, body: tpl.body || x.body, hashtags: mergeTags(x.hashtags, tpl.hashtags || [])}));
     setShowTemplatePicker(false);
   };
-  const templateList: JournalTemplate[] = Array.isArray(templates) ? templates : [];
-  const canUseTemplates = isNew && templateList.length > 0;
+  const canUseTemplates = isNew && templates.length > 0;
 
   return (
-    <Sheet visible={visible} title={viewMode ? t('modal.viewEntry') : isNew ? t('modal.newEntry') : t('modal.editEntry')} theme={T} onClose={onClose}
+    <Sheet visible={visible} title={viewMode ? t('modal.viewEntry') : isNew ? t('modal.newEntry') : t('modal.editEntry')} onClose={onClose}
       footer={viewMode
         ? (lockView
-          ? <Btn instant variant="ghost" T={T} onPress={onClose}>{t('common.close')}</Btn>
-          : <Btn instant T={T} onPress={() => setViewMode(false)}>{t('common.edit')}</Btn>)
-        : <Btn instant T={T} onPress={() => {Keyboard.dismiss(); const cur = fRef.current; onSave({...cur, timestamp: isNew ? Date.now() : cur.timestamp, password: showPwField && cur.password ? cur.password : undefined}); clearDraft('journal', draftId); onClose();}}>{t('common.save')}</Btn>}>
+          ? <Btn instant variant="ghost" onPress={onClose}>{t('common.close')}</Btn>
+          : <Btn instant onPress={() => setViewMode(false)}>{t('common.edit')}</Btn>)
+        : <Btn instant onPress={async () => {Keyboard.dismiss(); const cur = fRef.current; try {await onSave({...cur, timestamp: isNew ? Date.now() : cur.timestamp, password: showPwField && cur.password ? cur.password : undefined}); clearDraft('journal', draftId); onClose();} catch (e) {reportSaveError(e);}}}>{t('common.save')}</Btn>}>
       {viewMode ? (
         <>
           <Text accessibilityRole="header" style={{fontFamily: Fonts.display, fontSize: fs(20), fontWeight: '600', fontStyle: 'italic', color: T.text, marginBottom: 4}}>{f.title || t('common.untitled')}</Text>
           <Text style={{fontSize: fs(11), color: T.muted, marginBottom: 14}}>{fmtTime(f.timestamp)}</Text>
           {f.body ? (
             <View style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, marginBottom: 14}}>
-              <RichDescription text={f.body} T={T} members={members} onMentionPress={onMentionPress} />
+              <RichDescription text={f.body} members={members} onMentionPress={onMentionPress} />
             </View>
           ) : null}
           {(f.hashtags || []).length > 0 && (
@@ -67,7 +72,7 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
           )}
           {(f.authorIds || []).length > 0 && (
             <>
-              <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
+              <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 8})}>{t('modal.authors')}</Text>
               <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14}}>
                 {(f.authorIds || []).map((id: string) => { const m = members.find((x: Member) => x.id === id); if (!m) return null; return (
                   <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
@@ -96,88 +101,32 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
           </TouchableOpacity>
         </View>
       )}
-      <Field label={t('modal.entryTitle')} value={f.title} onChange={(v: string) => set('title', v)} placeholder={t('modal.entryTitlePlaceholder')} T={T} />
+      <Field label={t('modal.entryTitle')} value={f.title} onChange={(v: string) => set('title', v)} placeholder={t('modal.entryTitlePlaceholder')} />
 
       <View style={{marginBottom: 14}}>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 5, fontWeight: '600'}}>{t('modal.body')}</Text>
+        <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 5})}>{t('modal.body')}</Text>
         <TouchableOpacity onPress={() => setShowBodyEditor(true)} activeOpacity={0.7}
           accessibilityRole="button" accessibilityLabel={t('modal.body')}
           style={{backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 8, padding: 12, minHeight: 100}}>
-          {f.body ? <RichDescription text={f.body} T={T} members={members} onMentionPress={onMentionPress} /> : <Text style={{fontSize: fs(13), color: T.muted}}>{t('modal.writeHere')}</Text>}
+          {f.body ? <RichDescription text={f.body} members={members} onMentionPress={onMentionPress} /> : <Text style={{fontSize: fs(13), color: T.muted}}>{t('modal.writeHere')}</Text>}
         </TouchableOpacity>
       </View>
-      <RichTextEditor visible={showBodyEditor} title={t('modal.body')} initialContent={f.body || ''} theme={T}
+      <RichTextEditor visible={showBodyEditor} title={t('modal.body')} initialContent={f.body || ''}
         members={members}
         onSave={(html: string) => {set('body', html); setShowBodyEditor(false);}} onClose={() => setShowBodyEditor(false)} />
 
-      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.tags')}</Text>
-      {(f.hashtags || []).length > 0 && (<View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>{(f.hashtags || []).map((tag: string) => (<TouchableOpacity key={tag} onPress={() => set('hashtags', (f.hashtags || []).filter((x: string) => x !== tag))} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: tag})} hitSlop={{top: 6, bottom: 6}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: `${T.info}18`, borderWidth: 1, borderColor: `${T.info}40`}}><Text style={{fontSize: fs(12), color: T.info}}>{tag}</Text><Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text></TouchableOpacity>))}</View>)}
-      <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 14}}>
-        <TextInput value={tagInput} onChangeText={setTagInput} accessibilityLabel={t('modal.topic')} placeholder={t('modal.topic')} placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={{flex: 1, backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: fs(13)}} onSubmitEditing={addTag} returnKeyType="done" />
-        <Btn T={T} onPress={addTag} style={{paddingHorizontal: 12, paddingVertical: 9}}>{t('common.add')}</Btn>
-      </View>
+      <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 8})}>{t('modal.tags')}</Text>
+      <TagEditor tags={f.hashtags || []} onChange={tags => set('hashtags', tags)} input={tagInput} setInput={setTagInput} placeholder={t('modal.topic')} style={{marginBottom: 14}} />
       {members.length > 0 && (<>
-        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, marginBottom: 8, fontWeight: '600'}}>{t('modal.authors')}</Text>
-        {(f.authorIds || []).length > 0 && (
-          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
-            {(f.authorIds || []).map((id: string) => { const m = members.find((x: Member) => x.id === id); if (!m) return null; return (
-              <TouchableOpacity key={id} onPress={() => togAuthor(id)} activeOpacity={0.7}
-                accessibilityRole="button" accessibilityLabel={t('common.removeItem', {name: m.name})}
-                hitSlop={{top: 6, bottom: 6}}
-                style={{flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: `${m.color}20`, borderWidth: 1, borderColor: `${m.color}50`}}>
-                <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
-                <Text style={{fontSize: fs(12), color: m.color}}>{m.name}</Text>
-                <Text style={{fontSize: fs(10), color: T.danger}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
-              </TouchableOpacity>
-            ); })}
-          </View>
-        )}
-        <TextInput value={authorSearch} onChangeText={setAuthorSearch} accessibilityLabel={t('modal.searchAuthors')} placeholder={t('modal.searchAuthors')} placeholderTextColor={T.muted}
-          autoCorrect={false} autoComplete="off" spellCheck={false} textContentType="none"
-          style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 4}} />
-        {authorSearch.length > 0 && (
-          <View style={{backgroundColor: T.card, borderRadius: 8, borderWidth: 1, borderColor: T.border, overflow: 'hidden', marginBottom: 8}}>
-            {(() => {
-                const q = authorSearch.toLowerCase();
-                const match = (m: Member) => !m.archived && !m.isCustomFront && memberMatchesSearch(m, q);
-                const row = (m: Member) => {
-                  const active = (f.authorIds || []).includes(m.id);
-                  return (
-                    <TouchableOpacity key={m.id} onPress={() => {togAuthor(m.id); setAuthorSearch('');}} activeOpacity={0.7}
-                      accessibilityRole="button" accessibilityState={{selected: active}} accessibilityLabel={m.name}
-                      style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                      <View style={{width: 7, height: 7, borderRadius: 3.5, backgroundColor: m.color}} />
-                      <Text style={{fontSize: fs(13), color: active ? m.color : T.text, fontWeight: active ? '600' : '400'}}>{m.name}</Text>
-                      {active && <Text style={{color: m.color, marginLeft: 'auto'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✓</Text>}
-                    </TouchableOpacity>
-                  );
-                };
-                const facets = sortMembersBySearch<Member>(members.filter((m: Member) => m.isFacet && match(m)), authorSearch);
-                const roster = sortMembersBySearch<Member>(members.filter((m: Member) => !m.isFacet && match(m)), authorSearch);
-                const shownRoster = roster.slice(0, AUTHOR_RESULTS_MAX);
-                const shownFacets = facets.slice(0, Math.max(0, AUTHOR_RESULTS_MAX - shownRoster.length));
-                return (
-                  <>
-                    {shownRoster.length > 0 && (
-                      <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4}}>{t('members.title')}</Text>
-                    )}
-                    {shownRoster.map(row)}
-                    {shownFacets.length > 0 && (
-                      <>
-                        <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 10, paddingTop: 10, paddingBottom: 4}}>{t('members.facets')}</Text>
-                        {shownFacets.map(row)}
-                      </>
-                    )}
-                  </>
-                );
-              })()}
-          </View>
-        )}
+        <Text accessibilityRole="header" style={sectionLabel(T, {marginBottom: 8})}>{t('modal.authors')}</Text>
+        <View style={{marginBottom: 8}}>
+          <MemberPicker pools={authorPools} selected={f.authorIds} onPick={m => togAuthor(m.id)} multi requireSearch selectedChips
+            maxResults={PICKER_RESULTS_MAX} searchLabel={t('modal.searchAuthors')} />
+        </View>
       </>)}
-      <View style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14}}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}><Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>{t('modal.entryPassword')}</Text><TouchableOpacity onPress={() => {setShowPwField(!showPwField); if (showPwField) set('password', undefined);}} accessibilityRole="button" accessibilityLabel={t(showPwField ? 'modal.removeEntryPassword' : 'modal.addEntryPassword')} hitSlop={{top: 12, bottom: 8, left: 12, right: 12}}><Text style={{fontSize: fs(12), color: T.accent, fontWeight: '600'}}>{showPwField ? t('common.remove') : t('common.add')}</Text></TouchableOpacity></View>
-        {showPwField && <TextInput value={f.password || ''} onChangeText={(v: string) => set('password', v || undefined)} accessibilityLabel={t('modal.entryPasswordPlaceholder')} placeholder={t('modal.entryPasswordPlaceholder')} placeholderTextColor={T.muted} secureTextEntry style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: fs(14)}} />}
-      </View>
+      <PasswordSection label={t('modal.entryPassword')} on={showPwField} setOn={on => { setShowPwField(on); if (!on) set('password', undefined); }}
+        value={f.password || ''} onChange={v => set('password', v || undefined)} placeholder={t('modal.entryPasswordPlaceholder')}
+        addLabel={t('modal.addEntryPassword')} removeLabel={t('modal.removeEntryPassword')} style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14}} />
       {showTemplatePicker && (
         <Modal visible transparent animationType="fade" onRequestClose={() => setShowTemplatePicker(false)}>
           <TouchableOpacity activeOpacity={1} onPress={() => setShowTemplatePicker(false)} accessible={false} importantForAccessibility="no"
@@ -186,12 +135,12 @@ export const JournalModal = ({visible, theme: T, entry, members, templates, onSa
               accessibilityViewIsModal onAccessibilityEscape={() => setShowTemplatePicker(false)}
               style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
               <View style={{padding: 14, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                <Text accessibilityRole="header" style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600'}}>
+                <Text accessibilityRole="header" style={sectionLabel(T, {fontSize: fs(11)})}>
                   {t('journal.pickTemplate')}
                 </Text>
               </View>
               <ScrollView keyboardShouldPersistTaps="handled" style={{maxHeight: 360}}>
-                {templateList.map((tpl: JournalTemplate) => (
+                {templates.map((tpl: JournalTemplate) => (
                   <TouchableOpacity key={tpl.id} onPress={() => applyTemplate(tpl)} activeOpacity={0.7}
                     accessibilityRole="button" accessibilityLabel={tpl.name}
                     style={{paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>

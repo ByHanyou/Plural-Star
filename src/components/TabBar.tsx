@@ -3,7 +3,7 @@ import {View, TouchableOpacity, StyleSheet} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useTranslation} from 'react-i18next';
 import {AccentText} from './AccentText';
-import type {ThemeColors} from '../theme';
+import {useTheme} from '../themeContext';
 import {fontScale} from '../theme';
 
 export type Tab = 'front' | 'members' | 'hub' | 'journal' | 'history';
@@ -13,9 +13,10 @@ const TAB_ICONS: Record<Tab, string> = {
   front: '◈', members: '◇', hub: '⬡', journal: '◉', history: '◷',
 };
 
-export const TabBar = React.memo(function TabBar({C, tab, isSinglet, onPressTab}: {C: ThemeColors; tab: Tab; isSinglet: boolean; onPressTab: (id: Tab) => void}) {
+export const TabBar = React.memo(function TabBar({tab, isSinglet, onPressTab}: {tab: Tab; isSinglet: boolean; onPressTab: (id: Tab) => void}) {
   const {t} = useTranslation();
   const insets = useSafeAreaInsets();
+  const C = useTheme();
   const fs = fontScale(C);
   const tabLabel = (id: Tab): string => {
     if (isSinglet && id === 'front') return t('tabs.status');
@@ -26,11 +27,11 @@ export const TabBar = React.memo(function TabBar({C, tab, isSinglet, onPressTab}
   return (
     <View style={[styles.tabBar, {backgroundColor: C.surface, borderTopColor: C.border}]} accessibilityRole="tablist" accessibilityLabel={t('a11y.mainNav')}>
       {TAB_IDS.map(id => (
-        <TouchableOpacity key={id} onPress={() => onPressTab(id)} activeOpacity={0.7} accessibilityRole="tab" accessibilityState={{selected: tab === id}} accessibilityLabel={tabLabel(id)} style={[styles.tabBtn, {paddingBottom: 8 + (insets.bottom || 0)}]}>
+        <TouchableOpacity key={id} onPress={() => onPressTab(id)} activeOpacity={0.7} accessibilityRole="tab" accessibilityState={{selected: tab === id}} accessibilityLabel={tabLabel(id)} style={[styles.tabBtn, {paddingBottom: 8 + insets.bottom}]}>
           <View style={{height: fs(24), justifyContent: 'center', marginBottom: 2}}>
-            <AccentText T={C} style={[styles.tabIcon, {color: tab === id ? C.accent : C.dim, fontSize: fs(18), lineHeight: fs(22), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center'}]} maxFontSizeMultiplier={1.2}>{TAB_ICONS[id]}</AccentText>
+            <AccentText style={{color: tab === id ? C.accent : C.dim, fontSize: fs(18), lineHeight: fs(22), textAlign: 'center', includeFontPadding: false, textAlignVertical: 'center'}} maxFontSizeMultiplier={1.2}>{TAB_ICONS[id]}</AccentText>
           </View>
-          <AccentText T={C} style={[styles.tabLabel, {color: tab === id ? C.accent : C.dim, fontSize: Math.min(fs(9), 12), textAlign: 'center'}]} numberOfLines={2} maxFontSizeMultiplier={1.2}>{tabLabel(id)}</AccentText>
+          <AccentText style={[styles.tabLabel, {color: tab === id ? C.accent : C.dim, fontSize: Math.min(fs(9), 12), textAlign: 'center'}]} numberOfLines={2} maxFontSizeMultiplier={1.2}>{tabLabel(id)}</AccentText>
         </TouchableOpacity>
       ))}
     </View>
@@ -40,6 +41,5 @@ export const TabBar = React.memo(function TabBar({C, tab, isSinglet, onPressTab}
 const styles = StyleSheet.create({
   tabBar: {flexDirection: 'row', borderTopWidth: 1},
   tabBtn: {flex: 1, alignItems: 'center', paddingVertical: 8, paddingTop: 10},
-  tabIcon: {fontSize: 18},
-  tabLabel: {fontSize: 9, letterSpacing: 0.6, textTransform: 'uppercase'},
+  tabLabel: {letterSpacing: 0.6, textTransform: 'uppercase'},
 });
