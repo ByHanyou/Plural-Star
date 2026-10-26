@@ -1,3 +1,4 @@
+import {normalizeProfilePalette} from '../../themeColors';
 import { KEYS } from '../../storage';
 import { allRelationshipTypes, isRosterMember, nameCompare, pushTo } from '../../utils';
 import type {
@@ -126,6 +127,7 @@ const buildSystemProfile = async (src: MirrorSource): Promise<MirrorPart<MirrorS
   return {
     payload: {
       name: String(sys.name || ''),
+      profilePalette: normalizeProfilePalette(sys.profilePalette),
       description: sys.description ? String(sys.description) : undefined,
       hasAvatar: !!avatar || undefined,
       hasBanner: !!banner || undefined,
@@ -235,6 +237,8 @@ const buildMembers = async (src: MirrorSource, buckets: PrivacyBucket[], peerId:
       pronouns: m.pronouns || undefined,
       role: m.role || undefined,
       color: m.color || undefined,
+      profileBg: m.profileBg === true || undefined,
+      profilePalette: normalizeProfilePalette(m.profilePalette),
       description: m.description || undefined,
       archived: m.archived || undefined,
       hasAvatar: src.isSource(m.avatar) ? true : undefined,

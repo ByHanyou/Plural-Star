@@ -1,9 +1,11 @@
 import {Platform} from 'react-native';
 import type {FrontTierKey} from './utils';
-import {deriveColors, profileColors, readableAccentColor, DARK_PALETTE} from './themeColors';
+import {deriveColors, profileColors, readableAccentColor, DARK_PALETTE, normalizeProfilePalette} from './themeColors';
 import type {ThemeColorSet} from './themeColors';
 
 export {hexToRgb, initialOn, ensureReadable, textFloor, inkOn, DARK_PALETTE, LIGHT_PALETTE, BUILTIN_PALETTES, MAX_CUSTOM_PALETTES, PALETTE} from './themeColors';
+export {normalizeProfilePalette, sameProfilePalette} from './themeColors';
+export type {ProfilePalette} from './themeColors';
 export type {CustomPalette} from './themeColors';
 
 export interface ThemeColors extends ThemeColorSet {
@@ -13,6 +15,13 @@ export interface ThemeColors extends ThemeColorSet {
 export const deriveTheme = (bg: string, accent: string, text: string, mid: string): ThemeColors => ({...deriveColors(bg, accent, text, mid), textScale: 1});
 
 export const profileTheme = (base: ThemeColors, color: string): ThemeColors => ({...base, ...profileColors(base, color)});
+
+export const profileWindowTheme = (base: ThemeColors, palette: unknown, legacyColor?: string): ThemeColors => {
+  const p = normalizeProfilePalette(palette);
+  if (p) return {...deriveTheme(p.bg, p.accent, p.text, p.mid), textScale: base.textScale};
+  if (typeof legacyColor === 'string' && /^#[0-9a-f]{6}$/i.test(legacyColor)) return profileTheme(base, legacyColor);
+  return base;
+};
 
 export const DEFAULT_THEME: ThemeColors = deriveTheme(DARK_PALETTE.bg, DARK_PALETTE.accent, DARK_PALETTE.text, DARK_PALETTE.mid);
 

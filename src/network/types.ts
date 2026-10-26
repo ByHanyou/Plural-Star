@@ -1,3 +1,4 @@
+import type {ProfilePalette} from '../themeColors';
 import type { HistoryEntry, JournalEntry, WhiteboardStroke } from '../utils';
 import { CLOUD_LINK_KEY } from '../cloud/cloudTypes';
 
@@ -143,6 +144,8 @@ export interface MirrorGifAsk {
 }
 
 export interface MirrorMember {
+  profilePalette?: ProfilePalette;
+  profileBg?: boolean;
   id: string;
   name: string;
   pronouns?: string;
@@ -158,6 +161,7 @@ export interface MirrorMember {
 }
 
 export interface MirrorSystemProfile {
+  profilePalette?: ProfilePalette;
   name: string;
   description?: string;
   hasAvatar?: boolean;

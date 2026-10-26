@@ -50,6 +50,7 @@
     "@babel/runtime": "^7.29.7",
     "@react-native-community/cli": "^20.2.0",
     "@react-native-community/cli-platform-android": "^20.2.0",
+    "@react-native-community/cli-platform-ios": "^20.2.0",
     "@react-native/babel-preset": "0.86.1",
     "@react-native/metro-config": "0.86.1",
     "@react-native/typescript-config": "0.86.1",
@@ -70,5 +71,8 @@
     "xcode": {
       "uuid": "^11.1.1"
     }
+  },
+  "engines": {
+    "node": "^22.13.0 || ^24.3.0 || >=25.0.0"
   }
 }

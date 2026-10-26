@@ -1,8 +1,9 @@
 import type {SupportedLanguage} from '../i18n/i18n';
-import type {CustomPalette} from '../themeColors';
+import type {CustomPalette, ProfilePalette} from '../themeColors';
 import type {FontChoice} from '../theme';
 
 export interface SystemInfo {
+  profilePalette?: ProfilePalette;
   name: string;
   description: string;
   journalPassword?: string;
@@ -92,6 +93,7 @@ export interface Member {
   avatar?: string;
   avatarTransparent?: boolean;
   profileBg?: boolean;
+  profilePalette?: ProfilePalette;
   private?: boolean;
   banner?: string;
   customFields?: CustomFieldValue[];

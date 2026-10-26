@@ -99,7 +99,7 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = PluralSpace/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = PluralSpace/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = PluralSpace/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		171CF3BC2C212C0118685EAA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		171CF3BC2C212C0118685EAA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		18BC4A2B2FF8BBDC003C976F /* PluralSpace.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = PluralSpace.entitlements; path = PluralSpace/PluralSpace.entitlements; sourceTree = "<group>"; };
 		23AE195E453A42DF80AB6954 /* ComicNeue_700Bold_Italic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = ComicNeue_700Bold_Italic.ttf; path = ../src/assets/fonts/ComicNeue_700Bold_Italic.ttf; sourceTree = "<group>"; };
 		245209B552544899BDB0071C /* Lexend_600SemiBold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = Lexend_600SemiBold.ttf; path = ../src/assets/fonts/Lexend_600SemiBold.ttf; sourceTree = "<group>"; };
@@ -124,6 +124,7 @@
 		99AB2AED1AB4AFCD278085D4 /* PluralSpaceLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PluralSpaceLiveActivity.swift; sourceTree = "<group>"; };
 		9FEF50231CC24203882CB356 /* OpenDyslexic-Regular.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "OpenDyslexic-Regular.otf"; path = "../src/assets/fonts/OpenDyslexic-Regular.otf"; sourceTree = "<group>"; };
 		A227CA61F3C14D04BA763C23 /* OpenDyslexic-BoldItalic.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "OpenDyslexic-BoldItalic.otf"; path = "../src/assets/fonts/OpenDyslexic-BoldItalic.otf"; sourceTree = "<group>"; };
+		B14ED3B8C293D9462768E459 /* Debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		B243CA7D3F8E41BA961E8DB6 /* AtkinsonHyperlegible_700Bold.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = AtkinsonHyperlegible_700Bold.ttf; path = ../src/assets/fonts/AtkinsonHyperlegible_700Bold.ttf; sourceTree = "<group>"; };
 		B4D1C63B0F88405A90E504A4 /* OpenDyslexic-Italic.otf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = "OpenDyslexic-Italic.otf"; path = "../src/assets/fonts/OpenDyslexic-Italic.otf"; sourceTree = "<group>"; };
 		B6AEC1720E7148D39FD23521 /* Gelasio_700Bold_Italic.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = Gelasio_700Bold_Italic.ttf; path = ../src/assets/fonts/Gelasio_700Bold_Italic.ttf; sourceTree = "<group>"; };
@@ -213,6 +214,15 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		6420620E247C77B2F9FA2F8E /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				B14ED3B8C293D9462768E459 /* Debug.xcconfig */,
+			);
+			name = Config;
+			path = Config;
+			sourceTree = "<group>";
+		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
 			isa = PBXGroup;
 			children = (
@@ -231,6 +241,7 @@
 				9DF64525B370FC40A12CEFBF /* PluralSpaceShared */,
 				F960E8A05869D0D399B3D3B3 /* PluralSpaceLiveActivity */,
 				2018849F7DC34773B8713840 /* Resources */,
+				6420620E247C77B2F9FA2F8E /* Config */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -543,11 +554,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = PluralSpace/PluralSpace.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 88;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = CKAA876673;
+				DEVELOPMENT_TEAM = "$(PLURALSTAR_DEVELOPMENT_TEAM)";
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = PluralSpace/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "Plural Star";
@@ -563,10 +573,8 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.pluralstar.app;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PLURALSTAR_BUNDLE_ID)";
 				PRODUCT_NAME = PluralSpace;
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Plural Star(CKAA876673.com.pluralstar.app)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -616,6 +624,7 @@
 		};
 		83CBBA201A601CBA00E9B192 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = B14ED3B8C293D9462768E459 /* Debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
@@ -784,11 +793,9 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_IDENTITY = "Apple Development";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
-				CODE_SIGN_STYLE = Manual;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 88;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = CKAA876673;
+				DEVELOPMENT_TEAM = "$(PLURALSTAR_DEVELOPMENT_TEAM)";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PluralSpaceLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
@@ -798,10 +805,8 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.23.2;
-				PRODUCT_BUNDLE_IDENTIFIER = com.pluralstar.app.liveactivity;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(PLURALSTAR_BUNDLE_ID).liveactivity";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Plural Star Live Activity(CKAA876673.com.pluralsta";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;

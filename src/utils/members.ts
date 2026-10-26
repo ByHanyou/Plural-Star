@@ -1,3 +1,4 @@
+import {normalizeProfilePalette} from '../themeColors';
 import i18n from '../i18n/i18n';
 import type {Member, MemberSortMode} from '../model/types';
 import {PALETTE} from '../themeColors';
@@ -49,6 +50,8 @@ export const cloneMemberFrom = (f: Member, sel: CloneSelection): Member => ({
   role: sel.role ? (f.role || '') : '',
   color: sel.color ? f.color : PALETTE[0],
   emoji: sel.color ? f.emoji : undefined,
+  profileBg: sel.color ? f.profileBg : undefined,
+  profilePalette: sel.color ? normalizeProfilePalette(f.profilePalette) : undefined,
   description: sel.description ? (f.description || '') : '',
   tags: [],
   groupIds: [],

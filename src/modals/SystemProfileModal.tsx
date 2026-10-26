@@ -3,14 +3,15 @@ import {View, TouchableOpacity, Image, Alert} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
 import {Sheet} from '../components/Sheet';
+import {ProfilePalettePicker} from '../components/ProfilePalettePicker';
 import {SystemProfileCard} from '../components/SystemProfileCard';
 import {pickAndSaveImage} from '../utils/imagePicker';
 import {reportSaveError} from '../utils/saveError';
 import {ImageCropHost} from '../components/ImageCropModal';
 import {saveBioImageFromUri, saveAvatarFromUri} from '../utils/mediaUtils';
 import {SystemInfo} from '../utils';
-import {fontScale} from '../theme';
-import {useTheme} from '../themeContext';
+import {fontScale, profileWindowTheme, normalizeProfilePalette, sameProfilePalette} from '../theme';
+import {ThemeProvider, useTheme} from '../themeContext';
 import {AvatarLink, Btn, Field, confirmRemoveImage} from '../components/controls';
 import {useDraft, clearDraft} from '../hooks/useDraft';
 
@@ -24,10 +25,11 @@ interface Props {
 }
 
 export const SystemProfileModal = ({visible, system, onSave, onClose}: Props) => {
-  const T = useTheme();
+  const baseT = useTheme();
   const {t} = useTranslation();
-  const fs = fontScale(T);
+  const fs = fontScale(baseT);
   const [mode, setMode] = useState<Mode>('read');
+  const T = mode === 'read' ? profileWindowTheme(baseT, system.profilePalette) : baseT;
   const [f, setF] = useState<SystemInfo>({...system});
 
   const systemRef = useRef(system);
@@ -42,7 +44,8 @@ export const SystemProfileModal = ({visible, system, onSave, onClose}: Props) =>
     (f.name || '') !== (system.name || '') ||
     (f.description || '') !== (system.description || '') ||
     (f.avatar || '') !== (system.avatar || '') ||
-    (f.banner || '') !== (system.banner || '');
+    (f.banner || '') !== (system.banner || '') ||
+    !sameProfilePalette(f.profilePalette, system.profilePalette);
 
   useDraft<SystemInfo>('systemProfile', 'systemProfile', visible, f, d => {
     setF(cur => ({...d, avatar: cur.avatar || d.avatar, banner: cur.banner || d.banner}));
@@ -51,7 +54,7 @@ export const SystemProfileModal = ({visible, system, onSave, onClose}: Props) =>
 
   const commit = async () => {
     try {
-      await onSave({...system, name: f.name, description: f.description, avatar: f.avatar, banner: f.banner});
+      await onSave({...system, name: f.name, description: f.description, avatar: f.avatar, banner: f.banner, profilePalette: normalizeProfilePalette(f.profilePalette)});
       clearDraft('systemProfile', 'systemProfile');
       setMode('read');
     } catch (e) {
@@ -84,6 +87,7 @@ export const SystemProfileModal = ({visible, system, onSave, onClose}: Props) =>
   };
 
   return (
+    <ThemeProvider value={T}>
     <Sheet
       visible={visible}
       title={t('systemProfile.title')}
@@ -102,6 +106,7 @@ export const SystemProfileModal = ({visible, system, onSave, onClose}: Props) =>
           description={system.description}
           avatar={system.avatar}
           banner={system.banner}
+          palette={system.profilePalette}
         />
       ) : (
         <>
@@ -147,10 +152,13 @@ export const SystemProfileModal = ({visible, system, onSave, onClose}: Props) =>
 
           <AvatarLink ownerId="system-avatar" onLinked={uri => setF(x => ({...x, avatar: uri}))} toggleStyle={{marginBottom: 8}} rowStyle={{marginBottom: 10}} />
 
+          <ProfilePalettePicker T={T} value={f.profilePalette} onChange={profilePalette => setF(x => ({...x, profilePalette}))} />
+
           <Text style={{fontSize: fs(11), color: T.muted, lineHeight: fs(16), marginTop: 4}}>{t('systemProfile.shareHint')}</Text>
         </>
       )}
       {visible && <ImageCropHost />}
     </Sheet>
+    </ThemeProvider>
   );
 };

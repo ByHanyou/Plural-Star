@@ -1,3 +1,4 @@
+import {normalizeProfilePalette} from '../../themeColors';
 import { CustomFieldDef, JournalEntry, Member, MemberGroup, asCustomFieldType, pushTo } from '../../utils';
 import { MirrorAppointment, MirrorGroup, MirrorGroupsPayload, MirrorMember, MirrorPayload } from '../types';
 import { mirrorGroupsOf } from './payload';
@@ -10,6 +11,8 @@ export const mirrorToMember = (mm: MirrorMember, media: ReadonlyMap<string, stri
   pronouns: mm.pronouns || '',
   role: mm.role || '',
   color: mm.color || '',
+  profileBg: mm.profileBg === true,
+  profilePalette: normalizeProfilePalette(mm.profilePalette),
   description: mm.description || '',
   archived: mm.archived,
   avatar: media.get(mm.id),

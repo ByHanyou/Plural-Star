@@ -8,8 +8,8 @@ import {mirrorMembersOf, mirrorJournalOf, mirrorPlannerOf, mirrorStrokesOf, mirr
 import {NO_MIRROR_GROUPS, groupsDataOf, mirrorFieldDefs, mirrorToMember, searchMirrorMembers, sortMirrorAppointments, sortMirrorJournal, toBrowserGroups, toBrowserMembers} from '../network/mirror/view';
 import {useMirrorFeed} from '../hooks/useMirrorFeed';
 import {SystemProfileCard} from '../components/SystemProfileCard';
-import {fontScale} from '../theme';
-import {useTheme} from '../themeContext';
+import {fontScale, profileWindowTheme} from '../theme';
+import {ThemeProvider, useTheme} from '../themeContext';
 import {JournalEntry, WhiteboardStroke, fmtTime} from '../utils';
 import {GroupBrowser} from '../components/GroupBrowser';
 import {useAppStore} from '../store/appStore';
@@ -41,12 +41,14 @@ const FEATURE_LABEL_KEY: Partial<Record<MirrorFeature, string>> = {
 const NO_JOURNAL: JournalEntry[] = [];
 
 export const MirrorScreen = ({visible, peerId, displayName, feature, onClose}: Props) => {
-  const T = useTheme();
+  const baseT = useTheme();
   const groupSortMode = useAppStore(s => s.appSettings.groupSortMode);
   const {t} = useTranslation();
-  const fs = fontScale(T);
+  const fs = fontScale(baseT);
   const insets = useSafeAreaInsets();
   const {entry, memberCache, memberMedia, groupCache, requesting, request} = useMirrorFeed(visible, peerId, feature);
+  const systemProfile = feature === 'systemProfile' && !entry?.none ? mirrorProfileOf(entry?.data) : null;
+  const T = profileWindowTheme(baseT, systemProfile?.profilePalette);
   const [browseId, setBrowseId] = useState<string | null>(null);
   const [viewMemberId, setViewMemberId] = useState<string | null>(null);
   const [memberSearch, setMemberSearch] = useState('');
@@ -176,6 +178,7 @@ export const MirrorScreen = ({visible, peerId, displayName, feature, onClose}: P
       return (
         <SystemProfileCard
           name={sp?.name || displayName}
+          palette={sp?.profilePalette}
           description={sp?.description}
           avatar={media[MIRROR_SYSTEM_AVATAR_ID]}
           banner={media[MIRROR_SYSTEM_BANNER_ID]}
@@ -221,6 +224,7 @@ export const MirrorScreen = ({visible, peerId, displayName, feature, onClose}: P
   };
 
   return (
+    <ThemeProvider value={T}>
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={{flex: 1, backgroundColor: T.bg}}>
         <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 12 + insets.top : 12 + Math.max(StatusBar.currentHeight || 0, insets.top), paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
@@ -289,5 +293,6 @@ export const MirrorScreen = ({visible, peerId, displayName, feature, onClose}: P
         />
       </View>
     </Modal>
+    </ThemeProvider>
   );
 };

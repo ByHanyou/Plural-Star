@@ -1,0 +1,5 @@
+// Debug signing belongs to each developer. The local file is gitignored.
+PLURALSTAR_DEVELOPMENT_TEAM =
+PLURALSTAR_BUNDLE_ID = com.pluralstar.app
+
+#include? "../Signing.local.xcconfig"

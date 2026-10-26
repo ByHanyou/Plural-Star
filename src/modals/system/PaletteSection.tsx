@@ -7,32 +7,9 @@ import {BUILTIN_PALETTES, DARK_PALETTE, LIGHT_PALETTE, MAX_CUSTOM_PALETTES, font
 import type {CustomPalette} from '../../theme';
 import {useTheme} from '../../themeContext';
 import {uid, upsertById, hexOr, isValidHex, normalizeHex} from '../../utils';
-import {ColorPickerModal} from '../../components/ColorPickerModal';
+import {PaletteColorField as HexField} from '../../components/PaletteColorField';
 import {reportSaveError} from '../../utils/saveError';
 import {sectionLabel} from '../../components/controls';
-
-const HexField = ({label, value, onChange}: {label: string; value: string; onChange: (v: string) => void}) => {
-  const T = useTheme();
-  const fs = fontScale(T);
-  const [open, setOpen] = useState(false);
-  const valid = isValidHex(normalizeHex(value));
-  return (
-    <View style={{flex: 1}}>
-      <Text style={sectionLabel(T, {fontSize: fs(9), marginBottom: 4})}>{label}</Text>
-      <TouchableOpacity onPress={() => setOpen(true)} activeOpacity={0.7}
-        accessibilityRole="button" accessibilityLabel={label} accessibilityValue={{text: value}}
-        hitSlop={{top: 15, bottom: 15}} style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-        <View style={{width: 20, height: 20, borderRadius: 4, backgroundColor: valid ? normalizeHex(value) : '#333', borderWidth: 1, borderColor: T.border}} />
-        <View style={{flex: 1, backgroundColor: T.surface, borderWidth: 1, borderColor: T.border, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 5}}>
-          <Text style={{fontSize: fs(12), fontFamily: 'monospace', color: T.text}} numberOfLines={1}>{value}</Text>
-        </View>
-      </TouchableOpacity>
-      <ColorPickerModal visible={open} title={label} value={value}
-        onSave={hex => { onChange(hex); setOpen(false); }}
-        onClose={() => setOpen(false)} />
-    </View>
-  );
-};
 
 const Swatches = ({colors, size}: {colors: string[]; size: number}) => (
   <View style={{flexDirection: 'row', gap: 3}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -131,12 +108,12 @@ export const PaletteSection = ({palettes, activePaletteId, onSavePalettes, onSel
             <TextInput value={paletteName} onChangeText={setPaletteName} accessibilityLabel={t('modal.paletteName')} placeholder={t('modal.paletteName')} placeholderTextColor={T.muted}
               style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13), marginBottom: 10}} />
             <View style={{flexDirection: 'row', gap: 8, marginBottom: 10}}>
-              <HexField label={t('modal.palBg')} value={palBg} onChange={setPalBg} />
-              <HexField label={t('modal.palAccent')} value={palAccent} onChange={setPalAccent} />
+              <HexField T={T} label={t('modal.palBg')} value={palBg} onChange={setPalBg} />
+              <HexField T={T} label={t('modal.palAccent')} value={palAccent} onChange={setPalAccent} />
             </View>
             <View style={{flexDirection: 'row', gap: 8, marginBottom: 10}}>
-              <HexField label={t('modal.palText')} value={palText} onChange={setPalText} />
-              <HexField label={t('modal.palMid')} value={palMid} onChange={setPalMid} />
+              <HexField T={T} label={t('modal.palText')} value={palText} onChange={setPalText} />
+              <HexField T={T} label={t('modal.palMid')} value={palMid} onChange={setPalMid} />
             </View>
             {preview.every(isValidHex) && (
               <View style={{flexDirection: 'row', gap: 3, marginBottom: 10, padding: 8, borderRadius: 8, backgroundColor: pBg}}>
