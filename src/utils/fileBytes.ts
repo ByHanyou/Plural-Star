@@ -1,38 +1,5 @@
 import ReactNativeBlobUtil from 'react-native-blob-util';
-
-const B64C = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-const B64INV = (() => {
-  const a = new Int16Array(256);
-  for (let i = 0; i < 256; i++) a[i] = -1;
-  for (let i = 0; i < B64C.length; i++) a[B64C.charCodeAt(i)] = i;
-  return a;
-})();
-
-export const u8FromBase64 = (b64: string): Uint8Array => {
-  const clean = b64.replace(/[^A-Za-z0-9+/]/g, '');
-  const full = Math.floor(clean.length / 4);
-  const rem = clean.length - full * 4;
-  const out = new Uint8Array(full * 3 + (rem >= 2 ? rem - 1 : 0));
-  let o = 0;
-  let i = 0;
-  for (let f = 0; f < full; f++) {
-    const n = (B64INV[clean.charCodeAt(i)] << 18) | (B64INV[clean.charCodeAt(i + 1)] << 12) | (B64INV[clean.charCodeAt(i + 2)] << 6) | B64INV[clean.charCodeAt(i + 3)];
-    out[o++] = (n >> 16) & 255;
-    out[o++] = (n >> 8) & 255;
-    out[o++] = n & 255;
-    i += 4;
-  }
-  if (rem >= 2) {
-    const c0 = B64INV[clean.charCodeAt(i)];
-    const c1 = B64INV[clean.charCodeAt(i + 1)];
-    out[o++] = (c0 << 2) | (c1 >> 4);
-    if (rem === 3) {
-      const c2 = B64INV[clean.charCodeAt(i + 2)];
-      out[o++] = ((c1 & 15) << 4) | (c2 >> 2);
-    }
-  }
-  return out;
-};
+import {decodeBase64} from '../network/bytes';
 
 const CHUNK_BYTES = 768 * 1024;
 
@@ -69,7 +36,7 @@ const streamInto = (path: string, size: number): Promise<Uint8Array> =>
       stream.open();
       stream.onData(chunk => {
         try {
-          const bytes = u8FromBase64(String(chunk));
+          const bytes = decodeBase64(String(chunk));
           if (offset + bytes.length > out.length) {
             throw new Error('file changed during read');
           }
@@ -99,7 +66,7 @@ export const readFileBytes = async (...paths: (string | undefined)[]): Promise<U
     } catch (e) { lastErr = e; }
     try {
       const b64 = await ReactNativeBlobUtil.fs.readFile(p, 'base64');
-      return u8FromBase64(b64);
+      return decodeBase64(b64);
     } catch (e) { lastErr = e; }
   }
   throw lastErr;

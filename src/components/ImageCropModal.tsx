@@ -4,7 +4,8 @@ import ImageEditor from '@react-native-community/image-editor';
 import {Text} from './AppText';
 import i18n from '../i18n/i18n';
 import {fontScale} from '../theme';
-import type {ThemeColors} from '../theme';
+import {CROP_CORNERS, CropCorner, CropMode, CropRect, CropSize, containRect, cornerPoint, cropPixels, dragCropRect, stepCropArea, stepCropCorner} from '../utils';
+import {useTheme} from '../themeContext';
 
 interface CropSource {
   uri: string;
@@ -16,41 +17,42 @@ interface CropRequest {
   id: number;
   src: CropSource;
   resolve: (r: {uri: string} | null) => void;
+  reject: (e: unknown) => void;
 }
 
 const hosts: ((req: CropRequest) => void)[] = [];
 let nextRequestId = 1;
 
 export const requestImageCrop = (src: CropSource): Promise<{uri: string} | null> =>
-  new Promise(resolve => {
+  new Promise((resolve, reject) => {
     const open = hosts[hosts.length - 1];
     if (!open) { resolve(null); return; }
-    open({id: nextRequestId++, src, resolve});
+    open({id: nextRequestId++, src, resolve, reject});
   });
 
 const HANDLE = 28;
-const MIN_SIZE = 40;
-
-type Corner = 'tl' | 'tr' | 'bl' | 'br';
-
-interface Rect { x: number; y: number; w: number; h: number; }
 
 const STEP = 0.05;
 const MOVES: Record<string, [number, number]> = {move_up: [0, -1], move_down: [0, 1], move_left: [-1, 0], move_right: [1, 0]};
-const OUTWARD: Record<Corner, [number, number]> = {tl: [-1, -1], tr: [1, -1], bl: [-1, 1], br: [1, 1]};
-const CORNER_LABEL: Record<Corner, string> = {tl: 'modal.cropHandleTl', tr: 'modal.cropHandleTr', bl: 'modal.cropHandleBl', br: 'modal.cropHandleBr'};
+const OUTWARD: Record<CropCorner, [number, number]> = {tl: [-1, -1], tr: [1, -1], bl: [-1, 1], br: [1, 1]};
+const CORNER_LABEL: Record<CropCorner, string> = {tl: 'modal.cropHandleTl', tr: 'modal.cropHandleTr', bl: 'modal.cropHandleBl', br: 'modal.cropHandleBr'};
 const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
-export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
+const Shade = ({left, top, width, height}: {left: number; top: number; width: number; height: number}) => (
+  <View pointerEvents="none" style={{position: 'absolute', left, top, width, height, backgroundColor: 'rgba(0,0,0,0.55)'}} />
+);
+
+export const ImageCropHost = () => {
+  const T = useTheme();
   const fs = fontScale(T);
   const [req, setReq] = useState<CropRequest | null>(null);
-  const [natural, setNatural] = useState<{w: number; h: number} | null>(null);
-  const [box, setBox] = useState<{w: number; h: number} | null>(null);
-  const [rect, setRect] = useState<Rect | null>(null);
+  const [natural, setNatural] = useState<CropSize | null>(null);
+  const [box, setBox] = useState<CropSize | null>(null);
+  const [rect, setRect] = useState<CropRect | null>(null);
   const [busy, setBusy] = useState(false);
-  const rectRef = useRef<Rect | null>(null);
-  const dispRef = useRef<Rect | null>(null);
-  const startRef = useRef<Rect | null>(null);
+  const rectRef = useRef<CropRect | null>(null);
+  const dispRef = useRef<CropRect | null>(null);
+  const startRef = useRef<CropRect | null>(null);
   const reqRef = useRef<CropRequest | null>(null);
 
   useEffect(() => {
@@ -63,9 +65,9 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
       if (r.src.width && r.src.height) {
         setNatural({w: r.src.width, h: r.src.height});
       } else {
-        Image.getSize(r.src.uri, (w, h) => setNatural({w, h}), () => {
+        Image.getSize(r.src.uri, (w, h) => setNatural({w, h}), e => {
           if (reqRef.current === r) { reqRef.current = null; setReq(null); }
-          r.resolve(null);
+          r.reject(e);
         });
       }
     };
@@ -79,33 +81,19 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
     };
   }, []);
 
-  const disp: Rect | null = natural && box ? (() => {
-    const scale = Math.min(box.w / natural.w, box.h / natural.h);
-    const w = natural.w * scale;
-    const h = natural.h * scale;
-    return {x: (box.w - w) / 2, y: (box.h - h) / 2, w, h};
-  })() : null;
+  const disp: CropRect | null = natural && box ? containRect(natural, box) : null;
   dispRef.current = disp;
 
   useEffect(() => {
-    if (disp && !rectRef.current) {
-      const full = {x: disp.x, y: disp.y, w: disp.w, h: disp.h};
+    const d = dispRef.current;
+    if (d && !rectRef.current) {
+      const full = {...d};
       rectRef.current = full;
       setRect(full);
     }
-  }, [disp?.x, disp?.y, disp?.w, disp?.h]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [disp?.x, disp?.y, disp?.w, disp?.h]);
 
-  const clampRect = (r: Rect): Rect => {
-    const d = dispRef.current;
-    if (!d) return r;
-    const w = Math.max(MIN_SIZE, Math.min(r.w, d.w));
-    const h = Math.max(MIN_SIZE, Math.min(r.h, d.h));
-    const x = Math.max(d.x, Math.min(r.x, d.x + d.w - w));
-    const y = Math.max(d.y, Math.min(r.y, d.y + d.h - h));
-    return {x, y, w, h};
-  };
-
-  const makeResponder = (mode: 'move' | Corner) => PanResponder.create({
+  const makeResponder = (mode: CropMode) => PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder: () => true,
     onPanResponderGrant: () => { startRef.current = rectRef.current; },
@@ -113,55 +101,34 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
       const s = startRef.current;
       const d = dispRef.current;
       if (!s || !d) return;
-      let next: Rect;
-      if (mode === 'move') {
-        next = clampRect({...s, x: s.x + g.dx, y: s.y + g.dy});
-      } else {
-        let {x, y, w, h} = s;
-        if (mode === 'tl' || mode === 'bl') { x = s.x + g.dx; w = s.w - g.dx; }
-        if (mode === 'tr' || mode === 'br') { w = s.w + g.dx; }
-        if (mode === 'tl' || mode === 'tr') { y = s.y + g.dy; h = s.h - g.dy; }
-        if (mode === 'bl' || mode === 'br') { h = s.h + g.dy; }
-        if (w < MIN_SIZE) { if (mode === 'tl' || mode === 'bl') x = s.x + s.w - MIN_SIZE; w = MIN_SIZE; }
-        if (h < MIN_SIZE) { if (mode === 'tl' || mode === 'tr') y = s.y + s.h - MIN_SIZE; h = MIN_SIZE; }
-        const x1 = Math.max(d.x, x);
-        const y1 = Math.max(d.y, y);
-        const x2 = Math.min(d.x + d.w, x + w);
-        const y2 = Math.min(d.y + d.h, y + h);
-        next = {x: x1, y: y1, w: Math.max(MIN_SIZE, x2 - x1), h: Math.max(MIN_SIZE, y2 - y1)};
-      }
+      const next = dragCropRect(mode, s, g.dx, g.dy, d);
       rectRef.current = next;
       setRect(next);
     },
   });
 
-  const moveResponder = useRef(makeResponder('move')).current;
-  const tlResponder = useRef(makeResponder('tl')).current;
-  const trResponder = useRef(makeResponder('tr')).current;
-  const blResponder = useRef(makeResponder('bl')).current;
-  const brResponder = useRef(makeResponder('br')).current;
+  const [responders] = useState(() => ({
+    move: makeResponder('move'),
+    tl: makeResponder('tl'),
+    tr: makeResponder('tr'),
+    bl: makeResponder('bl'),
+    br: makeResponder('br'),
+  }));
 
   const stepArea = (dx: number, dy: number, grow: number) => {
     const r = rectRef.current;
     const d = dispRef.current;
     if (!r || !d) return;
-    const w = Math.max(MIN_SIZE, Math.min(d.w, r.w + grow * d.w * STEP));
-    const h = Math.max(MIN_SIZE, Math.min(d.h, r.h + grow * d.h * STEP));
-    const next = clampRect({x: r.x + (r.w - w) / 2 + dx * d.w * STEP, y: r.y + (r.h - h) / 2 + dy * d.h * STEP, w, h});
+    const next = stepCropArea(r, d, STEP, dx, dy, grow);
     rectRef.current = next;
     setRect(next);
   };
 
-  const stepCorner = (corner: Corner, dx: number, dy: number) => {
+  const stepCorner = (corner: CropCorner, dx: number, dy: number) => {
     const r = rectRef.current;
     const d = dispRef.current;
     if (!r || !d) return;
-    let left = r.x, top = r.y, right = r.x + r.w, bottom = r.y + r.h;
-    if (corner === 'tl' || corner === 'bl') left = Math.max(d.x, Math.min(right - MIN_SIZE, left + dx * d.w * STEP));
-    else right = Math.min(d.x + d.w, Math.max(left + MIN_SIZE, right + dx * d.w * STEP));
-    if (corner === 'tl' || corner === 'tr') top = Math.max(d.y, Math.min(bottom - MIN_SIZE, top + dy * d.h * STEP));
-    else bottom = Math.min(d.y + d.h, Math.max(top + MIN_SIZE, bottom + dy * d.h * STEP));
-    const next = {x: left, y: top, w: right - left, h: bottom - top};
+    const next = stepCropCorner(r, d, STEP, corner, dx, dy);
     rectRef.current = next;
     setRect(next);
   };
@@ -173,7 +140,7 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
     else if (m) stepArea(m[0], m[1], 0);
   };
 
-  const onCornerAction = (corner: Corner, name: string) => {
+  const onCornerAction = (corner: CropCorner, name: string) => {
     const m = MOVES[name];
     const [ox, oy] = OUTWARD[corner];
     if (name === 'increment') stepCorner(corner, ox, oy);
@@ -181,12 +148,14 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
     else if (m) stepCorner(corner, m[0], m[1]);
   };
 
-  const finish = (result: {uri: string} | null) => {
+  const take = () => {
     const r = reqRef.current;
     reqRef.current = null;
     setReq(null);
-    r?.resolve(result);
+    return r;
   };
+
+  const finish = (result: {uri: string} | null) => take()?.resolve(result);
 
   const confirmCrop = async () => {
     const r = rectRef.current;
@@ -194,21 +163,11 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
     if (!req || !r || !d || !natural || busy) return;
     setBusy(true);
     try {
-      const sx = natural.w / d.w;
-      const sy = natural.h / d.h;
-      const offset = {
-        x: Math.max(0, Math.round((r.x - d.x) * sx)),
-        y: Math.max(0, Math.round((r.y - d.y) * sy)),
-      };
-      const size = {
-        width: Math.max(1, Math.min(natural.w - offset.x, Math.round(r.w * sx))),
-        height: Math.max(1, Math.min(natural.h - offset.y, Math.round(r.h * sy))),
-      };
-      const out = await ImageEditor.cropImage(req.src.uri, {offset, size});
-      const uri = typeof out === 'string' ? out : out?.uri;
-      finish(uri ? {uri} : null);
-    } catch {
-      finish(null);
+      const {x, y, width, height} = cropPixels(r, d, natural);
+      const {uri} = await ImageEditor.cropImage(req.src.uri, {offset: {x, y}, size: {width, height}});
+      finish({uri});
+    } catch (e) {
+      take()?.reject(e);
     } finally {
       setBusy(false);
     }
@@ -235,36 +194,39 @@ export const ImageCropHost = ({theme: T}: {theme: ThemeColors}) => {
           )}
           {rect && disp && (
             <>
-              <View pointerEvents="none" style={{position: 'absolute', left: disp.x, top: disp.y, width: disp.w, height: rect.y - disp.y, backgroundColor: 'rgba(0,0,0,0.55)'}} />
-              <View pointerEvents="none" style={{position: 'absolute', left: disp.x, top: rect.y + rect.h, width: disp.w, height: disp.y + disp.h - rect.y - rect.h, backgroundColor: 'rgba(0,0,0,0.55)'}} />
-              <View pointerEvents="none" style={{position: 'absolute', left: disp.x, top: rect.y, width: rect.x - disp.x, height: rect.h, backgroundColor: 'rgba(0,0,0,0.55)'}} />
-              <View pointerEvents="none" style={{position: 'absolute', left: rect.x + rect.w, top: rect.y, width: disp.x + disp.w - rect.x - rect.w, height: rect.h, backgroundColor: 'rgba(0,0,0,0.55)'}} />
+              <Shade left={disp.x} top={disp.y} width={disp.w} height={rect.y - disp.y} />
+              <Shade left={disp.x} top={rect.y + rect.h} width={disp.w} height={disp.y + disp.h - rect.y - rect.h} />
+              <Shade left={disp.x} top={rect.y} width={rect.x - disp.x} height={rect.h} />
+              <Shade left={rect.x + rect.w} top={rect.y} width={disp.x + disp.w - rect.x - rect.w} height={rect.h} />
               <View
-                {...moveResponder.panHandlers}
+                {...responders.move.panHandlers}
                 accessible accessibilityRole="adjustable" accessibilityLabel={i18n.t('modal.cropArea')}
                 accessibilityValue={{text: i18n.t('modal.cropAreaValue', {w: pct(rect.w, disp.w), h: pct(rect.h, disp.h), x: pct(rect.x - disp.x, disp.w), y: pct(rect.y - disp.y, disp.h)})}}
                 accessibilityActions={cropActions}
                 onAccessibilityAction={e => onAreaAction(e.nativeEvent.actionName)}
                 style={{position: 'absolute', left: rect.x, top: rect.y, width: rect.w, height: rect.h, borderWidth: 2, borderColor: T.accent}}
               />
-              {([['tl', tlResponder], ['tr', trResponder], ['bl', blResponder], ['br', brResponder]] as [Corner, typeof tlResponder][]).map(([corner, resp]) => (
-                <View
-                  key={corner}
-                  {...resp.panHandlers}
-                  accessible accessibilityRole="adjustable" accessibilityLabel={i18n.t(CORNER_LABEL[corner])}
-                  accessibilityValue={{text: i18n.t('modal.cropHandleValue', {x: pct((corner === 'tl' || corner === 'bl' ? rect.x : rect.x + rect.w) - disp.x, disp.w), y: pct((corner === 'tl' || corner === 'tr' ? rect.y : rect.y + rect.h) - disp.y, disp.h)})}}
-                  accessibilityActions={cropActions}
-                  onAccessibilityAction={e => onCornerAction(corner, e.nativeEvent.actionName)}
-                  hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-                  style={{
-                    position: 'absolute',
-                    left: (corner === 'tl' || corner === 'bl' ? rect.x : rect.x + rect.w) - HANDLE / 2,
-                    top: (corner === 'tl' || corner === 'tr' ? rect.y : rect.y + rect.h) - HANDLE / 2,
-                    width: HANDLE, height: HANDLE, alignItems: 'center', justifyContent: 'center',
-                  }}>
-                  <View style={{width: 14, height: 14, borderRadius: 7, backgroundColor: T.accent, borderWidth: 2, borderColor: '#fff'}} />
-                </View>
-              ))}
+              {CROP_CORNERS.map(corner => {
+                const at = cornerPoint(corner, rect);
+                return (
+                  <View
+                    key={corner}
+                    {...responders[corner].panHandlers}
+                    accessible accessibilityRole="adjustable" accessibilityLabel={i18n.t(CORNER_LABEL[corner])}
+                    accessibilityValue={{text: i18n.t('modal.cropHandleValue', {x: pct(at.x - disp.x, disp.w), y: pct(at.y - disp.y, disp.h)})}}
+                    accessibilityActions={cropActions}
+                    onAccessibilityAction={e => onCornerAction(corner, e.nativeEvent.actionName)}
+                    hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+                    style={{
+                      position: 'absolute',
+                      left: at.x - HANDLE / 2,
+                      top: at.y - HANDLE / 2,
+                      width: HANDLE, height: HANDLE, alignItems: 'center', justifyContent: 'center',
+                    }}>
+                    <View style={{width: 14, height: 14, borderRadius: 7, backgroundColor: T.accent, borderWidth: 2, borderColor: '#fff'}} />
+                  </View>
+                );
+              })}
             </>
           )}
         </View>

@@ -1,8 +1,8 @@
 import {useEffect, useRef} from 'react';
-import {FrontState, Member, AppSettings, NoteboardEntry} from '../utils';
+import {FrontState, Member, AppSettings, NoteboardEntry, allFrontMemberIds} from '../utils';
 import {store, KEYS} from '../storage';
-import {showNoteboardNotification, clearNoteboardNotification} from '../services/NotificationService';
-import {logError} from '../utils/log';
+import {showNoteboardNotification, clearNoteboardNotification} from '../services/messageNotifications';
+import {log, logError} from '../utils/log';
 
 export const useNoteboardNotifications = (front: FrontState | null, members: Member[], appSettings: AppSettings) => {
   const prevFrontIdsRef = useRef<Set<string>>(new Set());
@@ -12,18 +12,7 @@ export const useNoteboardNotifications = (front: FrontState | null, members: Mem
       clearNoteboardNotification().catch(e => logError('notif', e));
       return;
     }
-    const collectFrontIds = (f: FrontState | null): Set<string> => {
-      const ids = new Set<string>();
-      if (!f) return ids;
-      const tiers: (keyof FrontState)[] = ['primary', 'coFront', 'coConscious'];
-      for (const tk of tiers) {
-        const tier = (f as any)[tk];
-        const tierIds: string[] = tier?.memberIds || [];
-        tierIds.forEach(id => ids.add(id));
-      }
-      return ids;
-    };
-    const currentIds = collectFrontIds(front);
+    const currentIds = new Set(allFrontMemberIds(front));
     const newlyFronting: string[] = [];
     currentIds.forEach(id => { if (!prevFrontIdsRef.current.has(id)) newlyFronting.push(id); });
     prevFrontIdsRef.current = currentIds;
@@ -52,7 +41,7 @@ export const useNoteboardNotifications = (front: FrontState | null, members: Mem
           await showNoteboardNotification(entries);
           await store.set(KEYS.lastNoteboardSeen, {...lastSeen, ...notified});
         }
-      } catch (e) { console.error('[PS] noteboard unread check error:', e); }
+      } catch (e) { log.error('notifications', 'noteboard unread check error:', e); }
     })();
   }, [front, members, appSettings.notificationsEnabled, appSettings.noteboardNotifications, appSettings.accountMode]);
 };

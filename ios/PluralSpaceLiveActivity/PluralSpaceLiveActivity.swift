@@ -2,19 +2,81 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
+private let accent = Color(hex: "#DAA520")
+
+private func caption(_ text: String) -> some View {
+  Text(text)
+    .font(.caption2.weight(.semibold))
+    .foregroundStyle(.secondary)
+}
+
+private func icon(_ systemName: String) -> some View {
+  Image(systemName: systemName)
+    .foregroundStyle(accent)
+}
+
+@ViewBuilder
+private func labeledLine(_ label: String, _ value: String?) -> some View {
+  if let value, !value.isEmpty {
+    HStack(alignment: .firstTextBaseline, spacing: 8) {
+      caption(label.uppercased())
+      Text(value)
+        .font(.caption)
+        .lineLimit(1)
+    }
+  }
+}
+
+@ViewBuilder
+private func chip(_ label: String, _ value: String?) -> some View {
+  if let value, !value.isEmpty {
+    HStack(spacing: 6) {
+      caption(label)
+      Text(value)
+        .font(.caption)
+        .lineLimit(1)
+    }
+    .padding(.horizontal, 10)
+    .padding(.vertical, 6)
+    .background(Color.white.opacity(0.08), in: Capsule())
+  }
+}
+
+@available(iOS 16.1, *)
+private extension View {
+  func activityChrome() -> some View {
+    activityBackgroundTint(Color.black.opacity(0.92))
+      .activitySystemActionForegroundColor(accent)
+  }
+}
+
+@available(iOS 16.1, *)
+private extension PluralSpaceActivityAttributes.ContentState {
+  var frontTitle: String { frontLabel ?? "Front" }
+  var coFrontTitle: String { coFrontLabel ?? "Co-Front" }
+  var coConsciousTitle: String { coConsciousLabel ?? "Co-Conscious" }
+  var moodTitle: String { moodLabel ?? "Mood" }
+  var locationTitle: String { locationLabel ?? "At" }
+  var friendsTitle: String { friendsLabel ?? "Friends" }
+}
+
+@available(iOS 16.1, *)
+private extension PluralStarFriendsActivityAttributes {
+  var heading: String { title ?? "Friends" }
+}
+
 @available(iOS 16.1, *)
 struct PluralSpaceLiveActivityWidget: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: PluralSpaceActivityAttributes.self) { context in
       LockScreenView(context: context)
-        .activityBackgroundTint(Color.black.opacity(0.92))
-        .activitySystemActionForegroundColor(Color(hex: "#DAA520"))
+        .activityChrome()
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          Label("Front", systemImage: "person.2.fill")
+          Label(context.state.frontTitle, systemImage: "person.2.fill")
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Color(hex: "#DAA520"))
+            .foregroundStyle(accent)
         }
         DynamicIslandExpandedRegion(.trailing) {
           Text(context.state.startTime, style: .timer)
@@ -23,9 +85,7 @@ struct PluralSpaceLiveActivityWidget: Widget {
         }
         DynamicIslandExpandedRegion(.center) {
           VStack(alignment: .leading, spacing: 4) {
-            Text(context.attributes.systemName)
-              .font(.caption2.weight(.semibold))
-              .foregroundStyle(.secondary)
+            caption(context.attributes.systemName)
             Text(context.state.primaryText)
               .font(.headline)
               .lineLimit(1)
@@ -33,43 +93,21 @@ struct PluralSpaceLiveActivityWidget: Widget {
         }
         DynamicIslandExpandedRegion(.bottom) {
           VStack(alignment: .leading, spacing: 6) {
-            if let coFrontText = context.state.coFrontText, !coFrontText.isEmpty {
-              detailRow(label: "Co-Front", value: coFrontText)
-            }
-            if let coConsciousText = context.state.coConsciousText, !coConsciousText.isEmpty {
-              detailRow(label: "Co-Conscious", value: coConsciousText)
-            }
-            if let mood = context.state.mood, !mood.isEmpty {
-              detailRow(label: "Mood", value: mood)
-            }
-            if let location = context.state.location, !location.isEmpty {
-              detailRow(label: "At", value: location)
-            }
+            labeledLine(context.state.coFrontTitle, context.state.coFrontText)
+            labeledLine(context.state.coConsciousTitle, context.state.coConsciousText)
+            labeledLine(context.state.moodTitle, context.state.mood)
+            labeledLine(context.state.locationTitle, context.state.location)
           }
         }
       } compactLeading: {
-        Image(systemName: "person.2.fill")
-          .foregroundStyle(Color(hex: "#DAA520"))
+        icon("person.2.fill")
       } compactTrailing: {
         Text(context.state.startTime, style: .timer)
           .font(.caption2.monospacedDigit())
       } minimal: {
-        Image(systemName: "person.2.fill")
-          .foregroundStyle(Color(hex: "#DAA520"))
+        icon("person.2.fill")
       }
-      .keylineTint(Color(hex: "#DAA520"))
-    }
-  }
-
-  @ViewBuilder
-  private func detailRow(label: String, value: String) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Text(label.uppercased())
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-      Text(value)
-        .font(.caption)
-        .lineLimit(1)
+      .keylineTint(accent)
     }
   }
 }
@@ -92,23 +130,15 @@ private struct LockScreenView: View {
         Spacer()
         Text(context.state.startTime, style: .timer)
           .font(.subheadline.monospacedDigit())
-          .foregroundStyle(Color(hex: "#DAA520"))
+          .foregroundStyle(accent)
       }
 
-      if let coFrontText = context.state.coFrontText, !coFrontText.isEmpty {
-        labeledLine("Co-Front", coFrontText)
-      }
-      if let coConsciousText = context.state.coConsciousText, !coConsciousText.isEmpty {
-        labeledLine("Co-Conscious", coConsciousText)
-      }
+      labeledLine(context.state.coFrontTitle, context.state.coFrontText)
+      labeledLine(context.state.coConsciousTitle, context.state.coConsciousText)
 
       HStack(spacing: 12) {
-        if let mood = context.state.mood, !mood.isEmpty {
-          chip(label: "Mood", value: mood)
-        }
-        if let location = context.state.location, !location.isEmpty {
-          chip(label: "At", value: location)
-        }
+        chip(context.state.moodTitle, context.state.mood)
+        chip(context.state.locationTitle, context.state.location)
       }
 
       if let note = context.state.note, !note.isEmpty {
@@ -120,9 +150,7 @@ private struct LockScreenView: View {
 
       if let friendsText = context.state.friendsText, !friendsText.isEmpty {
         VStack(alignment: .leading, spacing: 3) {
-          Text("FRIENDS")
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(.secondary)
+          caption(context.state.friendsTitle.uppercased())
           Text(friendsText)
             .font(.caption)
             .lineLimit(5)
@@ -132,33 +160,6 @@ private struct LockScreenView: View {
     .padding(.horizontal, 16)
     .padding(.vertical, 14)
   }
-
-  @ViewBuilder
-  private func labeledLine(_ label: String, _ value: String) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 8) {
-      Text(label.uppercased())
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-      Text(value)
-        .font(.caption)
-        .lineLimit(1)
-    }
-  }
-
-  @ViewBuilder
-  private func chip(label: String, value: String) -> some View {
-    HStack(spacing: 6) {
-      Text(label)
-        .font(.caption2.weight(.semibold))
-        .foregroundStyle(.secondary)
-      Text(value)
-        .font(.caption)
-        .lineLimit(1)
-    }
-    .padding(.horizontal, 10)
-    .padding(.vertical, 6)
-    .background(Color.white.opacity(0.08), in: Capsule())
-  }
 }
 
 @available(iOS 16.1, *)
@@ -166,23 +167,20 @@ struct PluralStarFriendsActivityWidget: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: PluralStarFriendsActivityAttributes.self) { context in
       VStack(alignment: .leading, spacing: 6) {
-        Text("FRIENDS")
-          .font(.caption2.weight(.semibold))
-          .foregroundStyle(.secondary)
+        caption(context.attributes.heading.uppercased())
         Text(context.state.lines)
           .font(.caption)
           .lineLimit(6)
       }
       .padding(.horizontal, 16)
       .padding(.vertical, 14)
-      .activityBackgroundTint(Color.black.opacity(0.92))
-      .activitySystemActionForegroundColor(Color(hex: "#DAA520"))
+      .activityChrome()
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
-          Label("Friends", systemImage: "person.2.wave.2.fill")
+          Label(context.attributes.heading, systemImage: "person.2.wave.2.fill")
             .font(.caption.weight(.semibold))
-            .foregroundStyle(Color(hex: "#DAA520"))
+            .foregroundStyle(accent)
         }
         DynamicIslandExpandedRegion(.bottom) {
           Text(context.state.lines)
@@ -190,15 +188,13 @@ struct PluralStarFriendsActivityWidget: Widget {
             .lineLimit(6)
         }
       } compactLeading: {
-        Image(systemName: "person.2.wave.2.fill")
-          .foregroundStyle(Color(hex: "#DAA520"))
+        icon("person.2.wave.2.fill")
       } compactTrailing: {
         EmptyView()
       } minimal: {
-        Image(systemName: "person.2.wave.2.fill")
-          .foregroundStyle(Color(hex: "#DAA520"))
+        icon("person.2.wave.2.fill")
       }
-      .keylineTint(Color(hex: "#DAA520"))
+      .keylineTint(accent)
     }
   }
 }

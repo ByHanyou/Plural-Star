@@ -1,22 +1,26 @@
 import React, {useState} from 'react';
-import {View, Image, StyleSheet, ScrollView, Platform, TouchableOpacity, AccessibilityInfo} from 'react-native';
+import {View, Image, ScrollView, TouchableOpacity, AccessibilityInfo} from 'react-native';
 import {KeyboardAvoidingView} from 'react-native-keyboard-controller';
 import {Text, TextInput} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors, initialOn} from '../theme';
+import {fontScale, initialOn} from '../theme';
+import {useTheme} from '../themeContext';
+import {useKeyboardBehavior} from '../hooks/useKeyboardBehavior';
+import {entry} from './entryStyles';
 
 interface Props {
-  theme: ThemeColors;
   password: string;
   systemName?: string;
   onUnlock: () => void;
 }
 
-export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) => {
+export const LockScreen = ({password, systemName, onUnlock}: Props) => {
+  const T = useTheme();
   const fs = fontScale(T);
   const {t} = useTranslation();
   const [input, setInput] = useState('');
   const [error, setError] = useState('');
+  const behavior = useKeyboardBehavior();
 
   const submit = () => {
     if (input === password) {
@@ -30,13 +34,13 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
   };
 
   return (
-    <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
-        <Image source={require('../assets/splash-logo.png')} style={s.logo} resizeMode="contain" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
-        <Text accessibilityRole="header" style={[s.heading, {color: T.accent, fontSize: fs(24)}]}>{systemName || t('lock.locked')}</Text>
-        <Text style={[s.sub, {color: T.dim, fontSize: fs(14)}]}>{t('lock.subtitle')}</Text>
-        <View style={s.form}>
-          <Text style={[s.label, {color: T.dim, fontSize: fs(10)}]}>{t('lock.password')}</Text>
+    <KeyboardAvoidingView style={{flex: 1, backgroundColor: T.bg}} behavior={behavior}>
+      <ScrollView contentContainerStyle={entry.container} keyboardShouldPersistTaps="handled">
+        <Image source={require('../assets/splash-logo.png')} style={entry.logo} resizeMode="contain" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
+        <Text accessibilityRole="header" style={[entry.heading, {color: T.accent, fontSize: fs(24), textAlign: 'center'}]}>{systemName || t('lock.locked')}</Text>
+        <Text style={[entry.sub, {color: T.dim, fontSize: fs(14), textAlign: 'center'}]}>{t('lock.subtitle')}</Text>
+        <View style={entry.form}>
+          <Text style={[entry.label, {color: T.dim, fontSize: fs(10)}]}>{t('lock.password')}</Text>
           <TextInput
             value={input}
             onChangeText={v => { setInput(v); if (error) setError(''); }}
@@ -46,26 +50,14 @@ export const LockScreen = ({theme: T, password, systemName, onUnlock}: Props) =>
             autoFocus
             onSubmitEditing={submit}
             returnKeyType="go"
-            style={[s.input, {backgroundColor: T.surface, color: T.text, borderColor: error ? T.danger : T.border, fontSize: fs(14)}]}
+            style={[entry.input, {backgroundColor: T.surface, color: T.text, borderColor: error ? T.danger : T.border, fontSize: fs(14)}]}
           />
           {error ? <Text style={{fontSize: fs(12), color: T.danger, marginBottom: 10, marginTop: -8}}>{error}</Text> : null}
-          <TouchableOpacity onPress={submit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('lock.unlock')} style={[s.btn, {backgroundColor: T.accent}]}>
-            <Text style={[s.btnText, {color: initialOn(T.accent), fontSize: fs(15)}]}>{t('lock.unlock')}</Text>
+          <TouchableOpacity onPress={submit} activeOpacity={0.8} accessibilityRole="button" accessibilityLabel={t('lock.unlock')} style={[entry.btn, {backgroundColor: T.accent}]}>
+            <Text style={[entry.btnText, {color: initialOn(T.accent), fontSize: fs(15)}]}>{t('lock.unlock')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
-
-const s = StyleSheet.create({
-  container: {flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingVertical: 48},
-  logo: {width: 180, height: 180, marginBottom: 24},
-  heading: {fontFamily: Fonts.display, fontSize: 24, fontWeight: '600', fontStyle: 'italic', marginBottom: 8, textAlign: 'center'},
-  sub: {fontSize: 14, marginBottom: 40, textAlign: 'center'},
-  form: {width: '100%'},
-  label: {fontSize: 10, letterSpacing: 1, fontWeight: '600', marginBottom: 5},
-  input: {borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, marginBottom: 14},
-  btn: {borderRadius: 8, paddingVertical: 14, alignItems: 'center', marginTop: 4},
-  btnText: {fontSize: 15, fontWeight: '700', color: '#0a0508'},
-});

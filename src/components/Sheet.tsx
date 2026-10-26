@@ -1,15 +1,16 @@
-import React, {ReactNode, useEffect, useLayoutEffect, useRef, useState} from 'react';
+import React, {ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {View, ScrollView, TouchableOpacity, StyleSheet, Platform} from 'react-native';
 import {Text} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {TrueSheet} from '@lodev09/react-native-true-sheet';
-import {Fonts, ThemeColors} from '../theme';
+import {Fonts} from '../theme';
+import {useTheme} from '../themeContext';
 import {useTranslation} from 'react-i18next';
+import {log} from '../utils/log';
 
 interface SheetProps {
   visible: boolean;
   title: string;
-  theme: ThemeColors;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -22,7 +23,8 @@ const ANDROID_NAV_BAR_FLOOR = 24;
 const PRESENT_RETRY_MS = 800;
 const PRESENT_MAX_ATTEMPTS = 10;
 
-export const Sheet = ({visible, title, theme: T, onClose, children, footer, headerAction}: SheetProps) => {
+export const Sheet = ({visible, title, onClose, children, footer, headerAction}: SheetProps) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const sheetRef = useRef<TrueSheet>(null);
   const insets = useSafeAreaInsets();
@@ -39,17 +41,22 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
   onCloseRef.current = onClose;
   const sessionRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearTimer = () => {
+  const clearTimer = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-  };
-  const dismissNow = () => {
+  }, []);
+  const dismissNow = useCallback(() => {
     dismissingRef.current = true;
-    Promise.resolve(sheetRef.current?.dismiss()).catch(() => {});
-  };
-  const presentWithRetry = (session: number, delayFirst: boolean) => {
+    Promise.resolve(sheetRef.current?.dismiss()).catch(e => log.debug('sheet', e));
+  }, []);
+  const dismissIfPresented = useCallback(() => {
+    if (!presentedRef.current) return;
+    presentedRef.current = false;
+    dismissNow();
+  }, [dismissNow]);
+  const presentWithRetry = useCallback((session: number, delayFirst: boolean) => {
     clearTimer();
     let attempts = 0;
     const tick = () => {
@@ -61,12 +68,12 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
         return;
       }
       attempts += 1;
-      Promise.resolve(sheetRef.current?.present()).catch(() => {});
+      Promise.resolve(sheetRef.current?.present()).catch(e => log.debug('sheet', e));
       timerRef.current = setTimeout(tick, PRESENT_RETRY_MS);
     };
     if (delayFirst) timerRef.current = setTimeout(tick, PRESENT_RETRY_MS / 2);
     else tick();
-  };
+  }, [clearTimer, dismissNow]);
 
   useEffect(() => {
     sessionRef.current += 1;
@@ -75,20 +82,12 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
       presentWithRetry(sessionRef.current, false);
     } else {
       clearTimer();
-      if (presentedRef.current) {
-        presentedRef.current = false;
-        dismissNow();
-      }
+      dismissIfPresented();
     }
     return clearTimer;
-  }, [visible]);
+  }, [visible, presentWithRetry, clearTimer, dismissIfPresented]);
 
-  useLayoutEffect(() => () => {
-    if (presentedRef.current) {
-      presentedRef.current = false;
-      dismissNow();
-    }
-  }, []);
+  useLayoutEffect(() => dismissIfPresented, [dismissIfPresented]);
 
   const scrollPaddingBottom = (footer ? 8 : 56) + bottomInset;
 
@@ -102,10 +101,7 @@ export const Sheet = ({visible, title, theme: T, onClose, children, footer, head
         presentedRef.current = true;
         dismissingRef.current = false;
         clearTimer();
-        if (!visibleRef.current) {
-          presentedRef.current = false;
-          dismissNow();
-        }
+        if (!visibleRef.current) dismissIfPresented();
       }}
       onDidDismiss={() => {
         const wasPresented = presentedRef.current;

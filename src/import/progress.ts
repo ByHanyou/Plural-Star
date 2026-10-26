@@ -1,4 +1,5 @@
 import type {TFunction} from 'i18next';
+import {clamp} from '../utils';
 
 export interface ImportProgress {
   label: string;
@@ -9,9 +10,9 @@ export interface ImportProgress {
   stopping?: boolean;
 }
 
-export type ProgressSetter = (p: ImportProgress | string) => void;
+export type ProgressSetter = (p: ImportProgress) => void;
 
-class ImportStopped extends Error {
+export class ImportStopped extends Error {
   readonly completedCount: number;
   constructor(completedCount = 0) {
     super('import stopped by user');
@@ -20,7 +21,8 @@ class ImportStopped extends Error {
   }
 }
 
-export const isImportStopped = (e: any): boolean => e?.name === 'ImportStopped';
+export const isImportStopped = (e: unknown): e is ImportStopped =>
+  e instanceof ImportStopped || (e as {name?: unknown} | null)?.name === 'ImportStopped';
 
 export class ImportControl {
   private cancelled = false;
@@ -72,10 +74,6 @@ export class ImportControl {
     this.emit();
   }
 
-  get stopped(): boolean {
-    return this.cancelled;
-  }
-
   private emit(done?: number, total?: number): void {
     this.setProgress({
       label: this.currentLabel,
@@ -90,9 +88,9 @@ export class ImportControl {
 
 export const progressFraction = (p: ImportProgress | null): number | null => {
   if (!p || p.phases <= 0) return null;
-  const inner = p.total && p.total > 0 ? Math.min(1, Math.max(0, (p.done || 0) / p.total)) : 0;
+  const inner = p.total && p.total > 0 ? clamp((p.done || 0) / p.total, 0, 1) : 0;
   const value = (p.phase + inner) / p.phases;
-  return Math.min(0.95, Math.max(0, value));
+  return clamp(value, 0, 0.95);
 };
 
 export const stoppedSummary = (control: ImportControl, t: TFunction): string =>

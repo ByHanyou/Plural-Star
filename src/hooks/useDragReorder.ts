@@ -65,6 +65,11 @@ export const useDragReorder = (opts: {
     siblingsFnsRef.current.set(key, siblings);
     let handlers = respondersRef.current.get(key);
     if (!handlers) {
+      const finish = () => {
+        const cur = dragRef.current;
+        if (cur.key === key && cur.from >= 0 && cur.target !== cur.from) onDropRef.current(key, cur.from, cur.target, cur.siblings);
+        setDragBoth(IDLE);
+      };
       const responder = PanResponder.create({
         onStartShouldSetPanResponder: () => enabledRef.current,
         onMoveShouldSetPanResponder: () => enabledRef.current,
@@ -82,20 +87,8 @@ export const useDragReorder = (opts: {
           const target = computeTarget(cur.from, gs.dy, cur.siblings, ownH);
           setDragBoth({...cur, dy: gs.dy, target});
         },
-        onPanResponderRelease: () => {
-          const cur = dragRef.current;
-          if (cur.key === key && cur.from >= 0 && cur.target !== cur.from) {
-            onDropRef.current(key, cur.from, cur.target, cur.siblings);
-          }
-          setDragBoth(IDLE);
-        },
-        onPanResponderTerminate: () => {
-          const cur = dragRef.current;
-          if (cur.key === key && cur.from >= 0 && cur.target !== cur.from) {
-            onDropRef.current(key, cur.from, cur.target, cur.siblings);
-          }
-          setDragBoth(IDLE);
-        },
+        onPanResponderRelease: finish,
+        onPanResponderTerminate: finish,
         onPanResponderTerminationRequest: () => false,
       });
       handlers = responder.panHandlers;

@@ -2,19 +2,21 @@ import React from 'react';
 import {View, ScrollView, StyleSheet, TouchableOpacity} from 'react-native';
 import {Text} from '../components/AppText';
 import {useTranslation} from 'react-i18next';
-import {Fonts, fontScale, ThemeColors} from '../theme';
+import {Fonts, fontScale} from '../theme';
+import {useTheme} from '../themeContext';
 import {useAppStore} from '../store/appStore';
+import {useUiStore} from '../store/uiStore';
 import {useMinuteTick} from '../hooks/useMinuteTick';
-import {Member, FrontTierKey, isFrontEmpty, fmtTime, fmtDur, fmtNum, frontSessionStart, translateMood} from '../utils';
+import {isFrontEmpty, fmtTime, fmtDur, fmtNum, frontSessionStart, membersByIds, statusIdsOf, translateMood} from '../utils';
 
 interface Props {
-  theme: ThemeColors;
   selfId?: string;
-  onSetStatus: () => void;
-  onEditDetails: (tier: FrontTierKey) => void;
 }
 
-export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Props) => {
+export const StatusScreen = ({selfId}: Props) => {
+  const T = useTheme();
+  const onSetStatus = useUiStore(s => s.openSetStatus);
+  const onEditDetails = useUiStore(s => s.openEditFrontDetail);
   useMinuteTick();
   const front = useAppStore(s => s.front);
   const members = useAppStore(s => s.members);
@@ -24,10 +26,14 @@ export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Pro
 
   const empty = isFrontEmpty(front);
   const tier = front?.primary;
-  const statuses = (tier?.memberIds || [])
-    .filter(id => id !== selfId)
-    .map(getMember)
-    .filter(Boolean) as Member[];
+  const statuses = membersByIds(statusIdsOf(front, selfId), getMember);
+  const since = front ? frontSessionStart(front) : null;
+  const detailRow = (label: string, value: string | undefined) => (value ? (
+    <View style={s.row}>
+      <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{label}</Text>
+      <Text style={{fontSize: fs(13), color: T.text}}>{value}</Text>
+    </View>
+  ) : null);
 
   return (
     <View style={{flex: 1}}>
@@ -63,33 +69,13 @@ export const StatusScreen = ({theme: T, selfId, onSetStatus, onEditDetails}: Pro
             {statuses.length === 0 && (
               <Text style={{fontSize: fs(12), color: T.muted, marginBottom: 10, fontStyle: 'italic'}}>{t('status.noStatuses')}</Text>
             )}
-            {tier?.mood ? (
-              <View style={s.row}>
-                <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{t('modal.mood')}</Text>
-                <Text style={{fontSize: fs(13), color: T.text}}>{translateMood(tier.mood, t)}</Text>
-              </View>
-            ) : null}
-            {tier?.location ? (
-              <View style={s.row}>
-                <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{t('modal.location')}</Text>
-                <Text style={{fontSize: fs(13), color: T.text}}>{tier.location}</Text>
-              </View>
-            ) : null}
-            {tier?.energyLevel != null ? (
-              <View style={s.row}>
-                <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{t('energy.level')}</Text>
-                <Text style={{fontSize: fs(13), color: T.text}}>{t('energy.outOfTen', {n: fmtNum(tier.energyLevel, 0)})}</Text>
-              </View>
-            ) : null}
-            {tier?.note ? (
-              <View style={s.row}>
-                <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{t('modal.note')}</Text>
-                <Text style={{fontSize: fs(13), color: T.text}}>{tier.note}</Text>
-              </View>
-            ) : null}
-            {front ? (
+            {detailRow(t('modal.mood'), tier?.mood ? translateMood(tier.mood, t) : '')}
+            {detailRow(t('modal.location'), tier?.location)}
+            {detailRow(t('energy.level'), tier?.energyLevel != null ? t('energy.outOfTen', {n: fmtNum(tier.energyLevel, 0)}) : '')}
+            {detailRow(t('modal.note'), tier?.note)}
+            {since !== null ? (
               <Text style={{fontSize: fs(11), color: T.muted, marginTop: 8}}>
-                {t('status.since', {time: fmtTime(frontSessionStart(front))})} · {fmtDur(frontSessionStart(front))}
+                {t('status.since', {time: fmtTime(since)})} · {fmtDur(since)}
               </Text>
             ) : null}
           </TouchableOpacity>

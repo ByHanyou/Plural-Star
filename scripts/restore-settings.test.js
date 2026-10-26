@@ -34,8 +34,13 @@ async function restore(current, incoming, restoreIsBundle, importMode, selection
         writes++;
       },
     }},
-    '../export/exportUtils': {importZipBundle: async () => ({data})},
-    './importNames': {}, './importError': {}, '../i18n/i18n': {}, '../utils': {},
+    './zipBundle': {importZipBundle: async () => ({data})},
+    './detect': {isNativeBackup: () => true, looksLikeOurcana: () => false, looksLikeMultiplicity: () => false, looksLikeSP: () => false, looksLikeOctocon: () => false},
+    './restoreCommon': {},
+    '../utils/log': {},
+    '../utils/mediaMigrations': {},
+    './ourcana': {}, './multiplicity': {}, './simplyPlural': {}, './octocon': {},
+    './importNames': {}, './importError': {importErrorText: e => {throw e;}}, '../i18n/i18n': {}, '../utils': {},
     '../utils/mediaUtils': {}, '../utils/concurrency': {}, './progress': {},
     './convert': {}, './spApi': {},
   };

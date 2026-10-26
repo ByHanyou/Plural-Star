@@ -1,4 +1,4 @@
-import {CloudError, CloudRequest, CloudResponse, CloudTransport, RemoteDevice, RemoteManifest, Tier, VaultInfo} from './cloudTypes';
+import {CloudError, CloudLimits, CloudRequest, CloudResponse, CloudTransport, RemoteDevice, RemoteManifest, Tier, VaultInfo} from './cloudTypes';
 import {base64ToBytes, bytesToBase64} from './cloudCrypto';
 import {strFromU8, strToU8} from 'fflate';
 
@@ -10,8 +10,6 @@ const HEADER_DEVICE_ID = 'X-Ps-Device-Id';
 const HEADER_DEVICE_KEY = 'X-Ps-Device-Key';
 
 export const UPLOAD_CHUNK_BYTES = 2 * 1024 * 1024;
-const JSON_TIMEOUT_MS = 15000;
-const OBJECT_TIMEOUT_MS = 120000;
 
 export interface VaultCreds {
   lookupId: string;
@@ -28,15 +26,56 @@ const lower = (h: Record<string, string>): Record<string, string> => {
   return out;
 };
 
+type JsonObject = Record<string, unknown>;
+
+const isJsonObject = (v: unknown): v is JsonObject => !!v && typeof v === 'object' && !Array.isArray(v);
+
+const asObject = (v: unknown): JsonObject | null => (isJsonObject(v) ? v : null);
+
+const parseDevices = (v: unknown): RemoteDevice[] => {
+  if (!Array.isArray(v)) return [];
+  const out: RemoteDevice[] = [];
+  for (const raw of v) {
+    const d = asObject(raw);
+    if (!d || typeof d.sub_id !== 'string') continue;
+    out.push({sub_id: d.sub_id, label: String(d.label || ''), last_seen: Number(d.last_seen) || 0});
+  }
+  return out;
+};
+
+const parseObjects = (v: unknown): RemoteManifest['objects'] => {
+  if (!Array.isArray(v)) return [];
+  const out: RemoteManifest['objects'] = [];
+  for (const raw of v) {
+    const o = asObject(raw);
+    if (!o || typeof o.id !== 'string') continue;
+    out.push({id: o.id, tier: o.tier === 'media' ? 'media' : 'base', size: Number(o.size) || 0});
+  }
+  return out;
+};
+
+const numberMap = (v: unknown): Record<string, number> => {
+  const o = asObject(v);
+  const out: Record<string, number> = {};
+  if (!o) return out;
+  for (const k in o) {
+    const n = Number(o[k]);
+    if (Number.isFinite(n)) out[k] = n;
+  }
+  return out;
+};
+
 export class CloudApi {
   private base: string;
   private relayToken: string;
   private transport: CloudTransport;
+  private limits: CloudLimits;
 
-  constructor(relayUrl: string, relayToken: string, transport: CloudTransport) {
+  constructor(relayUrl: string, relayToken: string, transport: CloudTransport, limits: CloudLimits) {
     this.base = relayUrl.replace(/\/+$/, '');
     this.relayToken = relayToken || '';
     this.transport = transport;
+    this.limits = limits;
   }
 
   private headers(creds?: VaultCreds, extra?: Record<string, string>): Record<string, string> {
@@ -58,17 +97,17 @@ export class CloudApi {
     return {...res, headers: lower(res.headers || {})};
   }
 
-  private parseJson(res: CloudResponse): any {
+  private parseJson(res: CloudResponse): JsonObject | null {
     if (!res.bodyBase64) return null;
     try {
-      return JSON.parse(strFromU8(base64ToBytes(res.bodyBase64)));
+      return asObject(JSON.parse(strFromU8(base64ToBytes(res.bodyBase64))));
     } catch {
       return null;
     }
   }
 
   private fail(res: CloudResponse): never {
-    const body = this.parseJson(res) || {};
+    const body: JsonObject = this.parseJson(res) || {};
     const code = typeof body.error === 'string' ? body.error : `http ${res.status}`;
     const err = new CloudError(res.status, code, code, body);
     if (res.status === 429) {
@@ -78,31 +117,31 @@ export class CloudApi {
     throw err;
   }
 
-  private async json(method: CloudRequest['method'], path: string, creds?: VaultCreds, body?: unknown, query?: string): Promise<{status: number; body: any; headers: Record<string, string>}> {
+  private async json(method: CloudRequest['method'], path: string, creds?: VaultCreds, body?: unknown, query?: string): Promise<JsonObject | null> {
     const req: CloudRequest = {
       method,
       url: `${this.base}${path}${query ? `?${query}` : ''}`,
       headers: this.headers(creds, body !== undefined ? {'Content-Type': 'application/json'} : undefined),
-      timeoutMs: JSON_TIMEOUT_MS,
+      timeoutMs: this.limits.jsonTimeoutMs,
     };
     if (body !== undefined) req.bodyBase64 = bytesToBase64(strToU8(JSON.stringify(body)));
     const res = await this.send(req);
     if (res.status >= 400) this.fail(res);
-    return {status: res.status, body: this.parseJson(res), headers: res.headers};
+    return this.parseJson(res);
   }
 
   async cloudAvailable(): Promise<boolean> {
     try {
-      const {body} = await this.json('GET', '/health');
-      const roles = Array.isArray(body?.roles) ? body.roles : [];
-      return roles.includes('cloud') || !!body?.cloud;
+      const body = await this.json('GET', '/health');
+      const roles = body?.roles;
+      return (Array.isArray(roles) && roles.includes('cloud')) || !!body?.cloud;
     } catch {
       return false;
     }
   }
 
   async lookup(lookupId: string): Promise<boolean> {
-    const {body} = await this.json('POST', '/cloud/vault/lookup', undefined, {lookup_id: lookupId});
+    const body = await this.json('POST', '/cloud/vault/lookup', undefined, {lookup_id: lookupId});
     return !!body?.exists;
   }
 
@@ -115,39 +154,38 @@ export class CloudApi {
   }
 
   async info(creds: VaultCreds): Promise<VaultInfo> {
-    const {body} = await this.json('GET', '/cloud/vault/info', creds);
+    const body = await this.json('GET', '/cloud/vault/info', creds);
     return {
       created: Number(body?.created) || 0,
       updated: Number(body?.updated) || 0,
       version: Number(body?.version) || 0,
-      devices: Array.isArray(body?.devices) ? body.devices : [],
+      devices: parseDevices(body?.devices),
       graceStartedAt: body?.grace_started_at ? Number(body.grace_started_at) : undefined,
       wrappedMasterKey: String(body?.wrapped_master_key || ''),
-      usage: body?.usage || {},
-      quota: body?.quota || {},
+      usage: numberMap(body?.usage),
+      quota: numberMap(body?.quota),
     };
   }
 
   async getManifest(creds: VaultCreds, version?: number): Promise<RemoteManifest | null> {
-    let res: {status: number; body: any};
+    let b: JsonObject | null;
     try {
-      res = await this.json('GET', '/cloud/vault/manifest', creds, undefined, version ? `version=${version}` : undefined);
+      b = await this.json('GET', '/cloud/vault/manifest', creds, undefined, version ? `version=${version}` : undefined);
     } catch (e) {
-      if (e instanceof CloudError && e.status === 404 && e.code !== 'no vault') return null;
+      if (e instanceof CloudError && e.status === 404 && e.kind !== 'VAULT_MISSING') return null;
       throw e;
     }
-    const b = res.body || {};
-    if (!b.ciphertext) return null;
+    if (!b?.ciphertext) return null;
     return {
       version: Number(b.version) || 0,
       ciphertext: base64ToBytes(String(b.ciphertext)),
-      objects: Array.isArray(b.objects) ? b.objects : [],
+      objects: parseObjects(b.objects),
       wrappedMasterKey: String(b.wrapped_master_key || ''),
     };
   }
 
   async putManifest(creds: VaultCreds, expectedVersion: number, ciphertext: Uint8Array, objects: {id: string; tier: Tier; size: number}[]): Promise<number> {
-    const {body} = await this.json('PUT', '/cloud/vault/manifest', creds, {
+    const body = await this.json('PUT', '/cloud/vault/manifest', creds, {
       expected_version: expectedVersion,
       ciphertext: bytesToBase64(ciphertext),
       objects,
@@ -160,7 +198,7 @@ export class CloudApi {
       method: 'HEAD',
       url: `${this.base}/cloud/vault/objects/${id}`,
       headers: this.headers(creds),
-      timeoutMs: JSON_TIMEOUT_MS,
+      timeoutMs: this.limits.jsonTimeoutMs,
     });
     if (res.status === 200) return {exists: true, offset: 0};
     if (res.status === 404) {
@@ -175,7 +213,7 @@ export class CloudApi {
       method: 'GET',
       url: `${this.base}/cloud/vault/objects/${id}`,
       headers: this.headers(creds),
-      timeoutMs: OBJECT_TIMEOUT_MS,
+      timeoutMs: this.limits.objectTimeoutMs,
     });
     if (res.status >= 400) this.fail(res);
     return base64ToBytes(res.bodyBase64);
@@ -216,7 +254,7 @@ export class CloudApi {
         [HEADER_TIER]: tier,
       }),
       bodyBase64: bytesToBase64(chunk),
-      timeoutMs: OBJECT_TIMEOUT_MS,
+      timeoutMs: this.limits.objectTimeoutMs,
     });
     if (res.status === 409) {
       const body = this.parseJson(res) || {};
@@ -224,26 +262,26 @@ export class CloudApi {
       this.fail(res);
     }
     if (res.status >= 400) this.fail(res);
-    const body = this.parseJson(res) || {};
+    const body: JsonObject = this.parseJson(res) || {};
     return {complete: !!body.complete};
   }
 
   async linkDevice(creds: VaultCreds, subId: string, label: string): Promise<{devices: RemoteDevice[]; deviceKey: string; existed: boolean}> {
-    const {body} = await this.json('POST', '/cloud/vault/devices', vaultOnly(creds), {
+    const body = await this.json('POST', '/cloud/vault/devices', vaultOnly(creds), {
       lookup_id: creds.lookupId,
       auth_secret: creds.authSecret,
       sub_id: subId,
       label,
     });
     return {
-      devices: Array.isArray(body?.devices) ? body.devices : [],
+      devices: parseDevices(body?.devices),
       deviceKey: String(body?.device_key || ''),
       existed: !!body?.existed,
     };
   }
 
   async issueDeviceKey(creds: VaultCreds, subId: string): Promise<string> {
-    const {body} = await this.json('POST', `/cloud/vault/devices/${encodeURIComponent(subId)}/key`, vaultOnly(creds), {
+    const body = await this.json('POST', `/cloud/vault/devices/${encodeURIComponent(subId)}/key`, vaultOnly(creds), {
       lookup_id: creds.lookupId,
       auth_secret: creds.authSecret,
     });
@@ -251,8 +289,8 @@ export class CloudApi {
   }
 
   async unlinkDevice(creds: VaultCreds, subId: string): Promise<{devices: RemoteDevice[]; graceDays: number}> {
-    const {body} = await this.json('DELETE', `/cloud/vault/devices/${encodeURIComponent(subId)}`, creds);
-    return {devices: Array.isArray(body?.devices) ? body.devices : [], graceDays: Number(body?.grace_days) || 0};
+    const body = await this.json('DELETE', `/cloud/vault/devices/${encodeURIComponent(subId)}`, creds);
+    return {devices: parseDevices(body?.devices), graceDays: Number(body?.grace_days) || 0};
   }
 
   async rewrap(creds: VaultCreds, next: {lookupId?: string; authSecret?: string; wrappedMasterKeyB64: string}): Promise<void> {

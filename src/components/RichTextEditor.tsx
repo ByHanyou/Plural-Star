@@ -1,18 +1,23 @@
-import React, {useState, useMemo, useEffect, useRef} from 'react';
+import React, {useState, useMemo, useRef} from 'react';
+import {log} from '../utils/log';
 import {View, TouchableOpacity, StyleSheet, Platform, Modal, ScrollView, Keyboard, StatusBar} from 'react-native';
 import {Text, TextInput} from './AppText';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {Fonts, fontScale} from '../theme';
-import type {ThemeColors} from '../theme';
+import {useTheme} from '../themeContext';
+import {clamp} from '../utils';
 import type {Member} from '../utils';
-import {memberMatchesSearch} from '../utils';
+import {MemberPicker} from './MemberPicker';
+import {memberFacetPools} from '../picker/memberPicker';
+import {sidePictureSnippet} from '../markdown/parse';
 import i18n from '../i18n/i18n';
+import {sectionLabel} from './controls';
+import {useKeyboardHeight} from '../hooks/useKeyboardHeight';
 
 interface Props {
   visible: boolean;
   title: string;
   initialContent: string;
-  theme: ThemeColors;
   onSave: (content: string) => void;
   onClose: () => void;
   members?: Member[];
@@ -38,7 +43,8 @@ const MD_TOOLS: MdTool[] = [
   {label: '-', a11y: 'markdown.toolDivider', before: '\n---\n', after: ''},
 ];
 
-const MdToolbar = ({onInsert, T}: {onInsert: (tool: MdTool) => void; T: ThemeColors}) => {
+const MdToolbar = ({onInsert}: {onInsert: (tool: MdTool) => void}) => {
+  const T = useTheme();
   const fs = fontScale(T);
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -56,18 +62,10 @@ const MdToolbar = ({onInsert, T}: {onInsert: (tool: MdTool) => void; T: ThemeCol
   );
 };
 
-const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]; theme: ThemeColors; onPick: (m: Member) => void; onCancel: () => void}) => {
+const MentionPicker = ({members, onPick, onCancel}: {members: Member[]; onPick: (m: Member) => void; onCancel: () => void}) => {
+  const T = useTheme();
   const fs = fontScale(T);
-  const [search, setSearch] = useState('');
-  const match = (m: Member, q: string) => !m.archived && !m.isCustomFront && memberMatchesSearch(m, q);
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return members.filter(m => !m.isFacet && match(m, q));
-  }, [members, search]);
-  const filteredFacets = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return members.filter(m => m.isFacet && match(m, q));
-  }, [members, search]);
+  const pools = useMemo(() => memberFacetPools(members, k => i18n.t(k)), [members]);
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
@@ -75,68 +73,19 @@ const MentionPicker = ({members, theme: T, onPick, onCancel}: {members: Member[]
         style={{flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', paddingHorizontal: 24}}>
         <TouchableOpacity activeOpacity={1} onPress={() => {}} accessible={false}
           accessibilityViewIsModal onAccessibilityEscape={onCancel}
-          style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden'}}>
-          <View style={{padding: 12, borderBottomWidth: 1, borderBottomColor: T.border}}>
-            <Text accessibilityRole="header" style={{fontSize: fs(11), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', marginBottom: 8}}>
-              {i18n.t('mention.pickMember')}
-            </Text>
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              accessibilityLabel={i18n.t('common.search')}
-              placeholder={i18n.t('common.search')}
-              placeholderTextColor={T.muted}
-              autoFocus
-              autoCorrect={false}
-              autoComplete="off"
-              spellCheck={false}
-              textContentType="none"
-              style={{backgroundColor: T.surface, color: T.text, borderWidth: 1, borderColor: T.border, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, fontSize: fs(13)}}
-            />
-          </View>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{maxHeight: 320}}>
-            {filtered.length === 0 && filteredFacets.length === 0 ? (
-              <Text style={{fontSize: fs(13), color: T.muted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 20}}>
-                {i18n.t('mention.noMembers')}
-              </Text>
-            ) : (
-              <>
-                {filtered.length > 0 && (
-                  <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4}}>{i18n.t('members.title')}</Text>
-                )}
-                {filtered.map(m => (
-                  <TouchableOpacity key={m.id} onPress={() => onPick(m)} activeOpacity={0.7}
-                    accessibilityRole="button" accessibilityLabel={m.name}
-                    style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                    <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
-                    <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{m.name}</Text>
-                    {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
-                  </TouchableOpacity>
-                ))}
-                {filteredFacets.length > 0 && (
-                  <>
-                    <Text accessibilityRole="header" style={{fontSize: fs(10), letterSpacing: 1, textTransform: 'uppercase', color: T.dim, fontWeight: '600', paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4}}>{i18n.t('members.facets')}</Text>
-                    {filteredFacets.map(m => (
-                      <TouchableOpacity key={m.id} onPress={() => onPick(m)} activeOpacity={0.7}
-                        accessibilityRole="button" accessibilityLabel={m.name}
-                        style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: T.border}}>
-                        <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: m.color}} />
-                        <Text style={{flex: 1, fontSize: fs(14), color: T.text}}>{m.name}</Text>
-                        {m.pronouns ? <Text style={{fontSize: fs(11), color: T.muted}}>{m.pronouns}</Text> : null}
-                      </TouchableOpacity>
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-          </ScrollView>
+          style={{backgroundColor: T.card, borderRadius: 12, borderWidth: 1, borderColor: T.border, maxHeight: '70%', overflow: 'hidden', padding: 12}}>
+          <Text accessibilityRole="header" style={sectionLabel(T, {fontSize: fs(11), marginBottom: 8})}>
+            {i18n.t('mention.pickMember')}
+          </Text>
+          <MemberPicker pools={pools} onPick={onPick} autoFocus maxResults={Infinity} listMaxHeight={320} />
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
   );
 };
 
-const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, members}: {initialContent: string; theme: ThemeColors; onSave: (text: string) => void; onClose: () => void; title: string; members?: Member[]}) => {
+const MarkdownEditor = ({initialContent, onSave, onClose, title, members}: {initialContent: string; onSave: (text: string) => void; onClose: () => void; title: string; members?: Member[]}) => {
+  const T = useTheme();
   const fs = fontScale(T);
   const insets = useSafeAreaInsets();
   const [text, setTextState] = useState(initialContent || '');
@@ -148,20 +97,13 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
     setTextState(resolved);
   };
   const [showMentionPicker, setShowMentionPicker] = useState(false);
-  const [kbHeight, setKbHeight] = useState(0);
+  const kbHeight = useKeyboardHeight();
   const scrollRef = useRef<ScrollView>(null);
   const selEndRef = useRef<number>(Number.MAX_SAFE_INTEGER);
-  useEffect(() => {
-    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const s1 = Keyboard.addListener(showEvt, (e: any) => setKbHeight(e?.endCoordinates?.height || 0));
-    const s2 = Keyboard.addListener(hideEvt, () => setKbHeight(0));
-    return () => { s1.remove(); s2.remove(); };
-  }, []);
 
   const insertAtCursor = (build: (prior: string, rest: string) => string) => {
     setText(prev => {
-      const at = Math.min(Math.max(selEndRef.current, 0), prev.length);
+      const at = clamp(selEndRef.current, 0, prev.length);
       const prior = prev.slice(0, at);
       const rest = prev.slice(at);
       const snippet = build(prior, rest);
@@ -176,11 +118,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
   };
 
   const insertSidePicture = (side: 'left' | 'right') => {
-    insertAtCursor((prior, rest) => {
-      const lead = prior && !prior.endsWith('\n') ? '\n' : '';
-      const tail = !rest || rest.startsWith('\n\n') ? '' : rest.startsWith('\n') ? '\n' : '\n\n';
-      return `${lead}<img src="${i18n.t('editor.urlPlaceholder')}" width="100" height="100" align="${side}">\n${i18n.t('editor.textPlaceholder')}${tail}`;
-    });
+    insertAtCursor((prior, rest) => sidePictureSnippet(prior, rest, side, i18n.t('editor.urlPlaceholder'), i18n.t('editor.textPlaceholder')));
   };
 
   const insertTool = (tool: MdTool) => {
@@ -199,7 +137,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
       try {
         onSave(textRef.current);
       } catch (e) {
-        console.error('[PS] save error:', e);
+        log.error('editor', 'save error:', e);
       }
     }, 60);
   };
@@ -217,7 +155,7 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
       </View>
       <View style={{flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: T.border, backgroundColor: T.surface}}>
         <View style={{flex: 1}}>
-          <MdToolbar onInsert={insertTool} T={T} />
+          <MdToolbar onInsert={insertTool} />
         </View>
         {members && members.length > 0 && (
           <TouchableOpacity onPress={() => setShowMentionPicker(true)} activeOpacity={0.7}
@@ -246,13 +184,14 @@ const MarkdownEditor = ({initialContent, theme: T, onSave, onClose, title, membe
         />
       </ScrollView>
       {showMentionPicker && members && (
-        <MentionPicker members={members} theme={T} onPick={insertMention} onCancel={() => setShowMentionPicker(false)} />
+        <MentionPicker members={members} onPick={insertMention} onCancel={() => setShowMentionPicker(false)} />
       )}
     </View>
   );
 };
 
-export const RichTextEditor = ({visible, title, initialContent, theme, onSave, onClose, members}: Props) => {
+export const RichTextEditor = ({visible, title, initialContent, onSave, onClose, members}: Props) => {
+  const theme = useTheme();
   if (!visible) return null;
   return (
     <Modal visible animationType="none" presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -260,7 +199,6 @@ export const RichTextEditor = ({visible, title, initialContent, theme, onSave, o
         <MarkdownEditor
           title={title}
           initialContent={initialContent}
-          theme={theme}
           onSave={onSave}
           onClose={onClose}
           members={members}

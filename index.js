@@ -1,21 +1,24 @@
 import {AppRegistry} from 'react-native';
-import notifee from 'react-native-notify-kit';
+import notifee, {EventType} from 'react-native-notify-kit';
 import App from './App';
 import {name as appName} from './app.json';
+import {logError} from './src/utils/log';
+import {NOTIF_ID, noteFrontNotifDismissed, reassertFrontNotification, rearmFrontNotificationRefresh} from './src/services/frontNotification';
 
 const handleFrontNotifEvent = allowReassert => async event => {
   try {
-    const {EventType} = require('react-native-notify-kit');
-    const svc = require('./src/services/NotificationService');
-    if (event?.detail?.notification?.id !== svc.NOTIF_ID) return;
-    if (event?.type === EventType.DISMISSED) {
-      await svc.noteFrontNotifDismissed(event?.detail?.notification);
+    const notification = event?.detail?.notification;
+    if (notification?.id !== NOTIF_ID) return;
+    if (event.type === EventType.DISMISSED) {
+      await noteFrontNotifDismissed(notification);
       return;
     }
-    if (event?.type !== EventType.DELIVERED) return;
-    if (allowReassert) await svc.reassertFrontNotification();
-    await svc.rearmFrontNotificationRefresh();
-  } catch {}
+    if (event.type !== EventType.DELIVERED) return;
+    if (allowReassert) await reassertFrontNotification();
+    await rearmFrontNotificationRefresh();
+  } catch (e) {
+    logError('notif', e);
+  }
 };
 
 notifee.onBackgroundEvent(handleFrontNotifEvent(true));

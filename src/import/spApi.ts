@@ -1,6 +1,13 @@
 import {saveAvatarFromUrl} from '../utils/mediaUtils';
+import {sleep} from '../utils/concurrency';
 
-export const normalizeSpAvatarUrl = (raw: any): string => {
+export interface SpAvatarSource {
+  avatarUrl?: unknown;
+  avatarUuid?: unknown;
+  uid?: unknown;
+}
+
+export const normalizeSpAvatarUrl = (raw: unknown): string => {
   const s = String(raw || '').trim();
   if (!s) return '';
   if (s.startsWith('//')) return 'https:' + s;
@@ -9,7 +16,7 @@ export const normalizeSpAvatarUrl = (raw: any): string => {
   if (/^[\w-]+(\.[\w-]+)+\//.test(s)) return 'https://' + s;
   return '';
 };
-export const spAvatarCandidates = (content: any, fallbackUid: string): string[] => {
+export const spAvatarCandidates = (content: SpAvatarSource | null | undefined, fallbackUid: string): string[] => {
   const out: string[] = [];
   const c = content || {};
   const uuid = String(c.avatarUuid || '');
@@ -22,10 +29,10 @@ export const spAvatarCandidates = (content: any, fallbackUid: string): string[] 
 export const downloadFirstAvatar = async (memberId: string, urls: string[]): Promise<string | undefined> => {
   for (let attempt = 0; attempt < 2; attempt++) {
     for (const u of urls) {
-      const r = await saveAvatarFromUrl(memberId, u).catch(() => undefined);
+      const r = await saveAvatarFromUrl(memberId, u);
       if (r) return r;
     }
-    if (attempt === 0) await new Promise<void>(res => setTimeout(() => res(), 1200));
+    if (attempt === 0) await sleep(1200);
   }
   return undefined;
 };

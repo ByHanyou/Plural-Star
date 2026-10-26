@@ -7,10 +7,10 @@ import {fontScale} from '../theme';
 import type {ThemeColors} from '../theme';
 import {useAppStore} from '../store/appStore';
 import {setBackgroundImage} from '../store/actions';
-import {pickImageForUpload} from '../utils/imagePicker';
+import {launchImageLibrary} from 'react-native-image-picker';
 import {removeBackgroundImage, saveBackgroundImageFromUri} from '../utils/mediaUtils';
 import {logError} from '../utils/log';
-import {Btn} from './shared';
+import {Btn} from '../components/controls';
 
 export const BackgroundSettings = ({theme: T}: {theme: ThemeColors}) => {
   const {t} = useTranslation();
@@ -26,9 +26,13 @@ export const BackgroundSettings = ({theme: T}: {theme: ThemeColors}) => {
     let next: string | undefined;
     try {
       if (!remove) {
-        const image = await pickImageForUpload({maxWidth: 1920, maxHeight: 1920, quality: 0.9});
-        if (!image) return;
-        next = await saveBackgroundImageFromUri(image.uri);
+        const result = await launchImageLibrary({mediaType: 'photo', selectionLimit: 1, includeBase64: false, maxWidth: 1920, maxHeight: 1920, quality: 0.9});
+        if (result.didCancel) return;
+        if (result.errorCode) throw new Error(result.errorMessage || result.errorCode);
+        const image = result.assets?.[0];
+        if (!image?.uri) return;
+        const uri = /^(file|content):\/\//.test(image.uri) ? image.uri : `file://${image.uri}`;
+        next = await saveBackgroundImageFromUri(uri);
       }
       const previous = useAppStore.getState().appSettings.backgroundImage;
       await setBackgroundImage(next);
@@ -51,8 +55,8 @@ export const BackgroundSettings = ({theme: T}: {theme: ThemeColors}) => {
         <BackgroundImage filename={filename} theme={T} />
       </View>}
       <View style={{flexDirection: 'row', gap: 8}}>
-        <Btn T={T} disabled={busy} onPress={() => change()} style={{flex: 1}}>{t(filename ? 'modal.changeBackgroundImage' : 'modal.chooseBackgroundImage')}</Btn>
-        {filename && <Btn T={T} variant="ghost" disabled={busy} onPress={() => change(true)}>{t('common.remove')}</Btn>}
+        <Btn disabled={busy} onPress={() => change()} style={{flex: 1}}>{t(filename ? 'modal.changeBackgroundImage' : 'modal.chooseBackgroundImage')}</Btn>
+        {filename && <Btn variant="ghost" disabled={busy} onPress={() => change(true)}>{t('common.remove')}</Btn>}
       </View>
     </View>
   );

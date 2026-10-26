@@ -6,28 +6,42 @@ import UIKit
 import ActivityKit
 #endif
 
+extension Data {
+  var hexEncoded: String { map { String(format: "%02x", $0) }.joined() }
+}
+
+private let friendsTokenWaitNanos: UInt64 = 5_000_000_000
+private let apnsTokenWaitSeconds = 10.0
+private let protectedDataWaitSeconds = 30.0
+
+private func orNull(_ value: String?) -> Any {
+  value.map { $0 as Any } ?? NSNull()
+}
+
 final class PushTokenHolder {
   static let shared = PushTokenHolder()
   private var tokenHex: String?
   private var failed = false
   private var waiters: [(String?) -> Void] = []
 
+  private func settle(_ hex: String?) {
+    let pending = waiters
+    waiters = []
+    pending.forEach { $0(hex) }
+  }
+
   func set(_ hex: String) {
     DispatchQueue.main.async {
       self.tokenHex = hex
       self.failed = false
-      let pending = self.waiters
-      self.waiters = []
-      pending.forEach { $0(hex) }
+      self.settle(hex)
     }
   }
 
   func fail() {
     DispatchQueue.main.async {
       self.failed = true
-      let pending = self.waiters
-      self.waiters = []
-      pending.forEach { $0(nil) }
+      self.settle(nil)
     }
   }
 
@@ -41,13 +55,11 @@ final class PushTokenHolder {
     DispatchQueue.main.async {
       if let t = self.tokenHex {
         cb(t)
-        return
-      }
-      if self.failed {
+      } else if self.failed {
         cb(nil)
-        return
+      } else {
+        self.waiters.append(cb)
       }
-      self.waiters.append(cb)
     }
   }
 }
@@ -160,14 +172,36 @@ class PluralSpaceLiveActivity: NSObject {
       note: payload["note"] as? String,
       startTime: Date(timeIntervalSince1970: startTimeSeconds / 1000),
       statusLine: statusLine,
-      friendsText: payload["friendsText"] as? String
+      friendsText: payload["friendsText"] as? String,
+      frontLabel: payload["frontLabel"] as? String,
+      coFrontLabel: payload["coFrontLabel"] as? String,
+      coConsciousLabel: payload["coConsciousLabel"] as? String,
+      moodLabel: payload["moodLabel"] as? String,
+      locationLabel: payload["locationLabel"] as? String,
+      friendsLabel: payload["friendsLabel"] as? String
+    )
+  }
+
+  @available(iOS 16.2, *)
+  private func friendsActivity(title: String) -> Activity<PluralStarFriendsActivityAttributes>? {
+    if let existing = Activity<PluralStarFriendsActivityAttributes>.activities.first {
+      return existing
+    }
+    return try? Activity.request(
+      attributes: PluralStarFriendsActivityAttributes(title: title),
+      content: ActivityContent(
+        state: PluralStarFriendsActivityAttributes.ContentState(lines: " "),
+        staleDate: nil
+      ),
+      pushType: .token
     )
   }
 #endif
 
-  @objc(getFriendsPushToken:rejecter:)
+  @objc(getFriendsPushToken:resolver:rejecter:)
   func getFriendsPushToken(
-    _ resolve: @escaping RCTPromiseResolveBlock,
+    _ title: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
 #if canImport(ActivityKit)
@@ -176,50 +210,30 @@ class PluralSpaceLiveActivity: NSObject {
       return
     }
     Task {
-      var activity = Activity<PluralStarFriendsActivityAttributes>.activities.first
-      if activity == nil {
-        do {
-          activity = try Activity.request(
-            attributes: PluralStarFriendsActivityAttributes(),
-            content: ActivityContent(
-              state: PluralStarFriendsActivityAttributes.ContentState(lines: " "),
-              staleDate: nil
-            ),
-            pushType: .token
-          )
-        } catch {
-          resolve(NSNull())
-          return
-        }
-      }
-      guard let act = activity else {
+      guard let act = friendsActivity(title: title) else {
         resolve(NSNull())
         return
       }
       if let token = act.pushToken {
-        resolve(token.map { String(format: "%02x", $0) }.joined())
+        resolve(token.hexEncoded)
         return
       }
       let hex = await withTaskGroup(of: String?.self) { group -> String? in
         group.addTask {
           for await data in act.pushTokenUpdates {
-            return data.map { String(format: "%02x", $0) }.joined()
+            return data.hexEncoded
           }
           return nil
         }
         group.addTask {
-          try? await Task.sleep(nanoseconds: 5_000_000_000)
+          try? await Task.sleep(nanoseconds: friendsTokenWaitNanos)
           return nil
         }
         let first = await group.next() ?? nil
         group.cancelAll()
         return first
       }
-      if let hex {
-        resolve(hex)
-      } else {
-        resolve(NSNull())
-      }
+      resolve(orNull(hex))
     }
 #else
     resolve(NSNull())
@@ -238,14 +252,10 @@ class PluralSpaceLiveActivity: NSObject {
       let finish: (String?) -> Void = { hex in
         if resolved { return }
         resolved = true
-        if let hex {
-          resolve(hex)
-        } else {
-          resolve(NSNull())
-        }
+        resolve(orNull(hex))
       }
       PushTokenHolder.shared.get(finish)
-      DispatchQueue.main.asyncAfter(deadline: .now() + 10) { finish(nil) }
+      DispatchQueue.main.asyncAfter(deadline: .now() + apnsTokenWaitSeconds) { finish(nil) }
     }
   }
 
@@ -279,7 +289,7 @@ class PluralSpaceLiveActivity: NSObject {
       ) { _ in finish(true) }
       let work = DispatchWorkItem { finish(false) }
       timeoutWork = work
-      DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: work)
+      DispatchQueue.main.asyncAfter(deadline: .now() + protectedDataWaitSeconds, execute: work)
     }
   }
 

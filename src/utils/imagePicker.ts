@@ -1,68 +1,53 @@
 import {Alert} from 'react-native';
 import {launchImageLibrary} from 'react-native-image-picker';
-import type {PhotoQuality} from 'react-native-image-picker';
 import i18n from '../i18n/i18n';
 import {requestImageCrop} from '../components/ImageCropModal';
+import {sleep} from './concurrency';
+import {errorMessage} from './log';
 
-export interface PickedImage {
-  uri: string;
-  base64?: string;
-  fileName?: string;
-  type?: string;
-  width?: number;
-  height?: number;
-}
+const asFileUri = (uri: string): string => (uri.startsWith('file://') || uri.startsWith('content://') ? uri : `file://${uri}`);
 
-const normalizePhotoQuality = (quality?: number): PhotoQuality => {
-  if (typeof quality !== 'number' || Number.isNaN(quality)) return 1;
-  const clamped = Math.max(0, Math.min(1, quality));
-  return Number(clamped.toFixed(1)) as PhotoQuality;
-};
-
-const pickImageFromGallery = async (
-  opts: {includeBase64?: boolean; quality?: number; maxWidth?: number; maxHeight?: number} = {},
-): Promise<PickedImage | null> => {
+const pickFromGallery = async (): Promise<{uri: string; width?: number; height?: number} | null> => {
   const result = await launchImageLibrary({
     mediaType: 'photo',
     selectionLimit: 1,
-    includeBase64: opts.includeBase64 ?? false,
-    quality: normalizePhotoQuality(opts.quality),
-    maxWidth: opts.maxWidth ?? 1280,
-    maxHeight: opts.maxHeight ?? 1280,
+    includeBase64: false,
+    quality: 1,
+    maxWidth: 1280,
+    maxHeight: 1280,
   });
   if (result.didCancel) return null;
-  if (result.errorCode) {
-    throw new Error(result.errorMessage || result.errorCode);
-  }
+  if (result.errorCode) throw new Error(result.errorMessage || result.errorCode);
   const a = result.assets?.[0];
-  if (!a || !a.uri) return null;
-  return {
-    uri: a.uri,
-    base64: a.base64,
-    fileName: a.fileName,
-    type: a.type,
-    width: a.width,
-    height: a.height,
-  };
+  return a?.uri ? {uri: asFileUri(a.uri), width: a.width, height: a.height} : null;
 };
 
-export const pickImageForUpload = async (
-  opts: {includeBase64?: boolean; quality?: number; maxWidth?: number; maxHeight?: number} = {},
-): Promise<PickedImage | null> => {
-  const img = await pickImageFromGallery(opts);
-  if (!img) return null;
-  const choice = await new Promise<'auto' | 'edit' | 'cancel'>(resolve => {
+const askHowToUse = (): Promise<'auto' | 'edit' | 'cancel'> =>
+  new Promise(resolve => {
     Alert.alert(i18n.t('modal.imagePickHow'), undefined, [
       {text: i18n.t('common.cancel'), style: 'cancel', onPress: () => resolve('cancel')},
       {text: i18n.t('modal.imageAuto'), onPress: () => resolve('auto')},
       {text: i18n.t('common.edit'), onPress: () => resolve('edit')},
     ], {cancelable: true, onDismiss: () => resolve('cancel')});
   });
+
+const pickImageUri = async (): Promise<string | null> => {
+  const img = await pickFromGallery();
+  if (!img) return null;
+  const choice = await askHowToUse();
   if (choice === 'cancel') return null;
-  if (choice === 'auto') return img;
-  await new Promise<void>(r => setTimeout(r, 500));
-  const cropUri = img.uri.startsWith('file://') || img.uri.startsWith('content://') ? img.uri : `file://${img.uri}`;
-  const cropped = await requestImageCrop({uri: cropUri, width: img.width, height: img.height});
-  if (!cropped) return null;
-  return {uri: cropped.uri, fileName: img.fileName, type: img.type};
+  if (choice === 'auto') return img.uri;
+  await sleep(500);
+  const cropped = await requestImageCrop(img);
+  return cropped ? asFileUri(cropped.uri) : null;
+};
+
+export const pickAndSaveImage = async (save: (fileUri: string) => Promise<string>): Promise<string | null> => {
+  try {
+    const uri = await pickImageUri();
+    return uri ? await save(uri) : null;
+  } catch (e) {
+    Alert.alert(i18n.t('modal.pfpFailed'), errorMessage(e));
+    return null;
+  }
 };
