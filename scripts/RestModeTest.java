@@ -41,6 +41,35 @@ class RestModeTest {
     // A start skipped by spring-forward must not become a new boundary later that morning.
     check(RestMode.untilStart(150, 165, at("2026-03-08T03:15:00-04:00")),
         at("2026-03-09T02:30:00-04:00") - at("2026-03-08T03:15:00-04:00"));
+    // A skipped 02:30 start becomes active at the jump to 03:00, not at 03:30.
+    check(RestMode.untilStart(150, 240, at("2026-03-08T01:30:00-05:00")), 30 * 60000L);
+    check(RestMode.untilStart(150, 240, at("2026-03-07T23:00:00-05:00")), 3 * 3600000L);
+    check(RestMode.untilStart(150, 240, at("2026-03-08T01:59:20.500-05:00")), 39500);
+    check(RestMode.untilStart(150, 240, at("2026-03-08T01:59:59.999-05:00")), 1);
+    check(RestMode.untilStart(150, 240, at("2026-03-08T03:00:00-04:00")), -1);
+    check(RestMode.untilStart(150, 240, at("2026-03-08T03:59:59.999-04:00")), -1);
+    check(RestMode.untilStart(150, 240, at("2026-03-08T04:00:00-04:00")),
+        at("2026-03-09T02:30:00-04:00") - at("2026-03-08T04:00:00-04:00"));
+    check(RestMode.untilStart(150, 195, at("2026-03-08T01:30:00-05:00")), 30 * 60000L);
+    check(RestMode.untilStart(150, 60, at("2026-03-08T01:30:00-05:00")), 30 * 60000L);
+    // If the entire rest window is skipped, wait until tomorrow's real start.
+    for (int end : new int[] {165, 180}) {
+      check(RestMode.untilStart(150, end, at("2026-03-08T01:30:00-05:00")),
+          at("2026-03-09T02:30:00-04:00") - at("2026-03-08T01:30:00-05:00"));
+    }
+    // A real 03:30 start must not be pulled back to the clock jump.
+    check(RestMode.untilStart(210, 240, at("2026-03-08T01:30:00-05:00")), 60 * 60000L);
+    // A rollback can also re-enter overnight rest at the clock jump itself.
+    check(RestMode.untilStart(1320, 105, at("2026-11-01T01:50:00-04:00")), 10 * 60000L);
+    // The same rule applies to a half-hour clock jump.
+    TimeZone.setDefault(TimeZone.getTimeZone("Australia/Lord_Howe"));
+    long beforeHalfHourJump = ZonedDateTime.parse("2026-10-04T01:45:00+10:30[Australia/Lord_Howe]")
+        .toInstant().toEpochMilli();
+    check(RestMode.untilStart(135, 180, beforeHalfHourJump), 15 * 60000L);
+    check(RestMode.untilStart(125, 135, beforeHalfHourJump),
+        ZonedDateTime.parse("2026-10-05T02:05:00+11:00[Australia/Lord_Howe]")
+            .toInstant().toEpochMilli() - beforeHalfHourJump);
+    TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"));
     check(RestMode.untilStart(-1, 480, System.currentTimeMillis()), -1);
     check(RestMode.untilStart(1320, 1320, System.currentTimeMillis()), -1);
     System.out.println("Native rest schedule checks passed");

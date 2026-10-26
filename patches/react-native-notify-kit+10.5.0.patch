@@ -252,31 +252,34 @@ index 736e3eb..6e78a32 100644
  
 diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java
 new file mode 100644
-index 0000000..b892b0d
+index 0000000..bae90fe
 --- /dev/null
 +++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java
-@@ -0,0 +1,41 @@
+@@ -0,0 +1,62 @@
 +package app.notifee.core;
 +
 +import java.util.Calendar;
++import java.util.TimeZone;
 +
 +/** Local-clock quiet hours, evaluated at delivery even without a running JS runtime. */
 +final class RestMode {
++  private static boolean isResting(int start, int end, Calendar clock) {
++    int minute = clock.get(Calendar.HOUR_OF_DAY) * 60 + clock.get(Calendar.MINUTE);
++    return start < end ? minute >= start && minute < end : minute >= start || minute < end;
++  }
++
 +  // -1 means suppress; otherwise return the lifetime until the next rest period.
 +  static long untilStart(int start, int end, long now) {
 +    if (start < 0 || start >= 1440 || end < 0 || end >= 1440 || start == end) return -1;
 +    Calendar clock = Calendar.getInstance();
 +    clock.setTimeInMillis(now);
-+    int minute = clock.get(Calendar.HOUR_OF_DAY) * 60 + clock.get(Calendar.MINUTE);
-+    boolean resting = start < end ? minute >= start && minute < end : minute >= start || minute < end;
-+    if (resting) return -1;
++    if (isResting(start, end, clock)) return -1;
 +    clock.set(Calendar.HOUR_OF_DAY, start / 60);
 +    clock.set(Calendar.MINUTE, start % 60);
 +    clock.set(Calendar.SECOND, 0);
 +    clock.set(Calendar.MILLISECOND, 0);
-+    // A past wall-clock start can still be ahead today only if it really repeats.
-+    if (minute >= start && (clock.getTimeInMillis() <= now
-+        || clock.get(Calendar.HOUR_OF_DAY) * 60 + clock.get(Calendar.MINUTE) != start)) {
++    // Try today's remaining occurrence before advancing the date.
++    if (clock.getTimeInMillis() <= now) {
 +      clock.add(Calendar.DATE, 1);
 +      clock.set(Calendar.HOUR_OF_DAY, start / 60);
 +      clock.set(Calendar.MINUTE, start % 60);
@@ -293,7 +296,25 @@ index 0000000..b892b0d
 +        && earlier.get(Calendar.YEAR) == clock.get(Calendar.YEAR)
 +        && earlier.get(Calendar.DAY_OF_YEAR) == clock.get(Calendar.DAY_OF_YEAR)
 +        && earlier.get(Calendar.HOUR_OF_DAY) == clock.get(Calendar.HOUR_OF_DAY)
-+        && earlier.get(Calendar.MINUTE) == clock.get(Calendar.MINUTE)) return first - now;
-+    return Math.max(1, clock.getTimeInMillis() - now);
++        && earlier.get(Calendar.MINUTE) == clock.get(Calendar.MINUTE)) boundary = first;
++
++    // The clock jump itself can enter rest before a normalized, nonexistent start.
++    TimeZone zone = clock.getTimeZone();
++    int offset = zone.getOffset(now);
++    if (zone.getOffset(boundary) != offset) {
++      long before = now;
++      long after = boundary;
++      while (after - before > 1) {
++        long middle = before + (after - before) / 2;
++        if (zone.getOffset(middle) == offset) before = middle;
++        else after = middle;
++      }
++      clock.setTimeInMillis(after);
++      if (isResting(start, end, clock)) boundary = after;
++    }
++    clock.setTimeInMillis(boundary);
++    // An entirely skipped window has no start today; continue to the next real one.
++    if (!isResting(start, end, clock)) return boundary - now + untilStart(start, end, boundary);
++    return boundary - now;
 +  }
 +}
