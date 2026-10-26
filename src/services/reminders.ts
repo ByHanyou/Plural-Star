@@ -1,6 +1,8 @@
 import notifee, {TimestampTrigger, RepeatFrequency} from 'react-native-notify-kit';
 import {Platform} from 'react-native';
 import {isResting} from '../model/restMode';
+import type {RestMode} from '../model/restMode';
+import type {PlannerReminderRepeat} from '../model/types';
 import {notificationSettings} from './restMode';
 import {PlannerData, plannerNextOccurrence, parseClock, fmtTime} from '../utils';
 import {log} from '../utils/log';
@@ -81,6 +83,32 @@ const nativeRepeatFor = (repeat: string | undefined): RepeatFrequency | undefine
 };
 
 const ARMED_OCCURRENCES = 6;
+const NATIVE_SEARCH_MS = 370 * 86400000;
+
+const clockMillis = (timestamp: number): number => {
+  const date = new Date(timestamp);
+  return ((date.getHours() * 60 + date.getMinutes()) * 60 + date.getSeconds()) * 1000;
+};
+
+const nextNotificationOccurrence = (
+  anchor: number,
+  repeat: PlannerReminderRepeat | undefined,
+  after: number,
+  restMode?: RestMode,
+  offsetMs = 0,
+  clock?: readonly [number, number],
+  limit = after + NATIVE_SEARCH_MS,
+): number | null => {
+  // Cover a full DST cycle, without looping forever for permanently quiet series.
+  for (;;) {
+    const occurrence = plannerNextOccurrence(anchor, repeat, after, clock);
+    if (occurrence === null || !Number.isFinite(occurrence) || occurrence <= after) return null;
+    if (!nativeRepeatFor(repeat)) return occurrence;
+    if (occurrence > limit) return null;
+    if (!isResting(restMode, occurrence - offsetMs)) return occurrence;
+    after = occurrence;
+  }
+};
 
 export const cancelMedicalReminders = async () => {
   await cancelTriggersWithPrefix(MED_ID_PREFIX);
@@ -101,14 +129,18 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
       if (appt.reminderMinutesBefore == null || !Number.isFinite(appt.reminderMinutesBefore) || appt.reminderMinutesBefore < 0) continue;
       const offsetMs = appt.reminderMinutesBefore * 60 * 1000;
       const native = nativeRepeatFor(appt.repeat);
-      const armed = appt.repeat && !native ? ARMED_OCCURRENCES : 1;
+      const armed = appt.repeat ? ARMED_OCCURRENCES : 1;
+      const alertClock = ((clockMillis(appt.time) - offsetMs) % 86400000 + 86400000) % 86400000;
+      const searchLimit = Math.max(now + offsetMs, appt.time) + NATIVE_SEARCH_MS;
       let after = now + offsetMs;
       for (let k = 0; k < armed; k++) {
-        const occurrence = plannerNextOccurrence(appt.time, appt.repeat, after);
+        const occurrence = nextNotificationOccurrence(appt.time, appt.repeat, after, settings?.restMode, offsetMs, undefined, searchLimit);
         if (occurrence == null) break;
         after = occurrence;
         if (isResting(settings?.restMode, occurrence - offsetMs)) continue;
-        const trigger = timestampTrigger(occurrence - offsetMs, native);
+        // A DST-shifted alert is a one-off; seed the native series at its normal clock.
+        const repeating = native && clockMillis(occurrence - offsetMs) === alertClock ? native : undefined;
+        const trigger = timestampTrigger(occurrence - offsetMs, repeating);
         await notifee.createTriggerNotification(
           {
             id: `${PLAN_APPT_ID_PREFIX}${appt.id}${k > 0 ? `-${k}` : ''}`,
@@ -120,6 +152,7 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
           },
           trigger,
         );
+        if (repeating) break;
       }
     }
 
@@ -130,17 +163,19 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
         const clock = parseClock(rem.times[i]);
         if (!clock) continue;
         const [hh, mm] = clock;
-        const anchor = new Date(rem.startDate ?? rem.createdAt);
-        anchor.setHours(hh, mm, 0, 0);
+        if (hh > 23 || mm > 59) continue;
+        const anchor = rem.startDate ?? rem.createdAt;
+        const searchLimit = Math.max(now, anchor) + NATIVE_SEARCH_MS;
         const native = nativeRepeatFor(repeat);
-        const armed = native || repeat === 'once' ? 1 : ARMED_OCCURRENCES;
+        const armed = repeat === 'once' ? 1 : ARMED_OCCURRENCES;
         let after = now;
         for (let k = 0; k < armed; k++) {
-          const occurrence = plannerNextOccurrence(anchor.getTime(), repeat, after);
+          const occurrence = nextNotificationOccurrence(anchor, repeat, after, settings?.restMode, 0, clock, searchLimit);
           if (occurrence == null) break;
           after = occurrence;
           if (isResting(settings?.restMode, occurrence)) continue;
-          const trigger = timestampTrigger(occurrence, native);
+          const repeating = native && clockMillis(occurrence) === (hh * 60 + mm) * 60000 ? native : undefined;
+          const trigger = timestampTrigger(occurrence, repeating);
           await notifee.createTriggerNotification(
             {
               id: `${PLAN_REM_ID_PREFIX}${rem.id}-${i}${k > 0 ? `-${k}` : ''}`,
@@ -150,6 +185,7 @@ export const reschedulePlannerNotifications = async (planner: PlannerData | null
             },
             trigger,
           );
+          if (repeating) break;
         }
       }
     }

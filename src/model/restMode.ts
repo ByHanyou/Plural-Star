@@ -23,6 +23,7 @@ export const isResting = (mode?: RestMode, timestamp = Date.now()): boolean => {
   const start = clockMinutes(mode.start)!;
   const end = clockMinutes(mode.end)!;
   const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) return true;
   const minute = date.getHours() * 60 + date.getMinutes();
   return start < end ? minute >= start && minute < end : minute >= start || minute < end;
 };
@@ -48,10 +49,32 @@ const nextClock = (clock: string, timestamp: number): number => {
 
 export const nextRestBoundary = (mode?: RestMode, timestamp = Date.now()): number | null => {
   if (!mode?.enabled || !validRestMode(mode) || !Number.isFinite(timestamp)) return null;
-  return nextClock(isResting(mode, timestamp) ? mode.end : mode.start, timestamp);
+  const resting = isResting(mode, timestamp);
+  let cursor = timestamp;
+  // A daily window can disappear on a clock-jump day; also examine the following dates.
+  const limit = timestamp + 3 * 86400000;
+  while (cursor < limit) {
+    let boundary = nextClock(resting ? mode.end : mode.start, cursor);
+    if (!Number.isFinite(boundary) || boundary <= cursor) return null;
+    const offset = new Date(cursor).getTimezoneOffset();
+    if (new Date(boundary).getTimezoneOffset() !== offset) {
+      let before = cursor;
+      let after = boundary;
+      while (after - before > 1) {
+        const middle = before + Math.floor((after - before) / 2);
+        if (new Date(middle).getTimezoneOffset() === offset) before = middle;
+        else after = middle;
+      }
+      // A skipped or repeated hour can change rest state before the clock boundary.
+      if (isResting(mode, after) !== resting) boundary = after;
+    }
+    if (isResting(mode, boundary) !== resting) return boundary;
+    cursor = boundary;
+  }
+  return null;
 };
 
 export const nextAllowedNotification = (mode: RestMode | undefined, timestamp: number): number | null => {
-  if (!Number.isFinite(timestamp) || (mode?.enabled && !validRestMode(mode))) return null;
-  return isResting(mode, timestamp) ? nextClock(mode!.end, timestamp) : timestamp;
+  if (!Number.isFinite(new Date(timestamp).getTime()) || (mode?.enabled && !validRestMode(mode))) return null;
+  return isResting(mode, timestamp) ? nextRestBoundary(mode, timestamp) : timestamp;
 };

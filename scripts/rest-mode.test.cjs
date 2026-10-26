@@ -34,6 +34,11 @@ test('validates times and treats invalid enabled schedules as quiet', () => {
   assert.equal(rest.nextAllowedNotification({...night, start: 'invalid'}, Date.now()), null);
   assert.equal(rest.isResting({...night, enabled: false}), false);
   assert.equal(rest.isResting(undefined), false);
+  for (const invalid of [NaN, Infinity, -Infinity, 1e20]) {
+    assert.equal(rest.isResting(night, invalid), true);
+    assert.equal(rest.nextAllowedNotification(night, invalid), null);
+    assert.equal(rest.nextRestBoundary(night, invalid), null);
+  }
 });
 
 test('overnight and daytime windows include the start and exclude the end', () => {
@@ -92,9 +97,68 @@ test('selects the next repeated rest start before advancing to tomorrow', () => 
     at('2026-11-02T01:30:00-05:00'));
 });
 
+test('skipped rest ends resume at the clock jump', () => {
+  const mode = {...night, end: '02:30'};
+  const end = at('2026-03-08T03:00:00-04:00');
+  for (const value of ['2026-03-07T22:00:00-05:00', '2026-03-08T01:30:00-05:00', '2026-03-08T01:59:59.999-05:00']) {
+    assert.equal(rest.nextAllowedNotification(mode, at(value)), end);
+    assert.equal(rest.nextRestBoundary(mode, at(value)), end);
+  }
+  assert.equal(rest.nextAllowedNotification(mode, end), end);
+});
+
+test('boundaries follow actual rest state through skipped windows and rollback re-entry', () => {
+  for (const [start, end, now, boundary] of [
+    ['02:30', '04:00', '2026-03-08T01:30:00-05:00', '2026-03-08T03:00:00-04:00'],
+    ['02:30', '03:15', '2026-03-08T01:30:00-05:00', '2026-03-08T03:00:00-04:00'],
+    ['02:30', '02:45', '2026-03-08T01:30:00-05:00', '2026-03-09T02:30:00-04:00'],
+    ['03:30', '04:00', '2026-03-08T01:30:00-05:00', '2026-03-08T03:30:00-04:00'],
+    ['22:00', '01:45', '2026-11-01T01:50:00-04:00', '2026-11-01T01:00:00-05:00'],
+    ['01:15', '02:30', '2026-11-01T01:50:00-04:00', '2026-11-01T01:00:00-05:00'],
+  ]) {
+    const mode = {enabled: true, start, end};
+    assert.equal(rest.nextRestBoundary(mode, at(now)), at(boundary), `${start}–${end} at ${now}`);
+  }
+});
+
+test('boundary calculations match a timeline scan in multiple time zones', () => {
+  const fixtures = [
+    ['America/New_York', '2026-03-08T05:00:00Z'],
+    ['America/New_York', '2026-11-01T04:00:00Z'],
+    ['Europe/Berlin', '2026-03-28T23:00:00Z'],
+    ['Europe/Berlin', '2026-10-24T22:00:00Z'],
+    ['Australia/Lord_Howe', '2026-10-03T13:30:00Z'],
+    ['Australia/Lord_Howe', '2026-04-04T13:00:00Z'],
+    ['Asia/Kathmandu', '2026-03-07T18:15:00Z'],
+    ['UTC', '2026-03-08T00:00:00Z'],
+  ];
+  try {
+    for (const [zone, midnight] of fixtures) {
+      process.env.TZ = zone;
+      for (const [start, end] of [['22:00', '02:30'], ['22:00', '01:45'], ['01:15', '02:30'], ['02:30', '02:45'], ['02:30', '04:00'], ['09:00', '17:00']]) {
+        const mode = {enabled: true, start, end};
+        for (let hour = 0; hour < 6; hour++) {
+          const now = at(midnight) + hour * 3600000 + 12345;
+          const initial = rest.isResting(mode, now);
+          let expected = Math.floor(now / 60000) * 60000 + 60000;
+          const limit = now + 3 * 86400000;
+          while (expected < limit && rest.isResting(mode, expected) === initial) expected += 60000;
+          assert.ok(expected < limit);
+          const label = `${zone} ${start}–${end} ${new Date(now).toISOString()}`;
+          assert.equal(rest.nextRestBoundary(mode, now), expected, label);
+          assert.equal(rest.nextAllowedNotification(mode, now), initial ? expected : now, label);
+        }
+      }
+    }
+  } finally {
+    process.env.TZ = 'America/New_York';
+  }
+});
+
 function scheduler(settings, os = 'ios') {
   const scheduled = [];
   const cancelled = [];
+  const occurrenceCalls = [];
   const reminders = load('src/services/reminders.ts', {
     'react-native-notify-kit': {
       createTriggerNotification: async (notification, trigger) => scheduled.push({notification, trigger}),
@@ -104,7 +168,10 @@ function scheduler(settings, os = 'ios') {
     'react-native': {Platform: {OS: os}},
     '../model/restMode': rest,
     './restMode': {notificationSettings: async () => settings},
-    '../utils': {...time, ...recurrence, fmtTime: String},
+    '../utils': {...time, ...recurrence, fmtTime: String, plannerNextOccurrence: (...args) => {
+      occurrenceCalls.push(args);
+      return recurrence.plannerNextOccurrence(...args);
+    }},
     '../utils/log': {log: {error: (...args) => { throw args.at(-1); }}},
     '../i18n/i18n': {t: key => key},
     './notify': {
@@ -114,7 +181,7 @@ function scheduler(settings, os = 'ios') {
       timestampTrigger: (timestamp, repeatFrequency) => ({timestamp, repeatFrequency}),
     },
   });
-  return {...reminders, scheduled, cancelled};
+  return {...reminders, scheduled, cancelled, occurrenceCalls};
 }
 
 test('iOS front checks repeat only at allowed daily times and restore hourly scheduling', async () => {
@@ -167,6 +234,137 @@ test('planner filters the alert time, restores reminders, and cancels when notif
     assert.equal(s.scheduled.length, 0);
     assert.ok(s.cancelled.includes('ps-plan-appt-'));
     assert.ok(s.cancelled.includes('ps-plan-rem-'));
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('daily and weekly reminder series survive a first occurrence suppressed by DST', async () => {
+  const originalNow = Date.now;
+  Date.now = () => at('2026-03-07T12:00:00-05:00');
+  try {
+    for (const os of ['ios', 'android']) {
+      for (const [repeat, expected] of [['daily', '2026-03-09T02:30:00-04:00'], ['weekly', '2026-03-15T02:30:00-04:00']]) {
+        const settings = {notificationsEnabled: true, restMode: {...night, start: '03:00', end: '04:00'}};
+        const s = scheduler(settings, os);
+        await s.reschedulePlannerNotifications({appointments: [], reminders: [{
+          id: 'gap', title: 'Gap', enabled: true, repeat, times: ['02:30'], createdAt: at('2026-03-01T00:00:00-05:00'),
+        }]});
+        assert.equal(s.scheduled.length, 1, `${os} ${repeat}`);
+        assert.equal(s.scheduled[0].trigger.timestamp, at(expected));
+        assert.equal(s.scheduled[0].trigger.repeatFrequency, repeat);
+      }
+    }
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('recurring appointments search by alert time while quiet one-offs remain skipped', async () => {
+  const originalNow = Date.now;
+  Date.now = () => at('2026-03-07T12:00:00-05:00');
+  try {
+    for (const [repeat, expected] of [['daily', '2026-03-09T02:30:00-04:00'], ['weekly', '2026-03-15T02:30:00-04:00']]) {
+      const s = scheduler({notificationsEnabled: true, restMode: {...night, start: '01:00', end: '02:00'}});
+      await s.reschedulePlannerNotifications({reminders: [], appointments: [
+        {id: 'repeat', title: 'Repeat', repeat, time: at('2026-03-01T03:30:00-05:00'), reminderMinutesBefore: 60},
+        {id: 'once', title: 'Once', time: at('2026-03-08T03:30:00-04:00'), reminderMinutesBefore: 60},
+      ]});
+      assert.deepEqual(s.scheduled.map(n => n.notification.id), ['ps-plan-appt-repeat']);
+      assert.equal(s.scheduled[0].trigger.timestamp, at(expected));
+      assert.equal(s.scheduled[0].trigger.repeatFrequency, repeat);
+    }
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('permanently quiet native repeats have a bounded search', async () => {
+  const s = scheduler({notificationsEnabled: true, restMode: night});
+  await s.reschedulePlannerNotifications({appointments: [], reminders: [{
+    id: 'quiet', title: 'Quiet', enabled: true, repeat: 'daily', times: ['23:00'], createdAt: at('2026-01-01T00:00:00-05:00'),
+  }]});
+  assert.equal(s.scheduled.length, 0);
+  assert.ok(s.occurrenceCalls.length <= 375);
+});
+
+test('reminder clocks survive anchors created on the spring-forward date', async () => {
+  const originalNow = Date.now;
+  Date.now = () => at('2026-03-08T12:00:00-04:00');
+  try {
+    for (const [repeat, expected] of [['daily', '2026-03-09T02:30:00-04:00'], ['weekly', '2026-03-15T02:30:00-04:00']]) {
+      const s = scheduler({notificationsEnabled: true, restMode: {...night, start: '03:00', end: '04:00'}});
+      await s.reschedulePlannerNotifications({appointments: [], reminders: [{
+        id: 'anchor', title: 'Anchor', enabled: true, repeat, times: ['02:30'], createdAt: Date.now(),
+      }]});
+      assert.equal(s.scheduled.length, 1);
+      assert.equal(s.scheduled[0].trigger.timestamp, at(expected));
+      assert.equal(s.scheduled[0].trigger.repeatFrequency, repeat);
+    }
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('an allowed normalized occurrence does not move the native series clock', async () => {
+  const originalNow = Date.now;
+  Date.now = () => at('2026-03-07T12:00:00-05:00');
+  try {
+    for (const [start, end, repeats] of [['04:00', '05:00', true], ['22:00', '03:00', false]]) {
+      const settings = {notificationsEnabled: true, restMode: {...night, start, end}};
+      const s = scheduler(settings);
+      await s.reschedulePlannerNotifications({appointments: [], reminders: [{
+        id: 'clock', title: 'Clock', enabled: true, repeat: 'daily', times: ['02:30'], createdAt: at('2026-03-01T00:00:00-05:00'),
+      }]});
+      assert.equal(s.scheduled[0].trigger.timestamp, at('2026-03-08T03:30:00-04:00'));
+      assert.equal(s.scheduled[0].trigger.repeatFrequency, undefined);
+      assert.equal(s.scheduled.length, repeats ? 2 : 1);
+      if (repeats) {
+        assert.equal(s.scheduled[1].trigger.timestamp, at('2026-03-09T02:30:00-04:00'));
+        assert.equal(s.scheduled[1].trigger.repeatFrequency, 'daily');
+      }
+      assert.ok(s.occurrenceCalls.length <= 375);
+    }
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('the bounded search preserves future start dates and rejects invalid imported clocks', async () => {
+  const originalNow = Date.now;
+  Date.now = () => at('2026-03-07T12:00:00-05:00');
+  try {
+    const s = scheduler({notificationsEnabled: true, restMode: night});
+    const start = at('2027-06-01T00:00:00-04:00');
+    await s.reschedulePlannerNotifications({appointments: [
+      {id: 'future', title: 'Future', repeat: 'daily', time: at('2027-06-01T09:00:00-04:00'), reminderMinutesBefore: 60},
+    ], reminders: [
+      {id: 'future', title: 'Future', enabled: true, repeat: 'daily', times: ['09:00'], startDate: start, createdAt: Date.now()},
+      {id: 'invalid', title: 'Invalid', enabled: true, repeat: 'daily', times: ['25:00', '12:60'], createdAt: Date.now()},
+    ]});
+    assert.deepEqual(s.scheduled.map(n => n.trigger.timestamp), [at('2027-06-01T08:00:00-04:00'), at('2027-06-01T09:00:00-04:00')]);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('appointment alert offsets cannot shift the native repeat clock or weekday', async () => {
+  const originalNow = Date.now;
+  Date.now = () => at('2026-03-07T12:00:00-05:00');
+  try {
+    for (const os of ['ios', 'android']) {
+      for (const [repeat, date] of [['daily', '2026-03-09'], ['weekly', '2026-03-15']]) {
+        const s = scheduler({notificationsEnabled: true, restMode: {...night, start: '01:00', end: '02:00'}}, os);
+        await s.reschedulePlannerNotifications({reminders: [], appointments: [{
+          id: 'offset', title: 'Offset', repeat, time: at('2026-03-01T03:30:00-05:00'), reminderMinutesBefore: 180,
+        }]});
+        assert.equal(s.scheduled.length, 2);
+        assert.equal(s.scheduled[0].trigger.timestamp, at('2026-03-07T23:30:00-05:00'));
+        assert.equal(s.scheduled[0].trigger.repeatFrequency, undefined);
+        assert.equal(s.scheduled[1].trigger.timestamp, at(`${date}T00:30:00-04:00`));
+        assert.equal(s.scheduled[1].trigger.repeatFrequency, repeat);
+      }
+    }
   } finally {
     Date.now = originalNow;
   }

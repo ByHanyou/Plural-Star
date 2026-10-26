@@ -1,6 +1,8 @@
 package app.notifee.core;
 
 import java.time.ZonedDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.TimeZone;
 
 // Run with RestMode.java from the patched notification package on the classpath.
@@ -11,6 +13,48 @@ class RestModeTest {
 
   private static void check(long actual, long expected) {
     if (actual != expected) throw new AssertionError(actual + " != " + expected);
+  }
+
+  private static boolean restingAt(int start, int end, long timestamp, ZoneId zone) {
+    ZonedDateTime date = Instant.ofEpochMilli(timestamp).atZone(zone);
+    int minute = date.getHour() * 60 + date.getMinute();
+    return start < end ? minute >= start && minute < end : minute >= start || minute < end;
+  }
+
+  private static void checkTransitionMatrix() {
+    String[][] fixtures = {
+        {"America/New_York", "2026-03-08T05:00:00Z"},
+        {"America/New_York", "2026-11-01T04:00:00Z"},
+        {"Europe/Berlin", "2026-03-28T23:00:00Z"},
+        {"Europe/Berlin", "2026-10-24T22:00:00Z"},
+        {"Australia/Lord_Howe", "2026-10-03T13:30:00Z"},
+        {"Australia/Lord_Howe", "2026-04-04T13:00:00Z"},
+        {"Asia/Kathmandu", "2026-03-07T18:15:00Z"},
+        {"UTC", "2026-03-08T00:00:00Z"},
+    };
+    int[][] windows = {{1320, 150}, {1320, 105}, {75, 150}, {150, 165}, {150, 240}, {540, 1020}};
+    try {
+      for (String[] fixture : fixtures) {
+        ZoneId zone = ZoneId.of(fixture[0]);
+        TimeZone.setDefault(TimeZone.getTimeZone(zone));
+        for (int[] window : windows) {
+          for (int hour = 0; hour < 6; hour++) {
+            long now = Instant.parse(fixture[1]).toEpochMilli() + hour * 3600000L + 12345;
+            long expected = -1;
+            if (!restingAt(window[0], window[1], now, zone)) {
+              long boundary = now / 60000 * 60000 + 60000;
+              long limit = now + 3 * 86400000L;
+              while (boundary < limit && !restingAt(window[0], window[1], boundary, zone)) boundary += 60000;
+              if (boundary >= limit) throw new AssertionError("No rest in test horizon");
+              expected = boundary - now;
+            }
+            check(RestMode.untilStart(window[0], window[1], now), expected);
+          }
+        }
+      }
+    } finally {
+      TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"));
+    }
   }
 
   public static void main(String[] args) {
@@ -72,6 +116,7 @@ class RestModeTest {
     TimeZone.setDefault(TimeZone.getTimeZone("America/New_York"));
     check(RestMode.untilStart(-1, 480, System.currentTimeMillis()), -1);
     check(RestMode.untilStart(1320, 1320, System.currentTimeMillis()), -1);
+    checkTransitionMatrix();
     System.out.println("Native rest schedule checks passed");
   }
 }
