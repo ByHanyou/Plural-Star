@@ -32,6 +32,14 @@ const nextClock = (clock: string, timestamp: number): number => {
   const date = new Date(timestamp);
   date.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
   if (date.getTime() <= timestamp) {
+    // setHours chooses the first occurrence when the local clock repeats.
+    const tomorrow = new Date(date);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const repeated = new Date(date.getTime() + (tomorrow.getTimezoneOffset() - date.getTimezoneOffset()) * 60000);
+    if (repeated.getTime() > timestamp && repeated.toDateString() === date.toDateString()
+      && repeated.getHours() === date.getHours() && repeated.getMinutes() === date.getMinutes()) {
+      return repeated.getTime();
+    }
     date.setDate(date.getDate() + 1);
     date.setHours(Math.floor(minute / 60), minute % 60, 0, 0);
   }

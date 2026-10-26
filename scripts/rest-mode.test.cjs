@@ -62,6 +62,36 @@ test('resumes the next morning across daylight saving changes', () => {
   assert.equal(rest.nextRestBoundary({...night, enabled: false}, noon), null);
 });
 
+test('resumes at the remaining occurrence of a repeated rest end', () => {
+  const mode = {...night, end: '01:45'};
+  for (const offset of ['-04:00', '-05:00']) {
+    const now = at(`2026-11-01T01:35:00${offset}`);
+    const end = at(`2026-11-01T01:45:00${offset}`);
+    assert.equal(rest.nextAllowedNotification(mode, now), end);
+    assert.equal(rest.nextRestBoundary(mode, now), end);
+    assert.equal(rest.nextAllowedNotification(mode, end), end);
+  }
+  const now = at('2026-11-01T01:35:20.500-05:00');
+  assert.equal(rest.nextAllowedNotification(mode, now) - now, 579500);
+});
+
+test('selects the next repeated rest start before advancing to tomorrow', () => {
+  const mode = {...night, start: '01:30', end: '01:45'};
+  for (const offset of ['-04:00', '-05:00']) {
+    assert.equal(rest.nextRestBoundary(mode, at(`2026-11-01T01:15:00${offset}`)),
+      at(`2026-11-01T01:30:00${offset}`));
+    const start = at(`2026-11-01T01:30:00${offset}`);
+    assert.equal(rest.isResting(mode, start), true);
+    assert.equal(rest.nextRestBoundary(mode, start), at(`2026-11-01T01:45:00${offset}`));
+  }
+  for (const clock of ['01:45:00', '01:50:00']) {
+    assert.equal(rest.nextRestBoundary(mode, at(`2026-11-01T${clock}-04:00`)),
+      at('2026-11-01T01:30:00-05:00'));
+  }
+  assert.equal(rest.nextRestBoundary(mode, at('2026-11-01T01:45:00-05:00')),
+    at('2026-11-02T01:30:00-05:00'));
+});
+
 function scheduler(settings, os = 'ios') {
   const scheduled = [];
   const cancelled = [];

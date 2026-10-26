@@ -252,10 +252,10 @@ index 736e3eb..6e78a32 100644
  
 diff --git a/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java
 new file mode 100644
-index 0000000..ecfe35b
+index 0000000..b892b0d
 --- /dev/null
 +++ b/node_modules/react-native-notify-kit/android/src/main/java/app/notifee/core/RestMode.java
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,41 @@
 +package app.notifee.core;
 +
 +import java.util.Calendar;
@@ -270,11 +270,30 @@ index 0000000..ecfe35b
 +    int minute = clock.get(Calendar.HOUR_OF_DAY) * 60 + clock.get(Calendar.MINUTE);
 +    boolean resting = start < end ? minute >= start && minute < end : minute >= start || minute < end;
 +    if (resting) return -1;
-+    if (minute >= start) clock.add(Calendar.DATE, 1);
 +    clock.set(Calendar.HOUR_OF_DAY, start / 60);
 +    clock.set(Calendar.MINUTE, start % 60);
 +    clock.set(Calendar.SECOND, 0);
 +    clock.set(Calendar.MILLISECOND, 0);
++    // A past wall-clock start can still be ahead today only if it really repeats.
++    if (minute >= start && (clock.getTimeInMillis() <= now
++        || clock.get(Calendar.HOUR_OF_DAY) * 60 + clock.get(Calendar.MINUTE) != start)) {
++      clock.add(Calendar.DATE, 1);
++      clock.set(Calendar.HOUR_OF_DAY, start / 60);
++      clock.set(Calendar.MINUTE, start % 60);
++    }
++    // Calendar chooses the second occurrence when the local clock repeats.
++    Calendar yesterday = (Calendar) clock.clone();
++    yesterday.add(Calendar.DATE, -1);
++    long boundary = clock.getTimeInMillis();
++    long first = boundary + clock.getTimeZone().getOffset(boundary)
++        - yesterday.getTimeZone().getOffset(yesterday.getTimeInMillis());
++    Calendar earlier = (Calendar) clock.clone();
++    earlier.setTimeInMillis(first);
++    if (first > now && first < boundary
++        && earlier.get(Calendar.YEAR) == clock.get(Calendar.YEAR)
++        && earlier.get(Calendar.DAY_OF_YEAR) == clock.get(Calendar.DAY_OF_YEAR)
++        && earlier.get(Calendar.HOUR_OF_DAY) == clock.get(Calendar.HOUR_OF_DAY)
++        && earlier.get(Calendar.MINUTE) == clock.get(Calendar.MINUTE)) return first - now;
 +    return Math.max(1, clock.getTimeInMillis() - now);
 +  }
 +}
