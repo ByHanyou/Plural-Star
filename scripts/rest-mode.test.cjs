@@ -208,6 +208,105 @@ test('iOS front checks repeat only at allowed daily times and restore hourly sch
   }
 });
 
+test('iOS front checks keep distinct local slots across clock changes', async () => {
+  const originalNow = Date.now;
+  const originalZone = process.env.TZ;
+  const fixtures = [
+    ['America/New_York', '2026-03-07T12:17:23-05:00'],
+    ['America/New_York', '2026-10-31T12:17:23-04:00'],
+    ['America/New_York', '2026-03-08T01:17:23-05:00'],
+    ['America/New_York', '2026-11-01T01:17:23-04:00'],
+    ['America/New_York', '2026-11-01T01:17:23-05:00'],
+    ['Europe/Berlin', '2026-03-28T12:17:23+01:00'],
+    ['Europe/Berlin', '2026-10-24T12:17:23+02:00'],
+    ['Australia/Lord_Howe', '2026-10-03T12:17:23+10:30'],
+    ['Australia/Lord_Howe', '2026-10-03T02:17:23+10:30'],
+    ['Australia/Lord_Howe', '2026-04-04T12:47:23+11:00'],
+    ['Asia/Kathmandu', '2026-03-07T12:17:23+05:45'],
+    ['UTC', '2026-03-07T12:17:23Z'],
+  ];
+  try {
+    for (const [zone, value] of fixtures) {
+      process.env.TZ = zone;
+      const now = at(value);
+      Date.now = () => now;
+      const local = new Date(now);
+      // Independent timeline oracle: take the first future match for each clock hour.
+      const nextByHour = new Map();
+      for (let probe = now + 60000; probe < now + 3 * 86400000 && nextByHour.size < 24; probe += 60000) {
+        const date = new Date(probe);
+        if (date.getMinutes() === local.getMinutes() && !nextByHour.has(date.getHours())) nextByHour.set(date.getHours(), probe);
+      }
+      for (const interval of [1, 2, 3, 4, 6, 8, 12, 24, 5]) {
+        for (const mode of [night, {...night, enabled: false}, {...night, start: '03:00', end: '04:00'}]) {
+          // The unrestricted hourly case uses one native hourly trigger.
+          if (interval === 1 && !mode.enabled) continue;
+          const s = scheduler({notificationsEnabled: true, restMode: mode});
+          await s.scheduleFrontCheckReminder(interval);
+          const step = 24 % interval === 0 ? interval : 24;
+          const expected = [];
+          for (let hour = 0; hour < 24; hour++) {
+            if (((hour - local.getHours() + 24) % 24) % step !== 0) continue;
+            const minute = hour * 60 + local.getMinutes();
+            const start = rest.clockMinutes(mode.start);
+            const end = rest.clockMinutes(mode.end);
+            const quiet = mode.enabled && (start < end ? minute >= start && minute < end : minute >= start || minute < end);
+            if (!quiet) expected.push(hour);
+          }
+          const dates = s.scheduled.map(n => new Date(n.trigger.timestamp));
+          const label = `${zone} ${value} ${interval}h ${JSON.stringify(mode)}`;
+          assert.deepEqual(dates.map(d => d.getHours()).sort((a, b) => a - b), expected, label);
+          assert.equal(new Set(s.scheduled.map(n => n.notification.id)).size, dates.length, label);
+          for (const {trigger} of s.scheduled) {
+            const date = new Date(trigger.timestamp);
+            assert.ok(trigger.timestamp > now, label);
+            assert.ok(trigger.timestamp < now + 3 * 86400000, label);
+            assert.equal(date.getMinutes(), local.getMinutes(), label);
+            assert.equal(date.getSeconds(), local.getSeconds(), label);
+            assert.equal(trigger.timestamp, nextByHour.get(date.getHours()), label);
+            assert.equal(trigger.repeatFrequency, 'daily', label);
+            assert.equal(rest.isResting(mode, trigger.timestamp), false, label);
+          }
+        }
+      }
+    }
+  } finally {
+    Date.now = originalNow;
+    process.env.TZ = originalZone;
+  }
+});
+
+test('a nonexistent iOS front-check slot waits for its real clock time without losing the daily series', async () => {
+  const originalNow = Date.now;
+  Date.now = () => at('2026-03-08T01:30:00-05:00');
+  try {
+    for (const mode of [night, {...night, start: '03:00', end: '04:00'}, {...night, start: '04:00', end: '05:00'}]) {
+      const s = scheduler({notificationsEnabled: true, restMode: mode});
+      await s.scheduleFrontCheckReminder(1);
+      const atTwo = s.scheduled.filter(n => new Date(n.trigger.timestamp).getHours() === 2);
+      const quiet = rest.isResting(mode, at('2026-03-09T02:30:00-04:00'));
+      assert.equal(atTwo.length, quiet ? 0 : 1);
+      if (!quiet) assert.equal(atTwo[0].trigger.timestamp, at('2026-03-09T02:30:00-04:00'));
+      const atThree = s.scheduled.filter(n => new Date(n.trigger.timestamp).getHours() === 3);
+      assert.equal(atThree.length, rest.isResting(mode, at('2026-03-08T03:30:00-04:00')) ? 0 : 1);
+    }
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test('front checks cancel stale triggers for invalid imported intervals', async () => {
+  for (const os of ['ios', 'android']) {
+    for (const interval of [NaN, Infinity, -Infinity, -1, 0, 0.5, 1.5]) {
+      const s = scheduler({notificationsEnabled: true, restMode: night}, os);
+      await s.scheduleFrontCheckReminder(interval);
+      assert.equal(s.scheduled.length, 0);
+      assert.ok(s.cancelled.includes('ps-front-check'));
+      assert.ok(s.cancelled.includes('ps-front-check-'));
+    }
+  }
+});
+
 test('planner filters the alert time, restores reminders, and cancels when notifications are disabled', async () => {
   const originalNow = Date.now;
   Date.now = () => at('2026-10-25T12:00:00');

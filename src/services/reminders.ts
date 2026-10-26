@@ -14,9 +14,10 @@ const FRONT_CHECK_NOTIF_ID = 'ps-front-check';
 export const scheduleFrontCheckReminder = async (intervalHours: number, singlet = false) => {
   try {
     await cancelFrontCheckReminder();
-    if (!Number.isFinite(intervalHours) || intervalHours < 1) return;
+    if (!Number.isInteger(intervalHours) || intervalHours < 1) return;
     const settings = await notificationSettings();
     if (settings?.notificationsEnabled === false) return;
+    const now = Date.now();
     const title = singlet
       ? `◈ ${i18n.t('notification.statusCheck')}`
       : `◈ ${i18n.t('notification.frontCheck')}`;
@@ -27,7 +28,7 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
     if (Platform.OS === 'android') {
       await setupReminderChannel();
       const trigger: TimestampTrigger = {
-        ...timestampTrigger(Date.now() + intervalHours * 60 * 60 * 1000, RepeatFrequency.HOURLY),
+        ...timestampTrigger(now + intervalHours * 60 * 60 * 1000, RepeatFrequency.HOURLY),
         repeatInterval: Math.max(1, Math.round(intervalHours)),
       };
       await notifee.createTriggerNotification(
@@ -38,7 +39,7 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
     }
 
     if (intervalHours === 1 && !settings?.restMode?.enabled) {
-      const trigger = timestampTrigger(Date.now() + 60 * 60 * 1000, RepeatFrequency.HOURLY);
+      const trigger = timestampTrigger(now + 60 * 60 * 1000, RepeatFrequency.HOURLY);
       await notifee.createTriggerNotification(
         {id: FRONT_CHECK_NOTIF_ID, title, body},
         trigger,
@@ -48,9 +49,30 @@ export const scheduleFrontCheckReminder = async (intervalHours: number, singlet 
 
     const slots = 24 % intervalHours === 0 ? 24 / intervalHours : 1;
     const effectiveInterval = 24 % intervalHours === 0 ? intervalHours : 24;
+    const local = new Date(now);
     for (let i = 0; i < slots; i++) {
-      const timestamp = Date.now() + effectiveInterval * (i + 1) * 60 * 60 * 1000;
-      if (isResting(settings?.restMode, timestamp)) continue;
+      // Each daily series needs a distinct local clock. Elapsed hours can duplicate
+      // or omit slots across DST; a normalized gap time would change the series clock.
+      const hour = (local.getHours() + effectiveInterval * (i + 1)) % 24;
+      let timestamp: number | null = null;
+      for (let day = 0; day < 3; day++) {
+        const date = new Date(now);
+        date.setDate(local.getDate() + day);
+        date.setHours(hour, local.getMinutes(), local.getSeconds(), local.getMilliseconds());
+        if (date.getHours() !== hour || date.getMinutes() !== local.getMinutes()) continue;
+        if (date.getTime() <= now) {
+          // setHours picks the first occurrence of an ambiguous clock time.
+          const tomorrow = new Date(date);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const repeated = new Date(date.getTime() + (tomorrow.getTimezoneOffset() - date.getTimezoneOffset()) * 60000);
+          if (repeated.getTime() <= now || repeated.toDateString() !== date.toDateString()
+            || repeated.getHours() !== hour || repeated.getMinutes() !== local.getMinutes()) continue;
+          date.setTime(repeated.getTime());
+        }
+        if (!isResting(settings?.restMode, date.getTime())) timestamp = date.getTime();
+        break;
+      }
+      if (timestamp === null) continue;
       const trigger = timestampTrigger(timestamp, RepeatFrequency.DAILY);
       await notifee.createTriggerNotification(
         {id: `${FRONT_CHECK_NOTIF_ID}-${i}`, title, body},
