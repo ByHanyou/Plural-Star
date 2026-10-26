@@ -173,7 +173,8 @@ const restoreSharedPayload = async (data: Partial<ExportPayload>, ctx: RestoreCt
       const currentSettings = await store.get<AppSettings>(KEYS.settings) || {} as AppSettings;
       let newSettings = {...currentSettings};
       if (restoreSel.settings && data.settings) {
-        newSettings = {...data.settings};
+        // Background files stay on this device and are not restored from backups.
+        newSettings = {...data.settings, backgroundImage: currentSettings.backgroundImage};
         if (!restoreSel.moods) newSettings.customMoods = currentSettings.customMoods || [];
       }
       if (restoreSel.moods) newSettings.customMoods = data.customMoods || data.settings?.customMoods || [];
