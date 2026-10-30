@@ -172,7 +172,7 @@ export const JournalScreen = () => {
 
   if (!journalUnlocked) {
     return (
-      <View style={{flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32}}>
+      <View style={{flex: 1, backgroundColor: T.canvas, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32}}>
         <Text style={{fontSize: fs(44), color: T.accent, marginBottom: 16}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◉</Text>
         <Text accessibilityRole="header" style={[s.heading, {color: T.text, marginBottom: 8, fontSize: fs(22)}]}>{t('journal.locked')}</Text>
         <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center', marginBottom: 24}}>{t('journal.enterPasswordToContinue')}</Text>
@@ -283,7 +283,7 @@ export const JournalScreen = () => {
   ) : null;
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <FlashList
         data={subTab === 'entries' ? filteredJournal : NO_ENTRIES}
         renderItem={renderEntry}

@@ -236,7 +236,7 @@ export const ChannelList = ({activeChannelId, onOpen, onActiveGone, onCleared}: 
   );
 
   return (
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}} bottomOffset={24}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 32}} bottomOffset={24}>
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 10}}>
         <Text accessibilityRole="header" style={sectionLabel(T, {flex: 1})}>{t('chat.channels')}</Text>
         <ReorderLockButton on={reorderOn} onToggle={() => setReorderOn(v => !v)} />

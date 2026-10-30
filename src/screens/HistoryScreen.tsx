@@ -146,7 +146,7 @@ export const HistoryScreen = ({singlet = false, selfId, readOnly = false, histor
     : [pickerPool('members', pickerMembers, t), pickerPool('facets', members.filter(isFacetMember), t), pickerPool('customFronts', pickerCustomFronts, t)];
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{backgroundColor: T.bg, paddingHorizontal: 16, paddingTop: landscape ? 6 : 16}}>
         <Text
           accessibilityRole="header"

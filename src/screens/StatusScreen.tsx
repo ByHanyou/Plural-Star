@@ -37,7 +37,7 @@ export const StatusScreen = ({selfId}: Props) => {
 
   return (
     <View style={{flex: 1}}>
-      <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 140}}>
+      <ScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 140}}>
         <View style={{marginBottom: 16}}>
           <Text accessibilityRole="header" style={[s.heading, {color: T.text, marginBottom: 10, fontSize: fs(22)}]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
             {t('status.current')}

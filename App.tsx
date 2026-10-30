@@ -29,6 +29,7 @@ import {createStartup} from './src/app/startup/loadAll';
 import type {Startup} from './src/app/startup/loadAll';
 import {TabHost, initialTabMemory} from './src/app/TabHost';
 import type {TabMemory} from './src/app/TabHost';
+import {AppBackground} from './src/app/AppBackground';
 import {AppModals} from './src/app/AppModals';
 import {useAppTheme} from './src/app/useAppTheme';
 import {ThemeProvider} from './src/themeContext';
@@ -138,7 +139,9 @@ function MainAppContent() {
         <StatusBar barStyle={C.isLight ? 'dark-content' : 'light-content'} backgroundColor="transparent" translucent />
         <AppHeader systemName={system.name || t('systemProfile.unnamed')} canLock={!!appSettings.appLockPassword} onLock={() => setLocked(true)} onOpenSettings={openSystem}
           onOpenProfile={isSinglet ? undefined : openSystemProfile} />
-        <TabHost isSinglet={isSinglet} screens={screens} memory={tabMemoryRef} />
+        <AppBackground>
+          <TabHost isSinglet={isSinglet} screens={screens} memory={tabMemoryRef} />
+        </AppBackground>
         <AppModals isSinglet={isSinglet} selfMember={selfMember} />
       </View>
     </ThemeProvider>

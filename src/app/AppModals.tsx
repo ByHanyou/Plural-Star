@@ -4,7 +4,7 @@ import {SetFrontModal, SetStatusModal, EditFrontDetailModal, MemberModal, Journa
 import {ImageCropHost} from '../components/ImageCropModal';
 import {useAppStore} from '../store/appStore';
 import {useUiStore} from '../store/uiStore';
-import {saveSystem, savePalettes, selectPalette, updateFront, updateFrontDetails, saveMember, deleteMember, saveEntry, saveSettingsWithSelf} from '../store/actions';
+import {changeBackgroundImage, saveSystem, savePalettes, selectPalette, updateFront, updateFrontDetails, saveMember, deleteMember, saveEntry, saveSettingsWithSelf} from '../store/actions';
 import {reportSaveError} from '../utils/saveError';
 
 export function AppModals({isSinglet, selfMember}: {isSinglet: boolean; selfMember: Member | undefined}) {
@@ -74,6 +74,7 @@ export function AppModals({isSinglet, selfMember}: {isSinglet: boolean; selfMemb
         onSaveSettings={async s => {await saveSettingsWithSelf(s); ui.closeSystem();}}
         onSavePalettes={savePalettes}
         onSelectPalette={selectPalette}
+        onChangeBackground={changeBackgroundImage}
         onOpenProfile={() => { ui.closeSystem(); ui.openSystemProfile(); }}
         onClose={ui.closeSystem} />
       <SystemProfileModal visible={ui.systemProfileVisible && !isSinglet} system={system}

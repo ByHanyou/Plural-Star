@@ -350,7 +350,7 @@ export const NetworkScreen = () => {
   );
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: T.border}} accessibilityRole="tablist">
         <TabBtn selected={tab} onSelect={setTab} id="friends" label={t('network.tabFriends')} />
         <TabBtn selected={tab} onSelect={setTab} id="privacy" label={t('network.tabPrivacy')} />

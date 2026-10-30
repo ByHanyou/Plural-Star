@@ -35,7 +35,7 @@ export const ProfileScreen = ({member}: Props) => {
   const P = useMemo(() => (bgColor ? profileTheme(T, bgColor) : T), [bgColor, T]);
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{paddingHorizontal: 16, paddingTop: 16}}>
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
           <Text accessibilityRole="header" style={[s.heading, {color: T.text, flex: 1, fontSize: fs(22)}]} numberOfLines={1} maxFontSizeMultiplier={1.2}>
@@ -60,7 +60,7 @@ export const ProfileScreen = ({member}: Props) => {
       </View>
 
       {subTab === 'profile' && (
-        <ScrollView style={{flex: 1, backgroundColor: P.bg}} contentContainerStyle={{paddingBottom: 140}}>
+        <ScrollView style={{flex: 1, backgroundColor: P.canvas}} contentContainerStyle={{paddingBottom: 140}}>
           {member?.banner ? (
             <Image source={{uri: member.banner}} accessibilityElementsHidden importantForAccessibility="no" style={{width: '100%', aspectRatio: 3}} resizeMode="cover" />
           ) : null}

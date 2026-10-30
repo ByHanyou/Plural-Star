@@ -12,6 +12,8 @@ export const BIO_IMAGE_DIR = `${DOCUMENT_DIR}/ps_bio_images`;
 export const CHAT_MEDIA_DIR = `${DOCUMENT_DIR}/ps_chat_media`;
 export const MIRROR_GIF_DIR = `${DOCUMENT_DIR}/ps_mirror_gifs`;
 
+export const BACKGROUND_DIR = `${DOCUMENT_DIR}/ps_backgrounds`;
+
 export const AVATAR_MAX = 256;
 
 type ImageExt = 'jpg' | 'png' | 'gif' | 'webp';
@@ -84,11 +86,11 @@ export const writeBase64 = async (dir: string, name: string, data: string): Prom
 export const safeExt = (ext: string): string => ext.replace(/[^a-zA-Z0-9]/g, '') || 'bin';
 
 export const downscaleOrCopy = async (sourceUri: string, destPath: string, max = AVATAR_MAX): Promise<string> => {
-  const readPath = filePathOf(sourceUri);
+  const readPath = sourceUri.startsWith('content://') ? sourceUri : filePathOf(sourceUri);
   let bytes = await fs.readFile(readPath, 'base64');
   if (sniffImageExt(bytes) !== 'gif') {
     try {
-      const resized = await ImageResizer.createResizedImage(`file://${readPath}`, max, max, 'PNG', 100, 0);
+      const resized = await ImageResizer.createResizedImage(readPath.startsWith('content://') ? readPath : `file://${readPath}`, max, max, 'PNG', 100, 0);
       const resizedPath = filePathOf(resized.uri);
       bytes = await fs.readFile(resizedPath, 'base64');
       await removeIfExists(resizedPath);
@@ -101,5 +103,5 @@ export const downscaleOrCopy = async (sourceUri: string, destPath: string, max =
 };
 
 export const clearAllMedia = async (): Promise<void> => {
-  for (const dir of [AVATAR_DIR, AVATAR_FULL_DIR, CHAT_MEDIA_DIR, BIO_IMAGE_DIR, BANNER_DIR, MIRROR_GIF_DIR]) await removeIfExists(dir);
+  for (const dir of [AVATAR_DIR, AVATAR_FULL_DIR, CHAT_MEDIA_DIR, BIO_IMAGE_DIR, BANNER_DIR, MIRROR_GIF_DIR, BACKGROUND_DIR]) await removeIfExists(dir);
 };

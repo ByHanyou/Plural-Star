@@ -381,7 +381,7 @@ export const WhiteboardScreen = ({onBack}: Props) => {
   const paths = useMemo(() => strokes.map(s => ({id: s.id, ...strokeAttrs(s)})), [strokes]);
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <WhiteboardHeader onBack={onBack} onUndo={undo} onZoom={zoomBy} onClear={clearAll} hasStrokes={strokes.length > 0} />
 
       <WhiteboardToolbar tool={tool} onTool={selectTool} width={width} onWidth={setWidth} color={color} />

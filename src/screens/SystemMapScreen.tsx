@@ -325,7 +325,7 @@ export const SystemMapScreen = ({onViewMember, onRelCountChange, focus}: Props) 
   );
 
   return (
-    <View ref={hostRef} onLayout={measureHost} style={{flex: 1, backgroundColor: T.bg}}>
+    <View ref={hostRef} onLayout={measureHost} style={{flex: 1, backgroundColor: T.canvas}}>
       <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10}}>
         {toolBtn(t('systemMap.addMember'), () => { setShowMemberPicker(true); setMemberPickerSearch(''); measureHost(); }, false, addableCount === 0)}
         {toolBtn(t('systemMap.connections'), () => setShowConnections(true))}

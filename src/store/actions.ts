@@ -12,6 +12,8 @@ import {migrateInlineChatMedia, rebaseChatMessageMedia} from '../utils/mediaMigr
 import {reschedulePlannerNotifications} from '../services/reminders';
 import {mailCountsFor} from '../mailbox/mailbox';
 import {useAppStore} from './appStore';
+import {commitAppSettings} from './settings';
+import {removeBackgroundImage, saveBackgroundImageFromUri} from '../utils/backgroundImage';
 
 export const loadChatMessages = async (channels: ChatChannel[]) => {
   const {setAllChatMessages} = useAppStore.getState();
@@ -120,11 +122,8 @@ export const savePlanner = async (d: PlannerData) => {
 };
 
 export const selectPalette = async (id: string) => {
-  const {appSettings, setActivePaletteId, setAppSettings} = useAppStore.getState();
-  setActivePaletteId(id);
-  const updated = {...appSettings, activePaletteId: id, lightMode: id === LIGHT_PALETTE.id};
-  setAppSettings(updated);
-  await store.set(KEYS.settings, updated);
+  await commitAppSettings(current => ({...current, activePaletteId: id, lightMode: id === LIGHT_PALETTE.id}));
+  useAppStore.getState().setActivePaletteId(id);
   await store.set(KEYS.lightMode, id === LIGHT_PALETTE.id);
 };
 
@@ -304,14 +303,30 @@ export const addJournalEntry = async (e: JournalEntry) => {
 };
 
 export const saveAppSettings = async (d: AppSettings) => {
-  const {appSettings, setAppSettings} = useAppStore.getState();
+  const {appSettings} = useAppStore.getState();
   const gpsJustEnabled = d.gpsEnabled && !appSettings.gpsEnabled;
   const filesJustEnabled = d.filesEnabled && !appSettings.filesEnabled;
-  setAppSettings(d);
-  await store.set(KEYS.settings, d);
+  // The background is saved independently, like the palette controls. A settings
+  // draft opened before an image change must not restore a deleted filename.
+  await commitAppSettings(current => ({...d, backgroundImage: current.backgroundImage}));
   if (d.language) { changeLanguage(d.language); await store.set(KEYS.language, d.language); }
   if (gpsJustEnabled) { await requestGPSPermission(); }
   if (filesJustEnabled) { await requestFilesPermission(); }
+};
+
+export const changeBackgroundImage = async (sourceUri?: string) => {
+  const next = sourceUri ? await saveBackgroundImageFromUri(sourceUri) : undefined;
+  let previous: string | undefined;
+  try {
+    await commitAppSettings(current => {
+      previous = current.backgroundImage;
+      return {...current, backgroundImage: next};
+    });
+  } catch (e) {
+    await removeBackgroundImage(next);
+    throw e;
+  }
+  await removeBackgroundImage(previous);
 };
 
 const resolveSelfMember = async (selfMemberId: string | undefined): Promise<Member> => {
@@ -358,10 +373,8 @@ export const applyFrontState = async (f: FrontState | null, since?: number) => {
   await store.set(KEYS.front, next);
 };
 
-const patchAppSettings = async (patch: Partial<AppSettings>) => {
-  const {appSettings, setAppSettings} = useAppStore.getState();
-  const next = {...appSettings, ...patch}; setAppSettings(next); await store.set(KEYS.settings, next);
-};
+const patchAppSettings = (patch: Partial<AppSettings>) =>
+  commitAppSettings(current => ({...current, ...patch}));
 
 export const saveMemberListFields = (next: NonNullable<AppSettings['memberListFields']>) => patchAppSettings({memberListFields: next});
 

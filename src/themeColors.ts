@@ -1,5 +1,6 @@
 export interface ThemeColorSet {
   bg: string;
+  canvas: string;
   surface: string;
   card: string;
   border: string;
@@ -107,6 +108,7 @@ export const deriveColors = (bg: string, accent: string, text: string, mid: stri
   const opacity = isLight ? 0.15 : 0.12;
   return {
     bg,
+    canvas: bg,
     surface: mix(bg, mid, isLight ? 0.04 : 0.08),
     card: mix(bg, mid, isLight ? 0.07 : 0.14),
     border: mix(bg, mid, isLight ? 0.12 : 0.20),
@@ -133,6 +135,7 @@ export const profileColors = (base: Pick<ThemeColorSet, 'accent' | 'danger' | 's
   const readable = (c: string, min: number) => ensureReadable(ensureReadable(c, surface, min), color, min);
   return {
     bg: color,
+    canvas: color,
     surface,
     card: color,
     border: mix(color, ink, 0.3),

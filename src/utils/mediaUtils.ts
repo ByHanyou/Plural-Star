@@ -195,4 +195,3 @@ export const saveAvatarFromUri = async (memberId: string, sourceUri: string): Pr
   }
   return downscaleOrCopy(sourceUri, `${AVATAR_DIR}/${memberId}.png`);
 };
-

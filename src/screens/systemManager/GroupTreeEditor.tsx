@@ -242,7 +242,7 @@ export const GroupTreeEditor = ({header, onBrowse}: {header?: React.ReactNode; o
   const noSelection = selectedIds.length === 0;
 
   return (
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled" scrollEnabled={!dragging} bottomOffset={24}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 120}} keyboardShouldPersistTaps="handled" scrollEnabled={!dragging} bottomOffset={24}>
       {header}
       <Text style={{fontSize: fs(11), color: T.dim, marginBottom: 14, lineHeight: fs(18)}}>{t('systemManager.desc')}</Text>
       <View style={{flexDirection: 'row', marginBottom: 12}}>

@@ -259,7 +259,7 @@ export const ChatScreen = ({onMentionPress}: Props) => {
   );
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg, paddingBottom: keyboardLift}}>
+    <View style={{flex: 1, backgroundColor: T.canvas, paddingBottom: keyboardLift}}>
       <View style={{flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: T.border}}>
         <TouchableOpacity onPress={() => setShowChannelList(true)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('chat.channels')} hitSlop={{top: 12, bottom: 12, left: 12, right: 12}} style={{marginRight: 10}}>
           <Text accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{fontSize: fs(16), color: T.dim}}>☰</Text>

@@ -22,7 +22,7 @@ export const ShareScreen = () => {
   const [section, setSection] = useState<Section>('export');
   const shown = (id: Section) => (section === id ? undefined : HIDDEN);
   return (
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={share.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={share.content} keyboardShouldPersistTaps="handled" bottomOffset={24}>
       <View style={{flexDirection: 'row', gap: 6, marginBottom: 4}}>
         {SECTIONS.map(s => (
           <ChoiceBtn key={s.id} label={t(s.key)} selected={section === s.id} onPress={() => setSection(s.id)}

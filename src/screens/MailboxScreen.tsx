@@ -147,7 +147,7 @@ export const MailboxScreen = ({onBack}: Props) => {
     const owner = byId(openId);
     const msgs = inboxMessages(notes, openId);
     return (
-      <View style={{flex: 1, backgroundColor: T.bg}}>
+      <View style={{flex: 1, backgroundColor: T.canvas}}>
         <BackHeader title={t('mailbox.inboxOf', {name: owner?.name || '?'})} titleSize={18} onBack={() => setOpenId(null)} right={
           <TouchableOpacity onPress={() => { setLockInput(''); setLockManage(true); }} activeOpacity={0.7}
             accessibilityRole="button" accessibilityLabel={t('mailbox.lockTitle')} accessibilityValue={{text: owner?.mailboxPassword ? t('mailbox.locked') : t('mailbox.unlocked')}} style={{padding: 6}} hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
@@ -181,7 +181,7 @@ export const MailboxScreen = ({onBack}: Props) => {
   }
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <BackHeader title={t('mailbox.title')} onBack={onBack} right={
         <TouchableOpacity onPress={() => {setComposing(c => !c); setToId(''); }} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={composing ? t('common.cancel') : t('mailbox.compose')} accessibilityState={{expanded: composing}}
           hitSlop={{top: 8, bottom: 8}} style={{backgroundColor: composing ? T.surface : T.accentBg, borderWidth: 1, borderColor: composing ? T.border : `${T.accent}40`, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7}}>

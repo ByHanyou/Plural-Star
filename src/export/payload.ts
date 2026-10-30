@@ -45,6 +45,12 @@ export const buildExportBase = async (
     }
   }
 
+  // Background images are device-local and are not included in exports.
+  let exportSettings: AppSettings | undefined;
+  if (settings) {
+    const {backgroundImage: _backgroundImage, ...rest} = settings;
+    exportSettings = rest;
+  }
   const membersForExport = members.map(({avatar: _a, banner: _b, ...rest}) => rest);
 
   return {
@@ -61,7 +67,7 @@ export const buildExportBase = async (
     chatChannels: cat.chat ? (channels || []) : [],
     chatCategories: cat.chat ? (chatCats || []) : [],
     chatMessages: cat.chat ? chatMessages : {},
-    settings: cat.settings ? (settings || undefined) : undefined,
+    settings: cat.settings ? exportSettings : undefined,
     front: cat.frontHistory ? (front || undefined) : undefined,
     palettes: cat.palettes ? (palettes || []) : [],
     customMoods: cat.moods ? (settings?.customMoods || []) : [],

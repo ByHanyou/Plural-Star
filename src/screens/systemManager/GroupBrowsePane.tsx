@@ -161,7 +161,7 @@ export const GroupBrowsePane = ({header, hideRootTitle, onViewMember, onEdit}: {
   ) : undefined;
 
   return (
-    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 120}} bottomOffset={24}>
+    <KeyboardAwareScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 120}} bottomOffset={24}>
       {header}
       <GroupBrowser
         groups={groups}

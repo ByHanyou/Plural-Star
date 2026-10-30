@@ -88,7 +88,7 @@ export const PlannerScreen = ({onBack}: Props) => {
   );
 
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <BackHeader title={t('planner.title')} onBack={onBack} />
 
       <ScrollView style={{flex: 1}} contentContainerStyle={{padding: 16, paddingTop: 4, paddingBottom: 32}}>

@@ -67,7 +67,7 @@ const MemoNetworkScreen = React.memo(NetworkScreen);
 const TileFrame = ({title, onBack, right, children}: {title: string; onBack: () => void; right?: React.ReactNode; children: React.ReactNode}) => {
   const T = useTheme();
   return (
-    <View style={{flex: 1, backgroundColor: T.bg}}>
+    <View style={{flex: 1, backgroundColor: T.canvas}}>
       <BackHeader title={title} onBack={onBack} right={right} tile />
       {children}
     </View>
@@ -198,7 +198,7 @@ export const HubScreen = ({singlet = false, selfId}: Props) => {
   const framed = activeTile ? framedTile(activeTile) : null;
   if (framed) return <TileFrame title={framed.title} onBack={closeTile} right={framed.right}>{framed.body}</TileFrame>;
   const bare = activeTile ? bareTile(activeTile) : null;
-  if (bare) return <View style={{flex: 1, backgroundColor: T.bg}}>{bare}</View>;
+  if (bare) return <View style={{flex: 1, backgroundColor: T.canvas}}>{bare}</View>;
 
   const setTileDragBoth = (v: TileDrag | null) => {
     tileDragRef.current = v;
@@ -305,7 +305,7 @@ export const HubScreen = ({singlet = false, selfId}: Props) => {
   const tileHeight = Math.max(104, Math.round(10 + fs(32) * iconCap + 6 + labelReserve + 10 + 4));
 
   return (
-    <ScrollView style={{flex: 1, backgroundColor: T.bg}} contentContainerStyle={{padding: 16, paddingBottom: 32}} scrollEnabled={!tileDrag}>
+    <ScrollView style={{flex: 1, backgroundColor: T.canvas}} contentContainerStyle={{padding: 16, paddingBottom: 32}} scrollEnabled={!tileDrag}>
       <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 20}}>
         <Text
           accessibilityRole="header"
