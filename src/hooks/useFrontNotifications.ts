@@ -1,4 +1,5 @@
-import {useEffect, useMemo, useRef} from 'react';
+import notifee from 'react-native-notify-kit';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import {AppState} from 'react-native';
 import {FrontState, Member, AppSettings} from '../utils';
 import {showFrontNotification, clearFrontNotification, scheduleFrontNotificationRefresh, cancelFrontNotificationRefresh, clearFrontDismissGuard} from '../services/frontNotification';
@@ -7,9 +8,36 @@ import {scheduleFrontCheckReminder, cancelFrontCheckReminder} from '../services/
 import {NetworkManager} from '../network/NetworkManager';
 import {endFriendsActivity} from '../services/LiveActivityService';
 import {friendNotifyLevel, isAcceptedFriend} from '../network/friendState';
+import {isResting, nextRestBoundary} from '../model/restMode';
 import {log, logError} from '../utils/log';
 
 export const useFrontNotifications = (front: FrontState | null, members: Member[], systemName: string, appSettings: AppSettings, loaded: boolean) => {
+  const [resting, setResting] = useState(() => isResting(appSettings.restMode));
+  const rest = appSettings.restMode;
+  const restSignature = `${rest?.enabled}|${rest?.start}|${rest?.end}`;
+  useEffect(() => {
+    if (!loaded) return;
+    let timer: ReturnType<typeof setTimeout>;
+    let previous: boolean | undefined;
+    const update = () => {
+      clearTimeout(timer);
+      const now = Date.now();
+      const quiet = isResting(rest, now);
+      setResting(quiet);
+      if (quiet && previous !== true) {
+        clearFrontNotification(false).then(() => notifee.cancelDisplayedNotifications()).catch(e => logError('notif', e));
+        endFriendsActivity().catch(e => logError('notif', e));
+      }
+      previous = quiet;
+      const boundary = nextRestBoundary(rest, now);
+      // Also recheck clock/timezone changes while foregrounded.
+      if (boundary !== null) timer = setTimeout(update, Math.min(60000, Math.max(1, boundary - now)));
+    };
+    update();
+    const sub = AppState.addEventListener('change', state => { if (state === 'active') update(); });
+    return () => { clearTimeout(timer); sub.remove(); };
+  }, [loaded, restSignature]);
+
   const persistent = appSettings.persistentFrontNotif !== false;
   const refreshMins = appSettings.notificationRefreshMinutes || 30;
   const membersRef = useRef(members);
@@ -17,16 +45,17 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
   const namesSig = useMemo(() => members.map(m => `${m.id}|${m.name}`).join('\n'), [members]);
 
   useEffect(() => {
+    if (!loaded) return;
     clearFrontDismissGuard();
-    if (!appSettings.notificationsEnabled || !persistent) endFriendsActivity().catch(e => logError('notif', e));
+    if (!appSettings.notificationsEnabled || !persistent || rest?.enabled) endFriendsActivity().catch(e => logError('notif', e));
     NetworkManager.refreshGatewayRegistration();
-  }, [appSettings.notificationsEnabled, persistent]);
+  }, [loaded, appSettings.notificationsEnabled, persistent, restSignature]);
 
   useEffect(() => {
     if (!loaded) return;
     if (appSettings.notificationsEnabled && persistent) { showFrontNotification(front, membersRef.current, systemName).catch(e => log.error('notifications', 'notif error:', e)); }
     else { clearFrontNotification().catch(e => log.error('notifications', 'clear notif error:', e)); }
-  }, [loaded, front, namesSig, appSettings.notificationsEnabled, persistent, systemName]);
+  }, [loaded, front, namesSig, appSettings.notificationsEnabled, persistent, systemName, resting, restSignature]);
 
   useEffect(() => {
     let last: string | null = null;
@@ -40,7 +69,7 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
       last = sig;
     });
     return () => { if (debounce) clearTimeout(debounce); unsub(); };
-  }, [front, namesSig, appSettings.notificationsEnabled, persistent, systemName]);
+  }, [front, namesSig, appSettings.notificationsEnabled, persistent, systemName, resting, restSignature]);
 
   useEffect(() => {
     const lastSeen = new Map<string, string>();
@@ -70,7 +99,7 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
     if (!front || !appSettings.notificationsEnabled || !persistent) return;
     const interval = setInterval(() => { showFrontNotification(front, membersRef.current, systemName).catch(e => log.error('notifications', 'notif refresh error:', e)); }, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [front, namesSig, appSettings.notificationsEnabled, persistent, systemName]);
+  }, [front, namesSig, appSettings.notificationsEnabled, persistent, systemName, resting, restSignature]);
 
   const frontNotifRef = useRef({front, members, systemName, enabled: appSettings.notificationsEnabled && persistent, refreshMins});
   frontNotifRef.current = {front, members, systemName, enabled: appSettings.notificationsEnabled && persistent, refreshMins};
@@ -86,19 +115,21 @@ export const useFrontNotifications = (front: FrontState | null, members: Member[
   }, []);
 
   useEffect(() => {
+    if (!loaded) return;
     const interval = appSettings.frontCheckInterval || 0;
     if (!appSettings.notificationsEnabled || interval <= 0) {
       cancelFrontCheckReminder().catch(e => log.error('notifications', 'front-check cancel error:', e));
     } else {
       scheduleFrontCheckReminder(interval, appSettings.accountMode === 'singlet').catch(e => log.error('notifications', 'front-check schedule error:', e));
     }
-  }, [appSettings.frontCheckInterval, appSettings.notificationsEnabled, appSettings.accountMode]);
+  }, [loaded, appSettings.frontCheckInterval, appSettings.notificationsEnabled, appSettings.accountMode, restSignature]);
 
   useEffect(() => {
+    if (!loaded) return;
     if (!front || !appSettings.notificationsEnabled || !persistent || refreshMins <= 0) {
       cancelFrontNotificationRefresh().catch(e => log.error('notifications', 'notif refresh cancel error:', e));
     } else {
       scheduleFrontNotificationRefresh(front, frontNotifRef.current.members, refreshMins).catch(e => log.error('notifications', 'notif refresh schedule error:', e));
     }
-  }, [front, refreshMins, appSettings.notificationsEnabled, persistent]);
+  }, [loaded, front, refreshMins, appSettings.notificationsEnabled, persistent, resting, restSignature]);
 };

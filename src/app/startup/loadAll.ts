@@ -11,6 +11,7 @@ import {clearAllMedia} from '../../utils/mediaFiles';
 import {NetworkManager} from '../../network/NetworkManager';
 import {CloudServices} from '../../cloud/cloudPlatform';
 import {clearFrontNotification} from '../../services/frontNotification';
+import {syncNotificationSettings} from '../../services/restMode';
 import {cancelMedicalReminders, reschedulePlannerNotifications} from '../../services/reminders';
 import {waitForProtectedData} from '../../services/LiveActivityService';
 import {useAppStore} from '../../store/appStore';
@@ -261,6 +262,7 @@ export function createStartup(onFirstRun: () => void): Startup {
       if (!keep(KEYS.journalTemplates, useAppStore.getState().journalTemplates)) setJournalTemplates(loadedInto(KEYS.journalTemplates, jourTemplates || []));
       if (!keep(KEYS.share, useAppStore.getState().shareSettings)) setShareSettings(loadedInto(KEYS.share, share || DEFAULT_SHARE));
       const settingsKept = loadedSettings === parsedSettings && keep(KEYS.settings, useAppStore.getState().appSettings);
+      await syncNotificationSettings(settingsKept ? useAppStore.getState().appSettings : loadedSettings);
       if (!settingsKept) setAppSettings(loadedInto(KEYS.settings, loadedSettings));
       if (!keep(KEYS.groups, useAppStore.getState().groups)) setGroups(loadedInto(KEYS.groups, grps || []));
       if (!keep(KEYS.palettes, useAppStore.getState().palettes)) setPalettes(loadedInto(KEYS.palettes, savedPalettes || []));

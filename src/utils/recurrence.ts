@@ -30,15 +30,26 @@ export const plannerOccursOnDay = (anchorTs: number, repeat: PlannerReminderRepe
   }
 };
 
-export const plannerNextOccurrence = (anchorTs: number, repeat: PlannerReminderRepeat | undefined, after: number): number | null => {
-  if (repeat == null || repeat === 'once') return anchorTs > after ? anchorTs : null;
+export const plannerNextOccurrence = (
+  anchorTs: number,
+  repeat: PlannerReminderRepeat | undefined,
+  after: number,
+  clock?: readonly [number, number],
+): number | null => {
   const a = new Date(anchorTs);
   const probe = new Date(after);
+  if (!Number.isFinite(a.getTime()) || !Number.isFinite(probe.getTime())) return null;
+  const [hour, minute] = clock ?? [a.getHours(), a.getMinutes()];
+  if (repeat == null || repeat === 'once') {
+    if (clock) a.setHours(hour, minute, 0, 0);
+    return a.getTime() > after ? a.getTime() : null;
+  }
   probe.setHours(0, 0, 0, 0);
   for (let i = 0; i < 800; i++) {
     if (plannerOccursOnDay(anchorTs, repeat, probe)) {
       const cand = new Date(probe);
-      cand.setHours(a.getHours(), a.getMinutes(), a.getSeconds(), 0);
+      // Keep the requested clock separate from an anchor normalized through a DST gap.
+      cand.setHours(hour, minute, clock ? 0 : a.getSeconds(), 0);
       if (cand.getTime() > after) return cand.getTime();
     }
     probe.setDate(probe.getDate() + 1);

@@ -5,13 +5,15 @@ import {log} from '../utils/log';
 import i18n from '../i18n/i18n';
 import {REMINDER_ANDROID, setupReminderChannel} from './notify';
 
+import {notificationsAllowed} from './restMode';
+
 const NOTEBOARD_NOTIF_ID = 'ps-noteboard-unread';
 
 export const showNoteboardNotification = async (
   entries: {memberName: string; unreadCount: number}[],
 ) => {
   try {
-    if (!entries || entries.length === 0) return;
+    if (!entries || entries.length === 0 || !(await notificationsAllowed())) return false;
     if (Platform.OS === 'android') await setupReminderChannel();
     const totalNotes = entries.reduce((sum, e) => sum + e.unreadCount, 0);
     const title = i18n.t('notification.noteboardUnreadTitle', {count: totalNotes});
@@ -27,8 +29,10 @@ export const showNoteboardNotification = async (
         style: {type: AndroidStyle.BIGTEXT, text: bigLines},
       },
     });
+    return true;
   } catch (e) {
     log.error('notifications', 'Noteboard notification error:', e);
+    return false;
   }
 };
 
@@ -46,6 +50,7 @@ export const showChatPingNotification = async (
   preview: string,
 ) => {
   try {
+    if (!(await notificationsAllowed())) return;
     if (Platform.OS === 'android') await setupReminderChannel();
     const safePreview = truncateRunes((preview || '').replace(/\s+/g, ' ').trim(), 140);
     const title = i18n.t('notification.chatPingTitle', {

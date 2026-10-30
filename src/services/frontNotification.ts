@@ -10,6 +10,8 @@ import {MAX_NOTIF_FRIENDS, Friend, FrontShare} from '../network/types';
 import {friendNotifyLevel} from '../network/friendState';
 import {frontShareLines} from '../network/frontShare';
 import i18n from '../i18n/i18n';
+import {isResting, nextAllowedNotification} from '../model/restMode';
+import {notificationSettings} from './restMode';
 import {ANDROID_BASE, durSuffix, timestampTrigger} from './notify';
 
 const NOTIF_CHANNEL_ID = 'plural-space-front';
@@ -117,6 +119,7 @@ export const clearFrontDismissGuard = () => {
 
 export const noteFrontNotifDismissed = async (notification?: {data?: Record<string, unknown>} | null) => {
   if (Platform.OS !== 'android') return;
+  if (isResting((await notificationSettings())?.restMode)) return;
   const postedAt = Number(notification?.data?.postedAt) || 0;
   if (postedAt && lastFrontPostedAt && postedAt < lastFrontPostedAt) return;
   try {
@@ -208,7 +211,8 @@ const syncFriendNotifications = async (desired: FriendNotif[], ownWhen: number) 
 };
 
 const releaseFgsIfUnbindable = async (): Promise<boolean> => {
-  const canBindFgs = fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31;
+  const restEnabled = (await notificationSettings())?.restMode?.enabled;
+  const canBindFgs = !restEnabled && (fgsBound || AppState.currentState === 'active' || Number(Platform.Version) < 31);
   if (fgsBound && !canBindFgs) {
     try { await notifee.stopForegroundService(); } catch (e) { logError('notif', e); }
     fgsBound = false;
@@ -256,6 +260,12 @@ export const showFrontNotification = async (
   systemName = 'Plural Star',
 ) => {
   try {
+    const settings = await notificationSettings();
+    if (settings?.notificationsEnabled === false || settings?.persistentFrontNotif === false || isResting(settings?.restMode) ||
+        (settings?.restMode?.enabled && (Platform.OS === 'ios' || Number(Platform.Version) < 26))) {
+      await clearFrontNotification(false);
+      return;
+    }
     if (Platform.OS === 'ios') {
       await updateFriendsLiveActivity(buildFriendLines().join('\n'));
       await updateFrontLiveActivity(front, members, systemName);
@@ -309,8 +319,17 @@ export const scheduleFrontNotificationRefresh = async (
       await cancelFrontNotificationRefresh();
       return;
     }
+    const settings = await notificationSettings();
+    if (settings?.notificationsEnabled === false || settings?.persistentFrontNotif === false ||
+        (settings?.restMode?.enabled && Number(Platform.Version) < 26)) {
+      await cancelFrontNotificationRefresh();
+      return;
+    }
+    const now = Date.now();
+    const timestamp = nextAllowedNotification(settings?.restMode, isResting(settings?.restMode, now) ? now : now + intervalMinutes * 60 * 1000);
+    if (timestamp === null) { await cancelFrontNotificationRefresh(); return; }
     await setupNotificationChannel();
-    const trigger = timestampTrigger(Date.now() + intervalMinutes * 60 * 1000);
+    const trigger = timestampTrigger(timestamp);
     await notifee.createTriggerNotification(
       {
         id: NOTIF_ID,
@@ -347,7 +366,8 @@ export const reassertFrontNotification = async () => {
     if (now - lastReassert < 60000) return;
     lastReassert = now;
     const state = await loadPersistentFrontState();
-    if (!state || !state.front) return;
+    if (!state || !state.front || isResting(state.settings?.restMode) ||
+        (state.settings?.restMode?.enabled && Number(Platform.Version) < 26)) return;
     const sig = frontStructureSig(state.front);
     if (frontDismissGuard !== null && frontDismissGuard === sig) return;
     const content = buildFrontContent(state.front, state.members);
@@ -368,14 +388,14 @@ export const cancelFrontNotificationRefresh = async () => {
   }
 };
 
-export const clearFrontNotification = async () => {
+export const clearFrontNotification = async (cancelRefresh = true) => {
   try {
     if (Platform.OS === 'ios') {
       await endFrontLiveActivity();
       return;
     }
-    try { await notifee.cancelTriggerNotification(NOTIF_ID); } catch (e) { logError('notif', e); }
-    await notifee.cancelNotification(NOTIF_ID);
+    try { if (cancelRefresh) await notifee.cancelTriggerNotification(NOTIF_ID); } catch (e) { logError('notif', e); }
+    await notifee.cancelDisplayedNotification(NOTIF_ID);
     await notifee.cancelNotification(FRONT_SUMMARY_ID);
     await cancelStaleFriendNotifs(new Set());
     if (fgsBound) { try { await notifee.stopForegroundService(); } catch (e) { logError('notif', e); } }

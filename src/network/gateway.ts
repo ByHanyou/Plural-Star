@@ -1,4 +1,5 @@
 import nacl from 'tweetnacl';
+import type {AppSettings} from '../model/types';
 import { config } from '../config';
 import { KEYS } from '../storage';
 import { log } from '../utils/log';
@@ -180,13 +181,15 @@ export class Gateway {
     const accepted = this.deps.friends.all().filter(
       f => isAcceptedFriend(f) && f.peerId !== self.peerId,
     );
-    const watch = accepted.filter(f => friendNotifyLevel(f) !== 'off').map(f => f.peerId).sort();
-    const appSettings = await storage.get<{notificationsEnabled?: boolean; persistentFrontNotif?: boolean}>(KEYS.settings, null);
-    const liveActivityOk = !appSettings || (appSettings.notificationsEnabled !== false && appSettings.persistentFrontNotif !== false);
+    const appSettings = await storage.get<AppSettings>(KEYS.settings, null);
+    // The remote gateway cannot enforce quiet hours while iOS is suspended.
+    const remoteAllowed = appSettings?.notificationsEnabled !== false && !appSettings?.restMode?.enabled;
+    const watch = remoteAllowed ? accepted.filter(f => friendNotifyLevel(f) !== 'off').map(f => f.peerId).sort() : [];
+    const liveActivityOk = remoteAllowed && appSettings?.persistentFrontNotif !== false;
     const pinned = liveActivityOk
       ? accepted.filter(f => friendNotifyLevel(f) === 'full').map(f => f.peerId).sort()
       : [];
-    if (pinned.length === 0 && this.friendsActivityLive) {
+    if (pinned.length === 0 && (this.friendsActivityLive || !remoteAllowed)) {
       push.endFriendsActivity().catch(e => log.debug('network', e));
       this.friendsActivityLive = false;
     }

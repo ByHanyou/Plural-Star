@@ -10,6 +10,8 @@ import {LIGHT_PALETTE} from '../theme';
 import {deleteAvatar} from '../utils/mediaUtils';
 import {migrateInlineChatMedia, rebaseChatMessageMedia} from '../utils/mediaMigrations';
 import {reschedulePlannerNotifications} from '../services/reminders';
+import {validRestMode} from '../model/restMode';
+import {syncNotificationSettings} from '../services/restMode';
 import {mailCountsFor} from '../mailbox/mailbox';
 import {useAppStore} from './appStore';
 
@@ -309,8 +311,18 @@ export const saveAppSettings = async (d: AppSettings) => {
   const {appSettings, setAppSettings} = useAppStore.getState();
   const gpsJustEnabled = d.gpsEnabled && !appSettings.gpsEnabled;
   const filesJustEnabled = d.filesEnabled && !appSettings.filesEnabled;
+  if (!validRestMode(d.restMode)) throw new Error(i18n.t('notification.restInvalid'));
+  await syncNotificationSettings(d);
+  try {
+    await store.set(KEYS.settings, d);
+  } catch (e) {
+    await syncNotificationSettings(appSettings);
+    throw e;
+  }
   setAppSettings(d);
-  await store.set(KEYS.settings, d);
+  if (JSON.stringify(d.restMode) !== JSON.stringify(appSettings.restMode) || d.notificationsEnabled !== appSettings.notificationsEnabled) {
+    await reschedulePlannerNotifications(useAppStore.getState().planner);
+  }
   if (d.language) { changeLanguage(d.language); await store.set(KEYS.language, d.language); }
   if (gpsJustEnabled) { await requestGPSPermission(); }
   if (filesJustEnabled) { await requestFilesPermission(); }

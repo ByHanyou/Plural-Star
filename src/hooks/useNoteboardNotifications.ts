@@ -38,8 +38,9 @@ export const useNoteboardNotifications = (front: FrontState | null, members: Mem
           }
         }
         if (entries.length > 0) {
-          await showNoteboardNotification(entries);
-          await store.set(KEYS.lastNoteboardSeen, {...lastSeen, ...notified});
+          if (await showNoteboardNotification(entries)) {
+            await store.set(KEYS.lastNoteboardSeen, {...lastSeen, ...notified});
+          }
         }
       } catch (e) { log.error('notifications', 'noteboard unread check error:', e); }
     })();
