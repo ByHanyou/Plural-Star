@@ -1,21 +1,18 @@
 import React, {useRef, useState} from 'react';
 import {Alert, View} from 'react-native';
 import {useTranslation} from 'react-i18next';
-import {Text} from '../components/AppText';
-import {BackgroundImage} from '../components/BackgroundImage';
-import {fontScale} from '../theme';
-import type {ThemeColors} from '../theme';
-import {useAppStore} from '../store/appStore';
-import {setBackgroundImage} from '../store/actions';
+import {Text} from '../../components/AppText';
+import {BackgroundImage} from '../../components/BackgroundImage';
+import {useTheme} from '../../themeContext';
+import {fontScale} from '../../theme';
 import {launchImageLibrary} from 'react-native-image-picker';
-import {removeBackgroundImage, saveBackgroundImageFromUri} from '../utils/mediaUtils';
-import {logError} from '../utils/log';
-import {Btn} from '../components/controls';
+import {logError} from '../../utils/log';
+import {Btn} from '../../components/controls';
 
-export const BackgroundSettings = ({theme: T}: {theme: ThemeColors}) => {
+export const BackgroundSection = ({filename, onChange}: {filename?: string; onChange: (uri?: string) => Promise<void>}) => {
+  const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
-  const filename = useAppStore(s => s.appSettings.backgroundImage);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
 
@@ -23,7 +20,7 @@ export const BackgroundSettings = ({theme: T}: {theme: ThemeColors}) => {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
-    let next: string | undefined;
+    let uri: string | undefined;
     try {
       if (!remove) {
         const result = await launchImageLibrary({mediaType: 'photo', selectionLimit: 1, includeBase64: false, maxWidth: 1920, maxHeight: 1920, quality: 0.9});
@@ -31,14 +28,10 @@ export const BackgroundSettings = ({theme: T}: {theme: ThemeColors}) => {
         if (result.errorCode) throw new Error(result.errorMessage || result.errorCode);
         const image = result.assets?.[0];
         if (!image?.uri) return;
-        const uri = /^(file|content):\/\//.test(image.uri) ? image.uri : `file://${image.uri}`;
-        next = await saveBackgroundImageFromUri(uri);
+        uri = /^(file|content):\/\//.test(image.uri) ? image.uri : `file://${image.uri}`;
       }
-      const previous = useAppStore.getState().appSettings.backgroundImage;
-      await setBackgroundImage(next);
-      await removeBackgroundImage(previous);
+      await onChange(uri);
     } catch (e) {
-      if (useAppStore.getState().appSettings.backgroundImage !== next) await removeBackgroundImage(next);
       logError('background', e);
       Alert.alert(t('modal.saveFailed'), t('modal.backgroundImageFailed'));
     } finally {

@@ -3,34 +3,7 @@ import type {FetchBlobResponse} from 'react-native-blob-util';
 import i18n from '../i18n/i18n';
 import {log, logError} from './log';
 import {withTimeout} from './concurrency';
-import {fs, BACKGROUND_DIR, AVATAR_DIR, AVATAR_FULL_DIR, BANNER_DIR, BIO_IMAGE_DIR, CHAT_MEDIA_DIR, IMAGE_EXTS, MIME_BY_EXT, downscaleOrCopy, ensureDir, fileUri, filePathOf, rawBase64, removeIfExists, removeVariants, safeExt, sniffImageExt, writeBase64} from './mediaFiles';
-
-export const backgroundImageUri = (filename?: string): string | undefined =>
-  typeof filename === 'string' && /^background-[a-z0-9-]+\.png$/.test(filename)
-    ? `file://${BACKGROUND_DIR}/${filename}`
-    : undefined;
-
-export const removeBackgroundImage = async (filename?: string): Promise<void> => {
-  const uri = backgroundImageUri(filename);
-  if (!uri) return;
-  try {
-    const path = uri.slice('file://'.length);
-    if (await ReactNativeBlobUtil.fs.exists(path)) await ReactNativeBlobUtil.fs.unlink(path);
-  } catch (e) { logError('background', e); }
-};
-
-export const saveBackgroundImageFromUri = async (sourceUri: string): Promise<string> => {
-  if (!sourceUri.startsWith('file://') && !sourceUri.startsWith('content://')) throw new Error('Invalid background image');
-  await ensureDir(BACKGROUND_DIR);
-  const filename = `background-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
-  try {
-    await downscaleOrCopy(sourceUri, `${BACKGROUND_DIR}/${filename}`, 1920);
-    return filename;
-  } catch (e) {
-    await removeBackgroundImage(filename);
-    throw e;
-  }
-};
+import {fs, AVATAR_DIR, AVATAR_FULL_DIR, BANNER_DIR, BIO_IMAGE_DIR, CHAT_MEDIA_DIR, IMAGE_EXTS, MIME_BY_EXT, downscaleOrCopy, ensureDir, fileUri, filePathOf, rawBase64, removeIfExists, removeVariants, safeExt, sniffImageExt, writeBase64} from './mediaFiles';
 
 const AVATAR_FULL_MAX = 1024;
 const DOWNLOAD_TIMEOUT_MS = 7000;

@@ -1,7 +1,7 @@
 import React from 'react';
 import {Image, StyleSheet, View} from 'react-native';
 import type {ThemeColors} from '../theme';
-import {backgroundImageUri} from '../utils/mediaUtils';
+import {backgroundImageUri} from '../utils/backgroundImage';
 
 export const BackgroundImage = ({filename, theme: T}: {filename?: string; theme: ThemeColors}) => {
   const uri = backgroundImageUri(filename);

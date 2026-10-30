@@ -11,7 +11,7 @@ import {SUPPORTED_LANGUAGES} from '../i18n/i18n';
 import type {SupportedLanguage} from '../i18n/i18n';
 import {Btn, Field, PasswordSection, SectionHead, ToggleRow, sectionLabel} from '../components/controls';
 import {ChipListEditor, Dropdown} from './system/SettingsControls';
-import {BackgroundSettings} from './BackgroundSettings';
+import {BackgroundSection} from './system/BackgroundSection';
 import {PaletteSection} from './system/PaletteSection';
 import {DevSettings} from '../components/DevSettings';
 import {reportSaveError} from '../utils/saveError';
@@ -68,7 +68,8 @@ const draftFrom = (system: SystemInfo, settings: AppSettings): SettingsDraft => 
 const FRONT_CHECK_HOURS = [0, 1, 2, 3, 4, 6, 8, 12] as const;
 const REFRESH_MINUTES = [0, 15, 30, 60, 240, 480, 720, 1440] as const;
 
-export const SystemModal = ({visible, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onOpenProfile, onClose}: {
+export const SystemModal = ({visible, system, settings, palettes, activePaletteId, onSave, onSaveSettings, onSavePalettes, onSelectPalette, onChangeBackground, onOpenProfile, onClose}: {
+  onChangeBackground: (uri?: string) => Promise<void>;
   visible: boolean; system: SystemInfo; settings: AppSettings; palettes: CustomPalette[]; activePaletteId: string;
   onSave: (s: SystemInfo) => Promise<void>; onSaveSettings: (s: AppSettings) => Promise<void>; onSavePalettes: (p: CustomPalette[]) => Promise<void>; onSelectPalette: (id: string) => Promise<void>; onOpenProfile: () => void; onClose: () => void;
 }) => {
@@ -112,7 +113,7 @@ export const SystemModal = ({visible, system, settings, palettes, activePaletteI
       <PaletteSection palettes={palettes} activePaletteId={activePaletteId} onSavePalettes={onSavePalettes} onSelectPalette={onSelectPalette}
         style={{borderTopWidth: 1, borderTopColor: T.border, paddingTop: 14, marginTop: 4}} />
 
-      <BackgroundSettings theme={T} />
+      <BackgroundSection filename={settings.backgroundImage} onChange={onChangeBackground} />
 
       <PasswordSection label={t('modal.globalJournalPassword')} on={d.showJournalPw} setOn={on => setD(x => ({...x, showJournalPw: on, journalPw: on ? x.journalPw : ''}))}
         value={d.journalPw} onChange={v => put('journalPw', v)} placeholder={t('modal.lockJournal')}

@@ -2,9 +2,6 @@ import React, {useState, useEffect, useCallback, useRef, startTransition} from '
 import {View, StyleSheet} from 'react-native';
 import {TabBar, Tab, TAB_IDS} from '../components/TabBar';
 import {TabActiveContext, createTabActiveSources} from '../hooks/useTabActive';
-import {BackgroundImage} from '../components/BackgroundImage';
-import {useAppStore} from '../store/appStore';
-import {useTheme} from '../themeContext';
 import {useUiStore} from '../store/uiStore';
 import {log} from '../utils/log';
 import {registerTabControl} from './navigation';
@@ -19,8 +16,6 @@ const FrozenTab = React.memo(
 );
 
 export function TabHost({isSinglet, screens, memory}: {isSinglet: boolean; screens: Record<Tab, React.ReactNode>; memory: React.RefObject<TabMemory>}) {
-  const T = useTheme();
-  const backgroundImage = useAppStore(s => s.appSettings.backgroundImage);
   const [tab, setTab] = useState<Tab>(memory.current.tab);
   const [shownTab, setShownTab] = useState<Tab>(memory.current.tab);
   const [mountedTabs, setMountedTabs] = useState<Tab[]>(memory.current.mounted);
@@ -54,7 +49,6 @@ export function TabHost({isSinglet, screens, memory}: {isSinglet: boolean; scree
   return (
     <>
       <View style={styles.content}>
-        <BackgroundImage filename={backgroundImage} theme={T} />
         {TAB_IDS.map(id => mountedTabs.includes(id) ? (
           <View key={id} style={[StyleSheet.absoluteFill, shownTab === id ? null : styles.hiddenTab]} pointerEvents={shownTab === id ? 'auto' : 'none'}
             importantForAccessibility={shownTab === id ? 'auto' : 'no-hide-descendants'} accessibilityElementsHidden={shownTab !== id}>
