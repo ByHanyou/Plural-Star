@@ -4,7 +4,7 @@ import {AppSettings, FrontState, Member, fmtDur, fmtTime, frontSessionStart, mem
 import {store, KEYS} from '../storage';
 import {setTerminologyOverrides, setTierNameOverrides} from '../i18n/terminology';
 import {log, logError} from '../utils/log';
-import {endFrontLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
+import {endFrontLiveActivity, updateFriendsLiveActivity, updateFrontLiveActivity} from './LiveActivityService';
 import {NetworkManager} from '../network/NetworkManager';
 import {MAX_NOTIF_FRIENDS, Friend, FrontShare} from '../network/types';
 import {friendNotifyLevel} from '../network/friendState';
@@ -257,8 +257,8 @@ export const showFrontNotification = async (
 ) => {
   try {
     if (Platform.OS === 'ios') {
-      const friendLines = buildFriendLines();
-      await updateFrontLiveActivity(front, members, systemName, friendLines.join('\n') || undefined);
+      await updateFriendsLiveActivity(buildFriendLines().join('\n'));
+      await updateFrontLiveActivity(front, members, systemName);
       return;
     }
 

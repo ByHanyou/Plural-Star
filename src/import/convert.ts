@@ -2,7 +2,7 @@ import {Member, MemberGroup, HistoryEntry, CustomFieldType, asRecord, blankMembe
 import {importNameKey} from './importNames';
 import {store, KEYS} from '../storage';
 import {asArray} from './formats';
-import type {SpSwitchDoc, SpSwitchContent, AmFront, OuFront, PxFront, PkSwitch, PsFront, PsExport, PsMember, PsFieldDef, PsGroup, PsJournalEntry, PsChannel, OpRoot, OpSystem, OpAsset, OpTerm, OpAssignment, OpField, OpFieldValue, OpGroupMembership, OpMember, OpPeriod, OpChatMessage, OpGroup, OpNote, OpConversation} from './formats';
+import type {SpSwitchDoc, SpSwitchContent, AmFront, OuFront, PxFront, PkSwitch, PsFront, PsExport, PsMember, PsFieldDef, PsGroup, PsJournalEntry, PsChannel, PsRelationship, PsRelationshipType, OpRoot, OpSystem, OpAsset, OpTerm, OpAssignment, OpField, OpFieldValue, OpGroupMembership, OpMember, OpPeriod, OpChatMessage, OpGroup, OpNote, OpConversation} from './formats';
 
 export const msOf = (v: unknown): number => (typeof v === 'number' ? v : (v ? new Date(String(v)).getTime() || 0 : 0));
 
@@ -13,34 +13,26 @@ const OVERLAP_TOLERANCE = 60 * 1000;
 
 type Span = {startTime: number; endTime: number | null};
 
-const groupOverlapping = <E extends Span>(parsed: E[]): E[][] => {
-  parsed.sort((a, b) => a.startTime - b.startTime);
-  const groups: E[][] = [];
-  const used = new Set<number>();
-  for (let i = 0; i < parsed.length; i++) {
-    if (used.has(i)) continue;
-    const group = [parsed[i]];
-    used.add(i);
-    for (let j = i + 1; j < parsed.length; j++) {
-      if (used.has(j)) continue;
-      const a = parsed[i];
-      const b = parsed[j];
-      const aEnd = a.endTime ?? Date.now();
-      const bEnd = b.endTime ?? Date.now();
-      if (Math.abs(a.startTime - b.startTime) <= OVERLAP_TOLERANCE || (b.startTime < aEnd && a.startTime < bEnd)) {
-        group.push(b);
-        used.add(j);
-      }
-    }
-    groups.push(group);
+const sweepSegments = <E extends Span>(entries: E[], visit: (active: E[], starting: E[], from: number, to: number | null) => void): void => {
+  const snap = snapToClusters(entries.flatMap(e => (e.endTime === null ? [e.startTime] : [e.startTime, e.endTime])));
+  const startsAt = new Map<number, E[]>();
+  const endsAt = new Map<number, E[]>();
+  for (const p of entries) {
+    const e = {...p, startTime: snap(p.startTime), endTime: p.endTime === null ? null : snap(p.endTime)};
+    if (e.endTime !== null && e.endTime <= e.startTime) continue;
+    pushTo(startsAt, e.startTime, e);
+    if (e.endTime !== null) pushTo(endsAt, e.endTime, e);
   }
-  return groups;
+  const cuts = [...new Set([...startsAt.keys(), ...endsAt.keys()])].sort((a, b) => a - b);
+  const active = new Set<E>();
+  for (let i = 0; i < cuts.length; i++) {
+    const from = cuts[i];
+    for (const e of endsAt.get(from) || []) active.delete(e);
+    const starting = startsAt.get(from) || [];
+    for (const e of starting) active.add(e);
+    visit([...active], starting, from, i + 1 < cuts.length ? cuts[i + 1] : null);
+  }
 };
-
-const groupSpan = (group: Span[]): Span => ({
-  startTime: Math.min(...group.map(e => e.startTime)),
-  endTime: group.some(e => e.endTime === null) ? null : Math.max(...group.map(e => e.endTime ?? 0)),
-});
 
 const closeOpenEntries = <H extends Span>(built: H[], keepOpen: (h: H) => boolean = () => false): void => {
   built.sort((a, b) => a.startTime - b.startTime);
@@ -55,21 +47,35 @@ const closeOpenEntries = <H extends Span>(built: H[], keepOpen: (h: H) => boolea
   }
 };
 
+type SpEntry = {resolvedIds: string[]; startTime: number; endTime: number | null; live: boolean; note: string};
+
 export const convertSPSwitches = (switches: SpSwitchDoc[], idMap: ReadonlyMap<string, string>): HistoryEntry[] => {
-  const parsed = switches.map(sw => {
+  const parsed: SpEntry[] = switches.map(sw => {
     const c: SpSwitchContent = {...sw, ...(sw.content || {})};
     const externalMemberIds: string[] = Array.isArray(c.members) ? c.members : (c.member ? [c.member] : []);
     const resolvedIds = localIds(idMap, externalMemberIds);
     const startTime = msOf(c.startTime || c.timestamp);
     const endTime = c.endTime ? msOf(c.endTime) || null : null;
-    return {resolvedIds, startTime, endTime, note: c.comment || ''};
+    return {resolvedIds, startTime, endTime, live: c.live !== false, note: c.comment || ''};
   }).filter(e => e.startTime > 0 && e.resolvedIds.length > 0);
-  const built: HistoryEntry[] = groupOverlapping(parsed).map(group => ({
-    memberIds: [...new Set(group.flatMap(e => e.resolvedIds))],
-    ...groupSpan(group),
-    note: group.map(e => e.note).filter(Boolean).join(' | '),
-  })).filter(h => h.memberIds.length > 0);
-  closeOpenEntries(built);
+  const starts = [...new Set(parsed.map(e => e.startTime))].sort((a, b) => a - b);
+  for (const e of parsed) {
+    if (e.endTime !== null || e.live) continue;
+    const next = starts.find(s => s > e.startTime);
+    if (next !== undefined) e.endTime = next;
+  }
+  const built: HistoryEntry[] = [];
+  sweepSegments(parsed, (active, starting, from, to) => {
+    const ids = [...new Set(active.flatMap(e => e.resolvedIds))];
+    if (ids.length === 0) return;
+    const notes = [...new Set(starting.map(e => e.note).filter(Boolean))];
+    const prev = built[built.length - 1];
+    if (prev && prev.endTime === from && notes.length === 0 && sameIds(prev.memberIds, ids)) {
+      prev.endTime = to;
+      return;
+    }
+    built.push({memberIds: ids, startTime: from, endTime: to, note: notes.join(' | ')});
+  });
   return built;
 };
 
@@ -83,17 +89,23 @@ export const convertAmpersandFronts = (entries: AmFront[], idMap: ReadonlyMap<st
     endTime: f?.endTime != null ? (msOf(f.endTime) || null) : null,
     note: String(f?.comment ?? f?.summary ?? '').trim(),
   })).filter(e => e.mid && e.startTime > 0);
-  const built = groupOverlapping(parsed).map((group): HistoryEntry => {
-    let main = [...new Set(group.filter(e => e.main).map(e => e.mid))];
-    let co = [...new Set(group.filter(e => !e.main).map(e => e.mid))].filter(id => !main.includes(id));
+  const built: HistoryEntry[] = [];
+  sweepSegments(parsed, (active, starting, from, to) => {
+    let main = [...new Set(active.filter(e => e.main).map(e => e.mid))];
+    let co = [...new Set(active.filter(e => !e.main).map(e => e.mid))].filter(id => !main.includes(id));
     if (main.length === 0) {
       main = co;
       co = [];
     }
-    const notes = [...new Set(group.map(e => e.note).filter(Boolean))];
-    return {memberIds: main, ...groupSpan(group), note: notes.join(' | '), ...(co.length > 0 ? {coFrontIds: co} : {})};
-  }).filter(h => h.memberIds.length > 0);
-  closeOpenEntries(built);
+    if (main.length === 0) return;
+    const notes = [...new Set(starting.map(e => e.note).filter(Boolean))];
+    const prev = built[built.length - 1];
+    if (prev && prev.endTime === from && notes.length === 0 && sameIds(prev.memberIds, main) && sameIds(prev.coFrontIds, co)) {
+      prev.endTime = to;
+      return;
+    }
+    built.push({memberIds: main, startTime: from, endTime: to, note: notes.join(' | '), ...(co.length > 0 ? {coFrontIds: co} : {})});
+  });
   return built;
 };
 
@@ -286,6 +298,11 @@ export const isPluralSpaceExport = (o: unknown): o is PsExport => {
   return !!r && !r._meta && !!r.system && typeof r.system === 'object' && Array.isArray(r.members) && Array.isArray(r.fronts);
 };
 
+const STRICT_VISIBILITY = new Set(['private', 'trusted']);
+
+const isPrivateOp = (m: OpMember | undefined): boolean =>
+  [m?.extensions?.profile_visibility, m?.privacy?.visibility].some(v => typeof v === 'string' && STRICT_VISIBILITY.has(v.trim().toLowerCase()));
+
 export const normalizeOpenPlural = (root: unknown, mediaPrefix = ''): PsExport | null => {
   if (!isOpenPluralSystem(root)) return null;
   const sys: OpSystem = asArray<OpSystem>(root.systems)[0] || {};
@@ -342,6 +359,7 @@ export const normalizeOpenPlural = (root: unknown, mediaPrefix = ''): PsExport |
     groups: groupsByMember.get(String(m?.id)) || [],
     custom_field_values: valuesByMember.get(String(m?.id)) || [],
     created_at: m?.created_at,
+    private: isPrivateOp(m),
   }));
 
   const periods = asArray<OpPeriod>(root.front_periods);
@@ -421,10 +439,36 @@ export const normalizeOpenPlural = (root: unknown, mediaPrefix = ''): PsExport |
     journal_entries: journalEntries,
     chat_channels: chatChannels,
     polls: Array.isArray(root.polls?.polls) ? root.polls.polls : [],
+    relationship_types: asArray<PsRelationshipType>(root.relationships?.types),
+    relationships: asArray<PsRelationship>(root.relationships?.edges),
   };
 };
 
 type PsEntry = {mid: string; tier: 'front' | 'co_front' | 'co_con'; startTime: number; endTime: number | null; live: boolean; note: string};
+
+const snapToClusters = (times: number[]): ((t: number) => number) => {
+  const snap = new Map<number, number>();
+  let anchor = -Infinity;
+  for (const t of [...new Set(times)].sort((a, b) => a - b)) {
+    if (t - anchor > OVERLAP_TOLERANCE) anchor = t;
+    snap.set(t, anchor);
+  }
+  return t => snap.get(t) ?? t;
+};
+
+const tiersOf = (active: PsEntry[]): {main: string[]; coF: string[]; coC: string[]} => {
+  let main = [...new Set(active.filter(e => e.tier === 'front').map(e => e.mid))];
+  let coF = [...new Set(active.filter(e => e.tier === 'co_front').map(e => e.mid))].filter(id => !main.includes(id));
+  const coC = [...new Set(active.filter(e => e.tier === 'co_con').map(e => e.mid))].filter(id => !main.includes(id) && !coF.includes(id));
+  if (main.length === 0 && coF.length > 0) {
+    main = coF;
+    coF = [];
+  }
+  return {main, coF, coC};
+};
+
+const sameIds = (a: readonly string[] | undefined, b: readonly string[]): boolean =>
+  (a || []).length === b.length && [...(a || [])].sort().join(',') === [...b].sort().join(',');
 
 export const convertPluralSpaceFronts = (fronts: PsFront[], idMap: ReadonlyMap<string, string>): HistoryEntry[] => {
   const parsed: PsEntry[] = fronts.map(f => {
@@ -436,29 +480,38 @@ export const convertPluralSpaceFronts = (fronts: PsFront[], idMap: ReadonlyMap<s
     const tier: PsEntry['tier'] = f.type === 'co_front' ? 'co_front' : f.type === 'co_con' ? 'co_con' : 'front';
     return {mid, tier, startTime, endTime, live, note: String(f.comment || '')};
   }).filter(e => e.mid && e.startTime > 0);
-  const liveEntries = new Set<HistoryEntry>();
-  const built = groupOverlapping(parsed).map(group => {
-    let main = [...new Set(group.filter(e => e.tier === 'front').map(e => e.mid))];
-    let coF = [...new Set(group.filter(e => e.tier === 'co_front').map(e => e.mid))].filter(id => !main.includes(id));
-    const coC = [...new Set(group.filter(e => e.tier === 'co_con').map(e => e.mid))].filter(id => !main.includes(id) && !coF.includes(id));
-    if (main.length === 0 && coF.length > 0) {
-      main = coF;
-      coF = [];
+  const starts = parsed.map(e => e.startTime);
+  for (const e of parsed) {
+    if (e.endTime !== null || e.live) continue;
+    const next = Math.min(...starts.filter(s => s > e.startTime));
+    if (Number.isFinite(next)) e.endTime = next;
+  }
+  const snap = snapToClusters(parsed.flatMap(e => (e.endTime === null ? [e.startTime] : [e.startTime, e.endTime])));
+  const spans = parsed
+    .map(e => ({...e, startTime: snap(e.startTime), endTime: e.endTime === null ? null : snap(e.endTime)}))
+    .filter(e => e.endTime === null || e.endTime > e.startTime);
+  const cuts = [...new Set(spans.flatMap(e => (e.endTime === null ? [e.startTime] : [e.startTime, e.endTime])))].sort((a, b) => a - b);
+  const built: HistoryEntry[] = [];
+  for (let i = 0; i < cuts.length; i++) {
+    const from = cuts[i];
+    const to = i + 1 < cuts.length ? cuts[i + 1] : null;
+    const active = spans.filter(e => e.startTime <= from && (e.endTime === null || e.endTime > from));
+    const {main, coF, coC} = tiersOf(active);
+    if (main.length === 0) continue;
+    const notes = [...new Set(active.filter(e => e.startTime === from).map(e => e.note).filter(Boolean))];
+    const prev = built[built.length - 1];
+    if (prev && prev.endTime === from && notes.length === 0 && sameIds(prev.memberIds, main) && sameIds(prev.coFrontIds, coF) && sameIds(prev.coConsciousIds, coC)) {
+      prev.endTime = to;
+      continue;
     }
-    const groupLive = group.some(e => e.live);
-    const span = groupSpan(group);
-    const notes = [...new Set(group.map(e => e.note).filter(Boolean))];
-    const h: HistoryEntry = {
+    built.push({
       memberIds: main,
-      startTime: span.startTime,
-      endTime: groupLive ? null : span.endTime,
+      startTime: from,
+      endTime: to,
       note: notes.join(' | '),
       coFrontIds: coF.length > 0 ? coF : undefined,
       coConsciousIds: coC.length > 0 ? coC : undefined,
-    };
-    if (groupLive) liveEntries.add(h);
-    return h;
-  }).filter(h => h.memberIds.length > 0);
-  closeOpenEntries(built, h => liveEntries.has(h));
+    });
+  }
   return built;
 };

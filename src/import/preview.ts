@@ -5,7 +5,7 @@ import type {
   PkSystem, PkMember, PkSwitch, PkGroup,
   SpUserDoc, SpMemberDoc, SpSwitchDoc, SpGroupDoc, SpFieldDoc,
   TbTupper, TbGroup,
-  PsSystem, PsMember, PsFront, PsFieldDef, PsGroup, PsJournalEntry, PsChannel, PsPoll,
+  PsSystem, PsMember, PsFront, PsFieldDef, PsGroup, PsJournalEntry, PsChannel, PsPoll, PsRelationship, PsRelationshipType,
   PlExport, PxExport,
   AmSystem, AmMember, AmFront, AmField, AmTag, AmPost, AmBoardMessage,
 } from './formats';
@@ -43,6 +43,8 @@ export interface PluralSpacePreview {
   journal: PsJournalEntry[];
   chat: PsChannel[];
   polls: PsPoll[];
+  relationshipTypes: PsRelationshipType[];
+  relationships: PsRelationship[];
 }
 
 export interface PluralLogPreview {

@@ -57,7 +57,6 @@ private extension PluralSpaceActivityAttributes.ContentState {
   var coConsciousTitle: String { coConsciousLabel ?? "Co-Conscious" }
   var moodTitle: String { moodLabel ?? "Mood" }
   var locationTitle: String { locationLabel ?? "At" }
-  var friendsTitle: String { friendsLabel ?? "Friends" }
 }
 
 @available(iOS 16.1, *)
@@ -146,15 +145,6 @@ private struct LockScreenView: View {
           .font(.caption)
           .foregroundStyle(.secondary)
           .lineLimit(2)
-      }
-
-      if let friendsText = context.state.friendsText, !friendsText.isEmpty {
-        VStack(alignment: .leading, spacing: 3) {
-          caption(context.state.friendsTitle.uppercased())
-          Text(friendsText)
-            .font(.caption)
-            .lineLimit(5)
-        }
       }
     }
     .padding(.horizontal, 16)

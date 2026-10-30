@@ -135,6 +135,12 @@ export const pruneFrontOfGone = (members: Member[], front: FrontState | null): F
   return isFrontEmpty(next) ? null : next;
 };
 
+export const tierOfKnown = (tier: FrontTier, known: ReadonlySet<string>): FrontTier =>
+  ({...tier, memberIds: tier.memberIds.filter(id => known.has(id))});
+
+export const frontOfKnown = (front: FrontState | null, known: ReadonlySet<string>): FrontState | null =>
+  front ? {...front, primary: tierOfKnown(front.primary, known), coFront: tierOfKnown(front.coFront, known), coConscious: tierOfKnown(front.coConscious, known)} : null;
+
 export const frontTiersWithout = (front: FrontState | null, memberId: string): Record<FrontTierKey, FrontTier> => {
   const strip = (tier: FrontTierKey): FrontTier =>
     front ? {...front[tier], memberIds: front[tier].memberIds.filter(id => id !== memberId)} : {memberIds: [], note: ''};

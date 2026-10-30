@@ -14,13 +14,11 @@ struct PluralSpaceActivityAttributes: ActivityAttributes {
     var note: String?
     var startTime: Date
     var statusLine: String
-    var friendsText: String?
     var frontLabel: String?
     var coFrontLabel: String?
     var coConsciousLabel: String?
     var moodLabel: String?
     var locationLabel: String?
-    var friendsLabel: String?
   }
 
   var systemName: String

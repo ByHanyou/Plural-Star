@@ -52,7 +52,7 @@ export const TierCard = ({
   const note = tier.note || '';
 
   const fronters = membersByIds(ids, getMember);
-  const since = frontSessionStart(front);
+  const since = frontSessionStart(front, id => !!getMember(id)?.name);
   const detail = (labelKey: string, value: string, grow = true) => (
     <View style={grow ? {flex: 1} : undefined}>
       <Text style={{fontSize: fs(9), letterSpacing: 1, color: T.dim, textTransform: 'uppercase'}}>{t(labelKey)}</Text>

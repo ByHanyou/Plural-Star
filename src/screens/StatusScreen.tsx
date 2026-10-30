@@ -27,7 +27,7 @@ export const StatusScreen = ({selfId}: Props) => {
   const empty = isFrontEmpty(front);
   const tier = front?.primary;
   const statuses = membersByIds(statusIdsOf(front, selfId), getMember);
-  const since = front ? frontSessionStart(front) : null;
+  const since = front ? frontSessionStart(front, id => !!getMember(id)?.name) : null;
   const detailRow = (label: string, value: string | undefined) => (value ? (
     <View style={s.row}>
       <Text style={[s.rowLabel, {color: T.dim, fontSize: fs(10)}]}>{label}</Text>

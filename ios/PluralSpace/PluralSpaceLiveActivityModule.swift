@@ -172,25 +172,23 @@ class PluralSpaceLiveActivity: NSObject {
       note: payload["note"] as? String,
       startTime: Date(timeIntervalSince1970: startTimeSeconds / 1000),
       statusLine: statusLine,
-      friendsText: payload["friendsText"] as? String,
       frontLabel: payload["frontLabel"] as? String,
       coFrontLabel: payload["coFrontLabel"] as? String,
       coConsciousLabel: payload["coConsciousLabel"] as? String,
       moodLabel: payload["moodLabel"] as? String,
-      locationLabel: payload["locationLabel"] as? String,
-      friendsLabel: payload["friendsLabel"] as? String
+      locationLabel: payload["locationLabel"] as? String
     )
   }
 
   @available(iOS 16.2, *)
-  private func friendsActivity(title: String) -> Activity<PluralStarFriendsActivityAttributes>? {
+  private func friendsActivity(title: String, lines: String) -> Activity<PluralStarFriendsActivityAttributes>? {
     if let existing = Activity<PluralStarFriendsActivityAttributes>.activities.first {
       return existing
     }
     return try? Activity.request(
       attributes: PluralStarFriendsActivityAttributes(title: title),
       content: ActivityContent(
-        state: PluralStarFriendsActivityAttributes.ContentState(lines: " "),
+        state: PluralStarFriendsActivityAttributes.ContentState(lines: lines),
         staleDate: nil
       ),
       pushType: .token
@@ -198,9 +196,10 @@ class PluralSpaceLiveActivity: NSObject {
   }
 #endif
 
-  @objc(getFriendsPushToken:resolver:rejecter:)
+  @objc(getFriendsPushToken:lines:resolver:rejecter:)
   func getFriendsPushToken(
     _ title: String,
+    lines: String,
     resolver resolve: @escaping RCTPromiseResolveBlock,
     rejecter reject: @escaping RCTPromiseRejectBlock
   ) {
@@ -210,7 +209,7 @@ class PluralSpaceLiveActivity: NSObject {
       return
     }
     Task {
-      guard let act = friendsActivity(title: title) else {
+      guard let act = friendsActivity(title: title, lines: lines) else {
         resolve(NSNull())
         return
       }
@@ -234,6 +233,30 @@ class PluralSpaceLiveActivity: NSObject {
         return first
       }
       resolve(orNull(hex))
+    }
+#else
+    resolve(NSNull())
+#endif
+  }
+
+  @objc(updateFriendsActivity:resolver:rejecter:)
+  func updateFriendsActivity(
+    _ lines: String,
+    resolver resolve: @escaping RCTPromiseResolveBlock,
+    rejecter reject: @escaping RCTPromiseRejectBlock
+  ) {
+#if canImport(ActivityKit)
+    guard #available(iOS 16.2, *) else {
+      resolve(NSNull())
+      return
+    }
+    Task {
+      for activity in Activity<PluralStarFriendsActivityAttributes>.activities {
+        await activity.update(
+          ActivityContent(state: PluralStarFriendsActivityAttributes.ContentState(lines: lines), staleDate: nil)
+        )
+      }
+      resolve(true)
     }
 #else
     resolve(NSNull())

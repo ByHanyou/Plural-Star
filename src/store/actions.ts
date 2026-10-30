@@ -1,5 +1,5 @@
 import {store, KEYS, chatMsgKey} from '../storage';
-import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, NoteboardEntry, Relationship, allFrontMemberIds, ChatChannel, ChatCategory, ChatMessage, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, closeOpenFrontEntry, frontTiersWith, frontTiersWithout, pruneFrontOfGone, detailChangeEntries, frontToHistoryEntry, tierDetailChanges, withMemberSince, computeFrontUpdate, mergeTags, findSelfMember, newSelfMember, upsertById} from '../utils';
+import {SystemInfo, Member, MemberGroup, HistoryEntry, JournalEntry, JournalTemplate, ShareSettings, AppSettings, NoteboardEntry, Relationship, allFrontMemberIds, ChatChannel, ChatCategory, ChatMessage, PlannerData, FrontState, FrontTier, FrontTierKey, MemberSortMode, FrontSortMode, closeOpenFrontEntry, frontTiersWith, frontTiersWithout, pruneFrontOfGone, frontOfKnown, tierOfKnown, detailChangeEntries, frontToHistoryEntry, tierDetailChanges, withMemberSince, computeFrontUpdate, mergeTags, findSelfMember, newSelfMember, upsertById} from '../utils';
 import i18n, {changeLanguage} from '../i18n/i18n';
 import {getGPSLocation} from '../utils/gpsLocation';
 import {requestGPSPermission, requestFilesPermission} from '../utils/permissions';
@@ -154,8 +154,10 @@ export const onFrontersHaveMail = (fn: (names: string) => void): (() => void) =>
 export const updateFront = async (primary: FrontTier, coFront: FrontTier, coConscious: FrontTier) => {
   const {front, history, members, appSettings, setFront} = useAppStore.getState();
   const now = Date.now();
-  const {front: finalFront, history: newHistory} = computeFrontUpdate(front, history, primary, coFront, coConscious, now);
-  const explicitLocation = primary.memberIds.length > 0 ? (primary.location?.trim() || undefined) : undefined;
+  const known = new Set(members.map(m => m.id));
+  const nextPrimary = tierOfKnown(primary, known);
+  const {front: finalFront, history: newHistory} = computeFrontUpdate(frontOfKnown(front, known), history, nextPrimary, tierOfKnown(coFront, known), tierOfKnown(coConscious, known), now);
+  const explicitLocation = nextPrimary.memberIds.length > 0 ? (nextPrimary.location?.trim() || undefined) : undefined;
 
   setFront(finalFront);
   await store.set(KEYS.front, finalFront);

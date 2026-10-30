@@ -2,7 +2,8 @@ import {Alert} from 'react-native';
 import {importNameKey} from './importNames';
 import {ImportUserError, importErrorText} from './importError';
 import {strFromU8} from 'fflate';
-import {Member, MemberGroup, JournalEntry, ChatChannel, ChatMessage, MemberPoll, CustomFieldDef, CustomFieldType, CustomFieldValue, pushTo, withFieldValue, uid} from '../utils';
+import {Member, MemberGroup, JournalEntry, ChatChannel, ChatMessage, MemberPoll, CustomFieldDef, CustomFieldType, CustomFieldValue, Relationship, RelationshipTypeDef, pushTo, withFieldValue, uid} from '../utils';
+import {allRelationshipTypes, findDuplicateRelationship, upsertRelationshipType} from '../utils/relationships';
 import {store, KEYS, chatMsgKey} from '../storage';
 import {readZipBundle, zipEntry} from './zipBundle';
 import {encodeBase64} from '../network/bytes';
@@ -15,7 +16,7 @@ import {confirmImport} from './confirm';
 import {isImportStopped} from './progress';
 import {applyImportedHistory, downloadAvatarsTo} from './restoreCommon';
 import {asArray} from './formats';
-import type {PsExport, PsRef, PsFieldValue, PsFieldDef, PsGroup, PsJournalEntry, PsChannel, PsMessage, PsPoll, PsPollOption} from './formats';
+import type {PsExport, PsRef, PsFieldValue, PsFieldDef, PsGroup, PsJournalEntry, PsChannel, PsMessage, PsPoll, PsPollOption, PsRelationship, PsRelationshipType} from './formats';
 import type {ExtImportCtx} from './preview';
 import {log, logError} from '../utils/log';
 
@@ -73,6 +74,8 @@ export const handlePluralSpacePick = async (ctx: PluralSpaceCtx) => {
       journal: asArray<PsJournalEntry>(parsed.journal_entries),
       chat: asArray<PsChannel>(parsed.chat_channels),
       polls: asArray<PsPoll>(parsed.polls),
+      relationshipTypes: asArray<PsRelationshipType>(parsed.relationship_types),
+      relationships: asArray<PsRelationship>(parsed.relationships),
     });
   } catch (e) { if (!isPickerCancel(e)) Alert.alert(t('share.importFailed'), importErrorText(e, t)); }
 };
@@ -89,6 +92,8 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
       const psJournal = extPreview.journal;
       const psChat = extPreview.chat;
       const psPolls = extPreview.polls;
+      const psRelTypes = extPreview.relationshipTypes;
+      const psRelationships = extPreview.relationships;
 
       if (extSel.system && extPreview.system?.name) {
         await store.set(KEYS.system, {...system, name: String(extPreview.system.name) || system.name, description: String(extPreview.system.description || '') || system.description});
@@ -99,8 +104,12 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
         const existing = await getStoredMembers();
         const merged: Member[] = [...existing];
         psMembers.forEach(m => {
+          const name = (m.name && String(m.name).trim()) || (m.display_name && String(m.display_name).trim()) || t('share.unnamedMember');
+          const displayName = typeof m.display_name === 'string' ? m.display_name.trim() : '';
           mergeForeignMember(merged, idMap, 'ps:' + String(m.id), {
-            name: (m.name && String(m.name).trim()) || (m.display_name && String(m.display_name).trim()) || t('share.unnamedMember'),
+            name,
+            ...(displayName && displayName !== name ? {nickname: displayName} : {}),
+            ...(typeof m.private === 'boolean' ? {private: m.private} : {}),
             pronouns: String(m.pronouns || ''),
             role: Array.isArray(m.role) ? m.role.join(', ') : String(m.role || ''),
             color: normHex(m.color),
@@ -202,7 +211,10 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
           id: uid(),
           title: String(j.title || '').trim(),
           body: String(j.content || ''),
-          authorIds: asArray<PsRef>(j.members).map(m => idMap.get(String(m?.id)) || localByName(m?.name)).filter(Boolean),
+          authorIds: [...new Set([
+            ...asArray<PsRef>(j.members).map(m => idMap.get(String(m?.id)) || localByName(m?.name)),
+            ...asArray<unknown>(j.author_member_ids).map(id => idMap.get(String(id)) || ''),
+          ].filter(Boolean))],
           hashtags: [],
           timestamp: msOf(j.date) || msOf(j.created_at) || Date.now(),
         }));
@@ -225,7 +237,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
             const newMsgs: ChatMessage[] = msgs.map(msg => ({
               id: uid(),
               channelId,
-              authorId: localByName(msg?.member_name),
+              authorId: idMap.get(String(msg?.member_id)) || localByName(msg?.member_name),
               type: 'text' as const,
               content: String(msg?.content || ''),
               timestamp: msOf(msg?.created_at) || Date.now(),
@@ -241,7 +253,7 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
       if (extSel.polls && psPolls.length > 0) {
         const existingPolls = await getStoredList<MemberPoll>(KEYS.polls);
         const newPolls: MemberPoll[] = psPolls.map(p => {
-          const creator = idMap.get(String(p?.created_by_member?.id)) || localByName(p?.created_by_member?.name);
+          const creator = idMap.get(String(p?.created_by_member_id ?? p?.created_by_member?.id)) || localByName(p?.created_by_member?.name);
           const desc = String(p?.description || '').trim();
           return {
             id: uid(),
@@ -250,16 +262,60 @@ export const handlePluralSpaceConfirm = (ctx: PluralSpaceCtx) => {
             options: asArray<PsPollOption>(p?.options).map(o => ({
               id: uid(),
               label: String(o?.text || ''),
-              votes: [...new Set(asArray<{member_name?: string}>(o?.votes).map(v => localByName(v?.member_name)).filter(Boolean))],
+              votes: [...new Set(asArray<{member_id?: unknown; member_name?: string}>(o?.votes).map(v => idMap.get(String(v?.member_id)) || localByName(v?.member_name)).filter(Boolean))],
             })),
             createdBy: creator,
             createdAt: msOf(p?.created_at) || Date.now(),
-            closedAt: p?.status && p.status !== 'open' ? (msOf(p?.closes_at) || Date.now()) : undefined,
+            closedAt: p?.closed === true || (p?.status && p.status !== 'open') ? (msOf(p?.closes_at) || Date.now()) : undefined,
           };
         });
         const pollSig = (p: MemberPoll) => `${p.createdAt}|${p.question}`;
         const existingPollSigs = new Set(existingPolls.map(pollSig));
         await store.set(KEYS.polls, [...existingPolls, ...newPolls.filter(p => !existingPollSigs.has(pollSig(p)))]);
+      }
+
+      if (extSel.relationships && psRelationships.length > 0) {
+        const storedTypes = await getStoredList<RelationshipTypeDef>(KEYS.relationshipTypes);
+        let customTypes = storedTypes;
+        const typeIdMap = new Map<string, string>();
+        psRelTypes.forEach(rt => {
+          const name = String(rt?.name || '').trim();
+          if (!name) return;
+          const directional = rt?.symmetric !== true;
+          const match = allRelationshipTypes(customTypes).find(k => importNameKey(k.name) === importNameKey(name) && !!k.directional === directional);
+          if (match) { typeIdMap.set(String(rt?.id), match.id); return; }
+          const id = uid();
+          const inverseName = String(rt?.inverse_name || '').trim();
+          customTypes = upsertRelationshipType(customTypes, id, {
+            name,
+            directional,
+            ...(directional && inverseName ? {inverseName} : {}),
+            ...(rt?.color ? {color: normHex(rt.color)} : {}),
+          });
+          typeIdMap.set(String(rt?.id), id);
+        });
+        if (customTypes !== storedTypes) await store.set(KEYS.relationshipTypes, customTypes);
+        const types = allRelationshipTypes(customTypes);
+        const existingRels = await getStoredList<Relationship>(KEYS.relationships);
+        const rels = [...existingRels];
+        psRelationships.forEach(e => {
+          const fromId = idMap.get(String(e?.from_member_id));
+          const toId = idMap.get(String(e?.to_member_id));
+          const typeId = typeIdMap.get(String(e?.type_id));
+          if (!fromId || !toId || !typeId || fromId === toId) return;
+          if (findDuplicateRelationship(rels, types.find(x => x.id === typeId), typeId, fromId, toId)) return;
+          const note = String(e?.note || '').trim();
+          rels.push({id: uid(), fromId, toId, typeId, ...(note ? {note} : {}), createdAt: Date.now()});
+        });
+        const added = rels.slice(existingRels.length);
+        if (added.length > 0) {
+          await store.set(KEYS.relationships, rels);
+          const mapIds = await store.get<string[]>(KEYS.systemMapMembers);
+          if (mapIds) {
+            const missing = [...new Set(added.flatMap(r => [r.fromId, r.toId]))].filter(id => !mapIds.includes(id));
+            if (missing.length > 0) await store.set(KEYS.systemMapMembers, [...mapIds, ...missing]);
+          }
+        }
       }
 
       const avIndex = new Map<string, string>();

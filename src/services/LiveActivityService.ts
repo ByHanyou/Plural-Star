@@ -7,7 +7,8 @@ import {log, logError} from '../utils/log';
 type LiveActivityModule = {
   startOrUpdate(payload: Record<string, unknown>): Promise<unknown>;
   endActivity(): Promise<unknown>;
-  getFriendsPushToken?(title: string): Promise<string | null>;
+  getFriendsPushToken?(title: string, lines: string): Promise<string | null>;
+  updateFriendsActivity?(lines: string): Promise<unknown>;
   endFriendsActivity?(): Promise<unknown>;
   waitForProtectedData?(): Promise<boolean>;
   getAPNsDeviceToken?(): Promise<string | null>;
@@ -31,7 +32,18 @@ const readToken = async (read: (m: LiveActivityModule) => Promise<string | null>
   }
 };
 
-export const getFriendsPushToken = (): Promise<string | null> => readToken(m => m.getFriendsPushToken?.(i18n.t('network.friends')));
+let friendsLines = ' ';
+
+export const getFriendsPushToken = (): Promise<string | null> => readToken(m => m.getFriendsPushToken?.(i18n.t('network.friends'), friendsLines));
+
+export const updateFriendsLiveActivity = async (lines: string): Promise<void> => {
+  friendsLines = lines || ' ';
+  try {
+    await nativeModule?.updateFriendsActivity?.(friendsLines);
+  } catch (e) {
+    logError('liveActivity', e);
+  }
+};
 
 export const getAPNsDeviceToken = (): Promise<string | null> => readToken(m => m.getAPNsDeviceToken?.());
 
@@ -61,7 +73,6 @@ export const updateFrontLiveActivity = async (
   front: FrontState | null,
   members: Member[],
   systemName: string,
-  friendsText?: string,
 ) => {
   if (!nativeModule) return;
   if (!front) {
@@ -78,7 +89,7 @@ export const updateFrontLiveActivity = async (
     return;
   }
 
-  const since = frontSessionStart(front);
+  const since = frontSessionStart(front, id => !!members.find(m => m.id === id)?.name);
   await nativeModule.startOrUpdate({
     systemName: systemName || 'Plural Star',
     primaryText,
@@ -89,13 +100,11 @@ export const updateFrontLiveActivity = async (
     note: front.primary.note || undefined,
     startTime: since,
     statusLine: fmtDur(since),
-    friendsText: friendsText || undefined,
     frontLabel: i18n.t('tabs.front'),
     coFrontLabel: i18n.t(TIER_I18N_KEY.coFront),
     coConsciousLabel: i18n.t(TIER_I18N_KEY.coConscious),
     moodLabel: i18n.t('modal.mood'),
     locationLabel: i18n.t('notification.atLabel'),
-    friendsLabel: i18n.t('network.friends'),
   });
 };
 

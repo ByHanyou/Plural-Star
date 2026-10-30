@@ -40,6 +40,8 @@ export const ColorPicker = ({value, onChange}: {value: string; onChange: (hex: s
   const hsvRef = useRef(hsv); hsvRef.current = hsv;
   const sqRef = useRef({w: 0, h: 0});
   const hueRef = useRef(0);
+  const sqOrigin = useRef({x: 0, y: 0});
+  const hueOrigin = useRef(0);
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
   const emittedRef = useRef<string[]>([safe.toUpperCase()]);
 
@@ -87,16 +89,25 @@ export const ColorPicker = ({value, onChange}: {value: string; onChange: (hex: s
     onStartShouldSetPanResponder: () => !lockedRef.current,
     onMoveShouldSetPanResponder: () => !lockedRef.current,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: e => { if (!lockedRef.current) applySq(e.nativeEvent.locationX, e.nativeEvent.locationY); },
-    onPanResponderMove: e => { if (!lockedRef.current) applySq(e.nativeEvent.locationX, e.nativeEvent.locationY); },
+    onPanResponderGrant: e => {
+      if (lockedRef.current) return;
+      const {pageX, pageY, locationX, locationY} = e.nativeEvent;
+      sqOrigin.current = {x: pageX - locationX, y: pageY - locationY};
+      applySq(locationX, locationY);
+    },
+    onPanResponderMove: e => { if (!lockedRef.current) applySq(e.nativeEvent.pageX - sqOrigin.current.x, e.nativeEvent.pageY - sqOrigin.current.y); },
   })).current;
 
   const huePan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => !lockedRef.current,
     onMoveShouldSetPanResponder: () => !lockedRef.current,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: e => { if (!lockedRef.current) applyHue(e.nativeEvent.locationX); },
-    onPanResponderMove: e => { if (!lockedRef.current) applyHue(e.nativeEvent.locationX); },
+    onPanResponderGrant: e => {
+      if (lockedRef.current) return;
+      hueOrigin.current = e.nativeEvent.pageX - e.nativeEvent.locationX;
+      applyHue(e.nativeEvent.locationX);
+    },
+    onPanResponderMove: e => { if (!lockedRef.current) applyHue(e.nativeEvent.pageX - hueOrigin.current); },
   })).current;
 
   const onHexChange = (val: string) => {

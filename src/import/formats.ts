@@ -32,6 +32,7 @@ export interface SpSwitchContent {
   startTime?: number | string | null;
   timestamp?: number | string;
   endTime?: number | string | null;
+  live?: boolean;
   comment?: string;
 }
 
@@ -266,6 +267,7 @@ export interface PsMember {
   groups?: (string | PsRef)[];
   custom_field_values?: PsFieldValue[];
   created_at?: string;
+  private?: boolean;
 }
 
 export interface PsFront {
@@ -322,17 +324,34 @@ export interface PsChannel {
 
 export interface PsPollOption {
   text?: string;
-  votes?: {member_name?: string}[];
+  votes?: {member_id?: unknown; member_name?: string}[];
 }
 
 export interface PsPoll {
   title?: string;
   description?: string;
   created_by_member?: PsRef;
+  created_by_member_id?: unknown;
   created_at?: string;
   status?: string;
+  closed?: boolean;
   closes_at?: string;
   options?: PsPollOption[];
+}
+
+export interface PsRelationshipType {
+  id?: unknown;
+  name?: string;
+  inverse_name?: string | null;
+  symmetric?: boolean;
+  color?: string | null;
+}
+
+export interface PsRelationship {
+  from_member_id?: unknown;
+  to_member_id?: unknown;
+  type_id?: unknown;
+  note?: string | null;
 }
 
 export interface PsExport {
@@ -345,6 +364,8 @@ export interface PsExport {
   journal_entries?: PsJournalEntry[];
   chat_channels?: PsChannel[];
   polls?: PsPoll[];
+  relationship_types?: PsRelationshipType[];
+  relationships?: PsRelationship[];
 }
 
 export interface OpAsset { id?: unknown; uri?: string }
@@ -366,6 +387,8 @@ export interface OpMember {
   avatar_asset_id?: unknown;
   banner_asset_id?: unknown;
   created_at?: string;
+  privacy?: {visibility?: unknown};
+  extensions?: {profile_visibility?: unknown};
 }
 export interface OpFrontAssignment { member_id?: unknown; front_role?: string; note?: string }
 export interface OpPeriod {
@@ -395,6 +418,7 @@ export interface OpRoot {
   notes?: OpNote[];
   chat?: {conversations?: OpConversation[]; messages?: OpChatMessage[]};
   polls?: {polls?: PsPoll[]};
+  relationships?: {types?: PsRelationshipType[]; edges?: PsRelationship[]};
   exported_at?: string;
 }
 

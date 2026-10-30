@@ -27,7 +27,7 @@ import {Busy, CategoryCard, ChoiceBtn, Divider, HIDDEN, Para, PreviewHead, Secti
 import {BackupSection} from './BackupSection';
 import {useImportProgress} from './useImportProgress';
 
-const ALL_EXT_SEL = {system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true, mailbox: true, displayNames: true, pronouns: true};
+const ALL_EXT_SEL = {system: true, members: true, avatars: true, banners: true, frontHistory: true, customFields: true, groups: true, journal: true, chat: true, polls: true, relationships: true, mailbox: true, displayNames: true, pronouns: true};
 type ExtSel = typeof ALL_EXT_SEL;
 type ExtRow = {key: keyof ExtSel; label: string; sub?: string};
 
@@ -169,7 +169,8 @@ export const ImportSection = () => {
       case 'pluralspace': return {
         title: p.system.name || t('share.system'), sub: countsLine(p.members.length, p.switches.length),
         rows: [systemRow, membersRow(p.members.length), avatarsRow, fieldsRow, frontRow(p.switches.length), ...groupsRows(p.groups.length),
-          ...when(p.journal.length > 0, journalRow), ...when(p.chat.length > 0, chatRow), ...when(p.polls.length > 0, row('polls', t('polls.title')))],
+          ...when(p.journal.length > 0, journalRow), ...when(p.chat.length > 0, chatRow), ...when(p.polls.length > 0, row('polls', t('polls.title'))),
+          ...when(p.relationships.length > 0, row('relationships', t('systemMap.title')))],
         run: () => handlePluralSpaceConfirm(ctx),
       };
       case 'plurallog': {
