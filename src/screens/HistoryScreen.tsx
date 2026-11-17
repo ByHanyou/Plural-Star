@@ -198,7 +198,8 @@ export const HistoryScreen = ({singlet = false, selfId, readOnly = false, histor
       )}
 
       {subTab === 'timeline' && (
-        <FrontTimeline history={history} members={members} singlet={singlet} />
+        <FrontTimeline history={history} members={members} singlet={singlet} effectiveEnd={effEnd} now={Date.now()}
+          onSelectMember={id => { setSelectedMemberId(id); setMemberSearch(''); setSubTab('member'); }} />
       )}
 
       {subTab === 'member' && (
