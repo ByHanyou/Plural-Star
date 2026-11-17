@@ -1,157 +1,136 @@
 import React, {useMemo, useState} from 'react';
-import {View, TouchableOpacity, Alert} from 'react-native';
-import {Text} from './AppText';
-import {Avatar} from './Avatar';
+import {StyleSheet, TouchableOpacity, View} from 'react-native';
 import {useTranslation} from 'react-i18next';
+import {Text} from './AppText';
+import {HorizontalTimeline, VerticalTimeline} from './TimelineViews';
 import {fontScale} from '../theme';
 import {useTheme} from '../themeContext';
-import {FlashList} from '@shopify/flash-list';
-import {HistoryEntry, Member, fmtTime, fmtDur, getLocale, TIER_I18N_KEY} from '../utils';
-import {RANGE_MS, RANGE_KEYS, RANGE_LABEL, TIER_BAR, buildTimelineRows} from '../stats/timeline';
-import type {RangeKey, Span, Row} from '../stats/timeline';
+import {useAppStore} from '../store/appStore';
+import {saveTimelineLayout} from '../store/actions';
+import {reportSaveError} from '../utils/saveError';
+import {dateFormatter, fmtDur, fmtTime} from '../utils';
+import type {HistoryEntry, Member} from '../utils';
+import {RANGE_MS, RANGE_KEYS, RANGE_LABEL, timelineEntriesInRange} from '../stats/timeline';
+import type {RangeKey, TimelineInterval} from '../stats/timeline';
 
-const LABEL_W = 96;
-const ROW_H = 34;
+const LAYOUTS = [
+  {value: 'newestFirst', arrow: '↑', label: 'history.tlNewestFirst'},
+  {value: 'oldestFirst', arrow: '↓', label: 'history.tlOldestFirst'},
+  {value: 'horizontal', arrow: '→', label: 'history.tlHorizontal'},
+] as const;
 
-export const FrontTimeline = ({history, members, singlet = false}: {
+interface Props {
   history: HistoryEntry[];
   members: Member[];
-  singlet?: boolean;
-}) => {
+  singlet: boolean;
+  effectiveEnd: (entry: HistoryEntry) => number | null;
+  now: number;
+  onSelectMember: (id: string) => void;
+}
+
+export const FrontTimeline = ({history, members, singlet, effectiveEnd, now, onSelectMember}: Props) => {
   const T = useTheme();
   const {t} = useTranslation();
   const fs = fontScale(T);
+  const savedLayout = useAppStore(s => s.appSettings.timelineLayout);
+  const layout = LAYOUTS.find(option => option.value === savedLayout) ?? LAYOUTS[0];
+  const [choosingLayout, setChoosingLayout] = useState(false);
   const [range, setRange] = useState<RangeKey>('week');
-  const [endAnchor, setEndAnchor] = useState<number | null>(null);
+  const [page, setPage] = useState<{end: number; liveEnd: number} | null>(null);
+  const end = page?.end ?? now;
+  const duration = RANGE_MS[range];
+  const start = end - duration;
+  const entries = useMemo(() => timelineEntriesInRange(history, members, start, end, effectiveEnd),
+    [history, members, start, end, effectiveEnd]);
 
-  const span = RANGE_MS[range];
-  const end = endAnchor ?? Math.ceil(Date.now() / 60000) * 60000;
-  const start = end - span;
-  const live = endAnchor === null;
+  const earlier = () => setPage(prev => ({end: (prev?.end ?? now) - duration, liveEnd: prev?.liveEnd ?? now}));
+  const later = () => setPage(prev => {
+    if (!prev || prev.end + duration >= prev.liveEnd) return null;
+    return {...prev, end: prev.end + duration};
+  });
 
-  const rows = useMemo(() => buildTimelineRows(history, members, start, end, Date.now()), [history, members, start, end]);
-
-  const tickLabel = (ts: number): string => range === 'day'
-    ? new Date(ts).toLocaleTimeString(getLocale(), {hour: 'numeric', minute: '2-digit'})
-    : new Date(ts).toLocaleDateString(getLocale(), {month: 'short', day: 'numeric'});
-
-  const goEarlier = () => setEndAnchor(end - span);
-  const goLater = () => {
-    const next = end + span;
-    setEndAnchor(next >= Date.now() ? null : next);
+  const shortDate = dateFormatter('timelineDate', {month: 'short', day: 'numeric'});
+  const fullDate = dateFormatter('timelineDateYear', {month: 'short', day: 'numeric', year: 'numeric'});
+  const rangeDate = (ts: number) => {
+    const d = new Date(ts);
+    return d.getFullYear() === new Date(now).getFullYear() ? shortDate(d) : fullDate(d);
   };
-
-  const spanLabel = (sp: Span): string =>
-    t('history.tlSpan', {start: fmtTime(sp.start), end: sp.open && live ? t('history.now') : fmtTime(sp.end), dur: fmtDur(sp.start, sp.end)});
-
-  const tierLineOf = (sp: Span): string | null =>
-    singlet ? null : t(TIER_I18N_KEY[sp.tier]);
-
-  const showSpan = (member: Member, sp: Span) => {
-    const tierLine = tierLineOf(sp);
-    Alert.alert(member.name, [tierLine, spanLabel(sp)].filter(Boolean).join('\n'));
-  };
-
-  const renderRow = ({item}: {item: Row}) => (
-    <View style={{flexDirection: 'row', alignItems: 'center', height: ROW_H}}>
-      <View style={{width: LABEL_W, flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 6}}>
-        <Avatar member={item.member} size={20} />
-        <Text style={{flex: 1, fontSize: fs(11), color: T.text}} numberOfLines={1}>{item.member.name}</Text>
-      </View>
-      <View style={{flex: 1, height: ROW_H, justifyContent: 'center'}}>
-        <View style={{height: 1, backgroundColor: T.border, opacity: 0.6}} />
-        {item.spans.map((sp, i) => {
-          const bar = TIER_BAR[sp.tier];
-          return (
-            <TouchableOpacity
-              key={`${sp.start}-${sp.tier}-${i}`}
-              onPress={() => showSpan(item.member, sp)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={[item.member.name, tierLineOf(sp), spanLabel(sp)].filter(Boolean).join(', ')}
-              hitSlop={{top: 9, bottom: 9}}
-              style={{
-                position: 'absolute',
-                left: `${((sp.start - start) / span) * 100}%`,
-                width: `${((sp.end - sp.start) / span) * 100}%`,
-                minWidth: 3,
-                height: bar.height,
-                top: (ROW_H - bar.height) / 2,
-                borderRadius: 3,
-                backgroundColor: item.member.color,
-                opacity: bar.opacity,
-              }}
-            />
-          );
-        })}
-      </View>
-    </View>
-  );
-
-  const chip = (selected: boolean) => ({
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1,
-    backgroundColor: selected ? `${T.accent}20` : T.surface,
-    borderColor: selected ? `${T.accent}50` : T.border,
-  } as const);
-
-  const navBtn = {paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: T.border, backgroundColor: T.surface};
+  const tickFormat = range === 'day' ? dateFormatter('clock', {hour: 'numeric', minute: '2-digit'}) : shortDate;
+  const spanLabel = (sp: TimelineInterval) => t('history.tlSpan', {
+    start: fmtTime(sp.start), end: sp.end === null ? t('history.now') : fmtTime(sp.end), dur: fmtDur(sp.start, sp.end ?? now),
+  });
+  const chipColors = (selected: boolean) => ({
+    backgroundColor: selected ? T.accentBg : T.surface, borderColor: selected ? T.accent : T.border,
+  });
+  const viewKey = `${layout.value}-${range}-${page?.end ?? 'live'}`;
 
   return (
-    <View style={{flex: 1, paddingHorizontal: 16}}>
-      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 12}}>
+    <View style={s.container}>
+      <View style={s.toolbar}>
         {RANGE_KEYS.map(k => (
           <TouchableOpacity key={k} onPress={() => setRange(k)} activeOpacity={0.7}
-            accessibilityRole="button" accessibilityState={{selected: range === k}} accessibilityLabel={t(RANGE_LABEL[k])}
-            hitSlop={{top: 6, bottom: 6}}
-            style={chip(range === k)}>
-            <Text style={{fontSize: fs(11), color: range === k ? T.accent : T.dim, fontWeight: range === k ? '600' : '400'}}>{t(RANGE_LABEL[k])}</Text>
+            accessibilityRole="button" accessibilityState={{selected: range === k}} style={[s.chip, chipColors(range === k)]}>
+            <Text style={{fontSize: fs(12), color: range === k ? T.accent : T.dim}}>{t(RANGE_LABEL[k])}</Text>
           </TouchableOpacity>
         ))}
+        <TouchableOpacity onPress={() => setChoosingLayout(open => !open)} activeOpacity={0.7}
+          accessibilityRole="button" accessibilityLabel={t('history.tlLayout')} accessibilityState={{expanded: choosingLayout}}
+          accessibilityValue={{text: t(layout.label)}} style={[s.chip, s.layoutButton, chipColors(choosingLayout)]}>
+          <Text style={{fontSize: fs(12), color: T.text}}>{layout.arrow} {t('history.tlLayout')}</Text>
+        </TouchableOpacity>
       </View>
-      <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 8}}>
-        <TouchableOpacity onPress={goEarlier} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('history.tlEarlier')}
-          hitSlop={{top: 8, bottom: 8}}
-          style={navBtn}>
-          <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">‹</Text>
+      {choosingLayout && (
+        <View accessibilityRole="radiogroup" accessibilityLabel={t('history.tlLayout')} style={s.options}>
+          {LAYOUTS.map(option => (
+            <TouchableOpacity key={option.value} accessibilityRole="radio" accessibilityLabel={t(option.label)}
+              accessibilityState={{checked: layout.value === option.value}} style={[s.chip, chipColors(layout.value === option.value)]}
+              onPress={() => {
+                setChoosingLayout(false);
+                if (option.value !== savedLayout) saveTimelineLayout(option.value).catch(reportSaveError);
+              }}>
+              <Text style={{fontSize: fs(12), color: layout.value === option.value ? T.accent : T.text}}>{option.arrow} {t(option.label)}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+      <View style={[s.navigation, {borderBottomColor: T.border}]}>
+        <TouchableOpacity onPress={earlier} accessibilityRole="button" accessibilityLabel={t('history.tlEarlier')} style={s.navButton}>
+          <Text style={{fontSize: fs(19), color: T.dim}} allowFontScaling={false}>‹</Text>
         </TouchableOpacity>
-        <Text style={{flex: 1, textAlign: 'center', fontSize: fs(11), color: T.dim}} numberOfLines={1} accessibilityLiveRegion="polite">
-          {t('history.tlRange', {start: tickLabel(start), end: live ? t('history.tlNow') : tickLabel(end)})}
+        <Text style={{flex: 1, textAlign: 'center', fontSize: fs(12), color: T.text}} accessibilityLiveRegion="polite">
+          {t('history.tlRange', {start: rangeDate(start), end: page ? rangeDate(end) : t('history.tlNow')})}
         </Text>
-        <TouchableOpacity onPress={goLater} disabled={live} activeOpacity={0.7} accessibilityRole="button"
-          accessibilityState={{disabled: live}} accessibilityLabel={t('history.tlLater')}
-          hitSlop={{top: 8, bottom: 8}}
-          style={[navBtn, {opacity: live ? 0.4 : 1}]}>
-          <Text style={{fontSize: fs(13), color: T.dim}} allowFontScaling={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">›</Text>
+        <TouchableOpacity onPress={later} disabled={!page} accessibilityRole="button" accessibilityLabel={t('history.tlLater')}
+          accessibilityState={{disabled: !page}} style={[s.navButton, !page && {opacity: 0.4}]}>
+          <Text style={{fontSize: fs(19), color: T.dim}} allowFontScaling={false}>›</Text>
         </TouchableOpacity>
-        {!live && (
-          <TouchableOpacity onPress={() => setEndAnchor(null)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel={t('history.tlNow')}
-            hitSlop={{top: 9, bottom: 9}}
-            style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: `${T.accent}40`, backgroundColor: T.accentBg}}>
-            <Text style={{fontSize: fs(11), color: T.accent}}>{t('history.tlNow')}</Text>
+        {page && (
+          <TouchableOpacity onPress={() => setPage(null)} accessibilityRole="button" style={s.navButton}>
+            <Text style={{fontSize: fs(12), color: T.accent}}>{t('history.tlNow')}</Text>
           </TouchableOpacity>
         )}
       </View>
-      <View style={{flexDirection: 'row', marginBottom: 4}}>
-        <View style={{width: LABEL_W}} />
-        {[0, 1 / 3, 2 / 3].map(f => (
-          <Text key={f} style={{flex: 1, fontSize: fs(9), color: T.muted}} numberOfLines={1}>{tickLabel(start + f * span)}</Text>
-        ))}
-      </View>
-      {rows.length === 0 ? (
-        <View style={{alignItems: 'center', paddingVertical: 48}}>
-          <Text style={{fontSize: fs(36), opacity: 0.4, marginBottom: 12}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">◷</Text>
-          <Text style={{fontSize: fs(13), color: T.dim, textAlign: 'center'}}>
-            {singlet ? t('history.noHistorySinglet') : t('history.noHistory')}
-          </Text>
-        </View>
+      {entries.length === 0 ? (
+        <Text style={{paddingVertical: 16, textAlign: 'center', color: T.dim, fontSize: fs(13)}}>
+          {t(history.length ? 'history.tlEmptyRange' : singlet ? 'history.noHistorySinglet' : 'history.noHistory')}
+        </Text>
+      ) : layout.value === 'horizontal' ? (
+        <HorizontalTimeline key={viewKey} entries={entries} start={start} end={end} singlet={singlet} spanLabel={spanLabel}
+          tickLabel={ts => tickFormat(new Date(ts))} onSelectMember={onSelectMember} />
       ) : (
-        <FlashList
-          data={rows}
-          keyExtractor={r => r.member.id}
-          renderItem={renderRow}
-          contentContainerStyle={{paddingBottom: 32}}
-        />
+        <VerticalTimeline key={viewKey} entries={entries} start={start} now={now} singlet={singlet} spanLabel={spanLabel}
+          newestFirst={layout.value === 'newestFirst'} />
       )}
     </View>
   );
 };
+
+const s = StyleSheet.create({
+  container: {flex: 1, paddingHorizontal: 16},
+  toolbar: {flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4, paddingTop: 6},
+  chip: {minHeight: 32, justifyContent: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, borderWidth: 1},
+  layoutButton: {marginLeft: 'auto'},
+  options: {flexDirection: 'row', flexWrap: 'wrap', gap: 4, paddingTop: 4},
+  navigation: {flexDirection: 'row', alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 3},
+  navButton: {minHeight: 34, minWidth: 36, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center'},
+});

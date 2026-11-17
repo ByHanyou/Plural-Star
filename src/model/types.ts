@@ -76,6 +76,7 @@ export interface MemberPoll {
 
 export type MemberSortMode = 'alphabetical' | 'reverse-alphabetical' | 'age' | 'color' | 'role' | 'manual';
 export type FrontSortMode = 'added' | 'az' | 'za' | 'custom';
+export type TimelineLayout = 'newestFirst' | 'oldestFirst' | 'horizontal';
 
 export interface Member {
   id: string;
@@ -295,6 +296,7 @@ export interface AppSettings {
   memberSortMode?: MemberSortMode;
   groupSortMode?: MemberSortMode;
   frontSortMode?: FrontSortMode;
+  timelineLayout?: TimelineLayout;
   frontCustomOrder?: string[];
   frontCheckInterval?: number;
   noteboardNotifications?: boolean;

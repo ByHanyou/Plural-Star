@@ -373,6 +373,8 @@ export const saveGroupSortMode = (mode: MemberSortMode) => patchAppSettings({gro
 
 export const saveFrontSortMode = (mode: FrontSortMode) => patchAppSettings({frontSortMode: mode});
 
+export const saveTimelineLayout = (layout: NonNullable<AppSettings['timelineLayout']>) => patchAppSettings({timelineLayout: layout});
+
 export const saveFrontCustomOrder = (order: string[]) => patchAppSettings({frontCustomOrder: order});
 
 export const reorderMember = async (id: string, direction: 'up' | 'down') => {
