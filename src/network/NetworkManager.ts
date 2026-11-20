@@ -91,16 +91,16 @@ class NetworkManagerImpl {
     subId: () => this.subId,
     settings: () => this.settings,
     friendKey: peerId => this.friends.find(peerId)?.boxPublicKey ?? null,
+    presencePeers: () => this.friends.all().filter(f => isAcceptedFriend(f) || isAcceptedDevice(f)).map(f => f.peerId),
+    allowsPresence: peerId => {
+      const f = this.friends.find(peerId);
+      return !!f && (isAcceptedFriend(f) || isAcceptedDevice(f));
+    },
     notify: () => this.notify(),
     onOnline: () => this.onOnline(),
     onPeerOnline: peerId => this.onPeerOnline(peerId),
     onPeerOffline: peerId => {
       if (this.friends.find(peerId)) this.notify();
-    },
-    afterPeersRefreshed: () => {
-      for (const f of this.friends.all()) {
-        if (isAcceptedFriend(f) && this.conn.isOnline(f.peerId)) this.mirrorServe.refreshIfStale(f.peerId);
-      }
     },
     route: (sender, msg) => this.router.route(sender, msg),
     onResume: () => this.pairing.resendPendingHandshakes(),
@@ -326,6 +326,7 @@ class NetworkManagerImpl {
     this.cloneExpiryTimer = setInterval(() => {
       this.clone.expireStaleClones();
       this.pairing.keepPendingLinksAlive();
+      this.conn.refreshPresence();
       this.sync.pruneStaleChunks();
       this.mirrorGifs.pruneStale();
     }, 60 * 1000);
@@ -345,7 +346,7 @@ class NetworkManagerImpl {
 
   private onOnline(): void {
     this.clone.expireStaleClones();
-    this.conn.refreshOnlinePeers();
+    this.conn.refreshPresence();
     this.pairing.republishActiveCode();
     this.pairing.resendPendingConnects();
     this.clone.restartPendingClones();
@@ -360,7 +361,6 @@ class NetworkManagerImpl {
   private onPeerOnline(peerId: string): void {
     const f = this.friends.find(peerId);
     if (!f) return;
-    if (f.status === 'entered_theirs') this.pairing.sendConnectTo(peerId, f.kind, false).catch(e => log.debug('network', e));
     if (isAcceptedDevice(f)) {
       if (f.initRole === 'source' && f.initPending) this.clone.doInitClonePush(peerId).catch(e => logError('sync', e));
       if (!f.initPending) this.sync.sendSyncReqTo(peerId).catch(e => log.debug('sync', e));

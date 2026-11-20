@@ -1,7 +1,10 @@
+import nacl from 'tweetnacl';
 import { config } from '../config';
 import { asRecord } from '../utils';
 import { log } from '../utils/log';
 import type { HttpRequest, HttpResponse } from './adapters';
+import { decodeUTF8, encodeBase64 } from './bytes';
+import type { Identity } from './identity';
 import { ConnStatus } from './types';
 
 export type SendStatus = 'delivered' | 'forwarded' | 'held' | 'duplicate' | 'queued';
@@ -15,15 +18,6 @@ export interface PacketReceived {
   sender_peer_id: string;
   payload: string;
   timestamp?: number;
-}
-
-export interface PeerOnlineEvent {
-  peer_id: string;
-  via_node: string;
-}
-
-export interface PeerOfflineEvent {
-  peer_id: string;
 }
 
 export interface NodeConnectedEvent {
@@ -40,16 +34,9 @@ export interface NodeErrorEvent {
   message: string;
 }
 
-export interface NodePeer {
-  peer_id: string;
-  via_node: string;
-}
-
 export interface NodeClientEvents {
   status: ConnStatus;
   packet_received: PacketReceived;
-  peer_online: PeerOnlineEvent;
-  peer_offline: PeerOfflineEvent;
   node_connected: NodeConnectedEvent;
   node_disconnected: NodeDisconnectedEvent;
   error: unknown;
@@ -59,8 +46,6 @@ export type HttpFetch = (url: string, req: HttpRequest, timeoutMs: number) => Pr
 
 type NodeMessage =
   | ({ type: 'packet_received' } & PacketReceived)
-  | ({ type: 'peer_online' } & PeerOnlineEvent)
-  | ({ type: 'peer_offline' } & PeerOfflineEvent)
   | ({ type: 'node_connected' } & NodeConnectedEvent)
   | ({ type: 'node_disconnected' } & NodeDisconnectedEvent)
   | ({ type: 'error' } & NodeErrorEvent);
@@ -85,10 +70,6 @@ const parseNodeMessage = (raw: unknown): NodeMessage | null => {
   switch (m.type) {
     case 'packet_received':
       return { type: 'packet_received', sender_peer_id: str(m.sender_peer_id), payload: str(m.payload), timestamp: num(m.timestamp) };
-    case 'peer_online':
-      return { type: 'peer_online', peer_id: str(m.peer_id), via_node: str(m.via_node) };
-    case 'peer_offline':
-      return { type: 'peer_offline', peer_id: str(m.peer_id) };
     case 'node_connected':
       return { type: 'node_connected', node_peer_id: str(m.node_peer_id), rtt_ms: num(m.rtt_ms) };
     case 'node_disconnected':
@@ -108,33 +89,24 @@ const parseSendResult = (raw: unknown): SendResult => {
   return { status: parseSendStatus(r?.status), packet_id: str(r?.packet_id) };
 };
 
-const parsePeers = (raw: unknown): NodePeer[] | null => {
-  if (!Array.isArray(raw)) return null;
-  const out: NodePeer[] = [];
-  for (const item of raw) {
-    const p = asRecord(item);
-    if (!p || typeof p.peer_id !== 'string' || !p.peer_id) continue;
-    out.push({ peer_id: p.peer_id, via_node: str(p.via_node) });
-  }
-  return out;
-};
+const authValue = /^[0-9a-f]{64}$/;
 
 export class NodeClient {
   private relayUrl: string;
   private token: string;
-  private peerId: string;
   private http: HttpFetch;
 
   private ws: WebSocket | null = null;
+  private session: string | null = null;
+  private authTimer: ReturnType<typeof setTimeout> | null = null;
   private wantOpen = false;
   private reconnectAttempts = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private listeners: NodeClientListeners = {};
 
-  constructor(relayUrl: string, token: string, peerId: string, http: HttpFetch) {
+  constructor(relayUrl: string, token: string, private readonly identity: Identity, http: HttpFetch) {
     this.relayUrl = relayUrl.replace(/\/+$/, '');
     this.token = token;
-    this.peerId = peerId;
     this.http = http;
   }
 
@@ -167,39 +139,36 @@ export class NodeClient {
   private emitMessage(msg: NodeMessage): void {
     switch (msg.type) {
       case 'packet_received': this.emit('packet_received', msg); break;
-      case 'peer_online': this.emit('peer_online', msg); break;
-      case 'peer_offline': this.emit('peer_offline', msg); break;
       case 'node_connected': this.emit('node_connected', msg); break;
       case 'node_disconnected': this.emit('node_disconnected', msg); break;
       case 'error': this.emit('error', msg); break;
     }
   }
 
-  private request(path: string, body?: unknown): Promise<HttpResponse> {
+  private request(path: string, body?: unknown, session?: string): Promise<HttpResponse> {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.token) headers.Authorization = `Bearer ${this.token}`;
+    if (session) headers['X-Relay-Session'] = session;
     const req: HttpRequest = body === undefined ? { headers } : { method: 'POST', headers, body: JSON.stringify(body) };
     return this.http(`${this.relayUrl}${path}`, req, config().connection.fetchTimeoutMs);
-  }
-
-  async peers(): Promise<NodePeer[] | null> {
-    const res = await this.request('/peers');
-    if (!res.ok) throw new Error(`peers ${res.status}`);
-    return parsePeers(parseJson(res.text));
   }
 
   async send(
     recipientPeerId: string,
     payloadBase64: string,
     packetId?: string,
+    ephemeral = false,
   ): Promise<SendResult> {
-    const body: Record<string, string> = {
-      sender_peer_id: this.peerId,
+    const session = this.session;
+    if (!session || !this.isConnected()) throw new Error('relay session unavailable');
+    const body: Record<string, string | boolean> = {
+      sender_peer_id: this.identity.peerId,
       recipient_peer_id: recipientPeerId,
       payload: payloadBase64,
     };
     if (packetId) body.packet_id = packetId;
-    const res = await this.request('/send', body);
+    if (ephemeral) body.ephemeral = true;
+    const res = await this.request('/send', body, session);
     if (!res.ok) throw new Error(`send ${res.status} ${res.text}`);
     return parseSendResult(parseJson(res.text));
   }
@@ -222,10 +191,8 @@ export class NodeClient {
   }
 
   private wsEndpoint(): string {
-    const base = this.relayUrl.replace(/^http/, 'ws');
-    let q = `peer_id=${encodeURIComponent(this.peerId)}`;
-    if (this.token) q += `&token=${encodeURIComponent(this.token)}`;
-    return `${base}/ws?${q}`;
+    const base = this.relayUrl.replace(/^http/i, 'ws');
+    return `${base}/ws?peer_id=${encodeURIComponent(this.identity.peerId)}`;
   }
 
   connect(): void {
@@ -238,23 +205,40 @@ export class NodeClient {
     this.emit('status', this.reconnectAttempts > 0 ? 'reconnecting' : 'connecting');
     let ws: WebSocket;
     try {
-      ws = new WebSocket(this.wsEndpoint());
+      const options = this.token ? {headers: {Authorization: `Bearer ${this.token}`}} : undefined;
+      ws = new WebSocket(this.wsEndpoint(), null, options);
     } catch (e) {
       this.emit('error', e);
       this.scheduleReconnect();
       return;
     }
     this.ws = ws;
-
-    ws.onopen = () => {
-      if (this.ws !== ws) return;
-      this.reconnectAttempts = 0;
-      this.emit('status', 'online');
-    };
+    let responded = false;
+    this.authTimer = setTimeout(() => ws.close(), 12_000);
 
     ws.onmessage = ev => {
       if (this.ws !== ws) return;
-      const msg = parseNodeMessage(typeof ev.data === 'string' ? parseJson(ev.data) : null);
+      const raw = typeof ev.data === 'string' ? parseJson(ev.data) : null;
+      if (!this.session) {
+        const auth = asRecord(raw);
+        if (!responded && auth?.type === 'auth_challenge' && authValue.test(str(auth.nonce))) {
+          const signature = encodeBase64(nacl.sign.detached(
+            decodeUTF8('plural-star:relay-auth:v1:' + auth.nonce),
+            this.identity.edSecretKey,
+          ));
+          responded = true;
+          ws.send(JSON.stringify({type: 'auth_response', signature}));
+        } else if (responded && auth?.type === 'auth_ready' && authValue.test(str(auth.session))) {
+          this.session = str(auth.session);
+          this.clearAuthTimer();
+          this.reconnectAttempts = 0;
+          this.emit('status', 'online');
+        } else {
+          ws.close();
+        }
+        return;
+      }
+      const msg = parseNodeMessage(raw);
       if (msg) this.emitMessage(msg);
     };
 
@@ -266,6 +250,8 @@ export class NodeClient {
     ws.onclose = () => {
       if (this.ws !== ws) return;
       this.ws = null;
+      this.session = null;
+      this.clearAuthTimer();
       if (this.wantOpen) {
         this.emit('status', 'reconnecting');
         this.scheduleReconnect();
@@ -273,6 +259,11 @@ export class NodeClient {
         this.emit('status', 'disabled');
       }
     };
+  }
+
+  private clearAuthTimer(): void {
+    if (this.authTimer) clearTimeout(this.authTimer);
+    this.authTimer = null;
   }
 
   private scheduleReconnect(): void {
@@ -306,6 +297,8 @@ export class NodeClient {
     if (!this.wantOpen) return;
     const stale = this.ws;
     this.ws = null;
+    this.session = null;
+    this.clearAuthTimer();
     if (stale) {
       try {
         stale.close();
@@ -318,6 +311,8 @@ export class NodeClient {
 
   disconnect(): void {
     this.wantOpen = false;
+    this.session = null;
+    this.clearAuthTimer();
     this.clearReconnectTimer();
     this.reconnectAttempts = 0;
     if (this.ws) {
@@ -330,6 +325,6 @@ export class NodeClient {
   }
 
   isConnected(): boolean {
-    return !!this.ws && this.ws.readyState === WebSocket.OPEN;
+    return !!this.session && this.ws?.readyState === WebSocket.OPEN;
   }
 }

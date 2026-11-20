@@ -120,6 +120,7 @@ export type NetMessage =
   | { t: 'connect'; name: string; kind: 'friend' | 'device'; ack?: boolean; role?: 'source' | 'target'; v?: number }
   | { t: 'disconnect' }
   | { t: 'ping'; n?: string }
+  | { t: 'presence'; at: number }
   | { t: 'front'; status: FrontShare | null; at?: number }
   | { t: 'front_req' }
   | { t: 'device_adopt'; identity: StoredIdentity; friends: Friend[] }
