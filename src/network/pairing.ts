@@ -197,13 +197,13 @@ export class Pairing {
       now - (f.initStartedAt || f.addedAt || 0) < config().connection.pendingLinkWatchMs);
     if (!waiting) return;
     this.deps.conn.probeLink();
+    this.resendPendingHandshakes();
     if (!this.deps.syncBusy()) this.deps.restartPendingClones();
   }
 
   retryPendingLinks(): void {
     for (const f of this.deps.friends.all()) {
       if (f.kind !== 'device' || f.status !== 'entered_theirs') continue;
-      if (!this.deps.conn.isReachable(f.peerId)) continue;
       this.sendHandshake(f);
     }
   }

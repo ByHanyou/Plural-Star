@@ -4,7 +4,7 @@ import { KEYS } from '../storage';
 import { log } from '../utils/log';
 import type { HttpResponse, PlatformAdapter, StorageAdapter } from './adapters';
 import { decodeUTF8, encodeBase64 } from './bytes';
-import { DEFAULT_GATEWAY_URL } from './defaultNetwork';
+import { DEFAULT_GATEWAY_URL, secureServiceUrl } from './defaultNetwork';
 import type { FriendStore } from './friends';
 import { frontVisibilityFor, gatewayFrontToShare } from './frontShare';
 import { getDeviceIdentity, Identity } from './identity';
@@ -51,8 +51,10 @@ export class Gateway {
   }
 
   private post(path: string, body: Record<string, unknown>): Promise<HttpResponse> {
+    const url = secureServiceUrl(config().gatewayUrl || DEFAULT_GATEWAY_URL);
+    if (!url) return Promise.reject(new Error('invalid gateway URL'));
     return this.deps.platform.http(
-      `${config().gatewayUrl || DEFAULT_GATEWAY_URL}${path}`,
+      `${url}${path}`,
       {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)},
       config().gateway.timeoutMs,
     );

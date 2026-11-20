@@ -339,7 +339,7 @@ export const NetworkScreen = () => {
         <Text accessibilityRole="header" style={ns.label}>{t('network.customNetwork')}</Text>
         <Text style={{fontSize: fs(12), color: T.dim, marginBottom: 12}}>{t('network.customNetworkDesc')}</Text>
         <Text style={ns.label} nativeID="lblRelayUrl">{t('network.relayUrl')}</Text>
-        <TextInput value={relayUrl} onChangeText={setRelayUrl} placeholder="http://192.168.1.20:7523" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url" style={ns.input} accessibilityLabel={t('network.relayUrl')} accessibilityLabelledBy="lblRelayUrl" />
+        <TextInput value={relayUrl} onChangeText={setRelayUrl} placeholder="https://relay.example.com" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} keyboardType="url" style={ns.input} accessibilityLabel={t('network.relayUrl')} accessibilityLabelledBy="lblRelayUrl" />
         <Text style={[ns.label, {marginTop: 12}]} nativeID="lblRelayToken">{t('network.relayToken')}</Text>
         <TextInput value={relayToken} onChangeText={setRelayToken} placeholder="-" placeholderTextColor={T.muted} autoCapitalize="none" autoCorrect={false} style={ns.input} accessibilityLabel={t('network.relayToken')} accessibilityLabelledBy="lblRelayToken" />
         <Text style={{fontSize: fs(11), color: T.dim, marginTop: 8, marginBottom: 12}}>{t('network.relayHint')}</Text>
